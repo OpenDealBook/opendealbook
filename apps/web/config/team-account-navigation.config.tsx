@@ -6,6 +6,11 @@ export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
   return [
     { label: 'common:home', path: prefix, icon: 'home' },
     { label: 'account:settings', path: `${prefix}/settings`, icon: 'settings' },
+    {
+      label: 'account:apiKeys',
+      path: `${prefix}/settings/api-keys`,
+      icon: 'key',
+    },
     { label: 'billing:title', path: `${prefix}/billing`, icon: 'credit-card' },
   ];
 }

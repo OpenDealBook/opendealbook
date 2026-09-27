@@ -21,7 +21,8 @@
   },
   "account": {
     "settings": "Settings",
-    "profile": "Profile"
+    "profile": "Profile",
+    "apiKeys": "API keys"
   },
   "billing": {
     "title": "Billing",
