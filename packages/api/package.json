@@ -1,0 +1,44 @@
+{
+  "name": "@tuckin/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./auth": "./src/auth.ts",
+    "./queries": "./src/queries.ts",
+    "./issuance": "./src/issuance.ts",
+    "./mcp-server": "./src/mcp-server.ts",
+    "./server": "./src/server.ts",
+    "./components": "./src/components/index.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@tuckin/next": "workspace:*",
+    "@tuckin/supabase": "workspace:*",
+    "@tuckin/ui": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "next": "catalog:",
+    "react": "catalog:"
+  }
+}

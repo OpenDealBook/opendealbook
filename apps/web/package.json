@@ -17,6 +17,7 @@
     "@tuckin/accounts": "workspace:*",
     "@tuckin/admin": "workspace:*",
     "@tuckin/analytics": "workspace:*",
+    "@tuckin/api": "workspace:*",
     "@tuckin/auth": "workspace:*",
     "@tuckin/billing": "workspace:*",
     "@tuckin/billing-gateway": "workspace:*",
