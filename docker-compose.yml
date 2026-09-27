@@ -1,0 +1,341 @@
+# OpenDealbook local-development infrastructure.
+#
+# This file provisions the self-hosted services the platform depends on in local dev.
+# It does NOT run Supabase (Postgres/Auth/Storage): Supabase is managed by the Supabase
+# CLI. Start it separately from apps/web with `supabase start`.
+#
+# Production runs on Helm/Talos K8s (k8-infra repo); these compose services are the local
+# equivalents only. None are wired into the app yet; this is infrastructure ahead of app
+# wiring.
+#
+# --- Bringing it up ------------------------------------------------------------------
+#   Core self-hosted stack:   docker compose --profile core up -d
+#   Observability stack:      docker compose --profile observability up -d
+#   Document parsing (OCR):   docker compose --profile docling up -d
+#   Everything:               docker compose --profile core --profile observability --profile docling up -d
+# Nothing starts without a profile, so `docker compose up` on its own is a no-op; the
+# heavy services are all profile-gated to keep a dev machine light.
+#
+# --- Coexisting with the Supabase CLI ------------------------------------------------
+# `supabase start` runs its own Docker stack on host ports: API 54321, Postgres 54322,
+# Studio 54323, Inbucket 54324. These live on Supabase's own docker network, not on the
+# `opendealbook` network below. The two reach each other over the host:
+#   - From a compose service TO Supabase: use host.docker.internal:54321 (API) or
+#     host.docker.internal:54322 (Postgres). Each service that needs this is given an
+#     `extra_hosts` mapping so host.docker.internal resolves on Linux as well as macOS.
+#   - From Supabase Edge Functions / the app TO a compose service: use the published
+#     localhost ports listed on each service below.
+# The dedicated Postgres instances here (temporal/nango/documenso) are internal to this
+# network and are intentionally not published, so they never clash with 54322.
+
+name: opendealbook
+
+x-postgres: &postgres
+  image: postgres:16.15-alpine
+  restart: unless-stopped
+  networks: [opendealbook]
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+
+networks:
+  opendealbook:
+    driver: bridge
+
+volumes:
+  temporal_postgres_data:
+  nango_postgres_data:
+  nango_redis_data:
+  documenso_postgres_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  docling_cache:
+
+services:
+  # --- Temporal (workflows) -----------------------------------------------------------
+  temporal-postgres:
+    <<: *postgres
+    profiles: [core]
+    environment:
+      POSTGRES_USER: ${TEMPORAL_DB_USER:-temporal}
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal}
+      POSTGRES_DB: ${TEMPORAL_DB_NAME:-temporal}
+    volumes:
+      - temporal_postgres_data:/var/lib/postgresql/data
+
+  temporal:
+    image: temporalio/auto-setup:1.29.7
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: ${TEMPORAL_DB_USER:-temporal}
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal}
+      POSTGRES_SEEDS: temporal-postgres
+    ports:
+      - "7233:7233"
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  temporal-ui:
+    image: temporalio/ui:2.54.1
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: ${TEMPORAL_UI_CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "8233:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- Nango (integrations) -----------------------------------------------------------
+  nango-postgres:
+    <<: *postgres
+    profiles: [core]
+    environment:
+      POSTGRES_USER: ${NANGO_DB_USER:-nango}
+      POSTGRES_PASSWORD: ${NANGO_DB_PASSWORD:-nango}
+      POSTGRES_DB: ${NANGO_DB_NAME:-nango}
+    volumes:
+      - nango_postgres_data:/var/lib/postgresql/data
+
+  nango-redis:
+    image: redis:7.4-alpine
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    volumes:
+      - nango_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nango-server:
+    image: nangohq/nango-server:hosted-0.71.10
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      nango-postgres:
+        condition: service_healthy
+      nango-redis:
+        condition: service_healthy
+    environment:
+      NANGO_ENCRYPTION_KEY: ${NANGO_ENCRYPTION_KEY:?set NANGO_ENCRYPTION_KEY in .env}
+      NANGO_DB_USER: ${NANGO_DB_USER:-nango}
+      NANGO_DB_PASSWORD: ${NANGO_DB_PASSWORD:-nango}
+      NANGO_DB_HOST: nango-postgres
+      NANGO_DB_PORT: 5432
+      NANGO_DB_NAME: ${NANGO_DB_NAME:-nango}
+      NANGO_DB_SSL: "false"
+      NANGO_SERVER_URL: ${NANGO_SERVER_URL:-http://localhost:3003}
+      NANGO_DASHBOARD_USERNAME: ${NANGO_DASHBOARD_USERNAME:-admin}
+      NANGO_DASHBOARD_PASSWORD: ${NANGO_DASHBOARD_PASSWORD:-admin}
+      REDIS_URL: redis://nango-redis:6379
+      SERVER_PORT: 3003
+      TELEMETRY: "false"
+      FLAG_SERVE_CONNECT_UI: "true"
+    ports:
+      - "3003:3003"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # --- MinIO (S3-compatible object storage) ------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2025-10-15T17-29-55Z
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # --- Documenso (e-sign) -------------------------------------------------------------
+  documenso-postgres:
+    <<: *postgres
+    profiles: [core]
+    environment:
+      POSTGRES_USER: ${DOCUMENSO_DB_USER:-documenso}
+      POSTGRES_PASSWORD: ${DOCUMENSO_DB_PASSWORD:-documenso}
+      POSTGRES_DB: ${DOCUMENSO_DB_NAME:-documenso}
+    volumes:
+      - documenso_postgres_data:/var/lib/postgresql/data
+
+  documenso:
+    image: documenso/documenso:v2.18.0
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      documenso-postgres:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      NEXTAUTH_URL: ${DOCUMENSO_URL:-http://localhost:3005}
+      NEXT_PUBLIC_WEBAPP_URL: ${DOCUMENSO_URL:-http://localhost:3005}
+      NEXTAUTH_SECRET: ${DOCUMENSO_NEXTAUTH_SECRET:?set DOCUMENSO_NEXTAUTH_SECRET in .env}
+      NEXT_PRIVATE_ENCRYPTION_KEY: ${DOCUMENSO_ENCRYPTION_KEY:?set DOCUMENSO_ENCRYPTION_KEY in .env}
+      NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY: ${DOCUMENSO_ENCRYPTION_SECONDARY_KEY:?set DOCUMENSO_ENCRYPTION_SECONDARY_KEY in .env}
+      NEXT_PRIVATE_DATABASE_URL: postgres://${DOCUMENSO_DB_USER:-documenso}:${DOCUMENSO_DB_PASSWORD:-documenso}@documenso-postgres:5432/${DOCUMENSO_DB_NAME:-documenso}
+      NEXT_PRIVATE_DIRECT_DATABASE_URL: postgres://${DOCUMENSO_DB_USER:-documenso}:${DOCUMENSO_DB_PASSWORD:-documenso}@documenso-postgres:5432/${DOCUMENSO_DB_NAME:-documenso}
+      NEXT_PRIVATE_SIGNING_TRANSPORT: local
+      NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH: /opt/documenso/cert.p12
+      NEXT_PRIVATE_SIGNING_PASSPHRASE: ${DOCUMENSO_SIGNING_PASSPHRASE:-changeit}
+      NEXT_PRIVATE_SMTP_TRANSPORT: ${DOCUMENSO_SMTP_TRANSPORT:-smtp-auth}
+      NEXT_PRIVATE_SMTP_HOST: ${DOCUMENSO_SMTP_HOST:-host.docker.internal}
+      NEXT_PRIVATE_SMTP_PORT: ${DOCUMENSO_SMTP_PORT:-54325}
+      NEXT_PRIVATE_SMTP_USERNAME: ${DOCUMENSO_SMTP_USERNAME:-}
+      NEXT_PRIVATE_SMTP_PASSWORD: ${DOCUMENSO_SMTP_PASSWORD:-}
+      NEXT_PRIVATE_SMTP_FROM_NAME: ${DOCUMENSO_SMTP_FROM_NAME:-OpenDealbook Local}
+      NEXT_PRIVATE_SMTP_FROM_ADDRESS: ${DOCUMENSO_SMTP_FROM_ADDRESS:-noreply@opendealbook.local}
+    ports:
+      - "3005:3000"
+    # cert.p12 must exist before `up`; see infra/documenso/README.md to generate it.
+    volumes:
+      - ./infra/documenso:/opt/documenso
+    # Reach a host-side SMTP catcher (e.g. Supabase Inbucket) via host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000 || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # --- Observability ------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:12.4.11
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on: [prometheus, loki]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:3.7.8
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on: [prometheus, loki]
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./infra/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    # Distroless image (no shell): probe by validating config with the collector binary.
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+  # --- Docling (document parsing / OCR) ----------------------------------------------
+  docling-serve:
+    image: quay.io/docling-project/docling-serve:v1.35.0
+    profiles: [docling]
+    restart: unless-stopped
+    networks: [opendealbook]
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "true"
+      HF_HOME: /models
+    volumes:
+      - docling_cache:/models
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

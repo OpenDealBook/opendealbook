@@ -19,10 +19,7 @@ import {
 import { Input } from '@tuckin/ui/input';
 import { Spinner } from '@tuckin/ui/spinner';
 
-import {
-  challengeAndVerifyTotp,
-  consumeRecoveryCode,
-} from '../lib/auth-flows';
+import { challengeAndVerifyTotp, consumeRecoveryCode } from '../lib/auth-flows';
 import { RecoveryCodeSchema, VerifyTotpSchema } from '../schemas';
 import { AuthErrorAlert } from './auth-error-alert';
 

@@ -31,6 +31,7 @@
     "**/.temp",
     "**/public",
     "**/__tests__/",
+    "**/storybook-static",
     "dist",
     "pnpm-lock.yaml"
   ]

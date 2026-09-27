@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { AnalyticsProvider } from '~/components/analytics-provider';
 import { RootProviders } from '~/components/root-providers';
 import appConfig from '~/config/app.config';
-
 import '~/app/globals.css';
 
 export const metadata = {

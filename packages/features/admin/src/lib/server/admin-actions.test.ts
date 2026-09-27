@@ -35,6 +35,8 @@ describe('deleteAccountAction', () => {
   it('rejects when the caller is not a super admin', async () => {
     rpc.mockResolvedValueOnce({ data: false });
 
-    await expect(deleteAccountAction({ accountId: 'account-123' })).rejects.toThrow();
+    await expect(
+      deleteAccountAction({ accountId: 'account-123' }),
+    ).rejects.toThrow();
   });
 });

@@ -36,7 +36,11 @@ create type public.app_permissions as enum (
   'billing.manage',
   'settings.manage',
   'members.manage',
-  'invites.manage'
+  'invites.manage',
+  'deals.create',
+  'deals.manage',
+  'checklists.manage',
+  'participants.manage'
 );
 
 create type public.billing_provider as enum ('stripe', 'lemon-squeezy', 'paddle');
@@ -1613,3 +1617,704 @@ create policy super_admins_access_invitations on public.invitations
 create policy super_admins_access_role_permissions on public.role_permissions
   for select to authenticated
   using (public.is_super_admin());
+
+-- ===== schemas/18-deal-enums.sql =====
+-- Enums for the OpenDealbook deal domain.
+
+-- The single checklist status used everywhere a checklist item has a state.
+create type public.checklist_status as enum (
+  'not_started',
+  'requested',
+  'received',
+  'reviewed'
+);
+
+create type public.deal_source as enum (
+  'manual',
+  'broker',
+  'outreach',
+  'marketplace',
+  'referral'
+);
+
+create type public.participant_party as enum (
+  'buyer',
+  'seller',
+  'broker',
+  'lender'
+);
+
+create type public.participant_scope as enum (
+  'deal',
+  'contract',
+  'data_room_folder',
+  'checklist'
+);
+
+create type public.participant_permission as enum (
+  'view',
+  'comment',
+  'suggest',
+  'edit',
+  'sign'
+);
+
+create type public.approval_subject as enum (
+  'stage_move',
+  'loi',
+  'apa',
+  'schedule',
+  'participant_change'
+);
+
+create type public.approval_decision as enum (
+  'approved',
+  'declined'
+);
+
+create type public.checklist_outcome as enum (
+  'accepted',
+  'follow_up',
+  'rejected'
+);
+
+-- ===== schemas/19-deal-box.sql =====
+-- Account-scoped acquisition criteria and broker summary. Versions are kept:
+-- a new version is a new row rather than an overwrite.
+
+create table if not exists public.deal_box (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  version int not null,
+  criteria_json jsonb not null default '{}'::jsonb,
+  broker_summary text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, version)
+);
+
+alter table public.deal_box enable row level security;
+
+create index ix_deal_box_account on public.deal_box (account_id);
+
+revoke all on public.deal_box from authenticated, service_role;
+grant select, insert, update, delete on public.deal_box to authenticated;
+grant select, insert, update, delete on public.deal_box to service_role;
+
+create trigger deal_box_timestamps
+  before insert or update on public.deal_box
+  for each row execute function public.set_timestamps();
+
+create trigger deal_box_user_tracking
+  before insert or update on public.deal_box
+  for each row execute function public.set_user_tracking();
+
+create policy deal_box_read on public.deal_box
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy deal_box_insert on public.deal_box
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_box_update on public.deal_box
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_box_delete on public.deal_box
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/20-firm.sql =====
+-- Account-scoped firms sourced into the pipeline. website is the dedupe key
+-- within an account. status drives the sourcing state machine.
+
+create table if not exists public.firm (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name varchar(255) not null,
+  industry text,
+  city text,
+  state text,
+  website text,
+  employee_band text,
+  established_year int,
+  owner_name text,
+  owner_age_estimate int,
+  service_mix_json jsonb not null default '{}'::jsonb,
+  icp_score numeric,
+  source text,
+  source_url text,
+  imported_at timestamptz not null default now(),
+  status text not null default 'imported' check (
+    status in ('imported', 'enriched', 'scored', 'contacted', 'responded', 'deal_created', 'disqualified')
+  ),
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, website)
+);
+
+alter table public.firm enable row level security;
+
+create index ix_firm_account_status on public.firm (account_id, status);
+
+revoke all on public.firm from authenticated, service_role;
+grant select, insert, update, delete on public.firm to authenticated;
+grant select, insert, update, delete on public.firm to service_role;
+
+create trigger firm_timestamps
+  before insert or update on public.firm
+  for each row execute function public.set_timestamps();
+
+create trigger firm_user_tracking
+  before insert or update on public.firm
+  for each row execute function public.set_user_tracking();
+
+create policy firm_read on public.firm
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy firm_insert on public.firm
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy firm_update on public.firm
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy firm_delete on public.firm
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/21-contact.sql =====
+-- Account-scoped contacts, optionally attached to a firm.
+
+create table if not exists public.contact (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  firm_id uuid references public.firm (id) on delete set null,
+  name varchar(255) not null,
+  email varchar(320),
+  phone text,
+  kind text not null default 'other',
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.contact enable row level security;
+
+create index ix_contact_account on public.contact (account_id);
+create index ix_contact_firm on public.contact (firm_id);
+
+revoke all on public.contact from authenticated, service_role;
+grant select, insert, update, delete on public.contact to authenticated;
+grant select, insert, update, delete on public.contact to service_role;
+
+create trigger contact_timestamps
+  before insert or update on public.contact
+  for each row execute function public.set_timestamps();
+
+create trigger contact_user_tracking
+  before insert or update on public.contact
+  for each row execute function public.set_user_tracking();
+
+create policy contact_read on public.contact
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy contact_insert on public.contact
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy contact_update on public.contact
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy contact_delete on public.contact
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/22-deal.sql =====
+-- A deal. Account-scoped for internal members; per-deal access for external
+-- parties is granted through deal_participant. owner_user_id is the deal owner.
+-- Policies live in 24-deal-access.sql because they depend on has_deal_permission.
+
+create table if not exists public.deal (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  firm_id uuid references public.firm (id) on delete set null,
+  owner_user_id uuid references auth.users,
+  description text,
+  asking_price numeric,
+  revenue_ttm numeric,
+  sde_ttm numeric,
+  ebitda_ttm numeric,
+  source public.deal_source not null default 'manual',
+  stage text not null default 'pre_nda',
+  notes text,
+  deal_box_version int,
+  close_date date,
+  broker_contact_id uuid references public.contact (id) on delete set null,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.deal enable row level security;
+
+create index ix_deal_account_stage on public.deal (account_id, stage);
+create index ix_deal_firm on public.deal (firm_id);
+create index ix_deal_owner on public.deal (owner_user_id);
+
+revoke all on public.deal from authenticated, service_role;
+grant select, insert, update, delete on public.deal to authenticated;
+grant select, insert, update, delete on public.deal to service_role;
+
+create trigger deal_timestamps
+  before insert or update on public.deal
+  for each row execute function public.set_timestamps();
+
+create trigger deal_user_tracking
+  before insert or update on public.deal
+  for each row execute function public.set_user_tracking();
+
+-- ===== schemas/23-deal-participant.sql =====
+-- Per-deal access grants for internal and external parties. A grant scoped
+-- narrower than the whole deal names the scoped object in scope_id.
+-- Policies live in 24-deal-access.sql because they depend on has_deal_permission.
+
+create table if not exists public.deal_participant (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  user_id uuid not null references auth.users on delete cascade,
+  party public.participant_party not null,
+  role text,
+  scope public.participant_scope not null default 'deal',
+  scope_id uuid,
+  permission public.participant_permission not null default 'view',
+  expires_at timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.deal_participant enable row level security;
+
+create index ix_deal_participant_deal on public.deal_participant (deal_id);
+create index ix_deal_participant_user on public.deal_participant (user_id);
+
+revoke all on public.deal_participant from authenticated, service_role;
+grant select, insert, update, delete on public.deal_participant to authenticated;
+grant select, insert, update, delete on public.deal_participant to service_role;
+
+create trigger deal_participant_timestamps
+  before insert or update on public.deal_participant
+  for each row execute function public.set_timestamps();
+
+create trigger deal_participant_user_tracking
+  before insert or update on public.deal_participant
+  for each row execute function public.set_user_tracking();
+
+-- ===== schemas/24-deal-access.sql =====
+-- Deal-scoped access. A caller reaches a deal either as an internal member of
+-- the deal's account holding the tenant permission, or through an unexpired
+-- deal_participant grant. Internal read visibility is account membership;
+-- the participant branch is what lets external parties reach a single deal.
+
+create or replace function public.has_deal_permission(deal_id uuid, permission text)
+  returns boolean
+  language sql security definer
+  set search_path = '' as $$
+  select exists (
+    select 1 from public.deal d
+    where d.id = has_deal_permission.deal_id
+      and public.has_permission((select auth.uid()), d.account_id, has_deal_permission.permission::public.app_permissions)
+  )
+  or exists (
+    select 1 from public.deal_participant dp
+    where dp.deal_id = has_deal_permission.deal_id
+      and dp.user_id = (select auth.uid())
+      and (dp.expires_at is null or dp.expires_at > now())
+  );
+$$;
+
+grant execute on function public.has_deal_permission(uuid, text) to authenticated, service_role;
+
+create policy deal_read on public.deal
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(id, 'deals.manage')
+  );
+
+create policy deal_insert on public.deal
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.create'));
+
+create policy deal_update on public.deal
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_delete on public.deal
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_participant_read on public.deal_participant
+  for select to authenticated
+  using (
+    public.has_role_on_account((select account_id from public.deal where id = deal_id))
+    or public.has_deal_permission(deal_id, 'participants.manage')
+  );
+
+create policy deal_participant_insert on public.deal_participant
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'participants.manage'));
+
+create policy deal_participant_update on public.deal_participant
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'participants.manage'))
+  with check (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'participants.manage'));
+
+create policy deal_participant_delete on public.deal_participant
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'participants.manage'));
+
+-- ===== schemas/25-checklist-item.sql =====
+-- Diligence checklist items on a deal. status is the shared checklist_status.
+
+create table if not exists public.checklist_item (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  category text,
+  title varchar(500) not null,
+  owner_user_id uuid references auth.users,
+  due_at timestamptz,
+  status public.checklist_status not null default 'not_started',
+  requested_at timestamptz,
+  received_at timestamptz,
+  reviewed_at timestamptz,
+  reviewed_by uuid references auth.users,
+  outcome public.checklist_outcome,
+  due_offset_days int,
+  artifact_type text,
+  artifact_id uuid,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.checklist_item enable row level security;
+
+create index ix_checklist_item_deal_status on public.checklist_item (deal_id, status);
+create index ix_checklist_item_account on public.checklist_item (account_id);
+
+revoke all on public.checklist_item from authenticated, service_role;
+grant select, insert, update, delete on public.checklist_item to authenticated;
+grant select, insert, update, delete on public.checklist_item to service_role;
+
+create trigger checklist_item_timestamps
+  before insert or update on public.checklist_item
+  for each row execute function public.set_timestamps();
+
+create trigger checklist_item_user_tracking
+  before insert or update on public.checklist_item
+  for each row execute function public.set_user_tracking();
+
+create policy checklist_item_read on public.checklist_item
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'checklists.manage')
+  );
+
+create policy checklist_item_insert on public.checklist_item
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy checklist_item_update on public.checklist_item
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy checklist_item_delete on public.checklist_item
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+-- ===== schemas/26-approval.sql =====
+-- Approval requests raised against a deal and their decision.
+
+create table if not exists public.approval (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  subject public.approval_subject not null,
+  requested_by uuid not null default auth.uid() references auth.users,
+  decided_by uuid references auth.users,
+  decision public.approval_decision,
+  decided_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.approval enable row level security;
+
+create index ix_approval_deal on public.approval (deal_id);
+
+revoke all on public.approval from authenticated, service_role;
+grant select, insert, update, delete on public.approval to authenticated;
+grant select, insert, update, delete on public.approval to service_role;
+
+create policy approval_read on public.approval
+  for select to authenticated
+  using (
+    public.has_role_on_account((select account_id from public.deal where id = deal_id))
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy approval_insert on public.approval
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'deals.manage'));
+
+create policy approval_update on public.approval
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'deals.manage'));
+
+create policy approval_delete on public.approval
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'deals.manage'));
+
+-- ===== schemas/27-audit-event.sql =====
+-- Append-only audit trail. Rows are never updated or deleted: no update/delete
+-- grant and no update/delete policy exist, so those operations are refused.
+
+create table if not exists public.audit_event (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid references public.deal (id) on delete cascade,
+  actor_user_id uuid not null default auth.uid() references auth.users,
+  event_type text not null,
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.audit_event enable row level security;
+
+create index ix_audit_event_account on public.audit_event (account_id, created_at);
+create index ix_audit_event_deal on public.audit_event (deal_id, created_at);
+
+revoke all on public.audit_event from authenticated, service_role;
+grant select, insert on public.audit_event to authenticated;
+grant select, insert on public.audit_event to service_role;
+
+create policy audit_event_read on public.audit_event
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or (deal_id is not null and public.has_deal_permission(deal_id, 'deals.manage'))
+  );
+
+create policy audit_event_insert on public.audit_event
+  for insert to authenticated
+  with check (
+    public.has_role_on_account(account_id)
+    or (deal_id is not null and public.has_deal_permission(deal_id, 'deals.manage'))
+  );
+
+-- ===== schemas/28-api-key.sql =====
+-- Account API keys for the MCP/REST surface. Only the sha256 hash is stored;
+-- the raw key exists once, at issue time, and is never persisted. key_prefix is
+-- the leading characters kept for display and lookup.
+
+create table if not exists public.api_key (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name varchar(255) not null,
+  key_hash bytea not null,
+  key_prefix text not null,
+  scopes text[] not null default '{}',
+  created_by uuid references auth.users,
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+alter table public.api_key enable row level security;
+
+create index ix_api_key_account on public.api_key (account_id);
+create index ix_api_key_prefix on public.api_key (key_prefix);
+
+revoke all on public.api_key from authenticated, service_role;
+-- key_hash is intentionally excluded from the authenticated select grant so a
+-- client can list and revoke keys without ever reading the stored hash.
+grant select (id, account_id, name, key_prefix, scopes, created_by, last_used_at, revoked_at, created_at)
+  on public.api_key to authenticated;
+grant update (name, scopes, revoked_at) on public.api_key to authenticated;
+grant select, insert, update, delete on public.api_key to service_role;
+
+create policy api_key_read on public.api_key
+  for select to authenticated
+  using (
+    public.is_account_owner(account_id)
+    or public.has_permission((select auth.uid()), account_id, 'members.manage')
+  );
+
+create policy api_key_update on public.api_key
+  for update to authenticated
+  using (
+    public.is_account_owner(account_id)
+    or public.has_permission((select auth.uid()), account_id, 'members.manage')
+  )
+  with check (
+    public.is_account_owner(account_id)
+    or public.has_permission((select auth.uid()), account_id, 'members.manage')
+  );
+
+-- Match a presented raw key against its stored hash, stamp last_used_at, and
+-- return the owning account. Runs as definer so the caller never needs read
+-- access to key_hash.
+create or replace function public.verify_api_key(prefix text, raw text)
+  returns uuid
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  matched_account uuid;
+begin
+  update public.api_key
+    set last_used_at = now()
+    where key_prefix = verify_api_key.prefix
+      and key_hash = extensions.digest(verify_api_key.raw, 'sha256')
+      and revoked_at is null
+    returning account_id into matched_account;
+  return matched_account;
+end;
+$$;
+
+grant execute on function public.verify_api_key(text, text) to service_role;
+
+-- ===== schemas/29-deal-roles-seed.sql =====
+-- Per-tenant deal roles layered onto owner/admin/member. External roles
+-- (external_counsel, seller, broker) carry no tenant permissions: they reach a
+-- deal only through a deal_participant grant. deal_owner is not a tenant role;
+-- it is deal.owner_user_id plus a participant row.
+
+insert into public.roles (name, hierarchy_level) values
+  ('deal_lead', 4),
+  ('analyst', 5),
+  ('counsel', 6),
+  ('external_counsel', 7),
+  ('seller', 8),
+  ('broker', 9),
+  ('viewer', 10);
+
+-- owner and admin keep full deal control alongside their existing permissions.
+insert into public.role_permissions (role, permission) values
+  ('owner', 'deals.create'),
+  ('owner', 'deals.manage'),
+  ('owner', 'checklists.manage'),
+  ('owner', 'participants.manage'),
+  ('admin', 'deals.create'),
+  ('admin', 'deals.manage'),
+  ('admin', 'checklists.manage'),
+  ('admin', 'participants.manage'),
+  ('deal_lead', 'deals.create'),
+  ('deal_lead', 'deals.manage'),
+  ('deal_lead', 'checklists.manage'),
+  ('deal_lead', 'participants.manage'),
+  ('analyst', 'deals.create'),
+  ('analyst', 'checklists.manage'),
+  ('counsel', 'checklists.manage');
+
+-- ===== schemas/30-buyer-profile.sql =====
+-- Account-scoped buyer marketing profile. Versions are kept: a new version is a
+-- new row rather than an overwrite, so the current profile is the max version.
+-- sensitive_json holds opt-in fields (credit score, pre-approval, phone) and is
+-- only populated when include_sensitive; that gating is enforced by the feature
+-- layer, not the database.
+
+create table if not exists public.buyer_profile (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  version int not null,
+  display_name text,
+  headline text,
+  about text,
+  expertise_json jsonb,
+  financing_json jsonb,
+  contact_json jsonb,
+  target_statement text,
+  motivation text,
+  interested_json jsonb,
+  not_interested_json jsonb,
+  value_proposition text,
+  experience text,
+  photo_path text,
+  include_sensitive boolean not null default false,
+  sensitive_json jsonb,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, version)
+);
+
+alter table public.buyer_profile enable row level security;
+
+create index ix_buyer_profile_account on public.buyer_profile (account_id);
+
+revoke all on public.buyer_profile from authenticated, service_role;
+grant select, insert, update, delete on public.buyer_profile to authenticated;
+grant select, insert, update, delete on public.buyer_profile to service_role;
+
+create trigger buyer_profile_timestamps
+  before insert or update on public.buyer_profile
+  for each row execute function public.set_timestamps();
+
+create trigger buyer_profile_user_tracking
+  before insert or update on public.buyer_profile
+  for each row execute function public.set_user_tracking();
+
+create policy buyer_profile_read on public.buyer_profile
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy buyer_profile_insert on public.buyer_profile
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+create policy buyer_profile_update on public.buyer_profile
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+create policy buyer_profile_delete on public.buyer_profile
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+-- Latest version row for an account. Runs as the invoker, so buyer_profile RLS
+-- decides what the caller can see.
+create or replace function public.current_buyer_profile(account_id uuid)
+  returns public.buyer_profile
+  language sql
+  stable
+  set search_path = '' as $$
+  select bp.*
+  from public.buyer_profile bp
+  where bp.account_id = current_buyer_profile.account_id
+  order by bp.version desc
+  limit 1;
+$$;
+
+grant execute on function public.current_buyer_profile(uuid) to authenticated, service_role;

@@ -1,5 +1,6 @@
-import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
+
+import { notFound } from 'next/navigation';
 
 import { hasLocale } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';

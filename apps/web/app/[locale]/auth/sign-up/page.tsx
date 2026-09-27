@@ -28,7 +28,7 @@ export default function SignUpPage() {
         <CardContent className={'flex flex-col gap-4'}>
           <SignUpRedirect emailRedirectTo={emailRedirectTo} />
           <OAuthProviders providers={authConfig.providers.oAuth} />
-          <div className={'text-sm text-muted-foreground'}>
+          <div className={'text-muted-foreground text-sm'}>
             <Link href={pathsConfig.auth.signIn}>Already have an account?</Link>
           </div>
         </CardContent>

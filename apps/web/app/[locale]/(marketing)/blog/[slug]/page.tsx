@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 
 import { createCmsClient } from '@tuckin/keystatic';
-
 import { Badge } from '@tuckin/ui/badge';
 import { Separator } from '@tuckin/ui/separator';
 
@@ -24,9 +23,9 @@ export default async function BlogPostPage({
       <header className={'flex flex-col gap-3'}>
         <h1 className={'text-4xl font-bold'}>{post.title}</h1>
         {post.description ? (
-          <p className={'text-lg text-muted-foreground'}>{post.description}</p>
+          <p className={'text-muted-foreground text-lg'}>{post.description}</p>
         ) : null}
-        <p className={'text-sm text-muted-foreground'}>
+        <p className={'text-muted-foreground text-sm'}>
           {new Date(post.publishedAt).toLocaleDateString()}
         </p>
         {post.tags?.length ? (
@@ -42,7 +41,7 @@ export default async function BlogPostPage({
 
       <Separator className={'my-8'} />
 
-      <pre className={'whitespace-pre-wrap text-sm text-muted-foreground'}>
+      <pre className={'text-muted-foreground text-sm whitespace-pre-wrap'}>
         {JSON.stringify(post.content, null, 2)}
       </pre>
     </article>

@@ -24,7 +24,9 @@ export default async function JoinPage({
       <main className={'flex min-h-screen items-center justify-center p-8'}>
         <Alert className={'w-full max-w-sm'}>
           <AlertTitle>Invalid invitation</AlertTitle>
-          <AlertDescription>This invitation link is not valid.</AlertDescription>
+          <AlertDescription>
+            This invitation link is not valid.
+          </AlertDescription>
         </Alert>
       </main>
     );
@@ -44,11 +46,15 @@ export default async function JoinPage({
         <Card className={'w-full max-w-sm'}>
           <CardHeader>
             <CardTitle>Accept invitation</CardTitle>
-            <CardDescription>Sign in to accept this invitation.</CardDescription>
+            <CardDescription>
+              Sign in to accept this invitation.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link href={`/auth/sign-in?next=${next}`}>Sign in to continue</Link>
+              <Link href={`/auth/sign-in?next=${next}`}>
+                Sign in to continue
+              </Link>
             </Button>
           </CardContent>
         </Card>

@@ -12,7 +12,9 @@ function makeClient(row: {
 }): SupabaseClient<Database> {
   const single = vi.fn().mockResolvedValue({ data: row });
 
-  return { rpc: vi.fn(() => ({ single })) } as unknown as SupabaseClient<Database>;
+  return {
+    rpc: vi.fn(() => ({ single })),
+  } as unknown as SupabaseClient<Database>;
 }
 
 describe('adminGuard', () => {

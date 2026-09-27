@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
 import { createCmsClient } from '@tuckin/keystatic';
-
 import {
   Card,
   CardContent,
@@ -44,7 +43,7 @@ export default async function BlogPage({
                   <CardDescription>{post.description}</CardDescription>
                 ) : null}
               </CardHeader>
-              <CardContent className={'text-sm text-muted-foreground'}>
+              <CardContent className={'text-muted-foreground text-sm'}>
                 {new Date(post.publishedAt).toLocaleDateString()}
               </CardContent>
             </Card>

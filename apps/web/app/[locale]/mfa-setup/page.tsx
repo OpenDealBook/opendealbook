@@ -21,7 +21,7 @@ export default async function MfaSetupPage() {
           <h1 className={'text-2xl font-semibold'}>
             Set up two-factor authentication
           </h1>
-          <p className={'text-sm text-muted-foreground'}>
+          <p className={'text-muted-foreground text-sm'}>
             Enroll a verified authenticator app to access the admin area.
           </p>
         </div>

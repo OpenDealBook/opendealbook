@@ -31,7 +31,9 @@ export default async function UserWorkspaceLayout({
 
   return (
     <div className={'flex min-h-screen'}>
-      <aside className={'bg-muted/40 hidden w-64 flex-col border-r p-4 md:flex'}>
+      <aside
+        className={'bg-muted/40 hidden w-64 flex-col border-r p-4 md:flex'}
+      >
         <Link href={'/home'} className={'px-2 py-4 text-lg font-semibold'}>
           Tuckin
         </Link>

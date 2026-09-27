@@ -15,7 +15,8 @@ export function RootProviders({ children }: { children: ReactNode }) {
         defaultTheme={'system'}
         enableSystem
         scriptProps={{
-          type: typeof window === 'undefined' ? 'text/javascript' : 'text/plain',
+          type:
+            typeof window === 'undefined' ? 'text/javascript' : 'text/plain',
         }}
       >
         {children}

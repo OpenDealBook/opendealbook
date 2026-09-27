@@ -8,6 +8,7 @@ vi.mock('@tuckin/next/actions', () => ({
 
 vi.mock('@tuckin/supabase/server', () => ({
   getSupabaseServerClient: () => ({ rpc }),
+  getSupabaseServerAdminClient: () => ({ rpc }),
 }));
 
 import { inviteMembersAction } from './invitations-actions';

@@ -6,7 +6,6 @@ import {
   getSupabaseServerClient,
 } from '@tuckin/supabase/server';
 
-import { assertSuperAdmin } from './utils/super-admin';
 import {
   AccountIdSchema,
   ListAccountsSchema,
@@ -15,6 +14,7 @@ import {
   type ListAccountsInput,
   type UserIdInput,
 } from './schemas';
+import { assertSuperAdmin } from './utils/super-admin';
 
 const BAN_DURATION = '876000h';
 

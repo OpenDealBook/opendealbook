@@ -54,7 +54,7 @@ export default function MarketingLayout({
       <footer className={'border-t'}>
         <div
           className={
-            'mx-auto flex w-full max-w-6xl flex-col gap-2 px-6 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between'
+            'text-muted-foreground mx-auto flex w-full max-w-6xl flex-col gap-2 px-6 py-6 text-sm sm:flex-row sm:items-center sm:justify-between'
           }
         >
           <span>© {new Date().getFullYear()} Tuckin</span>

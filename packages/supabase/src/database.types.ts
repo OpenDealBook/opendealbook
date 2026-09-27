@@ -138,6 +138,167 @@ export type Database = {
           },
         ]
       }
+      api_key: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string[]
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "api_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval: {
+        Row: {
+          created_at: string
+          deal_id: string
+          decided_at: string | null
+          decided_by: string | null
+          decision: Database["public"]["Enums"]["approval_decision"] | null
+          id: string
+          requested_by: string
+          subject: Database["public"]["Enums"]["approval_subject"]
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: Database["public"]["Enums"]["approval_decision"] | null
+          id?: string
+          requested_by?: string
+          subject: Database["public"]["Enums"]["approval_subject"]
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: Database["public"]["Enums"]["approval_decision"] | null
+          id?: string
+          requested_by?: string
+          subject?: Database["public"]["Enums"]["approval_subject"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_event: {
+        Row: {
+          account_id: string
+          actor_user_id: string
+          created_at: string
+          deal_id: string | null
+          event_type: string
+          id: string
+          payload: Json
+        }
+        Insert: {
+          account_id: string
+          actor_user_id?: string
+          created_at?: string
+          deal_id?: string | null
+          event_type: string
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          account_id?: string
+          actor_user_id?: string
+          created_at?: string
+          deal_id?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_event_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_event_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_event_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_event_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_customers: {
         Row: {
           account_id: string
@@ -184,6 +345,201 @@ export type Database = {
           },
         ]
       }
+      buyer_profile: {
+        Row: {
+          about: string | null
+          account_id: string
+          contact_json: Json | null
+          created_at: string | null
+          created_by: string | null
+          display_name: string | null
+          experience: string | null
+          expertise_json: Json | null
+          financing_json: Json | null
+          headline: string | null
+          id: string
+          include_sensitive: boolean
+          interested_json: Json | null
+          motivation: string | null
+          not_interested_json: Json | null
+          photo_path: string | null
+          sensitive_json: Json | null
+          target_statement: string | null
+          updated_at: string | null
+          updated_by: string | null
+          value_proposition: string | null
+          version: number
+        }
+        Insert: {
+          about?: string | null
+          account_id: string
+          contact_json?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_name?: string | null
+          experience?: string | null
+          expertise_json?: Json | null
+          financing_json?: Json | null
+          headline?: string | null
+          id?: string
+          include_sensitive?: boolean
+          interested_json?: Json | null
+          motivation?: string | null
+          not_interested_json?: Json | null
+          photo_path?: string | null
+          sensitive_json?: Json | null
+          target_statement?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          value_proposition?: string | null
+          version: number
+        }
+        Update: {
+          about?: string | null
+          account_id?: string
+          contact_json?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          display_name?: string | null
+          experience?: string | null
+          expertise_json?: Json | null
+          financing_json?: Json | null
+          headline?: string | null
+          id?: string
+          include_sensitive?: boolean
+          interested_json?: Json | null
+          motivation?: string | null
+          not_interested_json?: Json | null
+          photo_path?: string | null
+          sensitive_json?: Json | null
+          target_statement?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          value_proposition?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buyer_profile_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_profile_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "buyer_profile_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_item: {
+        Row: {
+          account_id: string
+          artifact_id: string | null
+          artifact_type: string | null
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          due_at: string | null
+          due_offset_days: number | null
+          id: string
+          outcome: Database["public"]["Enums"]["checklist_outcome"] | null
+          owner_user_id: string | null
+          received_at: string | null
+          requested_at: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["checklist_status"]
+          title: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          artifact_id?: string | null
+          artifact_type?: string | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          due_at?: string | null
+          due_offset_days?: number | null
+          id?: string
+          outcome?: Database["public"]["Enums"]["checklist_outcome"] | null
+          owner_user_id?: string | null
+          received_at?: string | null
+          requested_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["checklist_status"]
+          title: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          artifact_id?: string | null
+          artifact_type?: string | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          due_at?: string | null
+          due_offset_days?: number | null
+          id?: string
+          outcome?: Database["public"]["Enums"]["checklist_outcome"] | null
+          owner_user_id?: string | null
+          received_at?: string | null
+          requested_at?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["checklist_status"]
+          title?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_item_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_item_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_item_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_item_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       config: {
         Row: {
           billing_provider: Database["public"]["Enums"]["billing_provider"]
@@ -204,6 +560,387 @@ export type Database = {
           enable_team_accounts?: boolean
         }
         Relationships: []
+      }
+      contact: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          firm_id: string | null
+          id: string
+          kind: string
+          name: string
+          phone: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          firm_id?: string | null
+          id?: string
+          kind?: string
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          firm_id?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal: {
+        Row: {
+          account_id: string
+          asking_price: number | null
+          broker_contact_id: string | null
+          close_date: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_box_version: number | null
+          description: string | null
+          ebitda_ttm: number | null
+          firm_id: string | null
+          id: string
+          notes: string | null
+          owner_user_id: string | null
+          revenue_ttm: number | null
+          sde_ttm: number | null
+          source: Database["public"]["Enums"]["deal_source"]
+          stage: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          asking_price?: number | null
+          broker_contact_id?: string | null
+          close_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_box_version?: number | null
+          description?: string | null
+          ebitda_ttm?: number | null
+          firm_id?: string | null
+          id?: string
+          notes?: string | null
+          owner_user_id?: string | null
+          revenue_ttm?: number | null
+          sde_ttm?: number | null
+          source?: Database["public"]["Enums"]["deal_source"]
+          stage?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          asking_price?: number | null
+          broker_contact_id?: string | null
+          close_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_box_version?: number | null
+          description?: string | null
+          ebitda_ttm?: number | null
+          firm_id?: string | null
+          id?: string
+          notes?: string | null
+          owner_user_id?: string | null
+          revenue_ttm?: number | null
+          sde_ttm?: number | null
+          source?: Database["public"]["Enums"]["deal_source"]
+          stage?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_broker_contact_id_fkey"
+            columns: ["broker_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_box: {
+        Row: {
+          account_id: string
+          broker_summary: string | null
+          created_at: string | null
+          created_by: string | null
+          criteria_json: Json
+          id: string
+          updated_at: string | null
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          account_id: string
+          broker_summary?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          criteria_json?: Json
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          version: number
+        }
+        Update: {
+          account_id?: string
+          broker_summary?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          criteria_json?: Json
+          id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_box_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_box_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_box_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_participant: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          expires_at: string | null
+          id: string
+          party: Database["public"]["Enums"]["participant_party"]
+          permission: Database["public"]["Enums"]["participant_permission"]
+          role: string | null
+          scope: Database["public"]["Enums"]["participant_scope"]
+          scope_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          expires_at?: string | null
+          id?: string
+          party: Database["public"]["Enums"]["participant_party"]
+          permission?: Database["public"]["Enums"]["participant_permission"]
+          role?: string | null
+          scope?: Database["public"]["Enums"]["participant_scope"]
+          scope_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          expires_at?: string | null
+          id?: string
+          party?: Database["public"]["Enums"]["participant_party"]
+          permission?: Database["public"]["Enums"]["participant_permission"]
+          role?: string | null
+          scope?: Database["public"]["Enums"]["participant_scope"]
+          scope_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_participant_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      firm: {
+        Row: {
+          account_id: string
+          city: string | null
+          created_at: string | null
+          created_by: string | null
+          employee_band: string | null
+          established_year: number | null
+          icp_score: number | null
+          id: string
+          imported_at: string
+          industry: string | null
+          name: string
+          owner_age_estimate: number | null
+          owner_name: string | null
+          service_mix_json: Json
+          source: string | null
+          source_url: string | null
+          state: string | null
+          status: string
+          updated_at: string | null
+          updated_by: string | null
+          website: string | null
+        }
+        Insert: {
+          account_id: string
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          employee_band?: string | null
+          established_year?: number | null
+          icp_score?: number | null
+          id?: string
+          imported_at?: string
+          industry?: string | null
+          name: string
+          owner_age_estimate?: number | null
+          owner_name?: string | null
+          service_mix_json?: Json
+          source?: string | null
+          source_url?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          website?: string | null
+        }
+        Update: {
+          account_id?: string
+          city?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          employee_band?: string | null
+          established_year?: number | null
+          icp_score?: number | null
+          id?: string
+          imported_at?: string
+          industry?: string | null
+          name?: string
+          owner_age_estimate?: number | null
+          owner_name?: string | null
+          service_mix_json?: Json
+          source?: string | null
+          source_url?: string | null
+          state?: string | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invitations: {
         Row: {
@@ -793,10 +1530,47 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      current_buyer_profile: {
+        Args: { account_id: string }
+        Returns: {
+          about: string | null
+          account_id: string
+          contact_json: Json | null
+          created_at: string | null
+          created_by: string | null
+          display_name: string | null
+          experience: string | null
+          expertise_json: Json | null
+          financing_json: Json | null
+          headline: string | null
+          id: string
+          include_sensitive: boolean
+          interested_json: Json | null
+          motivation: string | null
+          not_interested_json: Json | null
+          photo_path: string | null
+          sensitive_json: Json | null
+          target_statement: string | null
+          updated_at: string | null
+          updated_by: string | null
+          value_proposition: string | null
+          version: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "buyer_profile"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_config: { Args: never; Returns: Json }
       get_upper_system_role: { Args: never; Returns: string }
       has_active_subscription: {
         Args: { target_account_id: string }
+        Returns: boolean
+      }
+      has_deal_permission: {
+        Args: { deal_id: string; permission: string }
         Returns: boolean
       }
       has_more_elevated_role: {
@@ -935,6 +1709,7 @@ export type Database = {
         }
       }
       user_has_verified_mfa: { Args: never; Returns: boolean }
+      verify_api_key: { Args: { prefix: string; raw: string }; Returns: string }
       verify_nonce: {
         Args: {
           max_verification_attempts?: number
@@ -952,9 +1727,26 @@ export type Database = {
         | "settings.manage"
         | "members.manage"
         | "invites.manage"
+        | "deals.create"
+        | "deals.manage"
+        | "checklists.manage"
+        | "participants.manage"
+      approval_decision: "approved" | "declined"
+      approval_subject:
+        | "stage_move"
+        | "loi"
+        | "apa"
+        | "schedule"
+        | "participant_change"
       billing_provider: "stripe" | "lemon-squeezy" | "paddle"
+      checklist_outcome: "accepted" | "follow_up" | "rejected"
+      checklist_status: "not_started" | "requested" | "received" | "reviewed"
+      deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
+      participant_party: "buyer" | "seller" | "broker" | "lender"
+      participant_permission: "view" | "comment" | "suggest" | "edit" | "sign"
+      participant_scope: "deal" | "contract" | "data_room_folder" | "checklist"
       payment_status: "pending" | "succeeded" | "failed"
       subscription_item_type: "flat" | "per_seat" | "metered"
       subscription_status:
@@ -1650,10 +2442,28 @@ export const Constants = {
         "settings.manage",
         "members.manage",
         "invites.manage",
+        "deals.create",
+        "deals.manage",
+        "checklists.manage",
+        "participants.manage",
+      ],
+      approval_decision: ["approved", "declined"],
+      approval_subject: [
+        "stage_move",
+        "loi",
+        "apa",
+        "schedule",
+        "participant_change",
       ],
       billing_provider: ["stripe", "lemon-squeezy", "paddle"],
+      checklist_outcome: ["accepted", "follow_up", "rejected"],
+      checklist_status: ["not_started", "requested", "received", "reviewed"],
+      deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
+      participant_party: ["buyer", "seller", "broker", "lender"],
+      participant_permission: ["view", "comment", "suggest", "edit", "sign"],
+      participant_scope: ["deal", "contract", "data_room_folder", "checklist"],
       payment_status: ["pending", "succeeded", "failed"],
       subscription_item_type: ["flat", "per_seat", "metered"],
       subscription_status: [

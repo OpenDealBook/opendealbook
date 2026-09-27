@@ -37,7 +37,9 @@ export default async function TeamMembersPage({
     .select('user_id, account_role, created_at')
     .eq('account_id', team.id);
 
-  const roleLevels = new Map(roles.map((role) => [role.name, role.hierarchyLevel]));
+  const roleLevels = new Map(
+    roles.map((role) => [role.name, role.hierarchyLevel]),
+  );
 
   const members: TeamMember[] = (memberRows ?? []).map((row) => ({
     userId: row.user_id,
@@ -56,7 +58,11 @@ export default async function TeamMembersPage({
         roles={roles}
         isOwner={isOwner}
       />
-      <InviteMemberForm slug={account} roles={roles} permissions={permissions} />
+      <InviteMemberForm
+        slug={account}
+        roles={roles}
+        permissions={permissions}
+      />
       <InvitationsList accountId={team.id} />
     </main>
   );

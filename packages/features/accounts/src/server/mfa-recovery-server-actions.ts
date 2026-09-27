@@ -29,7 +29,12 @@ export const recoveryCodesStatusAction = enhanceAction(
 
     if (error) {
       if (error.code === '28000') {
-        return { total: 0, unused: 0, last_generated_at: null, requiresMfa: true };
+        return {
+          total: 0,
+          unused: 0,
+          last_generated_at: null,
+          requiresMfa: true,
+        };
       }
 
       throw error;

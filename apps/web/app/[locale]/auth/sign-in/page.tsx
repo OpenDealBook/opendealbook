@@ -25,10 +25,10 @@ export default function SignInPage() {
         <CardContent className={'flex flex-col gap-4'}>
           <SignInMfa />
           <OAuthProviders providers={authConfig.providers.oAuth} />
-          <div className={'text-sm text-muted-foreground'}>
+          <div className={'text-muted-foreground text-sm'}>
             <Link href={pathsConfig.auth.passwordReset}>Forgot password?</Link>
           </div>
-          <div className={'text-sm text-muted-foreground'}>
+          <div className={'text-muted-foreground text-sm'}>
             <Link href={pathsConfig.auth.signUp}>Create an account</Link>
           </div>
         </CardContent>

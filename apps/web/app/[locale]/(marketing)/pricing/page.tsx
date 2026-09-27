@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { Badge } from '@tuckin/ui/badge';
+import type { Plan } from '@tuckin/billing';
 import { Button } from '@tuckin/ui/button';
 import {
   Card,
@@ -13,6 +13,18 @@ import {
 import { Separator } from '@tuckin/ui/separator';
 
 import billingConfig from '~/config/billing.config';
+
+function planTotal(plan: Plan) {
+  return plan.lineItems.reduce((total, lineItem) => total + lineItem.cost, 0);
+}
+
+function formatPrice(currency: string, amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 export default async function PricingPage({
   params,
@@ -31,63 +43,59 @@ export default async function PricingPage({
       </div>
 
       <div className={'mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3'}>
-        {billingConfig.products.map((product) => (
-          <Card key={product.id} className={'flex flex-col'}>
-            <CardHeader>
-              <CardTitle>{product.name}</CardTitle>
-              <CardDescription>{product.description}</CardDescription>
-            </CardHeader>
+        {billingConfig.products.map((product) => {
+          const monthlyPlan = product.plans.find(
+            (plan) => plan.interval === 'month',
+          );
+          const yearlyPlan = product.plans.find(
+            (plan) => plan.interval === 'year',
+          );
 
-            <CardContent className={'flex flex-1 flex-col gap-6'}>
-              {product.features?.length ? (
-                <ul className={'flex flex-col gap-2 text-sm'}>
-                  {product.features.map((feature) => (
-                    <li key={feature} className={'text-muted-foreground'}>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+          return (
+            <Card key={product.id} className={'flex flex-col'}>
+              <CardHeader>
+                <CardTitle>{product.name}</CardTitle>
+                <CardDescription>{product.description}</CardDescription>
+              </CardHeader>
 
-              <Separator />
+              <CardContent className={'flex flex-1 flex-col gap-6'}>
+                {product.features?.length ? (
+                  <ul className={'flex flex-col gap-2 text-sm'}>
+                    {product.features.map((feature) => (
+                      <li key={feature} className={'text-muted-foreground'}>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-              <div className={'flex flex-col gap-4'}>
-                {product.plans.map((plan) => (
-                  <div key={plan.id} className={'flex flex-col gap-2'}>
-                    <div className={'flex items-center justify-between'}>
-                      <span className={'font-medium'}>{plan.name}</span>
-                      <Badge variant={'outline'}>{plan.interval}</Badge>
-                    </div>
-                    <ul className={'flex flex-col gap-1 text-sm text-muted-foreground'}>
-                      {plan.lineItems.map((lineItem) => (
-                        <li
-                          key={lineItem.id}
-                          className={'flex items-center justify-between'}
-                        >
-                          <span>{lineItem.name}</span>
-                          <span>
-                            {product.currency} {lineItem.cost}
-                            {lineItem.type === 'per_seat'
-                              ? ` / ${lineItem.unit ?? 'seat'}`
-                              : lineItem.type === 'metered'
-                                ? ` / ${lineItem.unit ?? 'unit'}`
-                                : ''}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                <Separator />
+
+                {monthlyPlan ? (
+                  <div className={'flex flex-col gap-1'}>
+                    <span className={'text-3xl font-bold'}>
+                      {formatPrice(product.currency, planTotal(monthlyPlan))} /
+                      month
+                    </span>
+                    {yearlyPlan ? (
+                      <span className={'text-muted-foreground text-sm'}>
+                        or billed at{' '}
+                        {formatPrice(product.currency, planTotal(yearlyPlan))}
+                        /yr
+                      </span>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-            </CardContent>
+                ) : null}
+              </CardContent>
 
-            <CardFooter>
-              <Button asChild className={'w-full'}>
-                <Link href={'/auth/sign-up'}>Get started</Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+              <CardFooter>
+                <Button asChild className={'w-full'}>
+                  <Link href={'/auth/sign-up'}>Get started</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     </section>
   );

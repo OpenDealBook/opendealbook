@@ -1,9 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@tuckin/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@tuckin/ui/card';
 
 const faqs = [
   {

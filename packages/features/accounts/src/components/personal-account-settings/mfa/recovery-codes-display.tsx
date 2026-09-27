@@ -11,9 +11,7 @@ export function RecoveryCodesDisplay({ codes }: { codes: string[] }) {
   };
 
   const download = () => {
-    const url = URL.createObjectURL(
-      new Blob([asText], { type: 'text/plain' }),
-    );
+    const url = URL.createObjectURL(new Blob([asText], { type: 'text/plain' }));
     const anchor = document.createElement('a');
 
     anchor.href = url;

@@ -8,7 +8,7 @@ export default async function PrivacyPage({
   return (
     <section className={'mx-auto w-full max-w-3xl px-6 py-16'}>
       <h1 className={'text-4xl font-bold'}>Privacy Policy</h1>
-      <p className={'mt-4 text-muted-foreground'}>
+      <p className={'text-muted-foreground mt-4'}>
         This policy explains what data Tuckin collects and how we use it.
       </p>
 
@@ -16,8 +16,8 @@ export default async function PrivacyPage({
         <div className={'flex flex-col gap-2'}>
           <h2 className={'text-2xl font-semibold'}>Data we collect</h2>
           <p className={'text-muted-foreground'}>
-            We collect the information you provide when you create an account and
-            use the service.
+            We collect the information you provide when you create an account
+            and use the service.
           </p>
         </div>
 

@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react';
+
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import type { ReactNode } from 'react';
 
 import { isAccountOwner, type Role } from '@tuckin/policies';
 import { getSupabaseServerClient } from '@tuckin/supabase/server';

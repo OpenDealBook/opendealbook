@@ -6,6 +6,10 @@ export const appPermissionSchema = z.enum([
   'settings.manage',
   'members.manage',
   'invites.manage',
+  'deals.create',
+  'deals.manage',
+  'checklists.manage',
+  'participants.manage',
 ]);
 
 export type AppPermission = z.infer<typeof appPermissionSchema>;
