@@ -1,0 +1,22 @@
+import { getLogger } from '@tuckin/shared/logger';
+
+import type { Mailer } from './mailer';
+import { getMailerProvider, type MailerProvider } from './provider';
+
+interface ProviderModule {
+  createMailer: () => Mailer;
+}
+
+export async function getMailer(): Promise<Mailer> {
+  const provider = getMailerProvider();
+
+  getLogger().info({ provider }, 'Resolving mailer provider');
+
+  const providerModule = (await loadProvider(provider)) as ProviderModule;
+
+  return providerModule.createMailer();
+}
+
+function loadProvider(provider: MailerProvider) {
+  return import(`@tuckin/${provider}`);
+}

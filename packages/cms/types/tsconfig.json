@@ -1,0 +1,9 @@
+{
+  "extends": "@tuckin/tsconfig/base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
+    "types": []
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}

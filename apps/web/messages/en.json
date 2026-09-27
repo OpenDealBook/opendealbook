@@ -1,0 +1,34 @@
+{
+  "common": {
+    "appName": "Tuckin",
+    "loading": "Loading",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "signOut": "Sign out",
+    "goHome": "Go home",
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you are looking for does not exist.",
+    "errorTitle": "Something went wrong",
+    "errorBody": "An unexpected error occurred. Please try again."
+  },
+  "auth": {
+    "signInTitle": "Sign in to your account",
+    "signUpTitle": "Create your account",
+    "passwordResetTitle": "Reset your password",
+    "updatePasswordTitle": "Update your password",
+    "emailLabel": "Email",
+    "passwordLabel": "Password"
+  },
+  "account": {
+    "settings": "Settings",
+    "profile": "Profile"
+  },
+  "billing": {
+    "title": "Billing",
+    "manageSubscription": "Manage subscription"
+  },
+  "marketing": {
+    "heroTitle": "Welcome to Tuckin",
+    "heroSubtitle": "The foundation is in place."
+  }
+}

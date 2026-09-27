@@ -1,0 +1,74 @@
+packages:
+  - apps/*
+  - packages/**
+  - tooling/*
+catalogMode: prefer
+catalog:
+  '@faker-js/faker': ^10.4.0
+  '@hookform/resolvers': ^5.2.2
+  '@keystatic/core': 0.5.50
+  '@playwright/test': ^1.59.1
+  '@sentry/nextjs': 10.52.0
+  '@stripe/react-stripe-js': 6.3.0
+  '@stripe/stripe-js': 9.17.0
+  '@supabase/ssr': ^0.10.3
+  '@supabase/supabase-js': 2.105.4
+  '@tanstack/react-query': 5.100.9
+  '@tanstack/react-table': ^8.21.3
+  '@turbo/gen': ^2.9.12
+  '@types/node': 25.6.2
+  '@types/nodemailer': ^8.0.2
+  '@types/react': 19.2.14
+  '@types/react-dom': 19.2.3
+  class-variance-authority: ^0.7.1
+  date-fns: ^4.1.0
+  lucide-react: 1.14.0
+  next: 16.3.4
+  next-intl: ^4.11.1
+  next-safe-action: ^8.5.2
+  next-themes: ^0.4.6
+  nodemailer: 8.0.9
+  oxfmt: ^0.48.0
+  oxlint: ^1.63.0
+  pino: 10.3.1
+  react: 19.2.6
+  react-dom: 19.2.6
+  react-email: 6.1.1
+  react-hook-form: 7.75.0
+  resend: ^6.30.0
+  shadcn: 4.7.0
+  stripe: 22.1.1
+  tailwind-merge: ^3.5.0
+  tailwindcss: 4.3.0
+  turbo: 2.10.4
+  typescript: ^6.0.3
+  vitest: ^4.1.5
+  zod: 4.4.3
+overrides:
+  '@grpc/grpc-js@^1': '>=1.14.4'
+  '@opentelemetry/core@^2': '>=2.8.0'
+  'brace-expansion@^5': '>=5.0.6'
+  'dompurify@^3': '>=3.4.11'
+  'form-data@^4': '>=4.0.6'
+  'hono@^4': '>=4.12.25'
+  'ip-address@^10': '>=10.1.1'
+  'postcss@^8': '>=8.5.10'
+  'protobufjs@^7': '>=7.6.3'
+  'qs@^6': '>=6.15.2'
+  'shell-quote@^1': '>=1.8.4'
+  'tar@^7': '>=7.5.16'
+  'ws@^7': '>=7.5.11'
+  'ws@^8': '>=8.21.0'
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - '@sentry/cli'
+  - '@swc/core'
+  - '@tailwindcss/oxide'
+  - esbuild
+  - sharp
+  - unrs-resolver
+allowBuilds:
+  '@parcel/watcher': set this to true or false
+  '@sentry/cli': set this to true or false
+  '@swc/core': set this to true or false
+  esbuild: set this to true or false

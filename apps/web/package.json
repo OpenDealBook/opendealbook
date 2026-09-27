@@ -1,0 +1,53 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@keystatic/next": "5.0.4",
+    "@supabase/ssr": "catalog:",
+    "@supabase/supabase-js": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tuckin/accounts": "workspace:*",
+    "@tuckin/admin": "workspace:*",
+    "@tuckin/analytics": "workspace:*",
+    "@tuckin/auth": "workspace:*",
+    "@tuckin/billing": "workspace:*",
+    "@tuckin/billing-gateway": "workspace:*",
+    "@tuckin/database-webhooks": "workspace:*",
+    "@tuckin/i18n": "workspace:*",
+    "@tuckin/keystatic": "workspace:*",
+    "@tuckin/monitoring": "workspace:*",
+    "@tuckin/next": "workspace:*",
+    "@tuckin/notifications": "workspace:*",
+    "@tuckin/policies": "workspace:*",
+    "@tuckin/sentry": "workspace:*",
+    "@tuckin/shared": "workspace:*",
+    "@tuckin/stripe": "workspace:*",
+    "@tuckin/supabase": "workspace:*",
+    "@tuckin/team-accounts": "workspace:*",
+    "@tuckin/ui": "workspace:*",
+    "next": "catalog:",
+    "next-intl": "catalog:",
+    "next-themes": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

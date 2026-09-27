@@ -1,0 +1,45 @@
+{
+  "name": "@tuckin/accounts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    "./personal-account-settings": "./src/components/personal-account-settings/index.ts",
+    "./personal-account-billing": "./src/components/personal-account-billing-panel.tsx",
+    "./hooks/*": "./src/hooks/*.ts",
+    "./server/personal-account-actions": "./src/server/personal-account-actions.ts",
+    "./schema": "./src/schema/index.ts",
+    "./shared": "./src/shared/index.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tuckin/next": "workspace:*",
+    "@tuckin/supabase": "workspace:*",
+    "@tuckin/ui": "workspace:*",
+    "react-hook-form": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/react": "catalog:",
+    "next": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "next": "catalog:",
+    "react": "^19.0.0"
+  }
+}

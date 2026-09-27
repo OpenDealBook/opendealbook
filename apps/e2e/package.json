@@ -1,0 +1,16 @@
+{
+  "name": "e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "catalog:",
+    "@playwright/test": "catalog:",
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/node": "catalog:"
+  }
+}

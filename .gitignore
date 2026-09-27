@@ -1,0 +1,19 @@
+node_modules
+.next
+.turbo
+dist
+build
+*.tsbuildinfo
+coverage
+playwright-report
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# JetBrains IDE
+.idea
+
+# Supabase local runtime
+**/supabase/.branches
+**/supabase/.temp

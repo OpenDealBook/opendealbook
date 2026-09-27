@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "singleQuote": true,
+  "printWidth": 80,
+  "semi": true,
+  "tabWidth": 2,
+  "useTabs": false,
+  "arrowParens": "always",
+  "sortImports": {
+    "customGroups": [
+      {
+        "groupName": "server-only",
+        "elementNamePattern": ["server-only"],
+      },
+      {
+        "groupName": "react",
+        "elementNamePattern": ["react", "react-dom"],
+      },
+      {
+        "groupName": "next",
+        "elementNamePattern": ["next", "next/**"],
+      },
+      {
+        "groupName": "supabase",
+        "elementNamePattern": ["@supabase/**"],
+      },
+      {
+        "groupName": "tuckin",
+        "elementNamePattern": ["@tuckin/**"],
+      },
+      {
+        "groupName": "app",
+        "elementNamePattern": ["~/**"],
+      },
+    ],
+    "groups": [
+      "server-only",
+      "react",
+      "next",
+      "supabase",
+      "external",
+      "tuckin",
+      "app",
+      ["parent", "sibling", "index"],
+      "style",
+    ],
+    "newlinesBetween": true,
+    "order": "asc",
+  },
+  "sortTailwindcss": {
+    "functions": ["tw", "clsx", "cn", "cva"],
+  },
+  "ignorePatterns": [
+    "node_modules",
+    "database.types.ts",
+    "playwright-report",
+    "*.hbs",
+    "*.md",
+    "dist",
+    "build",
+    ".next",
+    "next-env.d.ts",
+    "*.html",
+  ],
+}

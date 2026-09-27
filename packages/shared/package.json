@@ -1,0 +1,32 @@
+{
+  "name": "@tuckin/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    "./logger": "./src/logger/index.ts",
+    "./utils": "./src/utils/index.ts",
+    "./env": "./src/env/index.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "pino": "catalog:"
+  },
+  "devDependencies": {
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "pino-pretty": "^13.0.0",
+    "vitest": "catalog:"
+  }
+}
