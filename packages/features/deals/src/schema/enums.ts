@@ -63,24 +63,6 @@ export const approvalSubjectSchema = z.enum([
 
 export const approvalDecisionSchema = z.enum(['approved', 'declined']);
 
-// Provisional stage ordering. The schema lane pins only stage default 'pre_nda';
-// reconcile this list against the deal stage enum once it lands.
-export const DEAL_STAGES = [
-  'pre_nda',
-  'nda',
-  'diligence',
-  'loi',
-  'apa',
-  'closing',
-  'closed',
-] as const;
-
-export type DealStage = (typeof DEAL_STAGES)[number];
-
-export function isPastLoi(stage: string): boolean {
-  return DEAL_STAGES.indexOf(stage as DealStage) > DEAL_STAGES.indexOf('loi');
-}
-
 export type DealSource = z.infer<typeof dealSourceSchema>;
 export type FirmStatus = z.infer<typeof firmStatusSchema>;
 export type ParticipantParty = z.infer<typeof participantPartySchema>;

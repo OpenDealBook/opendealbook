@@ -40,7 +40,8 @@ create type public.app_permissions as enum (
   'deals.create',
   'deals.manage',
   'checklists.manage',
-  'participants.manage'
+  'participants.manage',
+  'buyer_profile.manage'
 );
 
 create type public.billing_provider as enum ('stripe', 'lemon-squeezy', 'paddle');
@@ -288,6 +289,9 @@ begin
     new.email,
     new.raw_user_meta_data ->> 'avatar_url'
   );
+
+  perform public.seed_default_pipeline_stages(new.id);
+
   return new;
 end;
 $$;
@@ -353,6 +357,8 @@ begin
 
   insert into public.accounts_memberships (account_id, user_id, account_role)
   values (team.id, user_id, public.get_upper_system_role());
+
+  perform public.seed_default_pipeline_stages(team.id);
 
   return team;
 end;
@@ -1859,7 +1865,7 @@ create table if not exists public.deal (
   sde_ttm numeric,
   ebitda_ttm numeric,
   source public.deal_source not null default 'manual',
-  stage text not null default 'pre_nda',
+  stage text not null default 'sourced',
   notes text,
   deal_box_version int,
   close_date date,
@@ -2225,10 +2231,12 @@ insert into public.role_permissions (role, permission) values
   ('owner', 'deals.manage'),
   ('owner', 'checklists.manage'),
   ('owner', 'participants.manage'),
+  ('owner', 'buyer_profile.manage'),
   ('admin', 'deals.create'),
   ('admin', 'deals.manage'),
   ('admin', 'checklists.manage'),
   ('admin', 'participants.manage'),
+  ('admin', 'buyer_profile.manage'),
   ('deal_lead', 'deals.create'),
   ('deal_lead', 'deals.manage'),
   ('deal_lead', 'checklists.manage'),
@@ -2292,16 +2300,16 @@ create policy buyer_profile_read on public.buyer_profile
 
 create policy buyer_profile_insert on public.buyer_profile
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'));
 
 create policy buyer_profile_update on public.buyer_profile
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'));
 
 create policy buyer_profile_delete on public.buyer_profile
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'));
 
 -- Latest version row for an account. Runs as the invoker, so buyer_profile RLS
 -- decides what the caller can see.
@@ -2318,3 +2326,87 @@ create or replace function public.current_buyer_profile(account_id uuid)
 $$;
 
 grant execute on function public.current_buyer_profile(uuid) to authenticated, service_role;
+
+-- ===== schemas/31-pipeline-stage.sql =====
+-- Account-scoped deal pipeline stages. Every account owns its own ordered set,
+-- seeded from the default 8-stage pipeline (plus the two terminal closed
+-- stages) at account creation. Renaming, reordering, and adding stages are
+-- plain updates and inserts; deal.stage is validated against this table.
+
+create table if not exists public.pipeline_stage (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  key text not null,
+  label text not null,
+  sort_order int not null,
+  is_terminal boolean not null default false,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, key),
+  unique (account_id, sort_order)
+);
+
+alter table public.pipeline_stage enable row level security;
+
+create index ix_pipeline_stage_account on public.pipeline_stage (account_id);
+
+revoke all on public.pipeline_stage from authenticated, service_role;
+grant select, insert, update, delete on public.pipeline_stage to authenticated;
+grant select, insert, update, delete on public.pipeline_stage to service_role;
+
+create trigger pipeline_stage_timestamps
+  before insert or update on public.pipeline_stage
+  for each row execute function public.set_timestamps();
+
+create trigger pipeline_stage_user_tracking
+  before insert or update on public.pipeline_stage
+  for each row execute function public.set_user_tracking();
+
+create policy pipeline_stage_read on public.pipeline_stage
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy pipeline_stage_insert on public.pipeline_stage
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy pipeline_stage_update on public.pipeline_stage
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy pipeline_stage_delete on public.pipeline_stage
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- Populate an account with the default ordered pipeline. Called from every
+-- account-provisioning path so a deal can always reference a valid stage.
+create or replace function public.seed_default_pipeline_stages(p_account_id uuid)
+  returns void
+  language sql
+  security definer
+  set search_path = '' as $$
+  insert into public.pipeline_stage (account_id, key, label, sort_order, is_terminal)
+  values
+    (p_account_id, 'sourced', 'Sourced', 1, false),
+    (p_account_id, 'qualifying', 'Qualifying', 2, false),
+    (p_account_id, 'loi', 'LOI', 3, false),
+    (p_account_id, 'diligence', 'Diligence', 4, false),
+    (p_account_id, 'hr_audit', 'HR Audit', 5, false),
+    (p_account_id, 'apa', 'APA', 6, false),
+    (p_account_id, 'announcement', 'Announcement', 7, false),
+    (p_account_id, 'integration', 'Integration', 8, false),
+    (p_account_id, 'closed_won', 'Closed Won', 9, true),
+    (p_account_id, 'closed_lost', 'Closed Lost', 10, true);
+$$;
+
+grant execute on function public.seed_default_pipeline_stages(uuid) to service_role;
+
+-- A deal's stage must be one of its own account's stages. NO ACTION (the
+-- default) defers the check to statement end, so an account cascade delete that
+-- removes both the deal and its stages in one statement stays satisfiable.
+alter table public.deal
+  add constraint deal_stage_pipeline_stage_fk
+  foreign key (account_id, stage) references public.pipeline_stage (account_id, key);

@@ -9,6 +9,7 @@ export interface DealFilters {
 export const dealKeys = {
   deals: (accountId: string, filters?: DealFilters) =>
     ['deals', accountId, filters ?? null] as const,
+  stages: (accountId: string) => ['pipeline-stages', accountId] as const,
   deal: (dealId: string) => ['deal', dealId] as const,
   firms: (accountId: string) => ['firms', accountId] as const,
   dealBox: (accountId: string) => ['deal-box', accountId] as const,

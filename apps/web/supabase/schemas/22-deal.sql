@@ -13,7 +13,7 @@ create table if not exists public.deal (
   sde_ttm numeric,
   ebitda_ttm numeric,
   source public.deal_source not null default 'manual',
-  stage text not null default 'pre_nda',
+  stage text not null default 'sourced',
   notes text,
   deal_box_version int,
   close_date date,

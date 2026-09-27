@@ -12,8 +12,8 @@ import { updateChecklistItemStatusSchema } from '../schema/checklist-item.schema
 import { dealBoxSchema } from '../schema/deal-box.schema';
 import { dealParticipantSchema } from '../schema/deal-participant.schema';
 import { dealSchema, updateDealStageSchema } from '../schema/deal.schema';
-import { isPastLoi } from '../schema/enums';
 import { firmSchema } from '../schema/firm.schema';
+import { fetchAccountStages } from '../shared';
 
 async function currentDealBoxVersion(
   client: ReturnType<typeof getSupabaseServerClient>,
@@ -95,7 +95,15 @@ export const updateDealStage = enhanceAction(
       })
       .throwOnError();
 
-    if (isPastLoi(data.stage)) {
+    const stages = await fetchAccountStages(client, deal.account_id);
+    const loiStage = stages.find((stage) => stage.key === 'loi');
+    const targetStage = stages.find((stage) => stage.key === data.stage);
+
+    if (
+      loiStage !== undefined &&
+      targetStage !== undefined &&
+      targetStage.sort_order > loiStage.sort_order
+    ) {
       await client
         .from('approval')
         .insert({

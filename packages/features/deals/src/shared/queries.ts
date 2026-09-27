@@ -67,6 +67,23 @@ export async function fetchFirms(
   return data;
 }
 
+export async function fetchAccountStages(
+  client: Client,
+  accountId: string,
+): Promise<Tables<'pipeline_stage'>[]> {
+  const { data, error } = await client
+    .from('pipeline_stage')
+    .select('*')
+    .eq('account_id', accountId)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function fetchDealBox(
   client: Client,
   accountId: string,

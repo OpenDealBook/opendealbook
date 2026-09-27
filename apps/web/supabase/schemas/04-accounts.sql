@@ -125,6 +125,9 @@ begin
     new.email,
     new.raw_user_meta_data ->> 'avatar_url'
   );
+
+  perform public.seed_default_pipeline_stages(new.id);
+
   return new;
 end;
 $$;
@@ -190,6 +193,8 @@ begin
 
   insert into public.accounts_memberships (account_id, user_id, account_role)
   values (team.id, user_id, public.get_upper_system_role());
+
+  perform public.seed_default_pipeline_stages(team.id);
 
   return team;
 end;

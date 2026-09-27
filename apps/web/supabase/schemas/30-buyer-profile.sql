@@ -52,16 +52,16 @@ create policy buyer_profile_read on public.buyer_profile
 
 create policy buyer_profile_insert on public.buyer_profile
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'));
 
 create policy buyer_profile_update on public.buyer_profile
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'));
 
 create policy buyer_profile_delete on public.buyer_profile
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'buyer_profile.manage'));
 
 -- Latest version row for an account. Runs as the invoker, so buyer_profile RLS
 -- decides what the caller can see.

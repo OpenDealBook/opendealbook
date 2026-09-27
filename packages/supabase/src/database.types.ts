@@ -732,6 +732,13 @@ export type Database = {
             referencedRelation: "firm"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "deal_stage_pipeline_stage_fk"
+            columns: ["account_id", "stage"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stage"
+            referencedColumns: ["account_id", "key"]
+          },
         ]
       }
       deal_box: {
@@ -1259,6 +1266,67 @@ export type Database = {
           },
         ]
       }
+      pipeline_stage: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_terminal: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_terminal?: boolean
+          key: string
+          label: string
+          sort_order: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_terminal?: boolean
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stage_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_permissions: {
         Row: {
           id: number
@@ -1615,6 +1683,10 @@ export type Database = {
         Args: { p_codes: string[] }
         Returns: undefined
       }
+      seed_default_pipeline_stages: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
       super_admin_state: {
         Args: never
         Returns: {
@@ -1731,6 +1803,7 @@ export type Database = {
         | "deals.manage"
         | "checklists.manage"
         | "participants.manage"
+        | "buyer_profile.manage"
       approval_decision: "approved" | "declined"
       approval_subject:
         | "stage_move"
@@ -2446,6 +2519,7 @@ export const Constants = {
         "deals.manage",
         "checklists.manage",
         "participants.manage",
+        "buyer_profile.manage",
       ],
       approval_decision: ["approved", "declined"],
       approval_subject: [

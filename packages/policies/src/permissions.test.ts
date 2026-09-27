@@ -10,6 +10,7 @@ describe('appPermissionSchema', () => {
       'settings.manage',
       'members.manage',
       'invites.manage',
+      'buyer_profile.manage',
     ]) {
       expect(appPermissionSchema.safeParse(permission).success).toBe(true);
     }
