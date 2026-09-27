@@ -1,9 +1,12 @@
 'use server';
 
 import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import {
+  getSupabaseServerAdminClient,
+  getSupabaseServerClient,
+} from '@tuckin/supabase/server';
 
-import { assertSuperAdmin } from './assert-super-admin';
+import { assertSuperAdmin } from './utils/super-admin';
 import {
   AccountIdSchema,
   ListAccountsSchema,
@@ -16,8 +19,8 @@ import {
 const BAN_DURATION = '876000h';
 
 export const listAccountsAction = enhanceAction(
-  async (input: ListAccountsInput, user) => {
-    assertSuperAdmin(user);
+  async (input: ListAccountsInput) => {
+    await assertSuperAdmin(getSupabaseServerClient());
 
     const client = getSupabaseServerAdminClient();
     const offset = input.page * input.perPage;
@@ -40,8 +43,8 @@ export const listAccountsAction = enhanceAction(
 );
 
 export const getAccountDetailAction = enhanceAction(
-  async (input: AccountIdInput, user) => {
-    assertSuperAdmin(user);
+  async (input: AccountIdInput) => {
+    await assertSuperAdmin(getSupabaseServerClient());
 
     const client = getSupabaseServerAdminClient();
 
@@ -68,8 +71,8 @@ export const getAccountDetailAction = enhanceAction(
 );
 
 export const deleteAccountAction = enhanceAction(
-  async (input: AccountIdInput, user) => {
-    assertSuperAdmin(user);
+  async (input: AccountIdInput) => {
+    await assertSuperAdmin(getSupabaseServerClient());
 
     await getSupabaseServerAdminClient()
       .from('accounts')
@@ -80,8 +83,8 @@ export const deleteAccountAction = enhanceAction(
 );
 
 export const banUserAction = enhanceAction(
-  async (input: UserIdInput, user) => {
-    assertSuperAdmin(user);
+  async (input: UserIdInput) => {
+    await assertSuperAdmin(getSupabaseServerClient());
 
     await getSupabaseServerAdminClient().auth.admin.updateUserById(
       input.userId,
@@ -92,8 +95,8 @@ export const banUserAction = enhanceAction(
 );
 
 export const reactivateUserAction = enhanceAction(
-  async (input: UserIdInput, user) => {
-    assertSuperAdmin(user);
+  async (input: UserIdInput) => {
+    await assertSuperAdmin(getSupabaseServerClient());
 
     await getSupabaseServerAdminClient().auth.admin.updateUserById(
       input.userId,

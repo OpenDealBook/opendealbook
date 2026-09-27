@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { SignInForm, OAuthProviders } from '@tuckin/auth';
+import { OAuthProviders } from '@tuckin/auth';
 import {
   Card,
   CardContent,
@@ -12,6 +12,8 @@ import {
 import authConfig from '~/config/auth.config';
 import pathsConfig from '~/config/paths.config';
 
+import { SignInMfa } from './_components/sign-in-mfa';
+
 export default function SignInPage() {
   return (
     <main className={'flex min-h-screen items-center justify-center p-8'}>
@@ -21,7 +23,7 @@ export default function SignInPage() {
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent className={'flex flex-col gap-4'}>
-          <SignInForm />
+          <SignInMfa />
           <OAuthProviders providers={authConfig.providers.oAuth} />
           <div className={'text-sm text-muted-foreground'}>
             <Link href={pathsConfig.auth.passwordReset}>Forgot password?</Link>

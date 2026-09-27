@@ -22,7 +22,7 @@ import { signInWithPassword } from '../lib/auth-flows';
 import { SignInSchema } from '../schemas';
 import { AuthErrorAlert } from './auth-error-alert';
 
-export function SignInForm() {
+export function SignInForm({ onSuccess }: { onSuccess?: () => void }) {
   const client = useSupabase();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -34,10 +34,16 @@ export function SignInForm() {
   const onSubmit = async (values: z.output<typeof SignInSchema>) => {
     setErrorMessage(null);
 
-    const { error } = await signInWithPassword(client, values);
+    const { data, error } = await signInWithPassword(client, values);
 
     if (error) {
       setErrorMessage(error.message);
+
+      return;
+    }
+
+    if (data.session) {
+      onSuccess?.();
     }
   };
 

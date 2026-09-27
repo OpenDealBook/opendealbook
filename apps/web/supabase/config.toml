@@ -44,7 +44,9 @@ enable_signup = true
 
 [auth.email]
 enable_signup = true
-enable_confirmations = true
+# Local dev only: programmatic sign-up returns a session immediately. Production
+# keeps confirmations on through its own hosted auth settings.
+enable_confirmations = false
 double_confirm_changes = true
 
 [auth.mfa.totp]

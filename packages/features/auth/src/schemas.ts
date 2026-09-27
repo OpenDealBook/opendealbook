@@ -39,3 +39,7 @@ export const PasswordUpdateSchema = z
 export const VerifyTotpSchema = z.object({
   code: z.string().regex(/^\d{6}$/),
 });
+
+export const RecoveryCodeSchema = z.object({
+  code: z.string().trim().min(1),
+});

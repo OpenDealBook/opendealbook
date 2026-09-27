@@ -72,3 +72,17 @@ export async function verifyTotpChallenge(
     code: params.code,
   });
 }
+
+export function challengeAndVerifyTotp(
+  client: SupabaseClient,
+  params: { factorId: string; code: string },
+) {
+  return client.auth.mfa.challengeAndVerify({
+    factorId: params.factorId,
+    code: params.code,
+  });
+}
+
+export function consumeRecoveryCode(client: SupabaseClient, code: string) {
+  return client.rpc('consume_mfa_recovery_code', { p_code: code });
+}

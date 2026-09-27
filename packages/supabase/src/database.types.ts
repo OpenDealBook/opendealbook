@@ -270,6 +270,30 @@ export type Database = {
           },
         ]
       }
+      mfa_recovery_codes: {
+        Row: {
+          code_hmac: string
+          created_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code_hmac: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code_hmac?: string
+          created_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       nonces: {
         Row: {
           account_id: string | null
@@ -278,9 +302,11 @@ export type Database = {
           id: string
           metadata: Json
           purpose: string
+          scopes: string[]
           token_hash: string
           used_at: string | null
           user_id: string | null
+          verification_attempts: number
         }
         Insert: {
           account_id?: string | null
@@ -289,9 +315,11 @@ export type Database = {
           id?: string
           metadata?: Json
           purpose: string
+          scopes?: string[]
           token_hash: string
           used_at?: string | null
           user_id?: string | null
+          verification_attempts?: number
         }
         Update: {
           account_id?: string | null
@@ -300,9 +328,11 @@ export type Database = {
           id?: string
           metadata?: Json
           purpose?: string
+          scopes?: string[]
           token_hash?: string
           used_at?: string | null
           user_id?: string | null
+          verification_attempts?: number
         }
         Relationships: [
           {
@@ -728,12 +758,14 @@ export type Database = {
         Args: { target_team_account_id: string; target_user_id: string }
         Returns: boolean
       }
+      consume_mfa_recovery_code: { Args: { p_code: string }; Returns: string }
       create_nonce: {
         Args: {
           account_id?: string
           expires_in_seconds?: number
           metadata?: Json
           purpose: string
+          scopes?: string[]
           user_id?: string
         }
         Returns: string
@@ -787,11 +819,34 @@ export type Database = {
         Args: { account_id: string; account_role?: string }
         Returns: boolean
       }
+      has_super_admin_role: { Args: never; Returns: boolean }
+      is_aal2: { Args: never; Returns: boolean }
       is_account_owner: { Args: { account_id: string }; Returns: boolean }
+      is_mfa_compliant: { Args: never; Returns: boolean }
       is_set: { Args: { field_name: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
       is_team_member: {
         Args: { account_id: string; user_id: string }
         Returns: boolean
+      }
+      mfa_recovery_codes_status: {
+        Args: never
+        Returns: {
+          last_generated_at: string
+          total: number
+          unused: number
+        }[]
+      }
+      replace_mfa_recovery_codes: {
+        Args: { p_codes: string[] }
+        Returns: undefined
+      }
+      super_admin_state: {
+        Args: never
+        Returns: {
+          has_role: boolean
+          is_super_admin: boolean
+        }[]
       }
       team_account_workspace: {
         Args: { account_slug: string }
@@ -881,8 +936,13 @@ export type Database = {
       }
       user_has_verified_mfa: { Args: never; Returns: boolean }
       verify_nonce: {
-        Args: { purpose: string; token: string }
-        Returns: string
+        Args: {
+          max_verification_attempts?: number
+          purpose: string
+          required_scopes?: string[]
+          token: string
+        }
+        Returns: Json
       }
     }
     Enums: {

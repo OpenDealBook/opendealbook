@@ -11,7 +11,8 @@
     }
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./mfa": "./src/mfa.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

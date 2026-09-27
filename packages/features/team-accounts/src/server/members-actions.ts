@@ -1,7 +1,10 @@
 'use server';
 
 import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import {
+  getSupabaseServerAdminClient,
+  getSupabaseServerClient,
+} from '@tuckin/supabase/server';
 
 import {
   leaveTeamSchema,
@@ -92,7 +95,7 @@ async function leaveTeam(data: LeaveTeamData, user: { id: string }) {
 }
 
 async function transferOwnership(data: TransferOwnershipData) {
-  const client = getSupabaseServerClient();
+  const client = getSupabaseServerAdminClient();
 
   const { error } = await client.rpc('transfer_team_account_ownership', {
     new_owner_id: data.userId,

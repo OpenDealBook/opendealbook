@@ -13,8 +13,10 @@
   "exports": {
     "./personal-account-settings": "./src/components/personal-account-settings/index.ts",
     "./personal-account-billing": "./src/components/personal-account-billing-panel.tsx",
+    "./mfa": "./src/components/personal-account-settings/mfa/index.ts",
     "./hooks/*": "./src/hooks/*.ts",
     "./server/personal-account-actions": "./src/server/personal-account-actions.ts",
+    "./server/mfa-recovery-server-actions": "./src/server/mfa-recovery-server-actions.ts",
     "./schema": "./src/schema/index.ts",
     "./shared": "./src/shared/index.ts"
   },

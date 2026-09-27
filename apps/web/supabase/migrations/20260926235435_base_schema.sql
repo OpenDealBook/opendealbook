@@ -1137,6 +1137,8 @@ create table if not exists public.nonces (
   user_id uuid references auth.users on delete cascade,
   account_id uuid references public.accounts (id) on delete cascade,
   metadata jsonb not null default '{}'::jsonb,
+  scopes text[] not null default '{}',
+  verification_attempts integer not null default 0,
   expires_at timestamptz not null,
   used_at timestamptz,
   created_at timestamptz not null default now()
@@ -1162,53 +1164,99 @@ create or replace function public.create_nonce(
   user_id uuid default null,
   account_id uuid default null,
   expires_in_seconds integer default 3600,
-  metadata jsonb default '{}'::jsonb
+  metadata jsonb default '{}'::jsonb,
+  scopes text[] default '{}'
 ) returns text
   language plpgsql security definer
   set search_path = '' as $$
 declare
   token text := encode(extensions.gen_random_bytes(24), 'hex');
 begin
-  insert into public.nonces (token_hash, purpose, user_id, account_id, metadata, expires_at)
+  insert into public.nonces (token_hash, purpose, user_id, account_id, metadata, scopes, expires_at)
   values (
     tuckin.hash_token(token),
     create_nonce.purpose,
     create_nonce.user_id,
     create_nonce.account_id,
     create_nonce.metadata,
+    create_nonce.scopes,
     now() + make_interval(secs => expires_in_seconds)
   );
   return token;
 end;
 $$;
 
-grant execute on function public.create_nonce(text, uuid, uuid, integer, jsonb) to service_role;
+grant execute on function public.create_nonce(text, uuid, uuid, integer, jsonb, text[]) to service_role;
 
--- Redeem a nonce, marking it used. Returns the nonce id on success.
-create or replace function public.verify_nonce(token text, purpose text)
-  returns uuid
+-- Redeem a nonce. Returns a JSONB result rather than raising so callers can
+-- branch on the outcome: on success { valid, user_id, metadata, scopes, purpose },
+-- otherwise { valid: false, message } with a max_attempts_exceeded or scope
+-- variant. Each redemption of a still-live nonce increments its attempt count;
+-- once the count passes the clamp the nonce is consumed so repeated failing
+-- guesses (for example a scope mismatch retried in a loop) cannot continue.
+create or replace function public.verify_nonce(
+  token text,
+  purpose text,
+  required_scopes text[] default null,
+  max_verification_attempts integer default 5
+) returns jsonb
   language plpgsql security definer
   set search_path = '' as $$
 declare
-  nonce_id uuid;
+  matched public.nonces;
+  attempt_ceiling integer := least(greatest(coalesce(max_verification_attempts, 5), 1), 10);
 begin
-  update public.nonces
-    set used_at = now()
-    where token_hash = tuckin.hash_token(token)
-      and nonces.purpose = verify_nonce.purpose
-      and used_at is null
-      and expires_at > now()
-  returning id into nonce_id;
+  update public.nonces n
+    set verification_attempts = n.verification_attempts + 1
+    where n.id = (
+      select id
+      from public.nonces
+      where token_hash = tuckin.hash_token(token)
+        and nonces.purpose = verify_nonce.purpose
+        and used_at is null
+        and expires_at > now()
+      for update skip locked
+      limit 1
+    )
+  returning n.* into matched;
 
-  if nonce_id is null then
-    raise exception 'invalid, expired, or already used token';
+  if matched.id is null then
+    return jsonb_build_object('valid', false, 'message', 'invalid, expired, or already used token');
   end if;
 
-  return nonce_id;
+  if matched.verification_attempts > attempt_ceiling then
+    update public.nonces set used_at = now() where id = matched.id and used_at is null;
+    return jsonb_build_object(
+      'valid', false,
+      'message', 'token locked after too many attempts',
+      'max_attempts_exceeded', true
+    );
+  end if;
+
+  if required_scopes is not null
+     and array_length(required_scopes, 1) > 0
+     and not (matched.scopes @> required_scopes) then
+    return jsonb_build_object(
+      'valid', false,
+      'message', 'token missing required scopes',
+      'token_scopes', matched.scopes,
+      'required_scopes', required_scopes
+    );
+  end if;
+
+  update public.nonces set used_at = now() where id = matched.id;
+
+  return jsonb_build_object(
+    'valid', true,
+    'user_id', matched.user_id,
+    'metadata', matched.metadata,
+    'scopes', matched.scopes,
+    'purpose', matched.purpose
+  );
 end;
 $$;
 
-grant execute on function public.verify_nonce(text, text) to service_role;
+grant execute on function public.verify_nonce(text, text, text[], integer) to service_role;
 
 -- ===== schemas/13-mfa.sql =====
 -- MFA design choice: Tuckin relies on Supabase Auth's built-in multi-factor
@@ -1229,6 +1277,71 @@ create or replace function public.user_has_verified_mfa()
 $$;
 
 grant execute on function public.user_has_verified_mfa() to authenticated, service_role;
+
+-- True when the current session was elevated to assurance level 2 (a second
+-- factor was verified in this session), read straight from the JWT.
+create or replace function public.is_aal2()
+  returns boolean
+  language sql stable
+  set search_path = '' as $$
+  select coalesce(auth.jwt() ->> 'aal' = 'aal2', false);
+$$;
+
+grant execute on function public.is_aal2() to authenticated;
+
+-- Compliance gate for the restrictive-policy pattern: a user who has enrolled
+-- any verified factor must be at aal2; a user with no factors is unaffected.
+create or replace function public.is_mfa_compliant()
+  returns boolean
+  language sql stable security definer
+  set search_path = '' as $$
+  select case
+    when public.user_has_verified_mfa() then public.is_aal2()
+    else true
+  end;
+$$;
+
+grant execute on function public.is_mfa_compliant() to authenticated;
+
+-- Role check only, with no assurance-level requirement, so the super-admin MFA
+-- setup page can be reached before a second factor has been enrolled.
+create or replace function public.has_super_admin_role()
+  returns boolean
+  language sql stable
+  set search_path = '' as $$
+  select coalesce((auth.jwt() -> 'app_metadata') ->> 'role' = 'super-admin', false);
+$$;
+
+grant execute on function public.has_super_admin_role() to authenticated;
+
+-- A super admin must hold the role, be at aal2, and have a verified TOTP factor
+-- enrolled. All three are required; any missing piece denies the elevation.
+create or replace function public.is_super_admin()
+  returns boolean
+  language sql stable security definer
+  set search_path = '' as $$
+  select public.is_aal2()
+    and public.has_super_admin_role()
+    and exists (
+      select 1 from auth.mfa_factors
+      where user_id = auth.uid()
+        and factor_type = 'totp'
+        and status::text = 'verified'
+    );
+$$;
+
+grant execute on function public.is_super_admin() to authenticated;
+
+-- One round trip for the admin guard: the role gate (for the setup page) and
+-- the full elevation check together.
+create or replace function public.super_admin_state()
+  returns table (has_role boolean, is_super_admin boolean)
+  language sql stable security definer
+  set search_path = '' as $$
+  select public.has_super_admin_role(), public.is_super_admin();
+$$;
+
+grant execute on function public.super_admin_state() to authenticated;
 
 -- ===== schemas/14-account-views.sql =====
 -- Convenience read models for the app. All use security_invoker so the
@@ -1322,3 +1435,181 @@ insert into public.role_permissions (role, permission) values
   ('admin', 'members.manage'),
   ('admin', 'invites.manage'),
   ('member', 'settings.manage');
+
+-- ===== schemas/16-mfa-recovery.sql =====
+-- Backup codes a user mints after enrolling MFA so they can recover access if
+-- they lose their authenticator. Codes are stored as keyed HMAC-SHA256 over
+-- (user_id, normalized code) with a server-side pepper, never in plaintext.
+-- Lookup is an indexed equality probe, so timing does not leak which code (if
+-- any) matched. The table is function-only: no role holds base privileges, and
+-- every path runs through the security-definer functions below.
+
+create table if not exists public.mfa_recovery_codes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users (id) on delete cascade not null,
+  code_hmac bytea not null,
+  used_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists ix_mfa_recovery_codes_user_hmac_unused
+  on public.mfa_recovery_codes (user_id, code_hmac)
+  where used_at is null;
+
+alter table public.mfa_recovery_codes enable row level security;
+
+revoke all on public.mfa_recovery_codes from authenticated, service_role;
+
+-- Server-side pepper. Operators set it once per database with
+--   alter database postgres set app.mfa_recovery_pepper = '<long-random>';
+-- Unset falls back to an empty key so dev and tests still work; production
+-- deploys must set it.
+create or replace function tuckin.mfa_recovery_pepper()
+  returns text
+  language sql stable security definer
+  set search_path = '' as $$
+  select coalesce(current_setting('app.mfa_recovery_pepper', true), '');
+$$;
+
+-- Deterministic keyed hash of a normalized code. The same normalization runs
+-- at mint and at redemption so equality lookups line up; whitespace and dashes
+-- are stripped and the code is upper-cased.
+create or replace function tuckin.mfa_recovery_code_hmac(user_id uuid, code text)
+  returns bytea
+  language sql stable security definer
+  set search_path = '' as $$
+  select extensions.hmac(
+    mfa_recovery_code_hmac.user_id::text || ':' || upper(regexp_replace(mfa_recovery_code_hmac.code, '[\s-]+', '', 'g')),
+    tuckin.mfa_recovery_pepper(),
+    'sha256'
+  );
+$$;
+
+-- Replace the caller's entire code set with a fresh batch. Requires aal2 and
+-- validates every code before deleting the old set, so a malformed input can
+-- never leave the user with fewer codes than they had.
+create or replace function public.replace_mfa_recovery_codes(p_codes text[])
+  returns void
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  code text;
+begin
+  if caller is null then
+    raise exception 'not authenticated' using errcode = '28000';
+  end if;
+
+  if not public.is_aal2() then
+    raise exception 'multi-factor verification required' using errcode = '28000';
+  end if;
+
+  if p_codes is null or array_length(p_codes, 1) is null then
+    raise exception 'at least one code is required' using errcode = '22023';
+  end if;
+
+  foreach code in array p_codes loop
+    if code is null or length(code) < 8 then
+      raise exception 'code too short' using errcode = '22023';
+    end if;
+  end loop;
+
+  delete from public.mfa_recovery_codes where user_id = caller;
+
+  insert into public.mfa_recovery_codes (user_id, code_hmac)
+  select caller, tuckin.mfa_recovery_code_hmac(caller, c)
+  from unnest(p_codes) as c;
+end;
+$$;
+
+grant execute on function public.replace_mfa_recovery_codes(text[]) to authenticated;
+
+-- Redeem one code during recovery, while the session is still at aal1. Returns
+-- the owning user_id on success or null when no unused code matches. A single
+-- indexed seek keeps timing uniform regardless of how many codes remain.
+create or replace function public.consume_mfa_recovery_code(p_code text)
+  returns uuid
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  caller uuid := auth.uid();
+  target bytea;
+  consumed uuid;
+begin
+  if caller is null or p_code is null or length(p_code) = 0 then
+    return null;
+  end if;
+
+  target := tuckin.mfa_recovery_code_hmac(caller, p_code);
+
+  update public.mfa_recovery_codes
+    set used_at = now()
+    where id = (
+      select id
+      from public.mfa_recovery_codes
+      where user_id = caller
+        and code_hmac = target
+        and used_at is null
+      for update skip locked
+      limit 1
+    )
+  returning user_id into consumed;
+
+  return consumed;
+end;
+$$;
+
+grant execute on function public.consume_mfa_recovery_code(text) to authenticated;
+
+-- Let a user see how many codes they minted and how many remain. Gated on aal2
+-- so an attacker at aal1 cannot probe the victim's remaining-code count.
+create or replace function public.mfa_recovery_codes_status()
+  returns table (total integer, unused integer, last_generated_at timestamptz)
+  language plpgsql stable security definer
+  set search_path = '' as $$
+begin
+  if not public.is_aal2() then
+    raise exception 'multi-factor verification required' using errcode = '28000';
+  end if;
+
+  return query
+  select
+    count(*)::integer,
+    count(*) filter (where used_at is null)::integer,
+    max(created_at)
+  from public.mfa_recovery_codes
+  where user_id = auth.uid();
+end;
+$$;
+
+grant execute on function public.mfa_recovery_codes_status() to authenticated;
+
+-- ===== schemas/17-super-admin.sql =====
+-- Permissive read policies that let a verified super admin see across every
+-- tenant's core records. These sit alongside the existing per-account policies;
+-- a permissive policy widens access, so ordinary members are unaffected and
+-- only a caller passing is_super_admin() gains the cross-tenant read.
+
+create policy super_admins_access_accounts on public.accounts
+  for select to authenticated
+  using (public.is_super_admin());
+
+create policy super_admins_access_accounts_memberships on public.accounts_memberships
+  for select to authenticated
+  using (public.is_super_admin());
+
+create policy super_admins_access_subscriptions on public.subscriptions
+  for select to authenticated
+  using (public.is_super_admin());
+
+create policy super_admins_access_orders on public.orders
+  for select to authenticated
+  using (public.is_super_admin());
+
+create policy super_admins_access_invitations on public.invitations
+  for select to authenticated
+  using (public.is_super_admin());
+
+create policy super_admins_access_role_permissions on public.role_permissions
+  for select to authenticated
+  using (public.is_super_admin());

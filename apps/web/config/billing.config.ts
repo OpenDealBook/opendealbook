@@ -4,34 +4,34 @@ export const billingConfig = createBillingConfig({
   provider: 'stripe',
   products: [
     {
-      id: 'starter',
-      name: 'Starter',
-      description: 'Everything you need to get started.',
+      id: 'open-deal-book',
+      name: 'Open Deal Book',
+      description: 'Track, manage, and close every deal in one place.',
       currency: 'USD',
-      features: ['Unlimited projects', 'Community support'],
+      features: ['Unlimited deals', 'Team collaboration', 'Priority support'],
       plans: [
         {
-          id: 'starter-monthly',
-          name: 'Starter Monthly',
+          id: 'open-deal-book-monthly',
+          name: 'Open Deal Book Monthly',
           interval: 'month',
           lineItems: [
             {
-              id: 'starter-monthly-flat',
+              id: 'price_odb_monthly',
               name: 'Base',
-              cost: 9,
+              cost: 99,
               type: 'flat',
             },
           ],
         },
         {
-          id: 'starter-yearly',
-          name: 'Starter Yearly',
+          id: 'open-deal-book-yearly',
+          name: 'Open Deal Book Yearly',
           interval: 'year',
           lineItems: [
             {
-              id: 'starter-yearly-flat',
+              id: 'price_odb_yearly',
               name: 'Base',
-              cost: 90,
+              cost: 990,
               type: 'flat',
             },
           ],

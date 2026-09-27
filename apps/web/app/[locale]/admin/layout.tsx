@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { assertSuperAdmin } from '@tuckin/admin';
+import { adminGuard } from '@tuckin/admin';
 import { getSupabaseServerClient } from '@tuckin/supabase/server';
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -15,10 +15,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     redirect('/auth/sign-in');
   }
 
-  try {
-    assertSuperAdmin(user);
-  } catch {
-    redirect('/home');
+  const guard = await adminGuard(supabase);
+
+  if (guard.status === 'forbidden') {
+    notFound();
+  }
+
+  if (guard.status === 'needs-mfa') {
+    redirect('/mfa-setup');
   }
 
   return <>{children}</>;

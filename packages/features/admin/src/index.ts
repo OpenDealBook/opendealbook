@@ -1,6 +1,12 @@
 export { AdminAccountsTable } from './components/admin-accounts-table';
 export { AdminAccountDetail } from './components/admin-account-detail';
-export { assertSuperAdmin } from './lib/server/assert-super-admin';
+export { adminGuard, type AdminGuardResult } from './lib/server/admin-guard';
+export {
+  assertSuperAdmin,
+  getSuperAdminState,
+  hasSuperAdminRole,
+  isSuperAdmin,
+} from './lib/server/utils/super-admin';
 export {
   banUserAction,
   deleteAccountAction,

@@ -22,7 +22,13 @@ import { signUpWithPassword } from '../lib/auth-flows';
 import { SignUpSchema } from '../schemas';
 import { AuthErrorAlert } from './auth-error-alert';
 
-export function SignUpForm({ emailRedirectTo }: { emailRedirectTo?: string }) {
+export function SignUpForm({
+  emailRedirectTo,
+  onSuccess,
+}: {
+  emailRedirectTo?: string;
+  onSuccess?: () => void;
+}) {
   const client = useSupabase();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -34,7 +40,7 @@ export function SignUpForm({ emailRedirectTo }: { emailRedirectTo?: string }) {
   const onSubmit = async (values: z.output<typeof SignUpSchema>) => {
     setErrorMessage(null);
 
-    const { error } = await signUpWithPassword(client, {
+    const { data, error } = await signUpWithPassword(client, {
       email: values.email,
       password: values.password,
       emailRedirectTo,
@@ -42,6 +48,12 @@ export function SignUpForm({ emailRedirectTo }: { emailRedirectTo?: string }) {
 
     if (error) {
       setErrorMessage(error.message);
+
+      return;
+    }
+
+    if (data.session) {
+      onSuccess?.();
     }
   };
 

@@ -1,7 +1,10 @@
 'use server';
 
 import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import {
+  getSupabaseServerAdminClient,
+  getSupabaseServerClient,
+} from '@tuckin/supabase/server';
 
 import {
   acceptInvitationSchema,
@@ -19,7 +22,7 @@ import {
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 async function inviteMembers(data: InviteMembersData, user: { id: string }) {
-  const client = getSupabaseServerClient();
+  const client = getSupabaseServerAdminClient();
 
   const { error } = await client.rpc('add_invitations_to_account', {
     account_slug: data.slug,
@@ -73,7 +76,7 @@ async function acceptInvitation(
   data: AcceptInvitationData,
   user: { id: string },
 ) {
-  const client = getSupabaseServerClient();
+  const client = getSupabaseServerAdminClient();
 
   const { data: accountId, error } = await client.rpc('accept_invitation', {
     token: data.token,

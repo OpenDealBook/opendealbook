@@ -8,7 +8,7 @@ import '~/app/globals.css';
 
 export const metadata = {
   title: appConfig.name,
-  description: 'The Tuckin application.',
+  description: 'Track, manage, and close every deal in one place.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -10,6 +10,8 @@ create table if not exists public.nonces (
   user_id uuid references auth.users on delete cascade,
   account_id uuid references public.accounts (id) on delete cascade,
   metadata jsonb not null default '{}'::jsonb,
+  scopes text[] not null default '{}',
+  verification_attempts integer not null default 0,
   expires_at timestamptz not null,
   used_at timestamptz,
   created_at timestamptz not null default now()
@@ -35,50 +37,96 @@ create or replace function public.create_nonce(
   user_id uuid default null,
   account_id uuid default null,
   expires_in_seconds integer default 3600,
-  metadata jsonb default '{}'::jsonb
+  metadata jsonb default '{}'::jsonb,
+  scopes text[] default '{}'
 ) returns text
   language plpgsql security definer
   set search_path = '' as $$
 declare
   token text := encode(extensions.gen_random_bytes(24), 'hex');
 begin
-  insert into public.nonces (token_hash, purpose, user_id, account_id, metadata, expires_at)
+  insert into public.nonces (token_hash, purpose, user_id, account_id, metadata, scopes, expires_at)
   values (
     tuckin.hash_token(token),
     create_nonce.purpose,
     create_nonce.user_id,
     create_nonce.account_id,
     create_nonce.metadata,
+    create_nonce.scopes,
     now() + make_interval(secs => expires_in_seconds)
   );
   return token;
 end;
 $$;
 
-grant execute on function public.create_nonce(text, uuid, uuid, integer, jsonb) to service_role;
+grant execute on function public.create_nonce(text, uuid, uuid, integer, jsonb, text[]) to service_role;
 
--- Redeem a nonce, marking it used. Returns the nonce id on success.
-create or replace function public.verify_nonce(token text, purpose text)
-  returns uuid
+-- Redeem a nonce. Returns a JSONB result rather than raising so callers can
+-- branch on the outcome: on success { valid, user_id, metadata, scopes, purpose },
+-- otherwise { valid: false, message } with a max_attempts_exceeded or scope
+-- variant. Each redemption of a still-live nonce increments its attempt count;
+-- once the count passes the clamp the nonce is consumed so repeated failing
+-- guesses (for example a scope mismatch retried in a loop) cannot continue.
+create or replace function public.verify_nonce(
+  token text,
+  purpose text,
+  required_scopes text[] default null,
+  max_verification_attempts integer default 5
+) returns jsonb
   language plpgsql security definer
   set search_path = '' as $$
 declare
-  nonce_id uuid;
+  matched public.nonces;
+  attempt_ceiling integer := least(greatest(coalesce(max_verification_attempts, 5), 1), 10);
 begin
-  update public.nonces
-    set used_at = now()
-    where token_hash = tuckin.hash_token(token)
-      and nonces.purpose = verify_nonce.purpose
-      and used_at is null
-      and expires_at > now()
-  returning id into nonce_id;
+  update public.nonces n
+    set verification_attempts = n.verification_attempts + 1
+    where n.id = (
+      select id
+      from public.nonces
+      where token_hash = tuckin.hash_token(token)
+        and nonces.purpose = verify_nonce.purpose
+        and used_at is null
+        and expires_at > now()
+      for update skip locked
+      limit 1
+    )
+  returning n.* into matched;
 
-  if nonce_id is null then
-    raise exception 'invalid, expired, or already used token';
+  if matched.id is null then
+    return jsonb_build_object('valid', false, 'message', 'invalid, expired, or already used token');
   end if;
 
-  return nonce_id;
+  if matched.verification_attempts > attempt_ceiling then
+    update public.nonces set used_at = now() where id = matched.id and used_at is null;
+    return jsonb_build_object(
+      'valid', false,
+      'message', 'token locked after too many attempts',
+      'max_attempts_exceeded', true
+    );
+  end if;
+
+  if required_scopes is not null
+     and array_length(required_scopes, 1) > 0
+     and not (matched.scopes @> required_scopes) then
+    return jsonb_build_object(
+      'valid', false,
+      'message', 'token missing required scopes',
+      'token_scopes', matched.scopes,
+      'required_scopes', required_scopes
+    );
+  end if;
+
+  update public.nonces set used_at = now() where id = matched.id;
+
+  return jsonb_build_object(
+    'valid', true,
+    'user_id', matched.user_id,
+    'metadata', matched.metadata,
+    'scopes', matched.scopes,
+    'purpose', matched.purpose
+  );
 end;
 $$;
 
-grant execute on function public.verify_nonce(text, text) to service_role;
+grant execute on function public.verify_nonce(text, text, text[], integer) to service_role;

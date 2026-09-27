@@ -5,6 +5,7 @@ export interface CreateOtpTokenParams {
   userId?: string;
   accountId?: string;
   expiresInSeconds?: number;
+  scopes?: string[];
 }
 
 export async function createOtpToken({
@@ -12,6 +13,7 @@ export async function createOtpToken({
   userId,
   accountId,
   expiresInSeconds,
+  scopes,
 }: CreateOtpTokenParams): Promise<string> {
   const client = getSupabaseServerAdminClient();
 
@@ -20,6 +22,7 @@ export async function createOtpToken({
     user_id: userId,
     account_id: accountId,
     expires_in_seconds: expiresInSeconds,
+    scopes,
   });
 
   if (error) {

@@ -14,6 +14,7 @@ import { Skeleton } from '@tuckin/ui/skeleton';
 import { usePersonalAccountData } from '../../hooks/use-personal-account-data';
 import type { PersonalAccountData } from '../../shared';
 import { DeleteAccountDialog } from './delete-account-dialog';
+import { MultiFactorAuthSection } from './mfa';
 import { UpdateAccountImage } from './update-account-image';
 import { UpdateAccountNameForm } from './update-account-name-form';
 import { UpdateEmailForm } from './update-email-form';
@@ -80,6 +81,8 @@ export function PersonalAccountSettingsContainer({
           <UpdatePasswordForm />
         </CardContent>
       </Card>
+
+      <MultiFactorAuthSection />
 
       {children}
 

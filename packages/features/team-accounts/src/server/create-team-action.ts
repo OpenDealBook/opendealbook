@@ -1,7 +1,7 @@
 'use server';
 
 import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
 
 import {
   createTeamSchema,
@@ -9,7 +9,7 @@ import {
 } from '../schema/create-team.schema';
 
 async function createTeamAccount(data: CreateTeamData, user: { id: string }) {
-  const client = getSupabaseServerClient();
+  const client = getSupabaseServerAdminClient();
 
   const { data: account, error } = await client.rpc('create_team_account', {
     account_name: data.name,
