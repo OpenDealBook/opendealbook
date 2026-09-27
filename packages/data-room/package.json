@@ -1,0 +1,41 @@
+{
+  "name": "@tuckin/data-room",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./hooks": "./src/hooks/index.ts",
+    "./storage": "./src/storage.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tuckin/next": "workspace:*",
+    "@tuckin/policies": "workspace:*",
+    "@tuckin/supabase": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

@@ -345,6 +345,81 @@ export type Database = {
           },
         ]
       }
+      broker_intake: {
+        Row: {
+          account_id: string
+          asking_price: number | null
+          created_at: string
+          firm_id: string | null
+          firm_name: string
+          id: string
+          nda_required: boolean
+          status: Database["public"]["Enums"]["broker_intake_status"]
+          submitted_by_contact_id: string | null
+          teaser: string | null
+        }
+        Insert: {
+          account_id: string
+          asking_price?: number | null
+          created_at?: string
+          firm_id?: string | null
+          firm_name: string
+          id?: string
+          nda_required?: boolean
+          status?: Database["public"]["Enums"]["broker_intake_status"]
+          submitted_by_contact_id?: string | null
+          teaser?: string | null
+        }
+        Update: {
+          account_id?: string
+          asking_price?: number | null
+          created_at?: string
+          firm_id?: string | null
+          firm_name?: string
+          id?: string
+          nda_required?: boolean
+          status?: Database["public"]["Enums"]["broker_intake_status"]
+          submitted_by_contact_id?: string | null
+          teaser?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broker_intake_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_intake_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_intake_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_intake_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_intake_submitted_by_contact_id_fkey"
+            columns: ["submitted_by_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buyer_profile: {
         Row: {
           about: string | null
@@ -632,6 +707,58 @@ export type Database = {
           },
         ]
       }
+      data_source: {
+        Row: {
+          account_id: string
+          config_json: Json
+          created_at: string | null
+          created_by: string | null
+          id: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          config_json?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          config_json?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_source_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_source_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_source_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal: {
         Row: {
           account_id: string
@@ -855,6 +982,286 @@ export type Database = {
           },
         ]
       }
+      document_share: {
+        Row: {
+          account_id: string
+          created_at: string
+          expires_at: string | null
+          first_viewed_at: string | null
+          generated_document_id: string
+          id: string
+          permission: string | null
+          recipient_user_id: string | null
+          sent_at: string | null
+          workflow_id: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          expires_at?: string | null
+          first_viewed_at?: string | null
+          generated_document_id: string
+          id?: string
+          permission?: string | null
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          workflow_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          expires_at?: string | null
+          first_viewed_at?: string | null
+          generated_document_id?: string
+          id?: string
+          permission?: string | null
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          workflow_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_share_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_share_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_share_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_share_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_document"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_template: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          docx_path: string | null
+          id: string
+          name: string
+          type: string
+          updated_at: string | null
+          version: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          docx_path?: string | null
+          id?: string
+          name: string
+          type: string
+          updated_at?: string | null
+          version?: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          docx_path?: string | null
+          id?: string
+          name?: string
+          type?: string
+          updated_at?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_template_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_template_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_template_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dr_document: {
+        Row: {
+          account_id: string
+          checklist_item_id: string | null
+          created_at: string | null
+          deal_id: string
+          folder_id: string
+          id: string
+          name: string
+          storage_path: string
+          updated_at: string | null
+          uploaded_by: string | null
+          version: number
+        }
+        Insert: {
+          account_id: string
+          checklist_item_id?: string | null
+          created_at?: string | null
+          deal_id: string
+          folder_id: string
+          id?: string
+          name: string
+          storage_path: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+          version?: number
+        }
+        Update: {
+          account_id?: string
+          checklist_item_id?: string | null
+          created_at?: string | null
+          deal_id?: string
+          folder_id?: string
+          id?: string
+          name?: string
+          storage_path?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dr_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_document_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_document_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_document_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dr_folder: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          deal_id: string
+          id: string
+          name: string
+          parent_id: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          deal_id: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          deal_id?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dr_folder_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_folder_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_folder_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_folder_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dr_folder_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       firm: {
         Row: {
           account_id: string
@@ -942,6 +1349,148 @@ export type Database = {
           },
           {
             foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_document: {
+        Row: {
+          account_id: string
+          contract_id: string | null
+          created_at: string
+          created_by: string | null
+          deal_id: string
+          docx_path: string | null
+          id: string
+          pdf_path: string | null
+          template_id: string | null
+          template_version: number | null
+          values_json: Json
+        }
+        Insert: {
+          account_id: string
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id: string
+          docx_path?: string | null
+          id?: string
+          pdf_path?: string | null
+          template_id?: string | null
+          template_version?: number | null
+          values_json?: Json
+        }
+        Update: {
+          account_id?: string
+          contract_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string
+          docx_path?: string | null
+          id?: string
+          pdf_path?: string | null
+          template_id?: string | null
+          template_version?: number | null
+          values_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_connection: {
+        Row: {
+          account_id: string
+          connected_at: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          nango_connection_id: string
+          provider: string
+          scopes: string[] | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          account_id: string
+          connected_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          nango_connection_id: string
+          provider: string
+          scopes?: string[] | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          connected_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          nango_connection_id?: string
+          provider?: string
+          scopes?: string[] | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_connection_account_id_fkey"
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "user_accounts"
@@ -1112,6 +1661,7 @@ export type Database = {
           expires_at: string | null
           id: number
           link: string | null
+          recipient_user_id: string | null
           type: Database["public"]["Enums"]["notification_type"]
         }
         Insert: {
@@ -1123,6 +1673,7 @@ export type Database = {
           expires_at?: string | null
           id?: never
           link?: string | null
+          recipient_user_id?: string | null
           type?: Database["public"]["Enums"]["notification_type"]
         }
         Update: {
@@ -1134,6 +1685,7 @@ export type Database = {
           expires_at?: string | null
           id?: never
           link?: string | null
+          recipient_user_id?: string | null
           type?: Database["public"]["Enums"]["notification_type"]
         }
         Relationships: [
@@ -1498,6 +2050,53 @@ export type Database = {
           },
         ]
       }
+      template_field: {
+        Row: {
+          format: string | null
+          id: string
+          key: string
+          label: string | null
+          required: boolean
+          sort_order: number | null
+          source: string | null
+          source_path: string | null
+          template_id: string
+          type: string | null
+        }
+        Insert: {
+          format?: string | null
+          id?: string
+          key: string
+          label?: string | null
+          required?: boolean
+          sort_order?: number | null
+          source?: string | null
+          source_path?: string | null
+          template_id: string
+          type?: string | null
+        }
+        Update: {
+          format?: string | null
+          id?: string
+          key?: string
+          label?: string | null
+          required?: boolean
+          sort_order?: number | null
+          source?: string | null
+          source_path?: string | null
+          template_id?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_field_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_template"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       user_account_workspace: {
@@ -1812,6 +2411,7 @@ export type Database = {
         | "schedule"
         | "participant_change"
       billing_provider: "stripe" | "lemon-squeezy" | "paddle"
+      broker_intake_status: "new" | "accepted" | "rejected"
       checklist_outcome: "accepted" | "follow_up" | "rejected"
       checklist_status: "not_started" | "requested" | "received" | "reviewed"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
@@ -2530,6 +3130,7 @@ export const Constants = {
         "participant_change",
       ],
       billing_provider: ["stripe", "lemon-squeezy", "paddle"],
+      broker_intake_status: ["new", "accepted", "rejected"],
       checklist_outcome: ["accepted", "follow_up", "rejected"],
       checklist_status: ["not_started", "requested", "received", "reviewed"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],

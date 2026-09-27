@@ -1083,12 +1083,14 @@ grant execute on function public.upsert_order(
 ) to service_role;
 
 -- ===== schemas/11-notifications.sql =====
--- Account-scoped in-app notifications. Members read; only the dismissed flag is
--- user-writable.
+-- In-app notifications. A row is either targeted to one user (recipient_user_id
+-- set) or an account-wide broadcast (recipient_user_id null, read by every
+-- account member). Only the dismissed flag is user-writable.
 
 create table if not exists public.notifications (
   id bigint generated always as identity primary key,
   account_id uuid not null references public.accounts (id) on delete cascade,
+  recipient_user_id uuid references auth.users (id) on delete cascade,
   type public.notification_type not null default 'info',
   channel public.notification_channel not null default 'in_app',
   body varchar(5000) not null,
@@ -1101,6 +1103,7 @@ create table if not exists public.notifications (
 alter table public.notifications enable row level security;
 
 create index ix_notifications_account_active on public.notifications (account_id, dismissed, expires_at);
+create index ix_notifications_recipient on public.notifications (recipient_user_id);
 
 revoke all on public.notifications from authenticated, service_role;
 grant select on public.notifications to authenticated;
@@ -1111,11 +1114,17 @@ alter publication supabase_realtime add table public.notifications;
 
 create policy notifications_read on public.notifications
   for select to authenticated
-  using (account_id = (select auth.uid()) or public.has_role_on_account(account_id));
+  using (
+    recipient_user_id = (select auth.uid())
+    or (recipient_user_id is null and public.has_role_on_account(account_id))
+  );
 
 create policy notifications_update on public.notifications
   for update to authenticated
-  using (account_id = (select auth.uid()) or public.has_role_on_account(account_id));
+  using (
+    recipient_user_id = (select auth.uid())
+    or (recipient_user_id is null and public.has_role_on_account(account_id))
+  );
 
 -- Only the dismissed flag may change through an authenticated update.
 create or replace function tuckin.restrict_notification_update()
@@ -2410,3 +2419,573 @@ grant execute on function public.seed_default_pipeline_stages(uuid) to service_r
 alter table public.deal
   add constraint deal_stage_pipeline_stage_fk
   foreign key (account_id, stage) references public.pipeline_stage (account_id, key);
+
+-- ===== schemas/32-integration-connection.sql =====
+-- Third-party integration connections managed through Nango. A row is either
+-- account-level (user_id null) for tenant integrations like SendGrid or a CRM,
+-- or user-level (user_id set) for a member's mailbox or calendar. The app only
+-- ever stores the nango_connection_id; third-party tokens live in Nango.
+
+create table if not exists public.integration_connection (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  user_id uuid references auth.users on delete cascade,
+  provider text not null,
+  nango_connection_id text not null,
+  scopes text[],
+  status text,
+  connected_at timestamptz,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.integration_connection enable row level security;
+
+create index ix_integration_connection_account on public.integration_connection (account_id);
+
+revoke all on public.integration_connection from authenticated, service_role;
+grant select, insert, update, delete on public.integration_connection to authenticated;
+grant select, insert, update, delete on public.integration_connection to service_role;
+
+create trigger integration_connection_timestamps
+  before insert or update on public.integration_connection
+  for each row execute function public.set_timestamps();
+
+create policy integration_connection_read on public.integration_connection
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy integration_connection_insert on public.integration_connection
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+create policy integration_connection_update on public.integration_connection
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+create policy integration_connection_delete on public.integration_connection
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+-- ===== schemas/33-data-source.sql =====
+-- Account-scoped deal sourcing inputs. A data_source describes where inbound
+-- deals come from; config_json holds the source-specific settings.
+
+create table if not exists public.data_source (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  type text not null check (type in ('csv', 'clay', 'state_board', 'listing_email', 'manual')),
+  config_json jsonb not null default '{}'::jsonb,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.data_source enable row level security;
+
+create index ix_data_source_account on public.data_source (account_id);
+
+revoke all on public.data_source from authenticated, service_role;
+grant select, insert, update, delete on public.data_source to authenticated;
+grant select, insert, update, delete on public.data_source to service_role;
+
+create trigger data_source_timestamps
+  before insert or update on public.data_source
+  for each row execute function public.set_timestamps();
+
+create policy data_source_read on public.data_source
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy data_source_insert on public.data_source
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy data_source_update on public.data_source
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy data_source_delete on public.data_source
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/34-broker-intake.sql =====
+-- Broker-submitted deal intakes, typically arriving through a magic-link form.
+-- Internal members read and manage them with deals.manage; the unauthenticated
+-- magic-link submission path is served separately by the service role (an edge
+-- function or signed request), which holds full grants here. That auth flow is
+-- a separate lane and is not built in the database.
+
+create type public.broker_intake_status as enum ('new', 'accepted', 'rejected');
+
+create table if not exists public.broker_intake (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  firm_name text not null,
+  teaser text,
+  asking_price numeric,
+  nda_required boolean not null default false,
+  submitted_by_contact_id uuid references public.contact (id) on delete set null,
+  status public.broker_intake_status not null default 'new',
+  firm_id uuid references public.firm (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+alter table public.broker_intake enable row level security;
+
+create index ix_broker_intake_account_status on public.broker_intake (account_id, status);
+
+revoke all on public.broker_intake from authenticated, service_role;
+grant select, insert, update, delete on public.broker_intake to authenticated;
+grant select, insert, update, delete on public.broker_intake to service_role;
+
+create policy broker_intake_read on public.broker_intake
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy broker_intake_insert on public.broker_intake
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy broker_intake_update on public.broker_intake
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy broker_intake_delete on public.broker_intake
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/35-document-template.sql =====
+-- Account-scoped document templates (the .docx lives at docx_path in storage).
+-- Managed with deals.manage. Field definitions live in template_field.
+
+create table if not exists public.document_template (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name text not null,
+  type text not null check (type in ('nda', 'loi', 'apa', 'data_request', 'letter')),
+  docx_path text,
+  version int not null default 1,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.document_template enable row level security;
+
+create index ix_document_template_account on public.document_template (account_id);
+
+revoke all on public.document_template from authenticated, service_role;
+grant select, insert, update, delete on public.document_template to authenticated;
+grant select, insert, update, delete on public.document_template to service_role;
+
+create trigger document_template_timestamps
+  before insert or update on public.document_template
+  for each row execute function public.set_timestamps();
+
+create policy document_template_read on public.document_template
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy document_template_insert on public.document_template
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy document_template_update on public.document_template
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy document_template_delete on public.document_template
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/36-template-field.sql =====
+-- Merge-field definitions for a document_template. source says where the value
+-- comes from (a deal/firm/account column, or manual entry) and source_path is
+-- the path into that source. Access is inherited from the owning template.
+
+create table if not exists public.template_field (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.document_template (id) on delete cascade,
+  key text not null,
+  label text,
+  type text check (type in ('text', 'currency', 'date', 'percent', 'list')),
+  source text check (source in ('deal', 'firm', 'account', 'manual')),
+  source_path text,
+  format text,
+  required boolean not null default false,
+  sort_order int
+);
+
+alter table public.template_field enable row level security;
+
+create index ix_template_field_template on public.template_field (template_id);
+
+revoke all on public.template_field from authenticated, service_role;
+grant select, insert, update, delete on public.template_field to authenticated;
+grant select, insert, update, delete on public.template_field to service_role;
+
+create policy template_field_read on public.template_field
+  for select to authenticated
+  using (
+    exists (
+      select 1 from public.document_template t
+      where t.id = template_id and public.has_role_on_account(t.account_id)
+    )
+  );
+
+create policy template_field_insert on public.template_field
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.document_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
+    )
+  );
+
+create policy template_field_update on public.template_field
+  for update to authenticated
+  using (
+    exists (
+      select 1 from public.document_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.document_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
+    )
+  );
+
+create policy template_field_delete on public.template_field
+  for delete to authenticated
+  using (
+    exists (
+      select 1 from public.document_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
+    )
+  );
+
+-- ===== schemas/37-generated-document.sql =====
+-- A document produced from a template for a specific deal. template_version
+-- records the template revision used so the output stays reproducible even if
+-- the template later changes. Deal-scoped: reachable by internal members and by
+-- external parties holding a participant grant on the deal.
+
+create table if not exists public.generated_document (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  template_id uuid references public.document_template (id) on delete set null,
+  template_version int,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  values_json jsonb not null default '{}'::jsonb,
+  docx_path text,
+  pdf_path text,
+  contract_id uuid,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
+alter table public.generated_document enable row level security;
+
+create index ix_generated_document_deal on public.generated_document (deal_id);
+create index ix_generated_document_account on public.generated_document (account_id);
+
+revoke all on public.generated_document from authenticated, service_role;
+grant select, insert, update, delete on public.generated_document to authenticated;
+grant select, insert, update, delete on public.generated_document to service_role;
+
+create policy generated_document_read on public.generated_document
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy generated_document_insert on public.generated_document
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy generated_document_update on public.generated_document
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy generated_document_delete on public.generated_document
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/38-document-share.sql =====
+-- A share of a generated_document with a recipient, tracking send/view/expiry
+-- and the external signing workflow. Deal-scoped through the shared document's
+-- deal; the recipient may also read their own share row.
+
+create table if not exists public.document_share (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  generated_document_id uuid not null references public.generated_document (id) on delete cascade,
+  recipient_user_id uuid references auth.users on delete cascade,
+  permission text,
+  sent_at timestamptz,
+  first_viewed_at timestamptz,
+  expires_at timestamptz,
+  workflow_id text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.document_share enable row level security;
+
+create index ix_document_share_document on public.document_share (generated_document_id);
+create index ix_document_share_account on public.document_share (account_id);
+
+revoke all on public.document_share from authenticated, service_role;
+grant select, insert, update, delete on public.document_share to authenticated;
+grant select, insert, update, delete on public.document_share to service_role;
+
+create policy document_share_read on public.document_share
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or recipient_user_id = (select auth.uid())
+    or exists (
+      select 1 from public.generated_document g
+      where g.id = generated_document_id
+        and public.has_deal_permission(g.deal_id, 'deals.manage')
+    )
+  );
+
+create policy document_share_insert on public.document_share
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy document_share_update on public.document_share
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy document_share_delete on public.document_share
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/39-dr-folder.sql =====
+-- Data room folders. Each deal owns a folder tree; parent_id nests them and is
+-- null at the root. Deal-scoped so external parties on the deal can browse it.
+
+create table if not exists public.dr_folder (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  parent_id uuid references public.dr_folder (id) on delete cascade,
+  name text not null,
+  sort_order int,
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.dr_folder enable row level security;
+
+create index ix_dr_folder_deal on public.dr_folder (deal_id);
+create index ix_dr_folder_parent on public.dr_folder (parent_id);
+
+revoke all on public.dr_folder from authenticated, service_role;
+grant select, insert, update, delete on public.dr_folder to authenticated;
+grant select, insert, update, delete on public.dr_folder to service_role;
+
+create trigger dr_folder_timestamps
+  before insert or update on public.dr_folder
+  for each row execute function public.set_timestamps();
+
+create policy dr_folder_read on public.dr_folder
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy dr_folder_insert on public.dr_folder
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy dr_folder_update on public.dr_folder
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy dr_folder_delete on public.dr_folder
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/40-dr-document.sql =====
+-- A file in a data room folder. Re-uploading a file with the same name is a new
+-- row with a higher version; the database allows it and the app decides how to
+-- present versions. checklist_item_id links a document to the diligence item it
+-- satisfies. Deal-scoped.
+
+create table if not exists public.dr_document (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  folder_id uuid not null references public.dr_folder (id) on delete cascade,
+  name text not null,
+  storage_path text not null,
+  version int not null default 1,
+  uploaded_by uuid references auth.users default auth.uid(),
+  checklist_item_id uuid references public.checklist_item (id) on delete set null,
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.dr_document enable row level security;
+
+create index ix_dr_document_deal on public.dr_document (deal_id);
+create index ix_dr_document_folder on public.dr_document (folder_id);
+
+revoke all on public.dr_document from authenticated, service_role;
+grant select, insert, update, delete on public.dr_document to authenticated;
+grant select, insert, update, delete on public.dr_document to service_role;
+
+create trigger dr_document_timestamps
+  before insert or update on public.dr_document
+  for each row execute function public.set_timestamps();
+
+create policy dr_document_read on public.dr_document
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy dr_document_insert on public.dr_document
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy dr_document_update on public.dr_document
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy dr_document_delete on public.dr_document
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/41-notification-triggers.sql =====
+-- Notification producers. Each row carries the relevant account_id and a
+-- recipient_user_id targeting one user. These functions are security definer so
+-- they can insert regardless of the caller's grants, and they insert nothing
+-- when a recipient cannot be resolved rather than guessing.
+
+-- A team invitation is addressed by email. Notify the invitee only when that
+-- email already belongs to an auth user; a brand-new invitee has no in-app
+-- inbox yet and is reached by the invitation email instead.
+create or replace function tuckin.notify_on_invitation()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  invitee_id uuid;
+  team_name text;
+begin
+  select id into invitee_id from auth.users where email = new.email;
+  if invitee_id is null then
+    return new;
+  end if;
+
+  select name into team_name from public.accounts where id = new.account_id;
+
+  insert into public.notifications (account_id, recipient_user_id, type, body)
+  values (new.account_id, invitee_id, 'info', 'You have been invited to join ' || coalesce(team_name, 'a team'));
+
+  return new;
+end;
+$$;
+
+create trigger invitations_notify
+  after insert on public.invitations
+  for each row execute function tuckin.notify_on_invitation();
+
+-- A new membership notifies the team owner, skipping the owner's own founding
+-- membership and personal accounts (which have no memberships anyway).
+create or replace function tuckin.notify_on_membership()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  owner_id uuid;
+  team_name text;
+begin
+  select primary_owner_user_id, name into owner_id, team_name
+  from public.accounts
+  where id = new.account_id and not is_personal_account;
+
+  if owner_id is null or owner_id = new.user_id then
+    return new;
+  end if;
+
+  insert into public.notifications (account_id, recipient_user_id, type, body)
+  values (new.account_id, owner_id, 'info', 'A new member joined ' || coalesce(team_name, 'your team'));
+
+  return new;
+end;
+$$;
+
+create trigger memberships_notify
+  after insert on public.accounts_memberships
+  for each row execute function tuckin.notify_on_membership();
+
+-- A subscription status change notifies the account owner.
+create or replace function tuckin.notify_on_subscription_change()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  owner_id uuid;
+begin
+  select primary_owner_user_id into owner_id
+  from public.accounts where id = new.account_id;
+
+  if owner_id is null then
+    return new;
+  end if;
+
+  insert into public.notifications (account_id, recipient_user_id, type, body)
+  values (new.account_id, owner_id, 'info', 'Your subscription status changed to ' || new.status::text);
+
+  return new;
+end;
+$$;
+
+create trigger subscriptions_notify_status
+  after update of status on public.subscriptions
+  for each row when (old.status is distinct from new.status)
+  execute function tuckin.notify_on_subscription_change();
+
+-- A deal stage move notifies every party on the deal except the actor.
+create or replace function tuckin.notify_on_deal_stage_move()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  insert into public.notifications (account_id, recipient_user_id, type, body)
+  select distinct new.account_id, dp.user_id, 'info'::public.notification_type, 'Deal moved to ' || new.stage
+  from public.deal_participant dp
+  where dp.deal_id = new.id
+    and dp.user_id is distinct from auth.uid();
+
+  return new;
+end;
+$$;
+
+create trigger deal_notify_stage_move
+  after update of stage on public.deal
+  for each row when (old.stage is distinct from new.stage)
+  execute function tuckin.notify_on_deal_stage_move();

@@ -1,12 +1,12 @@
 import { cookies } from 'next/headers';
 
 import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from './database.types';
-import { getSupabaseClientKeys, getSupabaseServiceRoleKey } from './env';
+import { getSupabaseClientKeys } from './env';
 
+export { getSupabaseServerAdminClient } from './admin';
 export { requireUser } from './require-user';
 
 export function getSupabaseServerClient(): SupabaseClient<Database> {
@@ -26,18 +26,6 @@ export function getSupabaseServerClient(): SupabaseClient<Database> {
           store.set(name, value, options),
         );
       },
-    },
-  });
-}
-
-export function getSupabaseServerAdminClient(): SupabaseClient<Database> {
-  const keys = getSupabaseClientKeys();
-
-  return createClient<Database>(keys.url, getSupabaseServiceRoleKey(), {
-    auth: {
-      persistSession: false,
-      detectSessionInUrl: false,
-      autoRefreshToken: false,
     },
   });
 }

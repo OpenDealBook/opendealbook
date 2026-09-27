@@ -1,9 +1,11 @@
--- Account-scoped in-app notifications. Members read; only the dismissed flag is
--- user-writable.
+-- In-app notifications. A row is either targeted to one user (recipient_user_id
+-- set) or an account-wide broadcast (recipient_user_id null, read by every
+-- account member). Only the dismissed flag is user-writable.
 
 create table if not exists public.notifications (
   id bigint generated always as identity primary key,
   account_id uuid not null references public.accounts (id) on delete cascade,
+  recipient_user_id uuid references auth.users (id) on delete cascade,
   type public.notification_type not null default 'info',
   channel public.notification_channel not null default 'in_app',
   body varchar(5000) not null,
@@ -16,6 +18,7 @@ create table if not exists public.notifications (
 alter table public.notifications enable row level security;
 
 create index ix_notifications_account_active on public.notifications (account_id, dismissed, expires_at);
+create index ix_notifications_recipient on public.notifications (recipient_user_id);
 
 revoke all on public.notifications from authenticated, service_role;
 grant select on public.notifications to authenticated;
@@ -26,11 +29,17 @@ alter publication supabase_realtime add table public.notifications;
 
 create policy notifications_read on public.notifications
   for select to authenticated
-  using (account_id = (select auth.uid()) or public.has_role_on_account(account_id));
+  using (
+    recipient_user_id = (select auth.uid())
+    or (recipient_user_id is null and public.has_role_on_account(account_id))
+  );
 
 create policy notifications_update on public.notifications
   for update to authenticated
-  using (account_id = (select auth.uid()) or public.has_role_on_account(account_id));
+  using (
+    recipient_user_id = (select auth.uid())
+    or (recipient_user_id is null and public.has_role_on_account(account_id))
+  );
 
 -- Only the dismissed flag may change through an authenticated update.
 create or replace function tuckin.restrict_notification_update()

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
+import { useSupabase, useUser } from '@tuckin/supabase/hooks';
 
 import {
   type NotificationRow,
@@ -14,16 +14,19 @@ import {
 
 export function useNotifications(accountId: string) {
   const client = useSupabase();
+  const userId = useUser().data?.id;
   const [streamed, setStreamed] = useState<NotificationViewModel[]>([]);
 
   const query = useQuery({
-    queryKey: ['notifications', accountId],
+    queryKey: ['notifications', accountId, userId],
+    enabled: userId !== undefined,
     queryFn: async () => {
       const { data, error } = await client
         .from('notifications')
         .select('id, body, type, link, created_at')
         .eq('account_id', accountId)
         .eq('dismissed', false)
+        .or(`recipient_user_id.eq.${userId},recipient_user_id.is.null`)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -35,6 +38,10 @@ export function useNotifications(accountId: string) {
   });
 
   useEffect(() => {
+    if (userId === undefined) {
+      return;
+    }
+
     const channel = client
       .channel(`notifications:${accountId}`)
       .on(
@@ -46,6 +53,12 @@ export function useNotifications(accountId: string) {
           filter: `account_id=eq.${accountId}`,
         },
         (payload) => {
+          const recipientUserId = payload.new.recipient_user_id;
+
+          if (recipientUserId !== null && recipientUserId !== userId) {
+            return;
+          }
+
           setStreamed((existing) => [
             toNotificationViewModel(payload.new as NotificationRow),
             ...existing,
@@ -57,7 +70,7 @@ export function useNotifications(accountId: string) {
     return () => {
       void client.removeChannel(channel);
     };
-  }, [client, accountId]);
+  }, [client, accountId, userId]);
 
   const notifications = [...streamed, ...(query.data ?? [])];
 

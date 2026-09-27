@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tuckin/tsconfig/react-library.json",
+  "compilerOptions": {
+    "types": ["react", "node"],
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json"
+  },
+  "include": ["*.ts", "src"],
+  "exclude": ["node_modules", "dist", ".turbo"]
+}
