@@ -1,5 +1,6 @@
 'use server';
 
+import { appendDealEvent } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import type { TablesInsert, TablesUpdate } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -70,27 +71,22 @@ export const scheduleMeeting = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
-    const insert: TablesInsert<'meeting'> = {
-      account_id: data.account_id,
-      deal_id: data.deal_id,
-      series_id: data.series_id ?? null,
-      type: data.type,
-      scheduled_at: data.scheduled_at ?? null,
-      status: data.status ?? null,
-      notes: data.notes ?? null,
-    };
+    const id = crypto.randomUUID();
 
-    const { data: row, error } = await client
-      .from('meeting')
-      .insert(insert)
-      .select('*')
-      .single();
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'meeting',
+      aggregateId: id,
+      eventType: 'meeting.scheduled',
+      payload: {
+        series_id: data.series_id ?? null,
+        type: data.type,
+        scheduled_at: data.scheduled_at ?? null,
+        status: data.status ?? null,
+      },
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return row;
+    return id;
   },
   { auth: true, schema: scheduleMeetingSchema },
 );
@@ -99,29 +95,25 @@ export const addMeetingActionItem = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
-    const insert: TablesInsert<'meeting_action_item'> = {
-      account_id: data.account_id,
-      deal_id: data.deal_id,
-      meeting_id: data.meeting_id,
-      description: data.description,
-      owner_user_id: data.owner_user_id ?? null,
-      owner_is_seller: data.owner_is_seller ?? false,
-      due_at: data.due_at ?? null,
-      checklist_item_id: data.checklist_item_id ?? null,
-      schedule_week_id: data.schedule_week_id ?? null,
-    };
+    const id = crypto.randomUUID();
 
-    const { data: row, error } = await client
-      .from('meeting_action_item')
-      .insert(insert)
-      .select('*')
-      .single();
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'meeting_action_item',
+      aggregateId: id,
+      eventType: 'meeting_action_item.added',
+      payload: {
+        meeting_id: data.meeting_id,
+        description: data.description,
+        owner_user_id: data.owner_user_id ?? null,
+        owner_is_seller: data.owner_is_seller ?? false,
+        due_at: data.due_at ?? null,
+        status: null,
+        checklist_item_id: data.checklist_item_id ?? null,
+      },
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return row;
+    return id;
   },
   { auth: true, schema: meetingActionItemSchema },
 );
@@ -130,18 +122,25 @@ export const completeMeetingActionItem = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
-    const { data: row, error } = await client
+    const { data: item, error } = await client
       .from('meeting_action_item')
-      .update({ status: 'reviewed' })
+      .select('deal_id')
       .eq('id', data.id)
-      .select('*')
       .single();
 
     if (error) {
       throw error;
     }
 
-    return row;
+    await appendDealEvent(client, {
+      dealId: item.deal_id,
+      aggregateType: 'meeting_action_item',
+      aggregateId: data.id,
+      eventType: 'meeting_action_item.updated',
+      payload: { status: 'reviewed' },
+    });
+
+    return data.id;
   },
   { auth: true, schema: completeMeetingActionItemSchema },
 );

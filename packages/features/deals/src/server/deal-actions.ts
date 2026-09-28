@@ -1,7 +1,8 @@
 'use server';
 
+import { appendDealEvent, appendDealEvents, type DealEventInput } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
-import type { TablesInsert, TablesUpdate } from '@odb/supabase';
+import type { TablesInsert } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
@@ -33,35 +34,24 @@ async function currentDealBoxVersion(
 export const createDeal = enhanceAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
+    const dealId = crypto.randomUUID();
 
-    const dealBoxVersion = await currentDealBoxVersion(client, data.account_id);
+    await appendDealEvent(client, {
+      dealId,
+      aggregateType: 'deal',
+      aggregateId: dealId,
+      eventType: 'deal.created',
+      payload: {
+        account_id: data.account_id,
+        owner_user_id: user.id,
+        firm_id: data.firm_id ?? null,
+        description: data.description ?? null,
+        source: data.source,
+        stage: data.stage,
+      },
+    });
 
-    const insert: TablesInsert<'deal'> = {
-      account_id: data.account_id,
-      owner_user_id: user.id,
-      firm_id: data.firm_id ?? null,
-      description: data.description ?? null,
-      asking_price: data.asking_price ?? null,
-      revenue_ttm: data.revenue_ttm ?? null,
-      sde_ttm: data.sde_ttm ?? null,
-      ebitda_ttm: data.ebitda_ttm ?? null,
-      source: data.source,
-      stage: data.stage,
-      notes: data.notes ?? null,
-      deal_box_version: dealBoxVersion,
-    };
-
-    const { data: row, error } = await client
-      .from('deal')
-      .insert(insert)
-      .select('*')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return row;
+    return dealId;
   },
   { auth: true, schema: dealSchema },
 );
@@ -69,19 +59,12 @@ export const createDeal = enhanceAction(
 export const updateDealStage = enhanceAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
-    const now = new Date().toISOString();
 
     const { data: deal } = await client
       .from('deal')
       .select('account_id, stage')
       .eq('id', data.deal_id)
       .single()
-      .throwOnError();
-
-    await client
-      .from('deal')
-      .update({ stage: data.stage, updated_at: now })
-      .eq('id', data.deal_id)
       .throwOnError();
 
     await client
@@ -95,6 +78,15 @@ export const updateDealStage = enhanceAction(
       })
       .throwOnError();
 
+    const events: DealEventInput[] = [
+      {
+        aggregateType: 'deal',
+        aggregateId: data.deal_id,
+        eventType: 'deal.stage_changed',
+        payload: { stage: data.stage },
+      },
+    ];
+
     const stages = await fetchAccountStages(client, deal.account_id);
     const loiStage = stages.find((stage) => stage.key === 'loi');
     const targetStage = stages.find((stage) => stage.key === data.stage);
@@ -104,15 +96,15 @@ export const updateDealStage = enhanceAction(
       targetStage !== undefined &&
       targetStage.sort_order > loiStage.sort_order
     ) {
-      await client
-        .from('approval')
-        .insert({
-          deal_id: data.deal_id,
-          subject: 'stage_move',
-          requested_by: user.id,
-        })
-        .throwOnError();
+      events.push({
+        aggregateType: 'approval',
+        aggregateId: crypto.randomUUID(),
+        eventType: 'approval.requested',
+        payload: { subject: 'stage_move' },
+      });
     }
+
+    await appendDealEvents(client, data.deal_id, events);
 
     return { success: true };
   },
@@ -182,17 +174,24 @@ export const addDealParticipant = enhanceAction(
       throw new Error('Not permitted to manage participants');
     }
 
-    const { data: row, error } = await client
-      .from('deal_participant')
-      .insert(data)
-      .select('*')
-      .single();
+    const participantId = crypto.randomUUID();
 
-    if (error) {
-      throw error;
-    }
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal_participant',
+      aggregateId: participantId,
+      eventType: 'deal_participant.added',
+      payload: {
+        user_id: data.user_id,
+        party: data.party,
+        role: data.role ?? null,
+        scope: data.scope,
+        permission: data.permission,
+        expires_at: data.expires_at ?? null,
+      },
+    });
 
-    return row;
+    return participantId;
   },
   { auth: true, schema: dealParticipantSchema },
 );
@@ -204,7 +203,7 @@ const checklistTimestampColumn = {
 } as const;
 
 export const updateChecklistItemStatus = enhanceAction(
-  async (data, user) => {
+  async (data) => {
     const client = getSupabaseServerClient();
     const now = new Date().toISOString();
 
@@ -213,79 +212,74 @@ export const updateChecklistItemStatus = enhanceAction(
         data.status as keyof typeof checklistTimestampColumn
       ];
 
-    const update: TablesUpdate<'checklist_item'> = { status: data.status };
+    const { data: item } = await client
+      .from('checklist_item')
+      .select('deal_id')
+      .eq('id', data.id)
+      .single()
+      .throwOnError();
+
+    const payload: Record<string, string> = { status: data.status };
 
     if (column) {
-      update[column] = now;
-    }
-
-    if (data.status === 'reviewed') {
-      update.reviewed_by = user.id;
+      payload[column] = now;
     }
 
     if (data.outcome) {
-      update.outcome = data.outcome;
+      payload.outcome = data.outcome;
     }
 
-    const { data: row, error } = await client
-      .from('checklist_item')
-      .update(update)
-      .eq('id', data.id)
-      .select('*')
-      .single();
+    await appendDealEvent(client, {
+      dealId: item.deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: data.id,
+      eventType: 'checklist_item.status_changed',
+      payload,
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return row;
+    return data.id;
   },
   { auth: true, schema: updateChecklistItemStatusSchema },
 );
 
 export const requestApproval = enhanceAction(
-  async (data, user) => {
+  async (data) => {
     const client = getSupabaseServerClient();
+    const approvalId = crypto.randomUUID();
 
-    const { data: row, error } = await client
-      .from('approval')
-      .insert({
-        deal_id: data.deal_id,
-        subject: data.subject,
-        requested_by: user.id,
-      })
-      .select('*')
-      .single();
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'approval',
+      aggregateId: approvalId,
+      eventType: 'approval.requested',
+      payload: { subject: data.subject },
+    });
 
-    if (error) {
-      throw error;
-    }
-
-    return row;
+    return approvalId;
   },
   { auth: true, schema: approvalSchema },
 );
 
 export const decideApproval = enhanceAction(
-  async (data, user) => {
+  async (data) => {
     const client = getSupabaseServerClient();
 
-    const { data: row, error } = await client
+    const { data: approval } = await client
       .from('approval')
-      .update({
-        decision: data.decision,
-        decided_by: user.id,
-        decided_at: new Date().toISOString(),
-      })
+      .select('deal_id')
       .eq('id', data.id)
-      .select('*')
-      .single();
+      .single()
+      .throwOnError();
 
-    if (error) {
-      throw error;
-    }
+    await appendDealEvent(client, {
+      dealId: approval.deal_id,
+      aggregateType: 'approval',
+      aggregateId: data.id,
+      eventType: 'approval.decided',
+      payload: { decision: data.decision },
+    });
 
-    return row;
+    return data.id;
   },
   { auth: true, schema: decideApprovalSchema },
 );

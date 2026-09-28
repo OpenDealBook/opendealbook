@@ -1,8 +1,9 @@
 import 'server-only';
+import { appendDealEvent, appendDealEvents } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
-import { assertDealPermission, resolveDealAccountId } from '../permission';
+import { assertDealPermission } from '../permission';
 import { uploadToDataRoom } from '../storage';
 import {
   bulkDownloadSchema,
@@ -12,11 +13,10 @@ import {
 import { nextVersion } from './version';
 
 export const uploadDocument = enhanceAction(
-  async (input, user) => {
+  async (input) => {
     const client = getSupabaseServerClient();
 
     await assertDealPermission(client, input.dealId);
-    const accountId = await resolveDealAccountId(client, input.dealId);
 
     const storagePath = await uploadToDataRoom(
       client,
@@ -36,39 +36,36 @@ export const uploadDocument = enhanceAction(
       throw existing.error;
     }
 
-    const version = nextVersion(existing.data.map((row) => row.version));
-
-    const { data, error } = await client
-      .from('dr_document')
-      .insert({
-        account_id: accountId,
-        deal_id: input.dealId,
+    const documentId = crypto.randomUUID();
+    const added = {
+      aggregateType: 'dr_document' as const,
+      aggregateId: documentId,
+      eventType: 'dr_document.added' as const,
+      payload: {
         folder_id: input.folderId,
         name: input.name,
         storage_path: storagePath,
-        version,
-        uploaded_by: user.id,
+        version: nextVersion(existing.data.map((row) => row.version)),
         checklist_item_id: input.checklistItemId ?? null,
-      })
-      .select('*')
-      .single();
-
-    if (error) {
-      throw error;
-    }
+      },
+    };
 
     if (input.checklistItemId) {
-      const flip = await client
-        .from('checklist_item')
-        .update({ status: 'received', received_at: new Date().toISOString() })
-        .eq('id', input.checklistItemId);
-
-      if (flip.error) {
-        throw flip.error;
-      }
+      return appendDealEvents(client, input.dealId, [
+        added,
+        {
+          aggregateType: 'checklist_item',
+          aggregateId: input.checklistItemId,
+          eventType: 'checklist_item.status_changed',
+          payload: {
+            status: 'received',
+            received_at: new Date().toISOString(),
+          },
+        },
+      ]);
     }
 
-    return data;
+    return appendDealEvent(client, { dealId: input.dealId, ...added });
   },
   { auth: true, schema: uploadDocumentSchema },
 );
@@ -79,19 +76,13 @@ export const moveDocument = enhanceAction(
 
     await assertDealPermission(client, input.dealId);
 
-    const { data, error } = await client
-      .from('dr_document')
-      .update({ folder_id: input.folderId })
-      .eq('deal_id', input.dealId)
-      .eq('id', input.documentId)
-      .select('*')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
+    return appendDealEvent(client, {
+      dealId: input.dealId,
+      aggregateType: 'dr_document',
+      aggregateId: input.documentId,
+      eventType: 'dr_document.moved',
+      payload: { folder_id: input.folderId },
+    });
   },
   { auth: true, schema: moveDocumentSchema },
 );

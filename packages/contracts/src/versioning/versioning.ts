@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { appendDealEvent } from '@odb/events';
 import type { Database, Tables, TablesInsert } from '@odb/supabase';
 
 import {
@@ -51,32 +52,24 @@ export interface AppendVersionDeps {
 export async function createContractRecord(
   input: CreateContractInput,
   deps: CreateContractDeps,
-): Promise<Tables<'contract'>> {
+): Promise<string> {
   const accountId = await loadDealAccountId(deps.client, input.dealId);
+  const contractId = crypto.randomUUID();
 
-  const { data: contract, error } = await deps.client
-    .from('contract')
-    .insert({
-      deal_id: input.dealId,
-      account_id: accountId,
-      type: input.type,
-      status: 'draft',
-      current_version: 0,
-      created_by: deps.createdByUserId,
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    throw error;
-  }
+  await appendDealEvent(deps.client, {
+    dealId: input.dealId,
+    aggregateType: 'contract',
+    aggregateId: contractId,
+    eventType: 'contract.created',
+    payload: { type: input.type, status: 'draft', current_version: 0 },
+  });
 
   if (!input.fromTemplateId) {
-    return contract;
+    return contractId;
   }
 
   const generated = await deps.generateVersionOne({
-    contractId: contract.id,
+    contractId,
     accountId,
     dealId: input.dealId,
     templateId: input.fromTemplateId,
@@ -85,11 +78,11 @@ export async function createContractRecord(
   await linkGeneratedDocument(
     deps.client,
     generated.generatedDocumentId,
-    contract.id,
+    contractId,
   );
 
   await insertVersion(deps.client, {
-    contract_id: contract.id,
+    contract_id: contractId,
     account_id: accountId,
     version: FIRST_VERSION,
     source: 'generated' satisfies ContractSource,
@@ -99,7 +92,14 @@ export async function createContractRecord(
     author_user_id: deps.createdByUserId,
   });
 
-  return advanceCurrentVersion(deps.client, contract.id, FIRST_VERSION);
+  await advanceCurrentVersion(
+    deps.client,
+    input.dealId,
+    contractId,
+    FIRST_VERSION,
+  );
+
+  return contractId;
 }
 
 export async function appendContractVersion(
@@ -107,7 +107,10 @@ export async function appendContractVersion(
   deps: AppendVersionDeps,
   source: ContractSource,
 ): Promise<Tables<'contract_version'>> {
-  const accountId = await loadContractAccountId(deps.client, input.contractId);
+  const { accountId, dealId } = await loadContractContext(
+    deps.client,
+    input.contractId,
+  );
   const nextVersion = (await maxVersion(deps.client, input.contractId)) + 1;
   const docxPath = contractDocxPath(accountId, input.contractId, nextVersion);
 
@@ -128,7 +131,7 @@ export async function appendContractVersion(
     author_user_id: deps.authorUserId,
   });
 
-  await advanceCurrentVersion(deps.client, input.contractId, nextVersion);
+  await advanceCurrentVersion(deps.client, dealId, input.contractId, nextVersion);
 
   return version;
 }
@@ -150,13 +153,13 @@ async function loadDealAccountId(
   return data.account_id;
 }
 
-async function loadContractAccountId(
+async function loadContractContext(
   client: SupabaseClient<Database>,
   contractId: string,
-): Promise<string> {
+): Promise<{ accountId: string; dealId: string }> {
   const { data, error } = await client
     .from('contract')
-    .select('account_id')
+    .select('account_id, deal_id')
     .eq('id', contractId)
     .single();
 
@@ -164,7 +167,7 @@ async function loadContractAccountId(
     throw error;
   }
 
-  return data.account_id;
+  return { accountId: data.account_id, dealId: data.deal_id };
 }
 
 async function maxVersion(
@@ -220,19 +223,15 @@ async function linkGeneratedDocument(
 
 async function advanceCurrentVersion(
   client: SupabaseClient<Database>,
+  dealId: string,
   contractId: string,
   version: number,
-): Promise<Tables<'contract'>> {
-  const { data, error } = await client
-    .from('contract')
-    .update({ current_version: version })
-    .eq('id', contractId)
-    .select('*')
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
+): Promise<void> {
+  await appendDealEvent(client, {
+    dealId,
+    aggregateType: 'contract',
+    aggregateId: contractId,
+    eventType: 'contract.version_set',
+    payload: { current_version: version },
+  });
 }

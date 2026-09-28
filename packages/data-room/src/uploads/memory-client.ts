@@ -18,7 +18,6 @@ export interface MemoryClient {
 
 export interface MemoryClientOptions {
   seed?: Record<string, Row[]>;
-  failDocumentInsert?: (row: Row) => boolean;
 }
 
 export function createMemoryClient(
@@ -50,10 +49,6 @@ export function createMemoryClient(
         const created: Row[] = [];
 
         for (const payload of payloads) {
-          if (table === 'dr_document' && options.failDocumentInsert?.(payload)) {
-            return { data: null, error: new Error('document insert rejected') };
-          }
-
           const row: Row = { id: `${table}-${++sequence}`, ...payload };
           rows.push(row);
           created.push(row);

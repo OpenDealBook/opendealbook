@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 
+import { appendDealEvent } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import type { TablesInsert } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -108,19 +109,24 @@ export const acceptBrokerIntake = enhanceAction(
 
     await assertDealsCreate(client, input.accountId, user.id);
 
-    const deal = await client
-      .from('deal')
-      .insert({
-        account_id: input.accountId,
-        firm_id: firm.data?.id,
-        source: 'broker',
-        asking_price: intake.data?.asking_price ?? null,
-        broker_contact_id: intake.data?.submitted_by_contact_id ?? null,
-      } satisfies TablesInsert<'deal'>)
-      .select('id')
-      .single();
+    const dealId = crypto.randomUUID();
 
-    return { firmId: firm.data?.id, dealId: deal.data?.id ?? null };
+    await appendDealEvent(client, {
+      dealId,
+      aggregateType: 'deal',
+      aggregateId: dealId,
+      eventType: 'deal.created',
+      payload: {
+        account_id: input.accountId,
+        firm_id: firm.data?.id ?? null,
+        owner_user_id: user.id,
+        description: null,
+        source: 'broker',
+        stage: 'sourced',
+      },
+    });
+
+    return { firmId: firm.data?.id, dealId };
   },
   { auth: true, schema: acceptSchema },
 );

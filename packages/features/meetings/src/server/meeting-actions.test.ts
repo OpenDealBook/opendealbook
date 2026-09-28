@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => {
   const insertSpy = vi.fn();
   const updateSpy = vi.fn();
+  const appendSpy = vi.fn();
 
   function makeBuilder(table: string) {
     const builder: Record<string, unknown> = {};
@@ -23,14 +24,14 @@ const mocks = vi.hoisted(() => {
       return builder;
     };
     builder.then = (resolve: (value: unknown) => void) =>
-      resolve({ data: { id: `${table}-1` }, error: null });
+      resolve({ data: { id: `${table}-1`, deal_id: 'deal-1' }, error: null });
 
     return builder;
   }
 
   const from = vi.fn((table: string) => makeBuilder(table));
 
-  return { insertSpy, updateSpy, from };
+  return { insertSpy, updateSpy, appendSpy, from };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -39,6 +40,13 @@ vi.mock('@odb/next/actions', () => ({
 
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({ from: mocks.from }),
+}));
+
+vi.mock('@odb/events', () => ({
+  appendDealEvent: (_client: unknown, input: unknown) => {
+    mocks.appendSpy(input);
+    return Promise.resolve([{ deal_seq: 1, aggregate_seq: 1 }]);
+  },
 }));
 
 import {
@@ -77,6 +85,16 @@ function lastUpdateFor(table: string) {
     .at(-1)?.[1];
 }
 
+function lastAppend() {
+  return mocks.appendSpy.mock.calls.at(-1)?.[0] as {
+    dealId: string;
+    aggregateType: string;
+    aggregateId: string;
+    eventType: string;
+    payload: Record<string, unknown>;
+  };
+}
+
 describe('createMeetingSeries', () => {
   it('inserts the series scoped to its deal and account', async () => {
     await runCreateMeetingSeries(
@@ -111,26 +129,35 @@ describe('updateMeetingSeries', () => {
 });
 
 describe('scheduleMeeting', () => {
-  it('inserts a meeting carrying its type and deal', async () => {
-    await runScheduleMeeting(
+  it('appends meeting.scheduled with a generated aggregate id on its deal', async () => {
+    const result = await runScheduleMeeting(
       {
         account_id: 'account-1',
         deal_id: 'deal-1',
+        series_id: 'series-1',
         type: 'weekly',
         scheduled_at: '2026-10-01T15:00:00.000Z',
       },
       user,
     );
 
-    expect(insertFor('meeting')).toMatchObject({
-      account_id: 'account-1',
-      deal_id: 'deal-1',
+    const append = lastAppend();
+
+    expect(append.eventType).toBe('meeting.scheduled');
+    expect(append.aggregateType).toBe('meeting');
+    expect(append.dealId).toBe('deal-1');
+    expect(typeof append.aggregateId).toBe('string');
+    expect(append.aggregateId.length).toBeGreaterThan(0);
+    expect(result).toBe(append.aggregateId);
+    expect(append.payload).toMatchObject({
+      series_id: 'series-1',
       type: 'weekly',
       scheduled_at: '2026-10-01T15:00:00.000Z',
     });
+    expect(mocks.insertSpy).not.toHaveBeenCalledWith('meeting', expect.anything());
   });
 
-  it('carries a valid status through to the insert', async () => {
+  it('carries a valid status through in the event payload', async () => {
     await runScheduleMeeting(
       {
         account_id: 'account-1',
@@ -141,13 +168,13 @@ describe('scheduleMeeting', () => {
       user,
     );
 
-    expect(insertFor('meeting')).toMatchObject({ status: 'held' });
+    expect(lastAppend().payload).toMatchObject({ status: 'held' });
   });
 });
 
 describe('addMeetingActionItem', () => {
-  it('records the assignee and due date on the action item', async () => {
-    await runAddMeetingActionItem(
+  it('appends meeting_action_item.added carrying the assignee and due date', async () => {
+    const result = await runAddMeetingActionItem(
       {
         account_id: 'account-1',
         deal_id: 'deal-1',
@@ -159,22 +186,42 @@ describe('addMeetingActionItem', () => {
       user,
     );
 
-    expect(insertFor('meeting_action_item')).toMatchObject({
+    const append = lastAppend();
+
+    expect(append.eventType).toBe('meeting_action_item.added');
+    expect(append.aggregateType).toBe('meeting_action_item');
+    expect(append.dealId).toBe('deal-1');
+    expect(typeof append.aggregateId).toBe('string');
+    expect(result).toBe(append.aggregateId);
+    expect(append.payload).toMatchObject({
       meeting_id: 'meeting-1',
-      deal_id: 'deal-1',
       description: 'Send updated P&L',
       owner_user_id: 'user-2',
+      owner_is_seller: false,
       due_at: '2026-10-05T00:00:00.000Z',
+      status: null,
     });
+    expect(mocks.insertSpy).not.toHaveBeenCalledWith(
+      'meeting_action_item',
+      expect.anything(),
+    );
   });
 });
 
 describe('completeMeetingActionItem', () => {
-  it('marks the action item reviewed', async () => {
+  it('appends meeting_action_item.updated to reviewed against the item', async () => {
     await runCompleteMeetingActionItem({ id: 'item-1' }, user);
 
-    expect(lastUpdateFor('meeting_action_item')).toMatchObject({
-      status: 'reviewed',
-    });
+    const append = lastAppend();
+
+    expect(append.eventType).toBe('meeting_action_item.updated');
+    expect(append.aggregateType).toBe('meeting_action_item');
+    expect(append.aggregateId).toBe('item-1');
+    expect(append.dealId).toBe('deal-1');
+    expect(append.payload).toMatchObject({ status: 'reviewed' });
+    expect(mocks.updateSpy).not.toHaveBeenCalledWith(
+      'meeting_action_item',
+      expect.anything(),
+    );
   });
 });

@@ -1,11 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { appendDealEvent } from '@odb/events';
 import type { Database } from '@odb/supabase';
 
 import type { ContractStorage } from '../storage';
-import { appendContractVersion } from './versioning';
+import { appendContractVersion, createContractRecord } from './versioning';
+
+vi.mock('@odb/events', () => ({
+  appendDealEvent: vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]),
+}));
+
+const appendDealEventMock = vi.mocked(appendDealEvent);
 
 function makeClient(results: Array<{ data: unknown; error: unknown }>) {
   const inserts: unknown[] = [];
@@ -35,16 +42,19 @@ function makeClient(results: Array<{ data: unknown; error: unknown }>) {
   return { client, inserts, updates };
 }
 
+beforeEach(() => {
+  appendDealEventMock.mockClear();
+});
+
 describe('appendContractVersion', () => {
-  it('inserts an immutable version at max plus one and advances the pointer', async () => {
-    const { client, inserts, updates } = makeClient([
-      { data: { account_id: 'acc-1' }, error: null },
+  it('inserts an immutable version and advances the pointer through a version_set event', async () => {
+    const { client, inserts } = makeClient([
+      { data: { account_id: 'acc-1', deal_id: 'deal-1' }, error: null },
       { data: { version: 3 }, error: null },
       {
         data: { id: 'ver-4', version: 4, source: 'upload' },
         error: null,
       },
-      { data: { id: 'contract-1', current_version: 4 }, error: null },
     ]);
 
     const storage: ContractStorage = {
@@ -78,7 +88,39 @@ describe('appendContractVersion', () => {
         change_summary: 'Countered on price',
       }),
     );
-    expect(updates).toContainEqual({ current_version: 4 });
+    expect(appendDealEventMock).toHaveBeenCalledWith(client, {
+      dealId: 'deal-1',
+      aggregateType: 'contract',
+      aggregateId: 'contract-1',
+      eventType: 'contract.version_set',
+      payload: { current_version: 4 },
+    });
     expect(result.version).toBe(4);
+  });
+});
+
+describe('createContractRecord', () => {
+  it('creates the contract through a contract.created event and returns the new id', async () => {
+    const { client } = makeClient([
+      { data: { account_id: 'acc-1' }, error: null },
+    ]);
+
+    const id = await createContractRecord(
+      { dealId: 'deal-1', type: 'loi' },
+      {
+        client,
+        createdByUserId: 'user-1',
+        generateVersionOne: vi.fn(),
+      },
+    );
+
+    expect(appendDealEventMock).toHaveBeenCalledTimes(1);
+    expect(appendDealEventMock).toHaveBeenCalledWith(client, {
+      dealId: 'deal-1',
+      aggregateType: 'contract',
+      aggregateId: id,
+      eventType: 'contract.created',
+      payload: { type: 'loi', status: 'draft', current_version: 0 },
+    });
   });
 });

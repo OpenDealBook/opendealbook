@@ -28,7 +28,7 @@ const config = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: TUCKIN_PACKAGES,
-  serverExternalPackages: ['pino', 'pino-pretty'],
+  serverExternalPackages: ['pino', 'pino-pretty', '@pyroscope/nodejs', '@datadog/pprof'],
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: '127.0.0.1' },

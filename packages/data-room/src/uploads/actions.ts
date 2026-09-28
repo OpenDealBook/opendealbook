@@ -53,18 +53,15 @@ export const stageUpload = enhanceAction(
 );
 
 export const expandUploadBatch = enhanceAction(
-  async (input, user) => {
+  async (input) => {
     const client = getSupabaseServerClient();
 
     await assertDealPermission(client, input.dealId);
-    const accountId = await resolveDealAccountId(client, input.dealId);
 
     return expandBatch(client, {
-      accountId,
       dealId: input.dealId,
       batchId: input.batchId,
       targetFolderId: input.targetFolderId,
-      uploadedBy: user.id,
     });
   },
   { auth: true, schema: expandBatchSchema },

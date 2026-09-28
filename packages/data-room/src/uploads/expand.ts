@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { appendDealEvent } from '@odb/events';
 import type { Database, Tables } from '@odb/supabase';
 
 import { nextVersion } from '../documents/version';
@@ -8,11 +9,9 @@ import { basename } from '../storage';
 type Client = SupabaseClient<Database>;
 
 export interface ExpandBatchParams {
-  accountId: string;
   dealId: string;
   batchId: string;
   targetFolderId: string;
-  uploadedBy: string;
 }
 
 export interface ExpandResult {
@@ -81,27 +80,25 @@ async function importItem(
       throw existing.error;
     }
 
-    const document = await client
-      .from('dr_document')
-      .insert({
-        account_id: params.accountId,
-        deal_id: params.dealId,
+    const documentId = crypto.randomUUID();
+
+    await appendDealEvent(client, {
+      dealId: params.dealId,
+      aggregateType: 'dr_document',
+      aggregateId: documentId,
+      eventType: 'dr_document.added',
+      payload: {
         folder_id: params.targetFolderId,
         name,
         storage_path: item.storage_path,
         version: nextVersion(existing.data.map((row) => row.version)),
-        uploaded_by: params.uploadedBy,
-      })
-      .select('id')
-      .single();
-
-    if (document.error) {
-      throw document.error;
-    }
+        checklist_item_id: null,
+      },
+    });
 
     return updateItem(client, item.id, {
       status: 'imported',
-      dr_document_id: document.data.id,
+      dr_document_id: documentId,
       target_folder_id: params.targetFolderId,
     });
   } catch (error) {

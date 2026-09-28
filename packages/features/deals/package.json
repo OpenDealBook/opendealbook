@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "catalog:",
+    "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/policies": "workspace:*",
     "@odb/supabase": "workspace:*",

@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
+    "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",

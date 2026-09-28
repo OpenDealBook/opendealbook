@@ -22,6 +22,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
     "zod": "catalog:"

@@ -1,5 +1,5 @@
 {
-  "name": "@odb/data-room",
+  "name": "@odb/events",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,7 @@
     }
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./server": "./src/server.ts",
-    "./hooks": "./src/hooks/index.ts",
-    "./storage": "./src/storage.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -23,21 +20,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
-    "@tanstack/react-query": "catalog:",
-    "@odb/events": "workspace:*",
-    "@odb/next": "workspace:*",
-    "@odb/policies": "workspace:*",
-    "@odb/supabase": "workspace:*",
-    "fflate": "0.8.2",
-    "zod": "catalog:"
+    "@odb/supabase": "workspace:*"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "@types/react": "catalog:",
     "vitest": "catalog:"
-  },
-  "peerDependencies": {
-    "react": "^19.0.0"
   }
 }
