@@ -4273,3 +4273,251 @@ create policy document_chunk_update on public.document_chunk
 create policy document_chunk_delete on public.document_chunk
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/61-data-room-upload.sql =====
+-- Data-room bulk upload staging. An upload_batch stages a single file, a group
+-- of files, or a ZIP before the extraction worker expands it into dr_document
+-- rows; each staged file is an upload_item pointing at its landing spot and,
+-- once imported, at the dr_document it became. Deal-scoped; access mirrors
+-- dr_document so external parties on the deal reach their own batches, while
+-- the worker writes through service_role.
+
+create type public.upload_batch_kind as enum ('single', 'group', 'zip');
+
+create type public.upload_batch_status as enum ('pending', 'extracting', 'ready', 'imported', 'failed');
+
+create type public.upload_item_status as enum ('pending', 'imported', 'failed');
+
+create table if not exists public.upload_batch (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  kind public.upload_batch_kind not null,
+  status public.upload_batch_status not null default 'pending',
+  file_count int not null default 0,
+  source_filename text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users default auth.uid()
+);
+
+alter table public.upload_batch enable row level security;
+
+create index ix_upload_batch_deal on public.upload_batch (deal_id);
+
+revoke all on public.upload_batch from authenticated, service_role;
+grant select, insert, update, delete on public.upload_batch to authenticated;
+grant select, insert, update, delete on public.upload_batch to service_role;
+
+create trigger upload_batch_timestamps
+  before insert or update on public.upload_batch
+  for each row execute function public.set_timestamps();
+
+create policy upload_batch_read on public.upload_batch
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy upload_batch_insert on public.upload_batch
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy upload_batch_update on public.upload_batch
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy upload_batch_delete on public.upload_batch
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create table if not exists public.upload_item (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null references public.upload_batch (id) on delete cascade,
+  storage_path text not null,
+  original_path text not null,
+  size_bytes bigint,
+  content_type text,
+  status public.upload_item_status not null default 'pending',
+  target_folder_id uuid references public.dr_folder (id) on delete set null,
+  dr_document_id uuid references public.dr_document (id) on delete set null,
+  error text,
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.upload_item enable row level security;
+
+create index ix_upload_item_batch on public.upload_item (batch_id);
+
+revoke all on public.upload_item from authenticated, service_role;
+grant select, insert, update, delete on public.upload_item to authenticated;
+grant select, insert, update, delete on public.upload_item to service_role;
+
+create trigger upload_item_timestamps
+  before insert or update on public.upload_item
+  for each row execute function public.set_timestamps();
+
+create policy upload_item_read on public.upload_item
+  for select to authenticated
+  using (
+    exists (
+      select 1 from public.upload_batch b
+      where b.id = batch_id
+        and (
+          public.has_role_on_account(b.account_id)
+          or public.has_deal_permission(b.deal_id, 'deals.manage')
+        )
+    )
+  );
+
+create policy upload_item_insert on public.upload_item
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.upload_batch b
+      where b.id = batch_id
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+    )
+  );
+
+create policy upload_item_update on public.upload_item
+  for update to authenticated
+  using (
+    exists (
+      select 1 from public.upload_batch b
+      where b.id = batch_id
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.upload_batch b
+      where b.id = batch_id
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+    )
+  );
+
+create policy upload_item_delete on public.upload_item
+  for delete to authenticated
+  using (
+    exists (
+      select 1 from public.upload_batch b
+      where b.id = batch_id
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+    )
+  );
+
+-- ===== schemas/62-notification-preference.sql =====
+-- Per-recipient notification controls. A row switches one event_type on one
+-- channel on or off for one recipient. deal_id null is an account-wide default;
+-- deal_id set is a deal-scoped override. Participants and external attorneys
+-- manage only their own rows; account admins may read across the account to see
+-- who has muted what.
+
+create table if not exists public.notification_preference (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid references public.deal (id) on delete cascade,
+  recipient_user_id uuid not null references auth.users (id) on delete cascade,
+  channel public.notification_channel not null,
+  event_type text not null,
+  enabled boolean not null default true,
+  created_at timestamptz,
+  updated_at timestamptz,
+  updated_by uuid references auth.users default auth.uid(),
+  unique (account_id, deal_id, recipient_user_id, channel, event_type)
+);
+
+alter table public.notification_preference enable row level security;
+
+create index ix_notification_preference_recipient on public.notification_preference (recipient_user_id);
+create index ix_notification_preference_account on public.notification_preference (account_id);
+
+revoke all on public.notification_preference from authenticated, service_role;
+grant select, insert, update, delete on public.notification_preference to authenticated;
+grant select, insert, update, delete on public.notification_preference to service_role;
+
+create trigger notification_preference_timestamps
+  before insert or update on public.notification_preference
+  for each row execute function public.set_timestamps();
+
+create policy notification_preference_read on public.notification_preference
+  for select to authenticated
+  using (
+    recipient_user_id = (select auth.uid())
+    or public.has_permission((select auth.uid()), account_id, 'members.manage')
+  );
+
+create policy notification_preference_insert on public.notification_preference
+  for insert to authenticated
+  with check (recipient_user_id = (select auth.uid()));
+
+create policy notification_preference_update on public.notification_preference
+  for update to authenticated
+  using (recipient_user_id = (select auth.uid()))
+  with check (recipient_user_id = (select auth.uid()));
+
+create policy notification_preference_delete on public.notification_preference
+  for delete to authenticated
+  using (recipient_user_id = (select auth.uid()));
+
+-- ===== schemas/63-ai-ingestion-index.sql =====
+-- AI ingestion index. The ivfflat index over document_chunk.embedding lets RAG
+-- retrieval run cosine-similarity search without a full scan. embedding_job
+-- tracks each Docling ingestion and embedding run for a data-room document.
+-- Deal-scoped; access mirrors document_chunk and dr_document.
+
+create index ix_document_chunk_embedding on public.document_chunk
+  using ivfflat (embedding extensions.vector_cosine_ops) with (lists = 100);
+
+create type public.embedding_job_status as enum ('queued', 'running', 'done', 'failed');
+
+create table if not exists public.embedding_job (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  dr_document_id uuid not null references public.dr_document (id) on delete cascade,
+  status public.embedding_job_status not null default 'queued',
+  chunk_count int,
+  model text,
+  error text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users default auth.uid()
+);
+
+alter table public.embedding_job enable row level security;
+
+create index ix_embedding_job_deal on public.embedding_job (deal_id);
+create index ix_embedding_job_document on public.embedding_job (dr_document_id);
+
+revoke all on public.embedding_job from authenticated, service_role;
+grant select, insert, update, delete on public.embedding_job to authenticated;
+grant select, insert, update, delete on public.embedding_job to service_role;
+
+create trigger embedding_job_timestamps
+  before insert or update on public.embedding_job
+  for each row execute function public.set_timestamps();
+
+create policy embedding_job_read on public.embedding_job
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy embedding_job_insert on public.embedding_job
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy embedding_job_update on public.embedding_job
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy embedding_job_delete on public.embedding_job
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));

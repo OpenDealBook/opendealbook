@@ -7,10 +7,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@keystatic/next": "5.0.4",
+    "@opentelemetry/exporter-logs-otlp-proto": "0.214.0",
+    "@opentelemetry/exporter-metrics-otlp-proto": "0.214.0",
+    "@opentelemetry/exporter-trace-otlp-proto": "0.214.0",
+    "@opentelemetry/sdk-node": "0.214.0",
+    "@pyroscope/nodejs": "0.6.4",
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "@tanstack/react-query": "catalog:",

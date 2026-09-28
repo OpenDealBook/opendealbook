@@ -1777,6 +1777,84 @@ export type Database = {
           },
         ]
       }
+      embedding_job: {
+        Row: {
+          account_id: string
+          chunk_count: number | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          dr_document_id: string
+          error: string | null
+          id: string
+          model: string | null
+          status: Database["public"]["Enums"]["embedding_job_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          chunk_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          dr_document_id: string
+          error?: string | null
+          id?: string
+          model?: string | null
+          status?: Database["public"]["Enums"]["embedding_job_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          chunk_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          dr_document_id?: string
+          error?: string | null
+          id?: string
+          model?: string | null
+          status?: Database["public"]["Enums"]["embedding_job_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "embedding_job_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embedding_job_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embedding_job_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embedding_job_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "embedding_job_dr_document_id_fkey"
+            columns: ["dr_document_id"]
+            isOneToOne: false
+            referencedRelation: "dr_document"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee: {
         Row: {
           account_id: string
@@ -2684,6 +2762,74 @@ export type Database = {
           },
         ]
       }
+      notification_preference: {
+        Row: {
+          account_id: string
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at: string | null
+          deal_id: string | null
+          enabled: boolean
+          event_type: string
+          id: string
+          recipient_user_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          channel: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string | null
+          deal_id?: string | null
+          enabled?: boolean
+          event_type: string
+          id?: string
+          recipient_user_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          channel?: Database["public"]["Enums"]["notification_channel"]
+          created_at?: string | null
+          deal_id?: string | null
+          enabled?: boolean
+          event_type?: string
+          id?: string
+          recipient_user_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preference_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preference_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preference_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_preference_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           account_id: string
@@ -3326,6 +3472,141 @@ export type Database = {
           },
         ]
       }
+      upload_batch: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          file_count: number
+          id: string
+          kind: Database["public"]["Enums"]["upload_batch_kind"]
+          source_filename: string | null
+          status: Database["public"]["Enums"]["upload_batch_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          file_count?: number
+          id?: string
+          kind: Database["public"]["Enums"]["upload_batch_kind"]
+          source_filename?: string | null
+          status?: Database["public"]["Enums"]["upload_batch_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          file_count?: number
+          id?: string
+          kind?: Database["public"]["Enums"]["upload_batch_kind"]
+          source_filename?: string | null
+          status?: Database["public"]["Enums"]["upload_batch_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_batch_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_batch_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_batch_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_batch_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      upload_item: {
+        Row: {
+          batch_id: string
+          content_type: string | null
+          created_at: string | null
+          dr_document_id: string | null
+          error: string | null
+          id: string
+          original_path: string
+          size_bytes: number | null
+          status: Database["public"]["Enums"]["upload_item_status"]
+          storage_path: string
+          target_folder_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          batch_id: string
+          content_type?: string | null
+          created_at?: string | null
+          dr_document_id?: string | null
+          error?: string | null
+          id?: string
+          original_path: string
+          size_bytes?: number | null
+          status?: Database["public"]["Enums"]["upload_item_status"]
+          storage_path: string
+          target_folder_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          batch_id?: string
+          content_type?: string | null
+          created_at?: string | null
+          dr_document_id?: string | null
+          error?: string | null
+          id?: string
+          original_path?: string
+          size_bytes?: number | null
+          status?: Database["public"]["Enums"]["upload_item_status"]
+          storage_path?: string
+          target_folder_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upload_item_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "upload_batch"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_item_dr_document_id_fkey"
+            columns: ["dr_document_id"]
+            isOneToOne: false
+            referencedRelation: "dr_document"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upload_item_target_folder_id_fkey"
+            columns: ["target_folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workbook: {
         Row: {
           account_id: string
@@ -3914,6 +4195,7 @@ export type Database = {
       checklist_outcome: "accepted" | "follow_up" | "rejected"
       checklist_status: "not_started" | "requested" | "received" | "reviewed"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
+      embedding_job_status: "queued" | "running" | "done" | "failed"
       meeting_status: "scheduled" | "held" | "skipped" | "cancelled"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
@@ -3931,6 +4213,14 @@ export type Database = {
         | "incomplete"
         | "incomplete_expired"
         | "paused"
+      upload_batch_kind: "single" | "group" | "zip"
+      upload_batch_status:
+        | "pending"
+        | "extracting"
+        | "ready"
+        | "imported"
+        | "failed"
+      upload_item_status: "pending" | "imported" | "failed"
     }
     CompositeTypes: {
       invitation: {
@@ -4086,6 +4376,7 @@ export const Constants = {
       checklist_outcome: ["accepted", "follow_up", "rejected"],
       checklist_status: ["not_started", "requested", "received", "reviewed"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
+      embedding_job_status: ["queued", "running", "done", "failed"],
       meeting_status: ["scheduled", "held", "skipped", "cancelled"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
@@ -4104,6 +4395,15 @@ export const Constants = {
         "incomplete_expired",
         "paused",
       ],
+      upload_batch_kind: ["single", "group", "zip"],
+      upload_batch_status: [
+        "pending",
+        "extracting",
+        "ready",
+        "imported",
+        "failed",
+      ],
+      upload_item_status: ["pending", "imported", "failed"],
     },
   },
 } as const

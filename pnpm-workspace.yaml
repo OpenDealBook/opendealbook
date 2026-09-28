@@ -84,6 +84,7 @@ onlyBuiltDependencies:
   - sharp
   - unrs-resolver
 allowBuilds:
+  '@datadog/pprof': true
   '@parcel/watcher': set this to true or false
   '@sentry/cli': set this to true or false
   '@swc/core': set this to true or false
