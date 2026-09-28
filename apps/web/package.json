@@ -27,6 +27,7 @@
     "@odb/auth": "workspace:*",
     "@odb/billing": "workspace:*",
     "@odb/billing-gateway": "workspace:*",
+    "@odb/data-room": "workspace:*",
     "@odb/database-webhooks": "workspace:*",
     "@odb/i18n": "workspace:*",
     "@odb/keystatic": "workspace:*",

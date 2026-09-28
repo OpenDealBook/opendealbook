@@ -5,6 +5,7 @@ select no_plan();
 select has_column('public', 'accounts', 'ai_redaction_enabled', 'accounts carries ai_redaction_enabled');
 select has_column('public', 'document_chunk', 'embedding', 'document_chunk carries an embedding column');
 select has_table('public', 'llm_endpoint', 'llm_endpoint table exists');
+select has_column('public', 'llm_endpoint', 'api_key_secret_ref', 'llm_endpoint names its bearer-token secret rather than storing it');
 select has_table('public', 'ai_call_log', 'ai_call_log table exists');
 
 -- meeting.status is constrained to the meeting_status enum with its four labels.

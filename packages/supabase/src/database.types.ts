@@ -2342,6 +2342,7 @@ export type Database = {
       llm_endpoint: {
         Row: {
           account_id: string
+          api_key_secret_ref: string | null
           base_url: string | null
           created_at: string | null
           created_by: string | null
@@ -2353,6 +2354,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          api_key_secret_ref?: string | null
           base_url?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -2364,6 +2366,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          api_key_secret_ref?: string | null
           base_url?: string | null
           created_at?: string | null
           created_by?: string | null

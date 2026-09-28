@@ -3,6 +3,9 @@ import type { Enums, Json } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
+import { chunkMarkdown } from '../documentIngestion/chunk';
+import { extractMarkdown } from '../documentIngestion/docling';
+import { embedTexts } from '../documentIngestion/embeddings';
 import type { BrokerCatchUpConfig } from '../workflows/brokerCatchUp';
 
 export interface WriteAuditEventInput {
@@ -227,6 +230,204 @@ export async function recordWorkbookRun(
     items_done: input.itemsDone,
     status: input.status,
   });
+
+  if (error) {
+    throw error;
+  }
+}
+
+const SIGNED_URL_TTL_SECONDS = 3600;
+const DATA_ROOM_BUCKET = 'data-room';
+
+export interface CreateEmbeddingJobInput {
+  drDocumentId: string;
+}
+
+export interface CreateEmbeddingJobResult {
+  jobId: string;
+  accountId: string;
+  dealId: string;
+}
+
+export async function createEmbeddingJob(
+  input: CreateEmbeddingJobInput,
+): Promise<CreateEmbeddingJobResult> {
+  const client = getSupabaseServerAdminClient();
+
+  const { data: document, error: documentError } = await client
+    .from('dr_document')
+    .select('account_id, deal_id')
+    .eq('id', input.drDocumentId)
+    .single();
+
+  if (documentError) {
+    throw documentError;
+  }
+
+  const { data: job, error } = await client
+    .from('embedding_job')
+    .insert({
+      account_id: document.account_id,
+      deal_id: document.deal_id,
+      dr_document_id: input.drDocumentId,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    jobId: job.id,
+    accountId: document.account_id,
+    dealId: document.deal_id,
+  };
+}
+
+export interface EmbeddingJobRef {
+  jobId: string;
+}
+
+export async function markEmbeddingJobRunning(
+  input: EmbeddingJobRef,
+): Promise<void> {
+  const client = getSupabaseServerAdminClient();
+
+  const { error } = await client
+    .from('embedding_job')
+    .update({ status: 'running' })
+    .eq('id', input.jobId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export interface ExtractDocumentInput {
+  drDocumentId: string;
+}
+
+export async function extractDocumentMarkdown(
+  input: ExtractDocumentInput,
+): Promise<{ markdown: string }> {
+  const client = getSupabaseServerAdminClient();
+
+  const { data: document, error } = await client
+    .from('dr_document')
+    .select('storage_path')
+    .eq('id', input.drDocumentId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const { data: signed, error: signError } = await client.storage
+    .from(DATA_ROOM_BUCKET)
+    .createSignedUrl(document.storage_path, SIGNED_URL_TTL_SECONDS);
+
+  if (signError) {
+    throw signError;
+  }
+
+  const markdown = await extractMarkdown(
+    { baseUrl: process.env.DOCLING_URL!, apiKey: process.env.DOCLING_API_KEY! },
+    signed.signedUrl,
+  );
+
+  return { markdown };
+}
+
+export interface EmbedDocumentChunksInput {
+  jobId: string;
+  drDocumentId: string;
+  accountId: string;
+  dealId: string;
+  markdown: string;
+}
+
+export async function embedDocumentChunks(
+  input: EmbedDocumentChunksInput,
+): Promise<{ chunkCount: number; model: string }> {
+  const client = getSupabaseServerAdminClient();
+
+  const { data: endpoint, error } = await client
+    .from('llm_endpoint')
+    .select('model, base_url, api_key_secret_ref')
+    .eq('account_id', input.accountId)
+    .limit(1)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const chunks = chunkMarkdown(input.markdown);
+  const vectors = await embedTexts(
+    {
+      baseUrl: endpoint.base_url!,
+      model: endpoint.model,
+      apiKey: process.env[endpoint.api_key_secret_ref!]!,
+    },
+    chunks,
+  );
+
+  const rows = chunks.map((content, index) => ({
+    account_id: input.accountId,
+    deal_id: input.dealId,
+    document_id: input.drDocumentId,
+    chunk_index: index,
+    content,
+    embedding: JSON.stringify(vectors[index]),
+  }));
+
+  const { error: insertError } = await client
+    .from('document_chunk')
+    .insert(rows);
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  return { chunkCount: rows.length, model: endpoint.model };
+}
+
+export interface CompleteEmbeddingJobInput {
+  jobId: string;
+  chunkCount: number;
+  model: string;
+}
+
+export async function completeEmbeddingJob(
+  input: CompleteEmbeddingJobInput,
+): Promise<void> {
+  const client = getSupabaseServerAdminClient();
+
+  const { error } = await client
+    .from('embedding_job')
+    .update({ status: 'done', chunk_count: input.chunkCount, model: input.model })
+    .eq('id', input.jobId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export interface FailEmbeddingJobInput {
+  jobId: string;
+  error: string;
+}
+
+export async function failEmbeddingJob(
+  input: FailEmbeddingJobInput,
+): Promise<void> {
+  const client = getSupabaseServerAdminClient();
+
+  const { error } = await client
+    .from('embedding_job')
+    .update({ status: 'failed', error: input.error })
+    .eq('id', input.jobId);
 
   if (error) {
     throw error;

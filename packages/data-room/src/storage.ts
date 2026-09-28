@@ -12,6 +12,10 @@ export function dataRoomObjectPath(dealId: string, name: string): string {
   return `deal/${dealId}/${crypto.randomUUID()}-${name}`;
 }
 
+export function basename(path: string): string {
+  return path.split('/').pop() || path;
+}
+
 export async function uploadToDataRoom(
   client: Client,
   dealId: string,

@@ -27,6 +27,7 @@
     "@odb/next": "workspace:*",
     "@odb/policies": "workspace:*",
     "@odb/supabase": "workspace:*",
+    "fflate": "0.8.2",
     "zod": "catalog:"
   },
   "devDependencies": {

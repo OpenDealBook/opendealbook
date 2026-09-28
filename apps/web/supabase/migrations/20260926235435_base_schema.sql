@@ -4152,7 +4152,9 @@ grant execute on function public.search_documents(uuid, text) to authenticated, 
 
 -- ===== schemas/60-ai-layer.sql =====
 -- AI layer groundwork. pgvector powers embedding search over document chunks;
--- llm_endpoint holds each account's model and endpoint configuration; every
+-- llm_endpoint holds each account's model and endpoint configuration; its
+-- api_key_secret_ref names the env or secret-store entry that carries the bearer
+-- token, so the raw key never lives in a table row; every
 -- model call is written to ai_call_log for audit; document_chunk stores the
 -- embedded text spans of data-room documents. ai_redaction_enabled toggles
 -- whether an account's prompts are redacted before they leave the tenant.
@@ -4167,6 +4169,7 @@ create table if not exists public.llm_endpoint (
   provider text not null,
   model text not null,
   base_url text,
+  api_key_secret_ref text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,

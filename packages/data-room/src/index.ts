@@ -31,3 +31,11 @@ export {
   fetchDocuments,
   listByFolder,
 } from './shared';
+
+export { stageUploadSchema, expandBatchSchema } from './uploads/schema';
+export type {
+  StageUploadInput,
+  ExpandBatchInput,
+} from './uploads/schema';
+export type { StagedBatch } from './uploads/stage';
+export type { ExpandResult } from './uploads/expand';

@@ -12,6 +12,7 @@
   },
   "exports": {
     "./actions": "./src/server/dismiss-notification.ts",
+    "./server": "./src/server/novu/index.ts",
     "./components": "./src/components/index.ts",
     "./hooks": "./src/hooks/index.ts"
   },
@@ -21,6 +22,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@novu/node": "catalog:",
+    "@supabase/supabase-js": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
