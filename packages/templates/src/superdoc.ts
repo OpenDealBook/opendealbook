@@ -3,13 +3,12 @@ import type { Editor, FieldValue } from '@harbour-enterprises/superdoc';
 export interface DocxTemplateEngine {
   scanPlaceholders(docx: Uint8Array): Promise<string[]>;
   fill(docx: Uint8Array, values: Record<string, string>): Promise<Uint8Array>;
-  renderPdf(docx: Uint8Array): Promise<Uint8Array>;
 }
 
 // Single SuperDoc contact point; every other module depends only on
 // DocxTemplateEngine. @harbour-enterprises/superdoc exposes a headless Editor for
-// loading, field annotation, and DOCX export, but no server-side PDF rasterization:
-// renderPdf is a capability gap the caller must satisfy elsewhere.
+// loading, field annotation, and DOCX export. PDF rendering lives outside this
+// engine; see convertDocxToPdf.
 export function createSuperdocEngine(): DocxTemplateEngine {
   return {
     async scanPlaceholders(docx) {
@@ -31,13 +30,6 @@ export function createSuperdocEngine(): DocxTemplateEngine {
       editor.annotate(annotationValues);
 
       return editor.exportDocx<Buffer>();
-    },
-    renderPdf() {
-      return Promise.reject(
-        new Error(
-          'SuperDoc headless build exposes no server-side PDF export; render PDF outside this engine',
-        ),
-      );
     },
   };
 }

@@ -90,7 +90,6 @@ describe('parseTemplateFields', () => {
     const engine: DocxTemplateEngine = {
       scanPlaceholders: vi.fn(async () => ['deal.asking_price', 'buyer_name']),
       fill: vi.fn(),
-      renderPdf: vi.fn(),
     };
 
     const drafts = await parseTemplateFields(new Uint8Array(), engine);

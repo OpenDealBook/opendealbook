@@ -7,6 +7,7 @@ import {
   templateDocxPath,
 } from '../storage';
 import type { DocxTemplateEngine } from '../superdoc';
+import { convertDocxToPdf } from './convert-pdf';
 import { type DealContext, resolveFieldValues } from './resolve-fields';
 
 const DOCX_CONTENT_TYPE =
@@ -45,7 +46,7 @@ export async function generateDocument(
     templateDocxPath(row.account_id, row.id, row.version),
   );
   const filled = await deps.engine.fill(source, values);
-  const pdf = await deps.engine.renderPdf(filled);
+  const pdf = await convertDocxToPdf(filled);
 
   const documentKey = crypto.randomUUID();
   const docxPath = generatedDocxPath(row.account_id, dealId, documentKey);

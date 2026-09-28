@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Tables } from '@tuckin/supabase';
 
@@ -42,19 +42,27 @@ const deal: DealContext = {
 };
 
 describe('generateDocument', () => {
-  it('fills, renders and uploads both artifacts, returning the row', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fills, converts to pdf via gotenberg and uploads both artifacts', async () => {
     const filled = new Uint8Array([1]);
     const pdf = new Uint8Array([2]);
 
     const engine: DocxTemplateEngine = {
       scanPlaceholders: vi.fn(),
       fill: vi.fn(async () => filled),
-      renderPdf: vi.fn(async () => pdf),
     };
     const storage: TemplateStorage = {
       downloadTemplate: vi.fn(async () => new Uint8Array([0])),
       uploadGenerated: vi.fn(async () => undefined),
     };
+    const fetchMock = vi.fn(async (_url: string, _init: RequestInit) => ({
+      ok: true,
+      arrayBuffer: async () => pdf.buffer,
+    }));
+    vi.stubGlobal('fetch', fetchMock);
 
     const row = await generateDocument(
       { template, deal, fieldValues: {} },
@@ -67,10 +75,18 @@ describe('generateDocument', () => {
     expect(engine.fill).toHaveBeenCalledWith(new Uint8Array([0]), {
       'firm.name': 'Acme LLC',
     });
-    expect(storage.uploadGenerated).toHaveBeenCalledTimes(2);
-    expect(row.account_id).toBe('acc-1');
-    expect(row.deal_id).toBe('deal-1');
-    expect(row.template_version).toBe(4);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('http://localhost:3009/forms/libreoffice/convert');
+    const sent = (init.body as FormData).get('files') as Blob;
+    expect(new Uint8Array(await sent.arrayBuffer())).toEqual(filled);
+
+    expect(storage.uploadGenerated).toHaveBeenNthCalledWith(
+      2,
+      row.pdf_path,
+      pdf,
+      'application/pdf',
+    );
     expect(row.docx_path).toMatch(/^acc-1\/deal-1\/.+\.docx$/);
     expect(row.pdf_path).toMatch(/^acc-1\/deal-1\/.+\.pdf$/);
     expect(row.contract_id).toBeNull();

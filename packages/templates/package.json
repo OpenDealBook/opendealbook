@@ -26,6 +26,7 @@
     "@harbour-enterprises/superdoc": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "@tuckin/next": "workspace:*",
+    "@tuckin/shared": "workspace:*",
     "@tuckin/supabase": "workspace:*",
     "@tuckin/workflows": "workspace:*",
     "zod": "catalog:"

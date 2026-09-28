@@ -1212,6 +1212,9 @@ importers:
       '@tuckin/next':
         specifier: workspace:*
         version: link:../next
+      '@tuckin/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@tuckin/supabase':
         specifier: workspace:*
         version: link:../supabase
