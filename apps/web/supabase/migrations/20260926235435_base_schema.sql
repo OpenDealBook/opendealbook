@@ -2989,3 +2989,588 @@ create trigger deal_notify_stage_move
   after update of stage on public.deal
   for each row when (old.stage is distinct from new.stage)
   execute function tuckin.notify_on_deal_stage_move();
+
+-- ===== schemas/42-trial.sql =====
+-- Trial window on the account. trial_ends_at is stamped at provisioning to 30
+-- days out; a null value means the account is not time-limited. Both
+-- provisioning paths set it, mirroring how seed_default_pipeline_stages is wired.
+
+alter table public.accounts add column trial_ends_at timestamptz;
+
+-- Re-created here (not in 04-accounts) because trial_ends_at only exists from
+-- this file onward; the insert now stamps the trial start.
+create or replace function tuckin.provision_personal_account()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  display_name text := coalesce(
+    new.raw_user_meta_data ->> 'name',
+    split_part(new.email, '@', 1),
+    ''
+  );
+begin
+  insert into public.accounts (id, primary_owner_user_id, name, is_personal_account, email, picture_url, trial_ends_at)
+  values (
+    new.id,
+    new.id,
+    display_name,
+    true,
+    new.email,
+    new.raw_user_meta_data ->> 'avatar_url',
+    now() + interval '30 days'
+  );
+
+  perform public.seed_default_pipeline_stages(new.id);
+
+  return new;
+end;
+$$;
+
+create or replace function public.create_team_account(account_name text, user_id uuid, account_slug text default null)
+  returns public.accounts
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  team public.accounts;
+begin
+  if not public.is_set('enable_team_accounts') then
+    raise exception 'team accounts are disabled';
+  end if;
+
+  insert into public.accounts (name, slug, is_personal_account, primary_owner_user_id, trial_ends_at)
+  values (account_name, account_slug, false, user_id, now() + interval '30 days')
+  returning * into team;
+
+  insert into public.accounts_memberships (account_id, user_id, account_role)
+  values (team.id, user_id, public.get_upper_system_role());
+
+  perform public.seed_default_pipeline_stages(team.id);
+
+  return team;
+end;
+$$;
+
+create or replace function public.is_trial_active(p_account_id uuid)
+  returns boolean
+  language sql security definer
+  set search_path = '' as $$
+  select exists (
+    select 1 from public.accounts a
+    where a.id = is_trial_active.p_account_id
+      and (a.trial_ends_at is null or a.trial_ends_at > now())
+  );
+$$;
+
+grant execute on function public.is_trial_active(uuid) to authenticated, service_role;
+
+-- Keep any account created before this column existed consistent.
+update public.accounts
+  set trial_ends_at = coalesce(created_at, now()) + interval '30 days'
+  where trial_ends_at is null;
+
+-- ===== schemas/43-workbook-template.sql =====
+-- Installable workflow definitions. A platform template (account_id null) ships
+-- with the product and is readable by every authenticated user; a tenant
+-- template belongs to one account. scope and account_id are kept in lockstep.
+
+create table if not exists public.workbook_template (
+  id uuid primary key default gen_random_uuid(),
+  scope text not null check (scope in ('platform', 'tenant')),
+  account_id uuid references public.accounts (id) on delete cascade,
+  name text not null,
+  workflow_type text not null,
+  config_schema jsonb not null default '{}'::jsonb,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz,
+  constraint workbook_template_scope_account check (
+    (scope = 'platform' and account_id is null)
+    or (scope = 'tenant' and account_id is not null)
+  )
+);
+
+alter table public.workbook_template enable row level security;
+
+create index ix_workbook_template_account on public.workbook_template (account_id);
+
+revoke all on public.workbook_template from authenticated, service_role;
+grant select, insert, update, delete on public.workbook_template to authenticated;
+grant select, insert, update, delete on public.workbook_template to service_role;
+
+create trigger workbook_template_timestamps
+  before insert or update on public.workbook_template
+  for each row execute function public.set_timestamps();
+
+-- Platform templates are global reference data; tenant templates are account
+-- scoped. Mutations always require a concrete account grant, so platform
+-- templates are writable only by the service role.
+create policy workbook_template_read on public.workbook_template
+  for select to authenticated
+  using (account_id is null or public.has_role_on_account(account_id));
+
+create policy workbook_template_insert on public.workbook_template
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy workbook_template_update on public.workbook_template
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy workbook_template_delete on public.workbook_template
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/44-workbook.sql =====
+-- An account's installed workbook: a template plus the account's own config and
+-- run scheduling. Account-scoped; managed with deals.manage.
+
+create table if not exists public.workbook (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.workbook_template (id),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  config_json jsonb not null default '{}'::jsonb,
+  status text,
+  next_run_at timestamptz,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.workbook enable row level security;
+
+create index ix_workbook_account on public.workbook (account_id);
+create index ix_workbook_template on public.workbook (template_id);
+
+revoke all on public.workbook from authenticated, service_role;
+grant select, insert, update, delete on public.workbook to authenticated;
+grant select, insert, update, delete on public.workbook to service_role;
+
+create trigger workbook_timestamps
+  before insert or update on public.workbook
+  for each row execute function public.set_timestamps();
+
+create policy workbook_read on public.workbook
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy workbook_insert on public.workbook
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy workbook_update on public.workbook
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy workbook_delete on public.workbook
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/45-workbook-run.sql =====
+-- One execution of a workbook. Rows are produced by the background runner
+-- (service role); account members read them but never write them directly.
+
+create table if not exists public.workbook_run (
+  id uuid primary key default gen_random_uuid(),
+  workbook_id uuid not null references public.workbook (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  items_total int,
+  items_done int,
+  exceptions jsonb,
+  status text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.workbook_run enable row level security;
+
+create index ix_workbook_run_account on public.workbook_run (account_id);
+create index ix_workbook_run_workbook on public.workbook_run (workbook_id);
+
+revoke all on public.workbook_run from authenticated, service_role;
+grant select on public.workbook_run to authenticated;
+grant select, insert, update, delete on public.workbook_run to service_role;
+
+create policy workbook_run_read on public.workbook_run
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+-- ===== schemas/46-checklist-template.sql =====
+-- Reusable diligence checklist templates. A template holds ordered items that
+-- are copied into a deal's checklist_item rows when applied. Account-scoped;
+-- managed with checklists.manage. Items inherit access from their template.
+
+create table if not exists public.checklist_template (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name text not null,
+  category text,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.checklist_template enable row level security;
+
+create index ix_checklist_template_account on public.checklist_template (account_id);
+
+revoke all on public.checklist_template from authenticated, service_role;
+grant select, insert, update, delete on public.checklist_template to authenticated;
+grant select, insert, update, delete on public.checklist_template to service_role;
+
+create trigger checklist_template_timestamps
+  before insert or update on public.checklist_template
+  for each row execute function public.set_timestamps();
+
+create policy checklist_template_read on public.checklist_template
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy checklist_template_insert on public.checklist_template
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy checklist_template_update on public.checklist_template
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy checklist_template_delete on public.checklist_template
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create table if not exists public.checklist_template_item (
+  id uuid primary key default gen_random_uuid(),
+  template_id uuid not null references public.checklist_template (id) on delete cascade,
+  category text,
+  title varchar(500) not null,
+  priority int not null default 0,
+  deal_killer boolean not null default false,
+  due_offset_days int,
+  sort_order int not null default 0
+);
+
+alter table public.checklist_template_item enable row level security;
+
+create index ix_checklist_template_item_template on public.checklist_template_item (template_id);
+
+revoke all on public.checklist_template_item from authenticated, service_role;
+grant select, insert, update, delete on public.checklist_template_item to authenticated;
+grant select, insert, update, delete on public.checklist_template_item to service_role;
+
+create policy checklist_template_item_read on public.checklist_template_item
+  for select to authenticated
+  using (
+    exists (
+      select 1 from public.checklist_template t
+      where t.id = template_id and public.has_role_on_account(t.account_id)
+    )
+  );
+
+create policy checklist_template_item_insert on public.checklist_template_item
+  for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.checklist_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+    )
+  );
+
+create policy checklist_template_item_update on public.checklist_template_item
+  for update to authenticated
+  using (
+    exists (
+      select 1 from public.checklist_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.checklist_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+    )
+  );
+
+create policy checklist_template_item_delete on public.checklist_template_item
+  for delete to authenticated
+  using (
+    exists (
+      select 1 from public.checklist_template t
+      where t.id = template_id
+        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+    )
+  );
+
+-- ===== schemas/47-diligence-schedule.sql =====
+-- A diligence schedule for a deal: the plan from start to a target APA date,
+-- broken into weeks (schedule_week). Deal-scoped; managed with checklists.manage.
+
+create table if not exists public.diligence_schedule (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  start_date date,
+  target_apa_date date,
+  template_id uuid,
+  status text not null default 'proposed' check (status in ('proposed', 'accepted', 'active', 'done')),
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.diligence_schedule enable row level security;
+
+create index ix_diligence_schedule_deal on public.diligence_schedule (deal_id);
+create index ix_diligence_schedule_account on public.diligence_schedule (account_id);
+
+revoke all on public.diligence_schedule from authenticated, service_role;
+grant select, insert, update, delete on public.diligence_schedule to authenticated;
+grant select, insert, update, delete on public.diligence_schedule to service_role;
+
+create trigger diligence_schedule_timestamps
+  before insert or update on public.diligence_schedule
+  for each row execute function public.set_timestamps();
+
+create policy diligence_schedule_read on public.diligence_schedule
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'checklists.manage')
+  );
+
+create policy diligence_schedule_insert on public.diligence_schedule
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy diligence_schedule_update on public.diligence_schedule
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy diligence_schedule_delete on public.diligence_schedule
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+-- ===== schemas/48-schedule-week.sql =====
+-- One week of a diligence_schedule. Deal-scoped through the parent schedule's
+-- deal; managed with checklists.manage. This file also extends checklist_item
+-- with prioritization and a link back to the week an item belongs to, kept here
+-- so the schedule_week table exists before the foreign key references it.
+
+create table if not exists public.schedule_week (
+  id uuid primary key default gen_random_uuid(),
+  schedule_id uuid not null references public.diligence_schedule (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  week_no int,
+  starts_on date,
+  theme text,
+  status text,
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.schedule_week enable row level security;
+
+create index ix_schedule_week_schedule on public.schedule_week (schedule_id);
+create index ix_schedule_week_account on public.schedule_week (account_id);
+
+revoke all on public.schedule_week from authenticated, service_role;
+grant select, insert, update, delete on public.schedule_week to authenticated;
+grant select, insert, update, delete on public.schedule_week to service_role;
+
+create trigger schedule_week_timestamps
+  before insert or update on public.schedule_week
+  for each row execute function public.set_timestamps();
+
+create policy schedule_week_read on public.schedule_week
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(
+      (select s.deal_id from public.diligence_schedule s where s.id = schedule_id),
+      'checklists.manage'
+    )
+  );
+
+create policy schedule_week_insert on public.schedule_week
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy schedule_week_update on public.schedule_week
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy schedule_week_delete on public.schedule_week
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+alter table public.checklist_item
+  add column priority int not null default 0,
+  add column deal_killer boolean not null default false,
+  add column schedule_week_id uuid references public.schedule_week (id) on delete set null;
+
+-- ===== schemas/49-seller-question.sql =====
+-- Questions put to the seller during diligence, optionally tied to a schedule
+-- week. Deal-scoped; managed with checklists.manage.
+
+create table if not exists public.seller_question (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  schedule_week_id uuid references public.schedule_week (id) on delete set null,
+  question text not null,
+  answer text,
+  status public.checklist_status not null default 'not_started',
+  answered_at timestamptz,
+  asked_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.seller_question enable row level security;
+
+create index ix_seller_question_deal on public.seller_question (deal_id);
+create index ix_seller_question_account on public.seller_question (account_id);
+
+revoke all on public.seller_question from authenticated, service_role;
+grant select, insert, update, delete on public.seller_question to authenticated;
+grant select, insert, update, delete on public.seller_question to service_role;
+
+create trigger seller_question_timestamps
+  before insert or update on public.seller_question
+  for each row execute function public.set_timestamps();
+
+create policy seller_question_read on public.seller_question
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'checklists.manage')
+  );
+
+create policy seller_question_insert on public.seller_question
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy seller_question_update on public.seller_question
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy seller_question_delete on public.seller_question
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+-- ===== schemas/50-contract.sql =====
+-- LOI/APA workspace for a deal. A contract holds its versions (contract_version)
+-- and points at the current one. Deal-scoped; managed with deals.manage. This
+-- file also wires generated_document.contract_id to reference a contract now
+-- that the table exists.
+
+create table if not exists public.contract (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  type text not null check (type in ('loi', 'apa')),
+  status text,
+  current_version int,
+  created_by uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.contract enable row level security;
+
+create index ix_contract_deal on public.contract (deal_id);
+create index ix_contract_account on public.contract (account_id);
+
+revoke all on public.contract from authenticated, service_role;
+grant select, insert, update, delete on public.contract to authenticated;
+grant select, insert, update, delete on public.contract to service_role;
+
+create trigger contract_timestamps
+  before insert or update on public.contract
+  for each row execute function public.set_timestamps();
+
+create policy contract_read on public.contract
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy contract_insert on public.contract
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy contract_update on public.contract
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy contract_delete on public.contract
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+alter table public.generated_document
+  add constraint generated_document_contract_id_fk
+  foreign key (contract_id) references public.contract (id) on delete set null;
+
+-- ===== schemas/51-contract-version.sql =====
+-- An immutable revision of a contract. version is unique within a contract.
+-- Deal-scoped through the parent contract's deal; managed with deals.manage.
+
+create table if not exists public.contract_version (
+  id uuid primary key default gen_random_uuid(),
+  contract_id uuid not null references public.contract (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  version int not null,
+  source text not null check (source in ('editor_save', 'upload', 'generated')),
+  author_user_id uuid references auth.users,
+  party text not null check (party in ('buyer', 'seller')),
+  docx_path text,
+  pdf_path text,
+  change_summary text,
+  is_signed boolean not null default false,
+  content_hash text,
+  created_at timestamptz not null default now(),
+  unique (contract_id, version)
+);
+
+alter table public.contract_version enable row level security;
+
+create index ix_contract_version_contract on public.contract_version (contract_id);
+create index ix_contract_version_account on public.contract_version (account_id);
+
+revoke all on public.contract_version from authenticated, service_role;
+grant select, insert, update, delete on public.contract_version to authenticated;
+grant select, insert, update, delete on public.contract_version to service_role;
+
+create policy contract_version_read on public.contract_version
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(
+      (select c.deal_id from public.contract c where c.id = contract_id),
+      'deals.manage'
+    )
+  );
+
+create policy contract_version_insert on public.contract_version
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy contract_version_update on public.contract_version
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy contract_version_delete on public.contract_version
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));

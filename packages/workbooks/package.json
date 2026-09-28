@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/workflows",
+  "name": "@tuckin/workbooks",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./activities": "./src/activities/index.ts"
+    "./server": "./src/server.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -21,12 +20,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@temporalio/activity": "catalog:",
-    "@temporalio/client": "catalog:",
-    "@temporalio/common": "catalog:",
-    "@temporalio/workflow": "catalog:",
+    "@supabase/supabase-js": "catalog:",
     "@tuckin/mailers": "workspace:*",
+    "@tuckin/next": "workspace:*",
     "@tuckin/supabase": "workspace:*",
+    "@tuckin/templates": "workspace:*",
+    "@tuckin/workflows": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/workflows",
+  "name": "@tuckin/diligence",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,9 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./activities": "./src/activities/index.ts"
+    "./server": "./src/server.ts",
+    "./hooks": "./src/hooks.ts",
+    "./ranking": "./src/ranking/index.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -21,17 +22,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@temporalio/activity": "catalog:",
-    "@temporalio/client": "catalog:",
-    "@temporalio/common": "catalog:",
-    "@temporalio/workflow": "catalog:",
-    "@tuckin/mailers": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@tuckin/deals": "workspace:*",
+    "@tuckin/next": "workspace:*",
     "@tuckin/supabase": "workspace:*",
+    "@tuckin/templates": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@tuckin/tsconfig": "workspace:*",
-    "@types/node": "catalog:",
+    "@types/react": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
   }
 }

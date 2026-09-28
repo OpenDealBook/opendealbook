@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/workflows",
+  "name": "@tuckin/seed",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,7 @@
     }
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./activities": "./src/activities/index.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -21,13 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@temporalio/activity": "catalog:",
-    "@temporalio/client": "catalog:",
-    "@temporalio/common": "catalog:",
-    "@temporalio/workflow": "catalog:",
-    "@tuckin/mailers": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "zod": "catalog:"
+    "@tuckin/data-room": "workspace:*",
+    "@tuckin/supabase": "workspace:*"
   },
   "devDependencies": {
     "@tuckin/tsconfig": "workspace:*",

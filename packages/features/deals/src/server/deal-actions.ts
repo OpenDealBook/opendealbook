@@ -150,9 +150,13 @@ export const createFirm = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
+    const { service_mix_json, ...rest } = data;
+    const insert: TablesInsert<'firm'> =
+      service_mix_json == null ? rest : { ...rest, service_mix_json };
+
     const { data: row, error } = await client
       .from('firm')
-      .insert(data)
+      .insert(insert)
       .select('*')
       .single();
 

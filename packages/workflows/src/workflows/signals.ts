@@ -10,6 +10,9 @@ export type DealStage =
   | 'closed';
 
 export const advanceStage = defineSignal<[DealStage]>('advanceStage');
-export const sellerUploaded = defineSignal<[Json]>('sellerUploaded');
-export const counselAcceptedTurn = defineSignal<[Json]>('counselAcceptedTurn');
+export const sellerUploaded =
+  defineSignal<[NonNullable<Json>]>('sellerUploaded');
+export const counselAcceptedTurn = defineSignal<[NonNullable<Json>]>(
+  'counselAcceptedTurn',
+);
 export const currentStage = defineQuery<DealStage>('currentStage');

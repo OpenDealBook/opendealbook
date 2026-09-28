@@ -582,6 +582,43 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
+  packages/contracts:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@tuckin/next':
+        specifier: workspace:*
+        version: link:../next
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      '@tuckin/templates':
+        specifier: workspace:*
+        version: link:../templates
+      next:
+        specifier: 'catalog:'
+        version: 16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.6
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
   packages/data-room:
     dependencies:
       '@supabase/supabase-js':
@@ -646,6 +683,40 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
+  packages/diligence:
+    dependencies:
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.100.9(react@19.2.6)
+      '@tuckin/deals':
+        specifier: workspace:*
+        version: link:../features/deals
+      '@tuckin/next':
+        specifier: workspace:*
+        version: link:../next
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      '@tuckin/templates':
+        specifier: workspace:*
+        version: link:../templates
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/email-templates:
     dependencies:
@@ -1105,6 +1176,25 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
+  packages/seed:
+    dependencies:
+      '@tuckin/data-room':
+        specifier: workspace:*
+        version: link:../data-room
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
   packages/shared:
     dependencies:
       pino:
@@ -1323,6 +1413,40 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  packages/workbooks:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@tuckin/mailers':
+        specifier: workspace:*
+        version: link:../mailers/core
+      '@tuckin/next':
+        specifier: workspace:*
+        version: link:../next
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      '@tuckin/templates':
+        specifier: workspace:*
+        version: link:../templates
+      '@tuckin/workflows':
+        specifier: workspace:*
+        version: link:../workflows
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
   packages/workflows:
     dependencies:
       '@temporalio/activity':
@@ -1337,6 +1461,9 @@ importers:
       '@temporalio/workflow':
         specifier: 'catalog:'
         version: 1.24.0
+      '@tuckin/mailers':
+        specifier: workspace:*
+        version: link:../mailers/core
       '@tuckin/supabase':
         specifier: workspace:*
         version: link:../supabase
