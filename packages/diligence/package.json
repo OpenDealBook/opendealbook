@@ -26,6 +26,7 @@
     "@odb/deals": "workspace:*",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
+    "@odb/notifications": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",
     "zod": "catalog:"

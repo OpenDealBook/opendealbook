@@ -750,6 +750,9 @@ importers:
       '@odb/next':
         specifier: workspace:*
         version: link:../next
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../features/notifications
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase

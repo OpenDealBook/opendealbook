@@ -182,32 +182,6 @@ export const slipUnreceived = enhanceAction(
   { auth: true, schema: slipUnreceivedSchema },
 );
 
-const answerSellerQuestionSchema = z.object({
-  questionId: z.uuid(),
-  answer: z.string().min(1),
-});
-
-export const answerSellerQuestion = enhanceAction(
-  async (input) => {
-    const client = getSupabaseServerClient();
-
-    const { data } = await client
-      .from('seller_question')
-      .update({
-        answer: input.answer,
-        answered_at: new Date().toISOString(),
-        status: 'received',
-      })
-      .eq('id', input.questionId)
-      .select('*')
-      .single()
-      .throwOnError();
-
-    return data;
-  },
-  { auth: true, schema: answerSellerQuestionSchema },
-);
-
 const sellerWeekViewSchema = z.object({
   dealId: z.uuid(),
   weekNo: z.number().int(),
