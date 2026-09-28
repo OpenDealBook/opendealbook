@@ -11,6 +11,11 @@ export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
       path: `${prefix}/settings/api-keys`,
       icon: 'key',
     },
+    {
+      label: 'account:templates',
+      path: `${prefix}/settings/templates`,
+      icon: 'file-text',
+    },
     { label: 'billing:title', path: `${prefix}/billing`, icon: 'credit-card' },
   ];
 }

@@ -328,6 +328,9 @@ importers:
       '@tuckin/policies':
         specifier: workspace:*
         version: link:../../packages/policies
+      '@tuckin/seed':
+        specifier: workspace:*
+        version: link:../../packages/seed
       '@tuckin/sentry':
         specifier: workspace:*
         version: link:../../packages/monitoring/sentry
@@ -343,6 +346,9 @@ importers:
       '@tuckin/team-accounts':
         specifier: workspace:*
         version: link:../../packages/features/team-accounts
+      '@tuckin/templates':
+        specifier: workspace:*
+        version: link:../../packages/templates
       '@tuckin/ui':
         specifier: workspace:*
         version: link:../../packages/ui

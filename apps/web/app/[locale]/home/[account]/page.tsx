@@ -1,3 +1,4 @@
+import { ensureTrialSampleData } from '../_lib/trial-actions';
 import { loadTeamWorkspace } from './layout';
 
 interface TeamHomePageProps {
@@ -7,6 +8,8 @@ interface TeamHomePageProps {
 export default async function TeamHomePage({ params }: TeamHomePageProps) {
   const { account } = await params;
   const { team } = await loadTeamWorkspace(account);
+
+  await ensureTrialSampleData({ accountId: team.id });
 
   return (
     <main className={'p-8'}>

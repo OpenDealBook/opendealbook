@@ -22,7 +22,8 @@
   "account": {
     "settings": "Settings",
     "profile": "Profile",
-    "apiKeys": "API keys"
+    "apiKeys": "API keys",
+    "templates": "Templates"
   },
   "billing": {
     "title": "Billing",

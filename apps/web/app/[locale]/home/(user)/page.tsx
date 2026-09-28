@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from '@tuckin/ui/card';
 
+import { ensureTrialSampleData } from '../_lib/trial-actions';
+
 export default async function UserHomePage(props: {
   params: Promise<{ locale: string }>;
 }) {
@@ -23,6 +25,8 @@ export default async function UserHomePage(props: {
   if (!user) {
     redirect('/auth/sign-in');
   }
+
+  await ensureTrialSampleData({ accountId: user.id });
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>

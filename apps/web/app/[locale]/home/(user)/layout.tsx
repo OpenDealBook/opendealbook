@@ -8,6 +8,8 @@ import { getSupabaseServerClient } from '@tuckin/supabase/server';
 
 import personalAccountNavigationConfig from '~/config/personal-account-navigation.config';
 
+import { TrialBanner } from '../_components/trial-banner';
+import { loadTrialState } from '../_lib/trial';
 import { AccountDropdown } from './_components/account-dropdown';
 
 export default async function UserWorkspaceLayout({
@@ -28,6 +30,8 @@ export default async function UserWorkspaceLayout({
   if (!user) {
     redirect('/auth/sign-in');
   }
+
+  const trial = await loadTrialState(user.id);
 
   return (
     <div className={'flex min-h-screen'}>
@@ -60,6 +64,13 @@ export default async function UserWorkspaceLayout({
           <NotificationsPopover accountId={user.id} />
           <AccountDropdown email={user.email ?? ''} />
         </header>
+
+        <TrialBanner
+          accountId={user.id}
+          isActive={trial.isActive}
+          endsAt={trial.endsAt}
+          billingHref={'/home/billing'}
+        />
 
         <div className={'flex-1'}>{children}</div>
       </div>

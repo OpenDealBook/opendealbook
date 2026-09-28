@@ -9,6 +9,9 @@ import { getSupabaseServerClient } from '@tuckin/supabase/server';
 import pathsConfig from '~/config/paths.config';
 import { getTeamAccountNavigationConfig } from '~/config/team-account-navigation.config';
 
+import { TrialBanner } from '../_components/trial-banner';
+import { loadTrialState } from '../_lib/trial';
+
 interface TeamAccountLayoutProps {
   children: ReactNode;
   params: Promise<{ locale: string; account: string }>;
@@ -78,6 +81,7 @@ export default async function TeamAccountLayout({
   const { user, team } = await loadTeamWorkspace(account);
   const teams = await loadTeamAccounts(user.id);
   const navigation = getTeamAccountNavigationConfig(account);
+  const trial = await loadTrialState(team.id);
 
   return (
     <div className={'flex min-h-screen'}>
@@ -118,7 +122,15 @@ export default async function TeamAccountLayout({
         </nav>
       </aside>
 
-      <main className={'flex-1'}>{children}</main>
+      <main className={'flex flex-1 flex-col'}>
+        <TrialBanner
+          accountId={team.id}
+          isActive={trial.isActive}
+          endsAt={trial.endsAt}
+          billingHref={`/home/${account}/billing`}
+        />
+        <div className={'flex-1'}>{children}</div>
+      </main>
     </div>
   );
 }
