@@ -1,0 +1,57 @@
+{
+  "uid": "odb-temporal",
+  "title": "Temporal",
+  "tags": ["opendealbook", "temporal"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "About Temporal metrics",
+      "type": "text",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "Temporal-UI uptime comes from the blackbox probe. Native Temporal server metrics (workflow completion, task-queue lag) require enabling `PROMETHEUS_ENDPOINT` on the auto-setup container and uncommenting the `temporal` scrape job in `infra/prometheus/prometheus.yml`; the workflow panels below populate once that is wired."
+      }
+    },
+    {
+      "id": 2,
+      "title": "Temporal UI up",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "probe_success{instance=\"http://temporal-ui:8080\"}",
+          "legendFormat": "temporal-ui"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Workflow completions (requires native metrics)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (workflow_type) (rate(temporal_workflow_completed_total[5m]))",
+          "legendFormat": "{{workflow_type}}"
+        }
+      ]
+    }
+  ]
+}

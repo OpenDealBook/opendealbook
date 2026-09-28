@@ -12,4 +12,37 @@ scrape_configs:
     static_configs:
       - targets: ["otel-collector:8889"]
 
-  # Add OpenDealbook app targets here once services expose /metrics.
+  # Uptime probes via blackbox-exporter. Each target is probed with the http_2xx module;
+  # the exporter fronts the probe, so __address__ is rewritten to the exporter and the
+  # real target is passed as the ?target= param. Yields probe_success and
+  # probe_duration_seconds per target for the Uptime dashboard and the service-down alert.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://host.docker.internal:3000/api/healthcheck
+          - http://grafana:3000/api/health
+          - http://loki:3100/ready
+          - http://tempo:3200/ready
+          - http://pyroscope:4040/ready
+          - http://temporal-ui:8080
+          - http://nango-server:3003/health
+          - http://documenso:3000
+          - http://gotenberg:3000/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Temporal server can expose Prometheus metrics, but the auto-setup image needs
+  # PROMETHEUS_ENDPOINT wired across its bundled roles without colliding on one port;
+  # that is deferred to avoid destabilizing the core container. Enable it there, then
+  # uncomment this job to populate the Temporal dashboard with native workflow metrics.
+  # - job_name: temporal
+  #   static_configs:
+  #     - targets: ["temporal:9091"]

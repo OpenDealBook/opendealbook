@@ -7,14 +7,25 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
+  # memory_limiter must run before batch so it can shed load under pressure.
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
   batch: {}
 
 exporters:
   debug:
     verbosity: basic
-  # Scraped by Prometheus at otel-collector:8889.
+  # Traces to Tempo over OTLP gRPC (internal, no TLS on the local network).
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  # Metrics scraped by Prometheus at otel-collector:8889. open-metrics carries exemplars.
   prometheus:
     endpoint: 0.0.0.0:8889
+    enable_open_metrics: true
   # Loki 3.x native OTLP logs endpoint.
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
@@ -28,13 +39,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo, debug]
     metrics:
       receivers: [otlp]
-      processors: [batch]
+      processors: [memory_limiter, batch]
       exporters: [prometheus, debug]
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [memory_limiter, batch]
       exporters: [otlphttp/loki, debug]

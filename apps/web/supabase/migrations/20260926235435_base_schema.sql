@@ -3574,3 +3574,522 @@ create policy contract_version_update on public.contract_version
 create policy contract_version_delete on public.contract_version
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/52-meeting-series.sql =====
+-- A recurring meeting cadence for a deal (Stage 4). A meeting_series is the
+-- template that individual meeting rows are scheduled from. Deal-scoped;
+-- managed with deals.manage.
+
+create table if not exists public.meeting_series (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  weekday int,
+  time_of_day time,
+  timezone text,
+  duration_mins int,
+  video_provider text,
+  attendees jsonb not null default '[]'::jsonb,
+  status text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.meeting_series enable row level security;
+
+create index ix_meeting_series_deal on public.meeting_series (deal_id);
+create index ix_meeting_series_account on public.meeting_series (account_id);
+
+revoke all on public.meeting_series from authenticated, service_role;
+grant select, insert, update, delete on public.meeting_series to authenticated;
+grant select, insert, update, delete on public.meeting_series to service_role;
+
+create trigger meeting_series_timestamps
+  before insert or update on public.meeting_series
+  for each row execute function public.set_timestamps();
+
+create trigger meeting_series_user_tracking
+  before insert or update on public.meeting_series
+  for each row execute function public.set_user_tracking();
+
+create policy meeting_series_read on public.meeting_series
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy meeting_series_insert on public.meeting_series
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy meeting_series_update on public.meeting_series
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy meeting_series_delete on public.meeting_series
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/53-meeting.sql =====
+-- A single meeting on a deal (Stage 4). A meeting may belong to a recurring
+-- series (series_id) or stand alone. Deal-scoped; managed with deals.manage.
+
+create table if not exists public.meeting (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  series_id uuid references public.meeting_series (id) on delete set null,
+  type text not null check (type in ('weekly', 'site_visit')),
+  scheduled_at timestamptz,
+  status text,
+  attendees jsonb not null default '[]'::jsonb,
+  notes text,
+  decisions text,
+  recording_url text,
+  video_url text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.meeting enable row level security;
+
+create index ix_meeting_deal on public.meeting (deal_id);
+create index ix_meeting_account on public.meeting (account_id);
+create index ix_meeting_series on public.meeting (series_id);
+
+revoke all on public.meeting from authenticated, service_role;
+grant select, insert, update, delete on public.meeting to authenticated;
+grant select, insert, update, delete on public.meeting to service_role;
+
+create trigger meeting_timestamps
+  before insert or update on public.meeting
+  for each row execute function public.set_timestamps();
+
+create trigger meeting_user_tracking
+  before insert or update on public.meeting
+  for each row execute function public.set_user_tracking();
+
+create policy meeting_read on public.meeting
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy meeting_insert on public.meeting
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy meeting_update on public.meeting
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy meeting_delete on public.meeting
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/54-meeting-action-item.sql =====
+-- An action item captured on a meeting (Stage 4). It can be assigned to an
+-- internal user or a seller, and optionally linked to the checklist item or
+-- schedule week it advances. Deal-scoped; managed with deals.manage.
+
+create table if not exists public.meeting_action_item (
+  id uuid primary key default gen_random_uuid(),
+  meeting_id uuid not null references public.meeting (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  description text not null,
+  owner_user_id uuid references auth.users,
+  owner_is_seller boolean not null default false,
+  due_at timestamptz,
+  status public.checklist_status not null default 'not_started',
+  checklist_item_id uuid references public.checklist_item (id) on delete set null,
+  schedule_week_id uuid references public.schedule_week (id) on delete set null,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.meeting_action_item enable row level security;
+
+create index ix_meeting_action_item_meeting on public.meeting_action_item (meeting_id);
+create index ix_meeting_action_item_deal on public.meeting_action_item (deal_id);
+create index ix_meeting_action_item_account on public.meeting_action_item (account_id);
+
+revoke all on public.meeting_action_item from authenticated, service_role;
+grant select, insert, update, delete on public.meeting_action_item to authenticated;
+grant select, insert, update, delete on public.meeting_action_item to service_role;
+
+create trigger meeting_action_item_timestamps
+  before insert or update on public.meeting_action_item
+  for each row execute function public.set_timestamps();
+
+create trigger meeting_action_item_user_tracking
+  before insert or update on public.meeting_action_item
+  for each row execute function public.set_user_tracking();
+
+create policy meeting_action_item_read on public.meeting_action_item
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy meeting_action_item_insert on public.meeting_action_item
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy meeting_action_item_update on public.meeting_action_item
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy meeting_action_item_delete on public.meeting_action_item
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/55-hr-audit-engagement.sql =====
+-- HR/compensation audit engagement on a deal (Stage 5). Tracks the vendor (or
+-- internal team) running the audit and links the resulting report document.
+-- Deal-scoped; managed with deals.manage. References dr_document, so it is
+-- ordered after that table.
+
+create table if not exists public.hr_audit_engagement (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  provider text not null check (provider in ('third_party', 'internal')),
+  vendor_name text,
+  vendor_contact text,
+  scope text,
+  ordered_at timestamptz,
+  due_at timestamptz,
+  report_document_id uuid references public.dr_document (id) on delete set null,
+  findings_json jsonb not null default '{}'::jsonb,
+  status public.checklist_status not null default 'not_started',
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.hr_audit_engagement enable row level security;
+
+create index ix_hr_audit_engagement_deal on public.hr_audit_engagement (deal_id);
+create index ix_hr_audit_engagement_account on public.hr_audit_engagement (account_id);
+
+revoke all on public.hr_audit_engagement from authenticated, service_role;
+grant select, insert, update, delete on public.hr_audit_engagement to authenticated;
+grant select, insert, update, delete on public.hr_audit_engagement to service_role;
+
+create trigger hr_audit_engagement_timestamps
+  before insert or update on public.hr_audit_engagement
+  for each row execute function public.set_timestamps();
+
+create trigger hr_audit_engagement_user_tracking
+  before insert or update on public.hr_audit_engagement
+  for each row execute function public.set_user_tracking();
+
+create policy hr_audit_engagement_read on public.hr_audit_engagement
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy hr_audit_engagement_insert on public.hr_audit_engagement
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy hr_audit_engagement_update on public.hr_audit_engagement
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy hr_audit_engagement_delete on public.hr_audit_engagement
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/56-employee.sql =====
+-- An employee assessed during the HR audit (Stage 5). Captures compensation,
+-- tenure, and the retention risk flags that matter for the deal. Deal-scoped;
+-- managed with deals.manage.
+
+create table if not exists public.employee (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name text not null,
+  role text,
+  comp numeric,
+  tenure_years numeric,
+  credentials text,
+  non_compete boolean not null default false,
+  non_solicit boolean not null default false,
+  key_person boolean not null default false,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.employee enable row level security;
+
+create index ix_employee_deal on public.employee (deal_id);
+create index ix_employee_account on public.employee (account_id);
+
+revoke all on public.employee from authenticated, service_role;
+grant select, insert, update, delete on public.employee to authenticated;
+grant select, insert, update, delete on public.employee to service_role;
+
+create trigger employee_timestamps
+  before insert or update on public.employee
+  for each row execute function public.set_timestamps();
+
+create trigger employee_user_tracking
+  before insert or update on public.employee
+  for each row execute function public.set_user_tracking();
+
+create policy employee_read on public.employee
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy employee_insert on public.employee
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy employee_update on public.employee
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy employee_delete on public.employee
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/57-client-transition.sql =====
+-- Per-client transition tracking for integration and close (Stage 8). Each row
+-- follows one client through the paperwork required to move them to the buyer.
+-- Deal-scoped; managed with deals.manage.
+
+create table if not exists public.client_transition (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  client_name text not null,
+  engagement_letter_status public.checklist_status not null default 'not_started',
+  consent_7216_status public.checklist_status not null default 'not_started',
+  efile_auth_status public.checklist_status not null default 'not_started',
+  portal_migration_status public.checklist_status not null default 'not_started',
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.client_transition enable row level security;
+
+create index ix_client_transition_deal on public.client_transition (deal_id);
+create index ix_client_transition_account on public.client_transition (account_id);
+
+revoke all on public.client_transition from authenticated, service_role;
+grant select, insert, update, delete on public.client_transition to authenticated;
+grant select, insert, update, delete on public.client_transition to service_role;
+
+create trigger client_transition_timestamps
+  before insert or update on public.client_transition
+  for each row execute function public.set_timestamps();
+
+create trigger client_transition_user_tracking
+  before insert or update on public.client_transition
+  for each row execute function public.set_user_tracking();
+
+create policy client_transition_read on public.client_transition
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy client_transition_insert on public.client_transition
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy client_transition_update on public.client_transition
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy client_transition_delete on public.client_transition
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/58-account-analytics.sql =====
+-- Account-scoped analytics for the dashboard charts. Each function is the
+-- access path (there are no materialized views with their own RLS); every one
+-- runs security definer and gates on has_role_on_account(p_account_id), so a
+-- caller who is not a member of the account gets an empty result. Revenue is
+-- sensitive: functions that expose it take p_include_revenue, and the caller
+-- passes true only for roles allowed to see revenue (owner/admin); when false
+-- the revenue column is zeroed. asking_price is the pipeline revenue figure.
+
+create or replace function public.analytics_pipeline_by_stage(p_account_id uuid, p_include_revenue boolean default false)
+  returns table (stage text, label text, deal_count bigint, total_revenue numeric)
+  language sql security definer
+  set search_path = '' as $$
+  select ps.key, ps.label, count(d.id),
+    case when p_include_revenue then coalesce(sum(d.asking_price), 0) else 0 end
+  from public.pipeline_stage ps
+  left join public.deal d on d.account_id = ps.account_id and d.stage = ps.key
+  where ps.account_id = p_account_id
+    and public.has_role_on_account(p_account_id)
+  group by ps.key, ps.label, ps.sort_order
+  order by ps.sort_order;
+$$;
+
+create or replace function public.analytics_deals_added_lost_by_month(p_account_id uuid)
+  returns table (month date, added bigint, lost bigint)
+  language sql security definer
+  set search_path = '' as $$
+  with added as (
+    select date_trunc('month', d.created_at)::date as m, count(*) as c
+    from public.deal d
+    where d.account_id = p_account_id
+      and public.has_role_on_account(p_account_id)
+    group by 1
+  ),
+  lost as (
+    select date_trunc('month', ae.created_at)::date as m, count(*) as c
+    from public.audit_event ae
+    where ae.account_id = p_account_id
+      and ae.event_type = 'stage_move'
+      and ae.payload ->> 'to' = 'closed_lost'
+      and public.has_role_on_account(p_account_id)
+    group by 1
+  )
+  select coalesce(added.m, lost.m), coalesce(added.c, 0), coalesce(lost.c, 0)
+  from added
+  full outer join lost on added.m = lost.m
+  order by 1;
+$$;
+
+-- Median days a deal spent in each stage, measured between consecutive
+-- stage_move events. The stage entered is payload->>'to'; its dwell time ends
+-- at the next move, so a deal still in its current stage is not yet counted.
+create or replace function public.analytics_median_days_in_stage(p_account_id uuid)
+  returns table (stage text, median_days numeric)
+  language sql security definer
+  set search_path = '' as $$
+  with moves as (
+    select ae.deal_id,
+      ae.payload ->> 'to' as stage,
+      ae.created_at,
+      lead(ae.created_at) over (partition by ae.deal_id order by ae.created_at) as next_at
+    from public.audit_event ae
+    where ae.account_id = p_account_id
+      and ae.event_type = 'stage_move'
+      and public.has_role_on_account(p_account_id)
+  )
+  select stage,
+    percentile_cont(0.5) within group (order by extract(epoch from (next_at - created_at)) / 86400)
+  from moves
+  where next_at is not null
+  group by stage;
+$$;
+
+create or replace function public.analytics_checklist_status_by_deal(p_account_id uuid)
+  returns table (deal_id uuid, status public.checklist_status, item_count bigint)
+  language sql security definer
+  set search_path = '' as $$
+  select ci.deal_id, ci.status, count(*)
+  from public.checklist_item ci
+  where ci.account_id = p_account_id
+    and public.has_role_on_account(p_account_id)
+  group by ci.deal_id, ci.status;
+$$;
+
+-- Median days from a checklist item being requested to being received.
+create or replace function public.analytics_requested_to_received_median(p_account_id uuid)
+  returns numeric
+  language sql security definer
+  set search_path = '' as $$
+  select percentile_cont(0.5) within group (
+    order by extract(epoch from (ci.received_at - ci.requested_at)) / 86400
+  )
+  from public.checklist_item ci
+  where ci.account_id = p_account_id
+    and ci.requested_at is not null
+    and ci.received_at is not null
+    and public.has_role_on_account(p_account_id);
+$$;
+
+create or replace function public.analytics_contract_turns_per_deal(p_account_id uuid)
+  returns table (deal_id uuid, turns bigint)
+  language sql security definer
+  set search_path = '' as $$
+  select c.deal_id, count(cv.id)
+  from public.contract c
+  join public.contract_version cv on cv.contract_id = c.id
+  where c.account_id = p_account_id
+    and public.has_role_on_account(p_account_id)
+  group by c.deal_id;
+$$;
+
+create or replace function public.analytics_meetings_held_vs_skipped(p_account_id uuid)
+  returns table (held bigint, skipped bigint)
+  language sql security definer
+  set search_path = '' as $$
+  select
+    count(*) filter (where m.status = 'held'),
+    count(*) filter (where m.status = 'skipped')
+  from public.meeting m
+  where m.account_id = p_account_id
+  having public.has_role_on_account(p_account_id);
+$$;
+
+create or replace function public.analytics_open_action_items_by_owner(p_account_id uuid)
+  returns table (owner_user_id uuid, owner_is_seller boolean, open_count bigint)
+  language sql security definer
+  set search_path = '' as $$
+  select ai.owner_user_id, ai.owner_is_seller, count(*)
+  from public.meeting_action_item ai
+  where ai.account_id = p_account_id
+    and ai.status <> 'reviewed'
+    and public.has_role_on_account(p_account_id)
+  group by ai.owner_user_id, ai.owner_is_seller;
+$$;
+
+create or replace function public.analytics_broker_deal_flow_by_quarter(p_account_id uuid, p_include_revenue boolean default false)
+  returns table (quarter date, broker_contact_id uuid, deal_count bigint, total_revenue numeric)
+  language sql security definer
+  set search_path = '' as $$
+  select date_trunc('quarter', d.created_at)::date, d.broker_contact_id, count(*),
+    case when p_include_revenue then coalesce(sum(d.asking_price), 0) else 0 end
+  from public.deal d
+  where d.account_id = p_account_id
+    and d.broker_contact_id is not null
+    and public.has_role_on_account(p_account_id)
+  group by 1, d.broker_contact_id
+  order by 1;
+$$;
+
+grant execute on function public.analytics_pipeline_by_stage(uuid, boolean) to authenticated, service_role;
+grant execute on function public.analytics_deals_added_lost_by_month(uuid) to authenticated, service_role;
+grant execute on function public.analytics_median_days_in_stage(uuid) to authenticated, service_role;
+grant execute on function public.analytics_checklist_status_by_deal(uuid) to authenticated, service_role;
+grant execute on function public.analytics_requested_to_received_median(uuid) to authenticated, service_role;
+grant execute on function public.analytics_contract_turns_per_deal(uuid) to authenticated, service_role;
+grant execute on function public.analytics_meetings_held_vs_skipped(uuid) to authenticated, service_role;
+grant execute on function public.analytics_open_action_items_by_owner(uuid) to authenticated, service_role;
+grant execute on function public.analytics_broker_deal_flow_by_quarter(uuid, boolean) to authenticated, service_role;

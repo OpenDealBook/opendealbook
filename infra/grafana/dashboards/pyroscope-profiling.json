@@ -1,0 +1,56 @@
+{
+  "uid": "odb-pyroscope",
+  "title": "Pyroscope Profiling",
+  "tags": ["opendealbook", "profiling"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "textbox",
+        "label": "Service name",
+        "query": "opendealbook-web",
+        "current": { "text": "opendealbook-web", "value": "opendealbook-web" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "About profiling",
+      "type": "text",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "Continuous CPU profiles from the Pyroscope datasource. The flame graph populates once the app pushes profiles to `PYROSCOPE_SERVER_ADDRESS` (http://localhost:4040). Open the [Pyroscope UI](http://localhost:4040) for the full explorer."
+      }
+    },
+    {
+      "id": 2,
+      "title": "CPU flame graph",
+      "type": "flamegraph",
+      "datasource": {
+        "type": "grafana-pyroscope-datasource",
+        "uid": "pyroscope"
+      },
+      "gridPos": { "h": 18, "w": 24, "x": 0, "y": 3 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-pyroscope-datasource",
+            "uid": "pyroscope"
+          },
+          "queryType": "profile",
+          "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds",
+          "labelSelector": "{service_name=\"$service\"}",
+          "groupBy": []
+        }
+      ]
+    }
+  ]
+}

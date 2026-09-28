@@ -17,6 +17,14 @@
 #   Observability stack:      docker compose --profile observability up -d
 #   Document parsing (OCR):   docker compose --profile docling up -d
 #   Everything:               docker compose --profile core --profile observability --profile docling up -d
+#
+# The observability profile is a full Grafana LGTM + profiling stack fed by the OTel
+# Collector: Logs=Loki, Traces=Tempo, Metrics=Prometheus, Profiles=Pyroscope, with
+# blackbox-exporter for uptime probes and Grafana for dashboards + alerting. Apps send
+# OTLP to the collector (localhost:4318) and push profiles to Pyroscope (localhost:4040).
+# Grafana is at http://localhost:3001 with datasources, dashboards, and alert rules
+# provisioned from infra/grafana. Bring it up with:
+#   docker compose --profile observability up -d
 # Nothing starts without a profile, so `docker compose up` on its own is a no-op; the
 # heavy services are all profile-gated to keep a dev machine light.
 #
@@ -56,6 +64,8 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  tempo_data:
+  pyroscope_data:
   docling_cache:
 
 services:
@@ -247,6 +257,10 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
+      # Accept Tempo's service-graph / span metrics via remote write.
+      - --web.enable-remote-write-receiver
+      # Store trace exemplars so Grafana can jump metrics -> traces.
+      - --enable-feature=exemplar-storage
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -263,13 +277,14 @@ services:
     profiles: [observability]
     restart: unless-stopped
     networks: [opendealbook]
-    depends_on: [prometheus, loki]
+    depends_on: [prometheus, loki, tempo, pyroscope]
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
       - "3001:3000"
@@ -302,7 +317,7 @@ services:
     profiles: [observability]
     restart: unless-stopped
     networks: [opendealbook]
-    depends_on: [prometheus, loki]
+    depends_on: [prometheus, loki, tempo]
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     volumes:
       - ./infra/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
@@ -314,6 +329,59 @@ services:
     healthcheck:
       test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
       interval: 20s
+      timeout: 5s
+      retries: 5
+
+  tempo:
+    image: grafana/tempo:2.10.2
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./infra/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    # 3200 is Tempo's HTTP/query API for Grafana. The OTLP receivers (4317/4318) stay
+    # internal; the collector forwards traces to tempo:4317 over the compose network.
+    ports:
+      - "3200:3200"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3200/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  pyroscope:
+    image: grafana/pyroscope:1.19.0
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    command: ["-pyroscopedb.data-path=/data"]
+    volumes:
+      - pyroscope_data:/data
+    ports:
+      - "4040:4040"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:4040/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.28.0
+    profiles: [observability]
+    restart: unless-stopped
+    networks: [opendealbook]
+    ports:
+      - "9115:9115"
+    # Probes reach the host-side web app via host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9115/-/healthy || exit 1"]
+      interval: 15s
       timeout: 5s
       retries: 5
 
