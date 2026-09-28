@@ -1,6 +1,8 @@
 -- A single meeting on a deal (Stage 4). A meeting may belong to a recurring
 -- series (series_id) or stand alone. Deal-scoped; managed with deals.manage.
 
+create type public.meeting_status as enum ('scheduled', 'held', 'skipped', 'cancelled');
+
 create table if not exists public.meeting (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null references public.deal (id) on delete cascade,
@@ -8,7 +10,7 @@ create table if not exists public.meeting (
   series_id uuid references public.meeting_series (id) on delete set null,
   type text not null check (type in ('weekly', 'site_visit')),
   scheduled_at timestamptz,
-  status text,
+  status public.meeting_status default 'scheduled',
   attendees jsonb not null default '[]'::jsonb,
   notes text,
   decisions text,

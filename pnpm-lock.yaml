@@ -437,6 +437,25 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
+  packages/analytics-data:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
   packages/api:
     dependencies:
       '@modelcontextprotocol/sdk':
@@ -857,6 +876,53 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
+  packages/features/buyer-profile:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@tuckin/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
+  packages/features/close:
+    dependencies:
+      '@tuckin/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      react:
+        specifier: ^19.0.0
+        version: 19.2.6
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
   packages/features/deals:
     dependencies:
       '@tanstack/react-query':
@@ -887,6 +953,50 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
+  packages/features/hr-audit:
+    dependencies:
+      '@tuckin/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
+
+  packages/features/meetings:
+    dependencies:
+      '@tuckin/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@tuckin/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@tuckin/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2))
 
   packages/features/notifications:
     dependencies:

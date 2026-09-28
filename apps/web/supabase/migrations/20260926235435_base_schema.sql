@@ -3638,6 +3638,8 @@ create policy meeting_series_delete on public.meeting_series
 -- A single meeting on a deal (Stage 4). A meeting may belong to a recurring
 -- series (series_id) or stand alone. Deal-scoped; managed with deals.manage.
 
+create type public.meeting_status as enum ('scheduled', 'held', 'skipped', 'cancelled');
+
 create table if not exists public.meeting (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null references public.deal (id) on delete cascade,
@@ -3645,7 +3647,7 @@ create table if not exists public.meeting (
   series_id uuid references public.meeting_series (id) on delete set null,
   type text not null check (type in ('weekly', 'site_visit')),
   scheduled_at timestamptz,
-  status text,
+  status public.meeting_status default 'scheduled',
   attendees jsonb not null default '[]'::jsonb,
   notes text,
   decisions text,
@@ -4093,3 +4095,181 @@ grant execute on function public.analytics_contract_turns_per_deal(uuid) to auth
 grant execute on function public.analytics_meetings_held_vs_skipped(uuid) to authenticated, service_role;
 grant execute on function public.analytics_open_action_items_by_owner(uuid) to authenticated, service_role;
 grant execute on function public.analytics_broker_deal_flow_by_quarter(uuid, boolean) to authenticated, service_role;
+
+-- ===== schemas/59-search.sql =====
+-- Full-text search projection. One row per searchable source row, holding a
+-- prebuilt tsvector so global search and the diligence chat rank matches
+-- without scanning every domain table. The projection is maintained by the
+-- backend (service_role); readers select through the same account and deal
+-- access as the source rows. entity_type and entity_id name the source row;
+-- deal_id is null for account-scoped entities and set for deal-scoped ones.
+
+create table if not exists public.search_document (
+  entity_type text not null,
+  entity_id uuid not null,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid references public.deal (id) on delete cascade,
+  tsv tsvector not null,
+  primary key (entity_type, entity_id)
+);
+
+alter table public.search_document enable row level security;
+
+create index ix_search_document_tsv on public.search_document using gin (tsv);
+create index ix_search_document_account on public.search_document (account_id);
+
+revoke all on public.search_document from authenticated, service_role;
+grant select on public.search_document to authenticated;
+grant select, insert, update, delete on public.search_document to service_role;
+
+create policy search_document_read on public.search_document
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or (deal_id is not null and public.has_deal_permission(deal_id, 'deals.manage'))
+  );
+
+-- Ranked full-text search within one account. security definer so it can read
+-- the projection; the account gate mirrors the analytics functions, and the
+-- deal branch keeps a participant's results to the deals they were granted.
+create or replace function public.search_documents(p_account_id uuid, p_query text)
+  returns table (entity_type text, entity_id uuid, deal_id uuid, rank real)
+  language sql security definer
+  set search_path = '' as $$
+  select sd.entity_type, sd.entity_id, sd.deal_id,
+    ts_rank(sd.tsv, websearch_to_tsquery('english', p_query))
+  from public.search_document sd
+  where sd.account_id = p_account_id
+    and sd.tsv @@ websearch_to_tsquery('english', p_query)
+    and (
+      public.has_role_on_account(p_account_id)
+      or (sd.deal_id is not null and public.has_deal_permission(sd.deal_id, 'deals.manage'))
+    )
+  order by 4 desc;
+$$;
+
+grant execute on function public.search_documents(uuid, text) to authenticated, service_role;
+
+-- ===== schemas/60-ai-layer.sql =====
+-- AI layer groundwork. pgvector powers embedding search over document chunks;
+-- llm_endpoint holds each account's model and endpoint configuration; every
+-- model call is written to ai_call_log for audit; document_chunk stores the
+-- embedded text spans of data-room documents. ai_redaction_enabled toggles
+-- whether an account's prompts are redacted before they leave the tenant.
+
+create extension if not exists vector with schema extensions;
+
+alter table public.accounts add column ai_redaction_enabled boolean not null default false;
+
+create table if not exists public.llm_endpoint (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  provider text not null,
+  model text not null,
+  base_url text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.llm_endpoint enable row level security;
+
+create index ix_llm_endpoint_account on public.llm_endpoint (account_id);
+
+revoke all on public.llm_endpoint from authenticated, service_role;
+grant select, insert, update, delete on public.llm_endpoint to authenticated;
+grant select, insert, update, delete on public.llm_endpoint to service_role;
+
+create trigger llm_endpoint_timestamps
+  before insert or update on public.llm_endpoint
+  for each row execute function public.set_timestamps();
+
+create trigger llm_endpoint_user_tracking
+  before insert or update on public.llm_endpoint
+  for each row execute function public.set_user_tracking();
+
+create policy llm_endpoint_read on public.llm_endpoint
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy llm_endpoint_insert on public.llm_endpoint
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+create policy llm_endpoint_update on public.llm_endpoint
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+create policy llm_endpoint_delete on public.llm_endpoint
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+-- Append-only audit of model calls. created_by defaults to the acting user;
+-- rows are never updated, so no timestamp trigger is wired.
+create table if not exists public.ai_call_log (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  endpoint_id uuid references public.llm_endpoint (id) on delete set null,
+  deal_id uuid references public.deal (id) on delete cascade,
+  model text not null,
+  prompt_tokens int,
+  completion_tokens int,
+  created_at timestamptz not null default now(),
+  created_by uuid references auth.users default auth.uid()
+);
+
+alter table public.ai_call_log enable row level security;
+
+create index ix_ai_call_log_account on public.ai_call_log (account_id);
+
+revoke all on public.ai_call_log from authenticated, service_role;
+grant select on public.ai_call_log to authenticated;
+grant select, insert, update, delete on public.ai_call_log to service_role;
+
+create policy ai_call_log_read on public.ai_call_log
+  for select to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+-- Embedded spans of a data-room document. Deal-scoped; access mirrors
+-- dr_document so a chunk is reachable exactly when its document is.
+create table if not exists public.document_chunk (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  document_id uuid not null references public.dr_document (id) on delete cascade,
+  chunk_index int not null,
+  content text not null,
+  embedding extensions.vector(1536),
+  created_at timestamptz not null default now()
+);
+
+alter table public.document_chunk enable row level security;
+
+create index ix_document_chunk_document on public.document_chunk (document_id);
+create index ix_document_chunk_deal on public.document_chunk (deal_id);
+
+revoke all on public.document_chunk from authenticated, service_role;
+grant select, insert, update, delete on public.document_chunk to authenticated;
+grant select, insert, update, delete on public.document_chunk to service_role;
+
+create policy document_chunk_read on public.document_chunk
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy document_chunk_insert on public.document_chunk
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy document_chunk_update on public.document_chunk
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy document_chunk_delete on public.document_chunk
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));

@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
+          ai_redaction_enabled: boolean
           created_at: string | null
           created_by: string | null
           email: string | null
@@ -26,6 +27,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          ai_redaction_enabled?: boolean
           created_at?: string | null
           created_by?: string | null
           email?: string | null
@@ -41,6 +43,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          ai_redaction_enabled?: boolean
           created_at?: string | null
           created_by?: string | null
           email?: string | null
@@ -113,6 +116,78 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "roles"
             referencedColumns: ["name"]
+          },
+        ]
+      }
+      ai_call_log: {
+        Row: {
+          account_id: string
+          completion_tokens: number | null
+          created_at: string
+          created_by: string | null
+          deal_id: string | null
+          endpoint_id: string | null
+          id: string
+          model: string
+          prompt_tokens: number | null
+        }
+        Insert: {
+          account_id: string
+          completion_tokens?: number | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          endpoint_id?: string | null
+          id?: string
+          model: string
+          prompt_tokens?: number | null
+        }
+        Update: {
+          account_id?: string
+          completion_tokens?: number | null
+          created_at?: string
+          created_by?: string | null
+          deal_id?: string | null
+          endpoint_id?: string | null
+          id?: string
+          model?: string
+          prompt_tokens?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_call_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_log_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_log_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_log_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "llm_endpoint"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1353,6 +1428,75 @@ export type Database = {
           },
         ]
       }
+      document_chunk: {
+        Row: {
+          account_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          deal_id: string
+          document_id: string
+          embedding: string | null
+          id: string
+        }
+        Insert: {
+          account_id: string
+          chunk_index: number
+          content: string
+          created_at?: string
+          deal_id: string
+          document_id: string
+          embedding?: string | null
+          id?: string
+        }
+        Update: {
+          account_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          deal_id?: string
+          document_id?: string
+          embedding?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunk_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunk_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunk_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunk_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunk_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "dr_document"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_share: {
         Row: {
           account_id: string
@@ -2117,6 +2261,64 @@ export type Database = {
           },
         ]
       }
+      llm_endpoint: {
+        Row: {
+          account_id: string
+          base_url: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          model: string
+          provider: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          base_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          model: string
+          provider: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          base_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          model?: string
+          provider?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "llm_endpoint_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "llm_endpoint_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "llm_endpoint_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting: {
         Row: {
           account_id: string
@@ -2130,7 +2332,7 @@ export type Database = {
           recording_url: string | null
           scheduled_at: string | null
           series_id: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["meeting_status"] | null
           type: string
           updated_at: string | null
           updated_by: string | null
@@ -2148,7 +2350,7 @@ export type Database = {
           recording_url?: string | null
           scheduled_at?: string | null
           series_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["meeting_status"] | null
           type: string
           updated_at?: string | null
           updated_by?: string | null
@@ -2166,7 +2368,7 @@ export type Database = {
           recording_url?: string | null
           scheduled_at?: string | null
           series_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["meeting_status"] | null
           type?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -2816,6 +3018,59 @@ export type Database = {
           },
         ]
       }
+      search_document: {
+        Row: {
+          account_id: string
+          deal_id: string | null
+          entity_id: string
+          entity_type: string
+          tsv: unknown
+        }
+        Insert: {
+          account_id: string
+          deal_id?: string | null
+          entity_id: string
+          entity_type: string
+          tsv: unknown
+        }
+        Update: {
+          account_id?: string
+          deal_id?: string | null
+          entity_id?: string
+          entity_type?: string
+          tsv?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "search_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_document_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "search_document_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       seller_question: {
         Row: {
           account_id: string
@@ -3409,6 +3664,7 @@ export type Database = {
       create_team_account: {
         Args: { account_name: string; account_slug?: string; user_id: string }
         Returns: {
+          ai_redaction_enabled: boolean
           created_at: string | null
           created_by: string | null
           email: string | null
@@ -3515,6 +3771,15 @@ export type Database = {
       replace_mfa_recovery_codes: {
         Args: { p_codes: string[] }
         Returns: undefined
+      }
+      search_documents: {
+        Args: { p_account_id: string; p_query: string }
+        Returns: {
+          deal_id: string
+          entity_id: string
+          entity_type: string
+          rank: number
+        }[]
       }
       seed_default_pipeline_stages: {
         Args: { p_account_id: string }
@@ -3649,6 +3914,7 @@ export type Database = {
       checklist_outcome: "accepted" | "follow_up" | "rejected"
       checklist_status: "not_started" | "requested" | "received" | "reviewed"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
+      meeting_status: "scheduled" | "held" | "skipped" | "cancelled"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
       participant_party: "buyer" | "seller" | "broker" | "lender"
@@ -3820,6 +4086,7 @@ export const Constants = {
       checklist_outcome: ["accepted", "follow_up", "rejected"],
       checklist_status: ["not_started", "requested", "received", "reviewed"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
+      meeting_status: ["scheduled", "held", "skipped", "cancelled"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],
       participant_party: ["buyer", "seller", "broker", "lender"],

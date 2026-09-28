@@ -1,0 +1,32 @@
+{
+  "name": "@tuckin/buyer-profile",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "catalog:",
+    "@tuckin/shared": "workspace:*",
+    "@tuckin/supabase": "workspace:*"
+  },
+  "devDependencies": {
+    "@tuckin/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
