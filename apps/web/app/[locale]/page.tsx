@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { Button } from '@odb/ui/button';
 import {
@@ -10,6 +11,8 @@ import {
   CardTitle,
 } from '@odb/ui/card';
 
+import featureFlagsConfig from '~/config/feature-flags.config';
+import { marketingGateRedirect } from '~/config/marketing-gate';
 import pathsConfig from '~/config/paths.config';
 
 export const metadata: Metadata = {
@@ -85,6 +88,12 @@ const trust = [
 ];
 
 export default function LandingPage() {
+  const redirectTo = marketingGateRedirect(featureFlagsConfig.enableMarketing);
+
+  if (redirectTo) {
+    redirect(redirectTo);
+  }
+
   return (
     <div className={'flex flex-col'}>
       <section

@@ -1,6 +1,9 @@
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
 import { Button } from '@odb/ui/button';
+
+import featureFlagsConfig from '~/config/feature-flags.config';
 
 const navLinks = [
   { href: '/pricing', label: 'Pricing' },
@@ -19,6 +22,10 @@ export default function MarketingLayout({
 }: {
   children: React.ReactNode;
 }) {
+  if (!featureFlagsConfig.enableMarketing) {
+    notFound();
+  }
+
   return (
     <div className={'flex min-h-screen flex-col'}>
       <header className={'border-b'}>
