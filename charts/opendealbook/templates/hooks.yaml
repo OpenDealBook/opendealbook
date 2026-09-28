@@ -1,0 +1,8 @@
+{{- /*
+Hand-written Helm hooks live here (the CUE generator never touches this file).
+Add pre-install / pre-upgrade Jobs (e.g. Supabase/Postgres migrations for
+apps/web) with the usual "helm.sh/hook" annotations when the image ships a
+migration entrypoint. None are defined yet: the migration command is an open
+decision (see README, decision 9 / DEPENDENCIES.md). This file intentionally
+renders nothing until then.
+*/ -}}

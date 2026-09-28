@@ -1,0 +1,9 @@
+# Patterns to ignore when packaging the chart.
+cue/
+Makefile
+README.md
+.git/
+.gitignore
+*.tmp
+*.bak
+.DS_Store

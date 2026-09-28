@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "OpenDealbook chart values (XApp contract)",
+  "description": "Contract for the OpenDealbook Hybrid C / CUE chart. Mirrors cue/values.cue #Values. Only the runtime holes are meaningfully overridable per release; the rest is baked at generate time and kept here for the XApp claim to stay aligned.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["mode", "marketing", "image", "web", "workers"],
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["public", "internal"],
+      "description": "Release instance. public = marketing OFF; internal = marketing ON."
+    },
+    "marketing": {
+      "type": "object",
+      "required": ["enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "NEXT_PUBLIC_ENABLE_MARKETING toggle. Must be false when mode=public, true when mode=internal."
+        }
+      }
+    },
+    "nameOverride": {"type": "string"},
+    "fullnameOverride": {"type": "string"},
+    "image": {
+      "type": "object",
+      "required": ["repository", "tag"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "minLength": 1},
+        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "create": {"type": "boolean"},
+        "name": {"type": "string"}
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": {"type": "string"},
+        "className": {"type": "string"},
+        "clusterIssuer": {"type": "string"},
+        "tlsSecretName": {"type": "string"}
+      }
+    },
+    "secretName": {"type": "string"},
+    "serviceAccountName": {"type": "string"},
+    "env": {"type": "object", "additionalProperties": {"type": "string"}},
+    "web": {
+      "type": "object",
+      "required": ["replicaCount"],
+      "additionalProperties": true,
+      "properties": {
+        "replicaCount": {"type": "integer", "minimum": 1},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "probePath": {"type": "string"}
+      }
+    },
+    "workers": {
+      "type": "object",
+      "required": ["replicaCount"],
+      "additionalProperties": true,
+      "properties": {
+        "replicaCount": {"type": "integer", "minimum": 1}
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "type": {"type": "string"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    }
+  }
+}

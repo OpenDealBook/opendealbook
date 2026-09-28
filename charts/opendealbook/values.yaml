@@ -1,0 +1,89 @@
+# OpenDealbook — one Hybrid C / CUE chart, two release instances.
+#
+# IMPORTANT: this is a CUE-authored chart. The running manifests
+# (templates/workloads.yaml) are generated from cue/ and bake in almost all
+# configuration at generate time. Only these values are live Helm holes at
+# render time and can be overridden per release / per XApp claim:
+#
+#   image.repository, image.tag, web.replicaCount, workers.replicaCount,
+#   marketing.enabled  (plus nameOverride/fullnameOverride/serviceAccount.*
+#   consumed by the label + name helpers)
+#
+# Every other key below is baked into the generated YAML from cue/fixture.cue
+# and is documentation only at the Helm layer. To change it, edit cue/ and run
+# `make generate`. Per-instance domain/TLS live under `ingress` and are read by
+# the platform composite / XApp claim, not by these workloads.
+
+# Release instance: public (marketing OFF) | internal (marketing ON).
+mode: public
+
+marketing:
+  # Derived from mode: public -> false, internal -> true. Rendered into the
+  # web pod as NEXT_PUBLIC_ENABLE_MARKETING. See README: apps/web must be
+  # wired to read this var (feature-flags.config.ts) by the app lane.
+  enabled: false
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/bearbinary/opendealbook
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+
+# Per-instance HTTP exposure. NOT rendered by the chart; the platform composite
+# (ingress/HTTPRoute + ClusterIssuer) and the XApp claim consume these.
+ingress:
+  host: app.opendealbook.com
+  className: traefik
+  clusterIssuer: letsencrypt-clifton-quest
+  tlsSecretName: opendealbook-web-tls
+
+# ESO-synced secret name (envFrom.secretRef on both workloads). Baked.
+secretName: opendealbook-secrets
+
+serviceAccountName: opendealbook
+
+# Baked non-secret endpoints (edit cue/fixture.cue to change).
+env:
+  NODE_ENV: production
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc.cluster.local:4318
+  OTEL_SERVICE_NAME: opendealbook-web
+  PYROSCOPE_SERVER_ADDRESS: http://pyroscope.observability.svc.cluster.local:4040
+  TEMPORAL_ADDRESS: temporal-frontend.temporal.svc.cluster.local:7233
+  GOTENBERG_URL: http://gotenberg.gotenberg.svc.cluster.local:3000
+  DOCLING_URL: http://docling-serve.docling.svc.cluster.local:5001
+  NOVU_API_URL: http://novu-api.novu.svc.cluster.local:3000
+  NANGO_SERVER_URL: http://nango-server.nango.svc.cluster.local:3003
+
+web:
+  replicaCount: 2
+  port: 3000
+  probePath: /api/health
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+workers:
+  replicaCount: 1
+  command: []
+  args: []
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+service:
+  type: ClusterIP
+  port: 3000
