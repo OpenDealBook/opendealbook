@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 import pathsConfig from '~/config/paths.config';
 

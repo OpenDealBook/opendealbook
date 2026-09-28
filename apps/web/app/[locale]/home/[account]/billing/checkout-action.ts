@@ -1,7 +1,7 @@
 'use server';
 
-import { createBillingGatewayService } from '@tuckin/billing-gateway';
-import { createStripeBillingStrategy } from '@tuckin/stripe';
+import { createBillingGatewayService } from '@odb/billing-gateway';
+import { createStripeBillingStrategy } from '@odb/stripe';
 
 interface TeamCheckoutParams {
   accountId: string;

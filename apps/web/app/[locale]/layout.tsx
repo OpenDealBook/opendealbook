@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import { hasLocale } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 
-import { I18nProvider } from '@tuckin/i18n/provider';
+import { I18nProvider } from '@odb/i18n/provider';
 
 import { routing } from '~/i18n/routing';
 

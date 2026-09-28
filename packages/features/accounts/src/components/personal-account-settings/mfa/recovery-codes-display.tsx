@@ -1,7 +1,7 @@
 'use client';
 
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Button } from '@tuckin/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Button } from '@odb/ui/button';
 
 export function RecoveryCodesDisplay({ codes }: { codes: string[] }) {
   const asText = codes.join('\n');

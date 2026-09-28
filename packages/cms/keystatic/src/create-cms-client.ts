@@ -1,11 +1,11 @@
-import type { Cms } from '@tuckin/cms';
+import type { Cms } from '@odb/cms';
 import type {
   CmsCollection,
   ContentItem,
   ContentItemsResult,
   ContentStatus,
   GetContentItemsParams,
-} from '@tuckin/cms-types';
+} from '@odb/cms-types';
 
 import { keystaticConfig } from './keystatic.config';
 

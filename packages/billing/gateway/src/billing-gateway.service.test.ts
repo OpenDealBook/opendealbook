@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Subscription } from '@tuckin/billing';
+import type { Subscription } from '@odb/billing';
 
 import { createBillingGatewayService } from './billing-gateway.service';
 import type { BillingStrategy } from './billing-strategy';

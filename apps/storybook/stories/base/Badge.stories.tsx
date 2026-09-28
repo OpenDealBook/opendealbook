@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Badge } from '@tuckin/ui/badge';
+import { Badge } from '@odb/ui/badge';
 
 const meta: Meta<typeof Badge> = {
   title: 'Base/Badge',

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Input } from '@tuckin/ui/input';
-import { Label } from '@tuckin/ui/label';
+import { Input } from '@odb/ui/input';
+import { Label } from '@odb/ui/label';
 
 const meta: Meta<typeof Label> = {
   title: 'Base/Label',

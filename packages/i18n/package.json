@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/i18n",
+  "name": "@odb/i18n",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,13 +14,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tuckin/shared": "workspace:*",
+    "@odb/shared": "workspace:*",
     "next-intl": "catalog:",
     "react": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "vitest": "catalog:"

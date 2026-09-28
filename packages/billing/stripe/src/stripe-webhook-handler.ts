@@ -3,7 +3,7 @@ import type Stripe from 'stripe';
 import type {
   BillingWebhookEvent,
   BillingWebhookHandler,
-} from '@tuckin/billing-gateway';
+} from '@odb/billing-gateway';
 
 import { mapStripeSubscription } from './subscription-mapper';
 

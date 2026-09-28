@@ -4,9 +4,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import type { Database } from '@tuckin/supabase';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import type { Database } from '@odb/supabase';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { assertDealsManager } from '../permissions';
 import { createSupabaseTemplateStorage } from '../storage';

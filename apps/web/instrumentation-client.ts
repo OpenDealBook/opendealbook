@@ -1,3 +1,3 @@
-import { initializeSentryClient } from '@tuckin/sentry/client';
+import { initializeSentryClient } from '@odb/sentry/client';
 
 initializeSentryClient();

@@ -1,4 +1,4 @@
-import { AdminAccountDetail } from '@tuckin/admin';
+import { AdminAccountDetail } from '@odb/admin';
 
 export default async function AdminAccountDetailPage({
   params,

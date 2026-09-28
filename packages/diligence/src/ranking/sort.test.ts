@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Tables } from '@tuckin/supabase';
+import type { Tables } from '@odb/supabase';
 
 import { dealBlockers, sortByRisk } from './sort';
 

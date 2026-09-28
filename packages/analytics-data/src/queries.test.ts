@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '@tuckin/supabase';
+import type { Database } from '@odb/supabase';
 
 import {
   fetchBrokerDealFlowByQuarter,

@@ -5,9 +5,9 @@ import type { User } from '@supabase/supabase-js';
 import { createSafeActionClient } from 'next-safe-action';
 import type { ZodType } from 'zod';
 
-import { ConsoleMonitoringService } from '@tuckin/monitoring';
-import { getLogger } from '@tuckin/shared/logger';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { ConsoleMonitoringService } from '@odb/monitoring';
+import { getLogger } from '@odb/shared/logger';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 interface EnhanceActionConfig<Input> {
   auth?: boolean;

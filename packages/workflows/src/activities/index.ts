@@ -1,6 +1,6 @@
-import { getMailer } from '@tuckin/mailers';
-import type { Enums, Json } from '@tuckin/supabase';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/admin';
+import { getMailer } from '@odb/mailers';
+import type { Enums, Json } from '@odb/supabase';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import type { BrokerCatchUpConfig } from '../workflows/brokerCatchUp';

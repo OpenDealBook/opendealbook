@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Sheet,
   SheetClose,
@@ -11,7 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@tuckin/ui/sheet';
+} from '@odb/ui/sheet';
 
 const meta: Meta<typeof Sheet> = {
   title: 'Base/Sheet',

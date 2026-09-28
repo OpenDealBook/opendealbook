@@ -1,5 +1,5 @@
-import type { Json } from '@tuckin/supabase';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import type { Json } from '@odb/supabase';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 export interface VerifyOtpTokenParams {
   token: string;

@@ -1,6 +1,6 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
-import type { Database } from '@tuckin/supabase';
+import type { Database } from '@odb/supabase';
 
 const SIGN_IN_PATH = '/auth/sign-in';
 

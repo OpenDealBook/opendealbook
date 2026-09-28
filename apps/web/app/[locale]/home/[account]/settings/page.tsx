@@ -1,4 +1,4 @@
-import { DeleteTeamDialog, UpdateTeamForm } from '@tuckin/team-accounts';
+import { DeleteTeamDialog, UpdateTeamForm } from '@odb/team-accounts';
 
 import { loadTeamWorkspace } from '../layout';
 

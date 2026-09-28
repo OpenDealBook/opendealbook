@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useSupabase, useUser } from '@tuckin/supabase/hooks';
+import { useSupabase, useUser } from '@odb/supabase/hooks';
 
 import {
   type NotificationRow,

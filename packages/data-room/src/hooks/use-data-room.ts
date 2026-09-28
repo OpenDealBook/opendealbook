@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import type { Tables } from '@tuckin/supabase';
-import { useSupabase } from '@tuckin/supabase/hooks';
+import type { Tables } from '@odb/supabase';
+import { useSupabase } from '@odb/supabase/hooks';
 
 import { buildFolderTree, type FolderNode } from '../folders/tree';
 import { dataRoomKeys, fetchDocuments, fetchFolders } from '../shared';

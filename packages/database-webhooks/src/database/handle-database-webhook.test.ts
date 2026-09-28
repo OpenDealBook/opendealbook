@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tuckin/supabase/server', () => ({
+vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerAdminClient: () => ({
     from: () => ({ delete: () => ({ eq: vi.fn() }) }),
   }),

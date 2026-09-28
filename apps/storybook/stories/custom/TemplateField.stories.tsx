@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { TemplateField } from '@tuckin/ui/template-field';
+import { TemplateField } from '@odb/ui/template-field';
 
 const meta: Meta<typeof TemplateField> = {
   title: 'Custom/TemplateField',

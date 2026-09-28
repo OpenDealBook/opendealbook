@@ -1,6 +1,6 @@
 # e2e
 
-Playwright end-to-end smoke suite for the Tuckin web app.
+Playwright end-to-end smoke suite for the Open Deal Book web app.
 
 ## What it covers
 

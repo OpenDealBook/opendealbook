@@ -1,6 +1,6 @@
 import { getRequestConfig } from 'next-intl/server';
 
-import { getLogger } from '@tuckin/shared/logger';
+import { getLogger } from '@odb/shared/logger';
 
 import { i18nConfig, resolveLocale } from './config';
 import type { MessagesLoader } from './messages';

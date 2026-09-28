@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, Enums } from '@tuckin/supabase';
+import type { Database, Enums } from '@odb/supabase';
 
 async function assertPermission(
   client: SupabaseClient<Database>,

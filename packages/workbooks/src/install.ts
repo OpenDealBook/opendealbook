@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, Json, Tables } from '@tuckin/supabase';
+import type { Database, Json, Tables } from '@odb/supabase';
 
 import { parseWorkbookConfig } from './config';
 import type { WorkbookScheduleClient } from './schedule';

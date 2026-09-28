@@ -1,7 +1,7 @@
 'use server';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 import {
   createTeamSchema,

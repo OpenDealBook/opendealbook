@@ -1,4 +1,4 @@
-import { listDeals } from '@tuckin/api/queries';
+import { listDeals } from '@odb/api/queries';
 
 import { parseListParams, resolveAccount } from '../_shared';
 

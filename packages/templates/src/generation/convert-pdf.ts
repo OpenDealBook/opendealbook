@@ -1,4 +1,4 @@
-import { getEnv } from '@tuckin/shared/env';
+import { getEnv } from '@odb/shared/env';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

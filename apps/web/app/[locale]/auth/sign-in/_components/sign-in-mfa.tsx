@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { MultiFactorChallenge, SignInForm } from '@tuckin/auth';
-import { getSupabaseBrowserClient } from '@tuckin/supabase/client';
+import { MultiFactorChallenge, SignInForm } from '@odb/auth';
+import { getSupabaseBrowserClient } from '@odb/supabase/client';
 
 export function SignInMfa() {
   const router = useRouter();

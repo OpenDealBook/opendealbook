@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 
-import type { Role } from '@tuckin/policies';
-import { Button } from '@tuckin/ui/button';
+import type { Role } from '@odb/policies';
+import { Button } from '@odb/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -11,14 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@tuckin/ui/dialog';
+} from '@odb/ui/dialog';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@tuckin/ui/select';
+} from '@odb/ui/select';
 
 import { updateMemberRoleAction } from '../../server/members-actions';
 

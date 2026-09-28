@@ -8,7 +8,7 @@
     "build": "storybook build"
   },
   "dependencies": {
-    "@tuckin/ui": "workspace:*",
+    "@odb/ui": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-hook-form": "catalog:",
@@ -18,7 +18,7 @@
     "@storybook/addon-themes": "catalog:",
     "@storybook/react-vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",

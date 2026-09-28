@@ -1,5 +1,5 @@
-import type { Tables, TablesInsert } from '@tuckin/supabase';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/admin';
+import type { Tables, TablesInsert } from '@odb/supabase';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 const TABLE = 'integration_connection';
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import pathsConfig from '~/config/paths.config';
 

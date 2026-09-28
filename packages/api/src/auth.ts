@@ -1,4 +1,4 @@
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 import { createHash } from 'node:crypto';
 

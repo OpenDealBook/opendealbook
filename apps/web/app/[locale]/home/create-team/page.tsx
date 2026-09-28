@@ -1,4 +1,4 @@
-import { CreateTeamForm } from '@tuckin/team-accounts';
+import { CreateTeamForm } from '@odb/team-accounts';
 
 export default function CreateTeamPage() {
   return (

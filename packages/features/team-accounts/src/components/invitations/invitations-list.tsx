@@ -2,7 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Table,
   TableBody,
@@ -10,7 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 import {
   teamInvitationsQueryKey,

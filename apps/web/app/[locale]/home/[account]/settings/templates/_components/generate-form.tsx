@@ -2,26 +2,26 @@
 
 import { useMemo, useState, useTransition } from 'react';
 
-import type { SharePermission } from '@tuckin/templates';
+import type { SharePermission } from '@odb/templates';
 import {
   generateFromTemplate,
   sendToSellerAction,
-} from '@tuckin/templates/server';
-import { Button } from '@tuckin/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@tuckin/ui/card';
-import { Input } from '@tuckin/ui/input';
-import { Label } from '@tuckin/ui/label';
+} from '@odb/templates/server';
+import { Button } from '@odb/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { Input } from '@odb/ui/input';
+import { Label } from '@odb/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@tuckin/ui/select';
+} from '@odb/ui/select';
 import {
   TemplateField,
   type TemplateFieldType,
-} from '@tuckin/ui/template-field';
+} from '@odb/ui/template-field';
 
 import { createGeneratedLinks } from '../actions';
 

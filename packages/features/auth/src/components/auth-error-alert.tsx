@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
 
 export function AuthErrorAlert({ message }: { message: string | null }) {
   if (!message) {

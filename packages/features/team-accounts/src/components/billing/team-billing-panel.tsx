@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 
-import type { Enums } from '@tuckin/supabase';
+import type { Enums } from '@odb/supabase';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 export function TeamBillingPanel(props: {
   accountId: string;

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 
 const navLinks = [
   { href: '/pricing', label: 'Pricing' },
@@ -28,7 +28,7 @@ export default function MarketingLayout({
           }
         >
           <Link href={'/'} className={'text-lg font-semibold'}>
-            Tuckin
+            Open Deal Book
           </Link>
 
           <nav className={'flex items-center gap-6 text-sm'}>
@@ -57,7 +57,7 @@ export default function MarketingLayout({
             'text-muted-foreground mx-auto flex w-full max-w-6xl flex-col gap-2 px-6 py-6 text-sm sm:flex-row sm:items-center sm:justify-between'
           }
         >
-          <span>© {new Date().getFullYear()} Tuckin</span>
+          <span>© {new Date().getFullYear()} Open Deal Book</span>
           <div className={'flex gap-4'}>
             {legalLinks.map((link) => (
               <Link

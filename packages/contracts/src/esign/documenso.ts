@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, Tables } from '@tuckin/supabase';
+import type { Database, Tables } from '@odb/supabase';
 
 import type { ContractStorage } from '../storage';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/email-templates",
+  "name": "@odb/email-templates",
   "version": "0.1.0",
   "private": true,
   "typesVersions": {
@@ -24,7 +24,7 @@
     "react-email": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "vitest": "catalog:"
   }

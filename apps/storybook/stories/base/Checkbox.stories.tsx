@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { Checkbox } from '@tuckin/ui/checkbox';
-import { Label } from '@tuckin/ui/label';
+import { Checkbox } from '@odb/ui/checkbox';
+import { Label } from '@odb/ui/label';
 
 const meta: Meta<typeof Checkbox> = {
   title: 'Base/Checkbox',

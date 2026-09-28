@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
-import { PersonalAccountSettingsContainer } from '@tuckin/accounts/personal-account-settings';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { PersonalAccountSettingsContainer } from '@odb/accounts/personal-account-settings';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 export default async function PersonalAccountSettingsPage(props: {
   params: Promise<{ locale: string }>;

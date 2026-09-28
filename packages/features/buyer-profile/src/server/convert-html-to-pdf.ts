@@ -1,4 +1,4 @@
-import { getEnv } from '@tuckin/shared/env';
+import { getEnv } from '@odb/shared/env';
 
 export async function convertHtmlToPdf(html: string): Promise<Uint8Array> {
   const base = getEnv('GOTENBERG_URL', 'http://localhost:3009');

@@ -1,6 +1,6 @@
 import { defineQuery, defineSignal } from '@temporalio/workflow';
 
-import type { Json } from '@tuckin/supabase';
+import type { Json } from '@odb/supabase';
 
 export type DealStage =
   | 'loi'

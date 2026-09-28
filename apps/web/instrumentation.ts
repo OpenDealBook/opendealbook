@@ -1,5 +1,5 @@
 export async function register() {
-  const { initializeSentryServer } = await import('@tuckin/sentry/server');
+  const { initializeSentryServer } = await import('@odb/sentry/server');
 
   initializeSentryServer();
 

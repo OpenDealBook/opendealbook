@@ -4,15 +4,15 @@ import type { ReactNode } from 'react';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
+import { useSupabase } from '@odb/supabase/hooks';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
-import { Skeleton } from '@tuckin/ui/skeleton';
+} from '@odb/ui/card';
+import { Skeleton } from '@odb/ui/skeleton';
 
 export function PersonalAccountBillingPanel({
   accountId,

@@ -1,12 +1,12 @@
 import { NativeConnection, Worker } from '@temporalio/worker';
 
-import * as activities from '@tuckin/workflows/activities';
-import { TASK_QUEUE } from '@tuckin/workflows/client';
+import * as activities from '@odb/workflows/activities';
+import { TASK_QUEUE } from '@odb/workflows/client';
 
 import { fileURLToPath } from 'node:url';
 
 const address = process.env.TEMPORAL_ADDRESS ?? 'localhost:7233';
-const workflowsPath = fileURLToPath(import.meta.resolve('@tuckin/workflows'));
+const workflowsPath = fileURLToPath(import.meta.resolve('@odb/workflows'));
 
 const connection = await NativeConnection.connect({ address });
 

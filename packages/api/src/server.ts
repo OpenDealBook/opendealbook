@@ -2,11 +2,11 @@
 
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
+import { enhanceAction } from '@odb/next/actions';
 import {
   getSupabaseServerAdminClient,
   getSupabaseServerClient,
-} from '@tuckin/supabase/server';
+} from '@odb/supabase/server';
 
 import { generateApiKey } from './issuance';
 

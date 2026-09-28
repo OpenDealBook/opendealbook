@@ -1,6 +1,6 @@
 'use client';
 
-import { useChecklistItems } from '@tuckin/deals/hooks';
+import { useChecklistItems } from '@odb/deals/hooks';
 
 import { dealBlockers, sortByRisk } from './ranking';
 

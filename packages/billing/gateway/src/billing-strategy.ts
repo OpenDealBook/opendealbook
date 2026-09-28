@@ -1,4 +1,4 @@
-import type { Subscription } from '@tuckin/billing';
+import type { Subscription } from '@odb/billing';
 
 export interface CheckoutSessionStatus {
   status: string;

@@ -1,5 +1,5 @@
-import type { BrokerCatchUpConfig } from '@tuckin/workflows';
-import { TASK_QUEUE, getTemporalClient } from '@tuckin/workflows/client';
+import type { BrokerCatchUpConfig } from '@odb/workflows';
+import { TASK_QUEUE, getTemporalClient } from '@odb/workflows/client';
 
 export interface WorkbookScheduleContext {
   workbookId: string;

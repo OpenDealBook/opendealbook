@@ -4,8 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Button } from '@tuckin/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Button } from '@odb/ui/button';
 import {
   Form,
   FormControl,
@@ -13,8 +13,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@tuckin/ui/form';
-import { Input } from '@tuckin/ui/input';
+} from '@odb/ui/form';
+import { Input } from '@odb/ui/input';
 
 import { useRevalidatePersonalAccountData } from '../../hooks/use-revalidate-personal-account-data';
 import {

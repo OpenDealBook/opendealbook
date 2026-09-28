@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
+import { useSupabase } from '@odb/supabase/hooks';
 
 export function useSignOut() {
   const client = useSupabase();

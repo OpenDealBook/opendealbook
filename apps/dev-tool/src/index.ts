@@ -89,7 +89,7 @@ function tuckinPackageNames(root: string): string[] {
           name?: string;
         };
 
-        if (pkg.name?.startsWith('@tuckin/')) {
+        if (pkg.name?.startsWith('@odb/')) {
           names.push(pkg.name);
         }
       }
@@ -109,8 +109,8 @@ const packages = tuckinPackageNames(packagesDir);
 
 const mark = (ok: boolean) => (ok ? 'ok' : 'missing');
 
-console.log('Tuckin local environment status');
-console.log('===============================');
+console.log('Open Deal Book local environment status');
+console.log('=======================================');
 console.log('');
 console.log('Web app: ' + webDir);
 console.log('.env.local: ' + mark(existsSync(envLocalPath)));
@@ -130,7 +130,7 @@ for (const key of requiredEnvKeys) {
   console.log('  ' + key + ': ' + mark(present.has(key)));
 }
 console.log('');
-console.log('@tuckin workspace packages (' + packages.length + ')');
+console.log('@odb workspace packages (' + packages.length + ')');
 for (const name of packages) {
   console.log('  ' + name);
 }

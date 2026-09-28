@@ -1,4 +1,4 @@
-import { getLogger } from '@tuckin/shared/logger';
+import { getLogger } from '@odb/shared/logger';
 
 import type { AnalyticsProperties, AnalyticsService } from './types';
 

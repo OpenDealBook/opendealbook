@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/next",
+  "name": "@odb/next",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,15 +22,15 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
-    "@tuckin/monitoring": "workspace:*",
-    "@tuckin/shared": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
+    "@odb/monitoring": "workspace:*",
+    "@odb/shared": "workspace:*",
+    "@odb/supabase": "workspace:*",
     "next-safe-action": "catalog:",
     "server-only": "^0.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   },

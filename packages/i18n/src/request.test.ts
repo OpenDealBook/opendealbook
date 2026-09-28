@@ -8,7 +8,7 @@ vi.mock('next-intl/server', () => ({
   ) => handler,
 }));
 
-vi.mock('@tuckin/shared/logger', () => ({
+vi.mock('@odb/shared/logger', () => ({
   getLogger: () => ({ error: vi.fn() }),
 }));
 

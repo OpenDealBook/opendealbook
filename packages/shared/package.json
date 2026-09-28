@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/shared",
+  "name": "@odb/shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -24,7 +24,7 @@
     "pino": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "pino-pretty": "^13.0.0",
     "vitest": "catalog:"

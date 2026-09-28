@@ -1,10 +1,10 @@
 import type Stripe from 'stripe';
 
-import type { Subscription } from '@tuckin/billing';
+import type { Subscription } from '@odb/billing';
 import type {
   BillingStrategy,
   CheckoutSessionStatus,
-} from '@tuckin/billing-gateway';
+} from '@odb/billing-gateway';
 
 import { mapStripeSubscription } from './subscription-mapper';
 

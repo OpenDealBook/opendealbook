@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
-import { Button } from '@tuckin/ui/button';
+import { getSupabaseServerClient } from '@odb/supabase/server';
+import { Button } from '@odb/ui/button';
 import {
   Table,
   TableBody,
@@ -9,7 +9,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 import { loadTeamWorkspace } from '../../layout';
 

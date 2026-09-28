@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
+import { useSupabase } from '@odb/supabase/hooks';
 
 import { dealKeys, fetchDeals } from '../shared';
 import type { DealFilters } from '../shared';

@@ -1,4 +1,4 @@
-import type { Json, Tables } from '@tuckin/supabase';
+import type { Json, Tables } from '@odb/supabase';
 
 export type BuyerProfile = Tables<'buyer_profile'>;
 

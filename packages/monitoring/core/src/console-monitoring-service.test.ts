@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const error = vi.fn();
 const info = vi.fn();
 
-vi.mock('@tuckin/shared/logger', () => ({
+vi.mock('@odb/shared/logger', () => ({
   getLogger: () => ({ error, info }),
 }));
 

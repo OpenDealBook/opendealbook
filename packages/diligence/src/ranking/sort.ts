@@ -1,4 +1,4 @@
-import type { Tables } from '@tuckin/supabase';
+import type { Tables } from '@odb/supabase';
 
 type ChecklistItem = Tables<'checklist_item'>;
 

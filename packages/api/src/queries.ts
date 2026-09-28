@@ -1,5 +1,5 @@
-import type { Enums } from '@tuckin/supabase';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import type { Enums } from '@odb/supabase';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;

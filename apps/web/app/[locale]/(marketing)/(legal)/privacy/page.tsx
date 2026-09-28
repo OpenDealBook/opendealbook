@@ -9,7 +9,7 @@ export default async function PrivacyPage({
     <section className={'mx-auto w-full max-w-3xl px-6 py-16'}>
       <h1 className={'text-4xl font-bold'}>Privacy Policy</h1>
       <p className={'text-muted-foreground mt-4'}>
-        This policy explains what data Tuckin collects and how we use it.
+        This policy explains what data Open Deal Book collects and how we use it.
       </p>
 
       <div className={'mt-8 flex flex-col gap-6'}>

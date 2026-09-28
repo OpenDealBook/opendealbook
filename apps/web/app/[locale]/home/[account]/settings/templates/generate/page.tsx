@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { loadTeamWorkspace } from '../../../layout';
 import {

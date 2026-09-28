@@ -1,5 +1,5 @@
 {
-  "name": "tuckin",
+  "name": "opendealbook",
   "version": "0.1.0",
   "private": true,
   "sideEffects": false,
@@ -15,7 +15,7 @@
     "clean": "turbo clean"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "turbo": "catalog:",

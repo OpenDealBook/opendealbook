@@ -1,4 +1,4 @@
-import type { Enums } from '@tuckin/supabase';
+import type { Enums } from '@odb/supabase';
 
 export interface DealFilters {
   stage?: string;

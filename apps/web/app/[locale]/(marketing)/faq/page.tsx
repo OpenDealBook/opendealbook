@@ -1,10 +1,10 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@tuckin/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 
 const faqs = [
   {
-    question: 'What is Tuckin?',
+    question: 'What is Open Deal Book?',
     answer:
-      'Tuckin is a platform for organizing and running your team in one place.',
+      'Open Deal Book is a platform for organizing and running your team in one place.',
   },
   {
     question: 'How does billing work?',

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Tables } from '@tuckin/supabase';
+import type { Tables } from '@odb/supabase';
 
 import type { TemplateStorage } from '../storage';
 import type { DocxTemplateEngine } from '../superdoc';

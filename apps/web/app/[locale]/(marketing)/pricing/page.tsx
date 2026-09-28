@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-import type { Plan } from '@tuckin/billing';
-import { Button } from '@tuckin/ui/button';
+import type { Plan } from '@odb/billing';
+import { Button } from '@odb/ui/button';
 import {
   Card,
   CardContent,
@@ -9,8 +9,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
-import { Separator } from '@tuckin/ui/separator';
+} from '@odb/ui/card';
+import { Separator } from '@odb/ui/separator';
 
 import billingConfig from '~/config/billing.config';
 

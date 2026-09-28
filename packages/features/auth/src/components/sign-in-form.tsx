@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
-import { Button } from '@tuckin/ui/button';
+import { useSupabase } from '@odb/supabase/hooks';
+import { Button } from '@odb/ui/button';
 import {
   Form,
   FormControl,
@@ -15,8 +15,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@tuckin/ui/form';
-import { Input } from '@tuckin/ui/input';
+} from '@odb/ui/form';
+import { Input } from '@odb/ui/input';
 
 import { signInWithPassword } from '../lib/auth-flows';
 import { SignInSchema } from '../schemas';

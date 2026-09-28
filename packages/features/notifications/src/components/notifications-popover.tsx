@@ -2,14 +2,14 @@
 
 import { Bell, X } from 'lucide-react';
 
-import { Badge } from '@tuckin/ui/badge';
-import { Button } from '@tuckin/ui/button';
+import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '@tuckin/ui/dropdown-menu';
-import { cn } from '@tuckin/ui/utils';
+} from '@odb/ui/dropdown-menu';
+import { cn } from '@odb/ui/utils';
 
 import { useNotifications } from '../hooks/use-notifications';
 import { dismissNotification } from '../server/dismiss-notification';

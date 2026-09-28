@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/auth",
+  "name": "@odb/auth",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,13 +22,13 @@
   "dependencies": {
     "@hookform/resolvers": "catalog:",
     "@supabase/supabase-js": "catalog:",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/ui": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/ui": "workspace:*",
     "react-hook-form": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "vitest": "catalog:"
   },

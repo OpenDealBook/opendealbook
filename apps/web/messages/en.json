@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "Tuckin",
+    "appName": "Open Deal Book",
     "loading": "Loading",
     "signIn": "Sign in",
     "signUp": "Sign up",
@@ -30,7 +30,7 @@
     "manageSubscription": "Manage subscription"
   },
   "marketing": {
-    "heroTitle": "Welcome to Tuckin",
+    "heroTitle": "Welcome to Open Deal Book",
     "heroSubtitle": "The foundation is in place."
   }
 }

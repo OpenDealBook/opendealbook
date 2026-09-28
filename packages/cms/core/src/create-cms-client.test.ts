@@ -24,12 +24,12 @@ describe('createCmsClient', () => {
   it('defaults to the keystatic provider when no provider is configured', async () => {
     delete process.env.CMS_CLIENT;
 
-    await expect(createCmsClient()).rejects.toThrow('@tuckin/keystatic');
+    await expect(createCmsClient()).rejects.toThrow('@odb/keystatic');
   });
 
   it('selects the provider named by the CMS_CLIENT environment variable', async () => {
     process.env.CMS_CLIENT = 'wordpress';
 
-    await expect(createCmsClient()).rejects.toThrow('@tuckin/wordpress');
+    await expect(createCmsClient()).rejects.toThrow('@odb/wordpress');
   });
 });

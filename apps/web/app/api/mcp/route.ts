@@ -1,4 +1,4 @@
-import { handleMcpRequest } from '@tuckin/api/mcp-server';
+import { handleMcpRequest } from '@odb/api/mcp-server';
 
 export const runtime = 'nodejs';
 

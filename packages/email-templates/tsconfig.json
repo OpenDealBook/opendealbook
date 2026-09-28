@@ -1,5 +1,5 @@
 {
-  "extends": "@tuckin/tsconfig/react-library.json",
+  "extends": "@odb/tsconfig/react-library.json",
   "compilerOptions": {
     "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo.json",
     "types": ["react"]

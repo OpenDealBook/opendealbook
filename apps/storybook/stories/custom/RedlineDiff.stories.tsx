@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { RedlineDiff } from '@tuckin/ui/redline-diff';
+import { RedlineDiff } from '@odb/ui/redline-diff';
 
 const meta: Meta<typeof RedlineDiff> = {
   title: 'Custom/RedlineDiff',

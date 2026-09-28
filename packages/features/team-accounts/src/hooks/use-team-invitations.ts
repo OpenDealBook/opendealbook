@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
+import { useSupabase } from '@odb/supabase/hooks';
 
 import type { TeamInvitation } from '../lib/types';
 

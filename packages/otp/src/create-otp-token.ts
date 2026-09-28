@@ -1,4 +1,4 @@
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 export interface CreateOtpTokenParams {
   purpose: string;

@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Custom component stories are authored ahead of the components they document;
-// each one loads only once its source lands in @tuckin/ui, so the catalog keeps
+// each one loads only once its source lands in @odb/ui, so the catalog keeps
 // building while that lane is in flight.
 const uiComponents = join(process.cwd(), '../../packages/ui/src/components');
 

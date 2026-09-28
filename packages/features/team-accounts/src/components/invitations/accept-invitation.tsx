@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 
 import { acceptInvitationAction } from '../../server/invitations-actions';
 

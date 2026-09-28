@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Input } from '@tuckin/ui/input';
+import { Input } from '@odb/ui/input';
 
 const meta: Meta<typeof Input> = {
   title: 'Base/Input',

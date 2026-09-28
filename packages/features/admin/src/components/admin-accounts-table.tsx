@@ -10,14 +10,14 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@tuckin/ui/dropdown-menu';
-import { Input } from '@tuckin/ui/input';
+} from '@odb/ui/dropdown-menu';
+import { Input } from '@odb/ui/input';
 import {
   Table,
   TableBody,
@@ -25,7 +25,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 import { useAdminAccounts } from '../hooks/use-admin-accounts';
 import { deleteAccountAction } from '../lib/server/admin-actions';

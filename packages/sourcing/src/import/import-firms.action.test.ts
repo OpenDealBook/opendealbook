@@ -3,14 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const rpc = vi.fn();
 const from = vi.fn();
 
-vi.mock('@tuckin/next/actions', () => ({
+vi.mock('@odb/next/actions', () => ({
   enhanceAction:
     (fn: (input: unknown, user: { id: string }) => unknown) =>
     (input: unknown) =>
       fn(input, { id: 'user-1' }),
 }));
 
-vi.mock('@tuckin/supabase/server', () => ({
+vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({ rpc, from }),
 }));
 

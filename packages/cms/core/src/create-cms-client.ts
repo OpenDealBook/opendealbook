@@ -3,8 +3,8 @@ import type { Cms } from './cms';
 const DEFAULT_PROVIDER = 'keystatic';
 
 const providerSpecifiers: Record<string, string> = {
-  keystatic: '@tuckin/keystatic',
-  wordpress: '@tuckin/wordpress',
+  keystatic: '@odb/keystatic',
+  wordpress: '@odb/wordpress',
 };
 
 type ProviderModule = {

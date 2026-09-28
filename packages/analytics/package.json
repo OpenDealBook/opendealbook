@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/analytics",
+  "name": "@odb/analytics",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,11 +19,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tuckin/shared": "workspace:*",
+    "@odb/shared": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

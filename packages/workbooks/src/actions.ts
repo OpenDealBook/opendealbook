@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
   getRuns,

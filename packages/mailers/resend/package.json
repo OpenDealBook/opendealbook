@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/resend",
+  "name": "@odb/resend",
   "version": "0.1.0",
   "private": true,
   "typesVersions": {
@@ -18,11 +18,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tuckin/mailers": "workspace:*",
+    "@odb/mailers": "workspace:*",
     "resend": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

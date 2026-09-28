@@ -2,9 +2,9 @@
 
 import { redirect } from 'next/navigation';
 
-import { createBillingGatewayService } from '@tuckin/billing-gateway';
-import { createStripeBillingStrategy } from '@tuckin/stripe';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { createBillingGatewayService } from '@odb/billing-gateway';
+import { createStripeBillingStrategy } from '@odb/stripe';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import appConfig from '~/config/app.config';
 

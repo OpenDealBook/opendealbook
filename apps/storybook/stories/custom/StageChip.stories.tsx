@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { StageChip } from '@tuckin/ui/stage-chip';
+import { StageChip } from '@odb/ui/stage-chip';
 
 const meta: Meta<typeof StageChip> = {
   title: 'Custom/StageChip',

@@ -1,4 +1,4 @@
-import type { TablesInsert } from '@tuckin/supabase';
+import type { TablesInsert } from '@odb/supabase';
 
 import type { DocxTemplateEngine } from '../superdoc';
 import type { FieldSource, FieldType, TemplateFieldDraft } from '../types';

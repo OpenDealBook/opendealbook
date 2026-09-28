@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 
-import { createCmsClient } from '@tuckin/keystatic';
-import { Badge } from '@tuckin/ui/badge';
-import { Separator } from '@tuckin/ui/separator';
+import { createCmsClient } from '@odb/keystatic';
+import { Badge } from '@odb/ui/badge';
+import { Separator } from '@odb/ui/separator';
 
 export default async function BlogPostPage({
   params,

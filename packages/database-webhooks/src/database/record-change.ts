@@ -1,4 +1,4 @@
-import type { Database } from '@tuckin/supabase';
+import type { Database } from '@odb/supabase';
 
 type PublicTables = Database['public']['Tables'];
 

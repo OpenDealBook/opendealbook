@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { DealSwitcher } from '@tuckin/ui/deal-switcher';
+import { DealSwitcher } from '@odb/ui/deal-switcher';
 
 const meta: Meta<typeof DealSwitcher> = {
   title: 'Custom/DealSwitcher',

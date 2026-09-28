@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/integrations",
+  "name": "@odb/integrations",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,11 +23,11 @@
   },
   "dependencies": {
     "@nangohq/node": "catalog:",
-    "@tuckin/supabase": "workspace:*",
+    "@odb/supabase": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

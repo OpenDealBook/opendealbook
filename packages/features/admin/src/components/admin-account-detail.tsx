@@ -2,10 +2,10 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 
-import { Badge } from '@tuckin/ui/badge';
-import { Button } from '@tuckin/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@tuckin/ui/card';
-import { Spinner } from '@tuckin/ui/spinner';
+import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { Spinner } from '@odb/ui/spinner';
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 import { useAdminAccount } from '../hooks/use-admin-accounts';
 import {

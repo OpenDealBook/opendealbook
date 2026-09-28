@@ -9,12 +9,12 @@ const { from, del, eq, rpc } = vi.hoisted(() => {
   return { from, del, eq, rpc };
 });
 
-vi.mock('@tuckin/supabase/server', () => ({
+vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerAdminClient: () => ({ from }),
   getSupabaseServerClient: () => ({ rpc }),
 }));
 
-vi.mock('@tuckin/next/actions', () => ({
+vi.mock('@odb/next/actions', () => ({
   enhanceAction:
     (fn: (input: unknown, user: unknown) => unknown) => (input: unknown) =>
       fn(input, undefined),

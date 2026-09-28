@@ -5,7 +5,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import {
   createAnalyticsManager,
   type AnalyticsManager,
-} from '@tuckin/analytics';
+} from '@odb/analytics';
 
 const AnalyticsContext = createContext<AnalyticsManager | null>(null);
 

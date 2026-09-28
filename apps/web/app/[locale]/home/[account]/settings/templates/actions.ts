@@ -2,9 +2,9 @@
 
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/admin';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 import {
   assertDealsManager,
   createSuperdocEngine,
@@ -16,7 +16,7 @@ import {
   templateDocxPath,
   templateTypeSchema,
   TEMPLATES_BUCKET,
-} from '@tuckin/templates';
+} from '@odb/templates';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

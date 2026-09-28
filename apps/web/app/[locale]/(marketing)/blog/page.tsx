@@ -1,13 +1,13 @@
 import Link from 'next/link';
 
-import { createCmsClient } from '@tuckin/keystatic';
+import { createCmsClient } from '@odb/keystatic';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 export default async function BlogPage({
   params,
@@ -29,7 +29,7 @@ export default async function BlogPage({
       <div className={'flex flex-col gap-3'}>
         <h1 className={'text-4xl font-bold'}>Blog</h1>
         <p className={'text-muted-foreground'}>
-          News, updates, and thoughts from the Tuckin team.
+          News, updates, and thoughts from the Open Deal Book team.
         </p>
       </div>
 

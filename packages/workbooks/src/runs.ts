@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, Tables, TablesInsert } from '@tuckin/supabase';
+import type { Database, Tables, TablesInsert } from '@odb/supabase';
 
 export interface RecordWorkbookRunInput {
   workbookId: string;

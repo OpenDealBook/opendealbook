@@ -4,10 +4,10 @@ import type { ChangeEvent } from 'react';
 
 import { useMutation } from '@tanstack/react-query';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@tuckin/ui/avatar';
-import { Input } from '@tuckin/ui/input';
+import { useSupabase } from '@odb/supabase/hooks';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@odb/ui/avatar';
+import { Input } from '@odb/ui/input';
 
 import { useRevalidatePersonalAccountData } from '../../hooks/use-revalidate-personal-account-data';
 

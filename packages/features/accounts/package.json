@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/accounts",
+  "name": "@odb/accounts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -28,14 +28,14 @@
   "dependencies": {
     "@hookform/resolvers": "catalog:",
     "@tanstack/react-query": "catalog:",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/ui": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/ui": "workspace:*",
     "react-hook-form": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "next": "catalog:",
     "vitest": "catalog:"

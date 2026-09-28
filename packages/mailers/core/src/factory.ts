@@ -1,4 +1,4 @@
-import { getLogger } from '@tuckin/shared/logger';
+import { getLogger } from '@odb/shared/logger';
 
 import type { Mailer } from './mailer';
 import { getMailerProvider, type MailerProvider } from './provider';
@@ -18,5 +18,5 @@ export async function getMailer(): Promise<Mailer> {
 }
 
 function loadProvider(provider: MailerProvider) {
-  return import(`@tuckin/${provider}`);
+  return import(`@odb/${provider}`);
 }

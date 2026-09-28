@@ -1,6 +1,6 @@
-import { dataRoomObjectPath } from '@tuckin/data-room/storage';
-import type { TablesInsert } from '@tuckin/supabase';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/admin';
+import { dataRoomObjectPath } from '@odb/data-room/storage';
+import type { TablesInsert } from '@odb/supabase';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 export const SAMPLE_TAG = '[Example]';
 

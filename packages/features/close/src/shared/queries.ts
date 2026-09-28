@@ -1,5 +1,5 @@
-import type { Tables } from '@tuckin/supabase';
-import type { getSupabaseBrowserClient } from '@tuckin/supabase/client';
+import type { Tables } from '@odb/supabase';
+import type { getSupabaseBrowserClient } from '@odb/supabase/client';
 
 type Client = ReturnType<typeof getSupabaseBrowserClient>;
 

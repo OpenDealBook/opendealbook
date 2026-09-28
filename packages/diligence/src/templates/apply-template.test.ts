@@ -54,11 +54,11 @@ const mocks = vi.hoisted(() => {
   return { insertSpy, from, rpc };
 });
 
-vi.mock('@tuckin/next/actions', () => ({
+vi.mock('@odb/next/actions', () => ({
   enhanceAction: (fn: unknown) => fn,
 }));
 
-vi.mock('@tuckin/supabase/server', () => ({
+vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
 }));
 

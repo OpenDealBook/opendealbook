@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/workbooks",
+  "name": "@odb/workbooks",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,15 +21,15 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
-    "@tuckin/mailers": "workspace:*",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/templates": "workspace:*",
-    "@tuckin/workflows": "workspace:*",
+    "@odb/mailers": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/templates": "workspace:*",
+    "@odb/workflows": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

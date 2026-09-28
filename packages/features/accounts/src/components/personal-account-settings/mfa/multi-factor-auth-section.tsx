@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 import { MultiFactorAuthList } from './multi-factor-auth-list';
 import { RecoveryCodesManagement } from './recovery-codes-management';

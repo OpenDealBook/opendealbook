@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { MeetingCard } from '@tuckin/ui/meeting-card';
+import { MeetingCard } from '@odb/ui/meeting-card';
 
 const meta: Meta<typeof MeetingCard> = {
   title: 'Custom/MeetingCard',

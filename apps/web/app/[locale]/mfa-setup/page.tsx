@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
-import { MultiFactorAuthSection } from '@tuckin/accounts/mfa';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { MultiFactorAuthSection } from '@odb/accounts/mfa';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 export default async function MfaSetupPage() {
   const supabase = getSupabaseServerClient();

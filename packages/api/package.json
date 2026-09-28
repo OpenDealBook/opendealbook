@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/api",
+  "name": "@odb/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -26,13 +26,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/ui": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/ui": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "vitest": "catalog:"

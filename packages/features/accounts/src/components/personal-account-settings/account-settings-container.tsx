@@ -8,8 +8,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
-import { Skeleton } from '@tuckin/ui/skeleton';
+} from '@odb/ui/card';
+import { Skeleton } from '@odb/ui/skeleton';
 
 import { usePersonalAccountData } from '../../hooks/use-personal-account-data';
 import type { PersonalAccountData } from '../../shared';

@@ -1,5 +1,5 @@
-import { handleDatabaseWebhook } from '@tuckin/database-webhooks';
-import { enhanceRouteHandler } from '@tuckin/next/routes';
+import { handleDatabaseWebhook } from '@odb/database-webhooks';
+import { enhanceRouteHandler } from '@odb/next/routes';
 
 export const POST = enhanceRouteHandler(
   async ({ request }) => {

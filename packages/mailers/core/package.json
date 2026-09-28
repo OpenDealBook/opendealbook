@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/mailers",
+  "name": "@odb/mailers",
   "version": "0.1.0",
   "private": true,
   "typesVersions": {
@@ -18,11 +18,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tuckin/shared": "workspace:*",
+    "@odb/shared": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

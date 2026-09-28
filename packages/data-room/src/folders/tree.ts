@@ -1,4 +1,4 @@
-import type { Tables } from '@tuckin/supabase';
+import type { Tables } from '@odb/supabase';
 
 export type FolderRow = Tables<'dr_folder'>;
 

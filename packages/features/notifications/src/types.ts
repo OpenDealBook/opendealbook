@@ -1,4 +1,4 @@
-import type { Enums, Tables } from '@tuckin/supabase';
+import type { Enums, Tables } from '@odb/supabase';
 
 export type NotificationRow = Pick<
   Tables<'notifications'>,

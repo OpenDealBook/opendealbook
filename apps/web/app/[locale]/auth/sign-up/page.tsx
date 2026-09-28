@@ -1,13 +1,13 @@
 import Link from 'next/link';
 
-import { OAuthProviders } from '@tuckin/auth';
+import { OAuthProviders } from '@odb/auth';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 import appConfig from '~/config/app.config';
 import authConfig from '~/config/auth.config';

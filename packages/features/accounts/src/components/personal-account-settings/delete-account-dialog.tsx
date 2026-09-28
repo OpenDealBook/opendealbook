@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Dialog,
   DialogClose,
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@tuckin/ui/dialog';
+} from '@odb/ui/dialog';
 
 import { deletePersonalAccountAction } from '../../server/personal-account-actions';
 

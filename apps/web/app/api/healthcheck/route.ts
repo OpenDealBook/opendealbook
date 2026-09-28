@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 export async function GET() {
   const client = getSupabaseServerAdminClient();

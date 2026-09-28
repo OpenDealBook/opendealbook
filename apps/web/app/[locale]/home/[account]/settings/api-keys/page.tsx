@@ -1,5 +1,5 @@
-import { ApiKeysManager } from '@tuckin/api/components';
-import { listApiKeys } from '@tuckin/api/server';
+import { ApiKeysManager } from '@odb/api/components';
+import { listApiKeys } from '@odb/api/server';
 
 import { loadTeamWorkspace } from '../../layout';
 

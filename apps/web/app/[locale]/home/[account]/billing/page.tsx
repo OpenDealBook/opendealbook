@@ -1,4 +1,4 @@
-import { TeamBillingPanel } from '@tuckin/team-accounts';
+import { TeamBillingPanel } from '@odb/team-accounts';
 
 import appConfig from '~/config/app.config';
 import billingConfig from '~/config/billing.config';

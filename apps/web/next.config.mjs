@@ -3,22 +3,22 @@ import createNextIntlPlugin from 'next-intl/plugin';
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const TUCKIN_PACKAGES = [
-  '@tuckin/analytics',
-  '@tuckin/auth',
-  '@tuckin/billing',
-  '@tuckin/billing-gateway',
-  '@tuckin/cms',
-  '@tuckin/cms-types',
-  '@tuckin/database-webhooks',
-  '@tuckin/i18n',
-  '@tuckin/keystatic',
-  '@tuckin/monitoring',
-  '@tuckin/next',
-  '@tuckin/sentry',
-  '@tuckin/shared',
-  '@tuckin/stripe',
-  '@tuckin/supabase',
-  '@tuckin/ui',
+  '@odb/analytics',
+  '@odb/auth',
+  '@odb/billing',
+  '@odb/billing-gateway',
+  '@odb/cms',
+  '@odb/cms-types',
+  '@odb/database-webhooks',
+  '@odb/i18n',
+  '@odb/keystatic',
+  '@odb/monitoring',
+  '@odb/next',
+  '@odb/sentry',
+  '@odb/shared',
+  '@odb/stripe',
+  '@odb/supabase',
+  '@odb/ui',
 ];
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;

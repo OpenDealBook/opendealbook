@@ -4,7 +4,7 @@ import { NullAnalyticsService } from './null-analytics-service';
 
 const debug = vi.fn();
 
-vi.mock('@tuckin/shared/logger', () => ({
+vi.mock('@odb/shared/logger', () => ({
   getLogger: () => ({ debug }),
 }));
 

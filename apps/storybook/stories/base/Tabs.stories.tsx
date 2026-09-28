@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@tuckin/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@odb/ui/tabs';
 
 const meta: Meta<typeof Tabs> = {
   title: 'Base/Tabs',

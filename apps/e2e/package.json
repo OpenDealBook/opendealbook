@@ -10,7 +10,7 @@
   "devDependencies": {
     "@faker-js/faker": "catalog:",
     "@playwright/test": "catalog:",
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:"
   }
 }

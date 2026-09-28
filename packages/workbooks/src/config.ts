@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import type { BrokerCatchUpConfig } from '@tuckin/workflows';
+import type { BrokerCatchUpConfig } from '@odb/workflows';
 
 export const WORKBOOK_WORKFLOW_TYPES = ['broker_catch_up'] as const;
 

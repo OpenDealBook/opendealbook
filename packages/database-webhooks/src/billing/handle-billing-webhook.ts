@@ -1,7 +1,7 @@
-import type { BillingWebhookEvent } from '@tuckin/billing-gateway';
-import { getLogger } from '@tuckin/shared/logger';
-import { createStripeWebhookHandler } from '@tuckin/stripe';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import type { BillingWebhookEvent } from '@odb/billing-gateway';
+import { getLogger } from '@odb/shared/logger';
+import { createStripeWebhookHandler } from '@odb/stripe';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 type AdminClient = ReturnType<typeof getSupabaseServerAdminClient>;
 

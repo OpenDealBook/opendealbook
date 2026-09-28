@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Keep in sync with the DB app_permissions enum (Enums<'app_permissions'> in @tuckin/supabase).
+// Keep in sync with the DB app_permissions enum (Enums<'app_permissions'> in @odb/supabase).
 export const appPermissionSchema = z.enum([
   'roles.manage',
   'billing.manage',

@@ -183,7 +183,7 @@ importers:
 
   .:
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:tooling/typescript
       oxfmt:
@@ -201,7 +201,7 @@ importers:
 
   apps/dev-tool:
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -216,7 +216,7 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.63.0
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -225,7 +225,7 @@ importers:
 
   apps/storybook:
     dependencies:
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       react:
@@ -250,7 +250,7 @@ importers:
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.3.0(vite@7.3.6(@types/node@26.6.2)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.51.2)(yaml@2.9.1))
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/react':
@@ -301,70 +301,70 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/accounts':
+      '@odb/accounts':
         specifier: workspace:*
         version: link:../../packages/features/accounts
-      '@tuckin/admin':
+      '@odb/admin':
         specifier: workspace:*
         version: link:../../packages/features/admin
-      '@tuckin/analytics':
+      '@odb/analytics':
         specifier: workspace:*
         version: link:../../packages/analytics
-      '@tuckin/api':
+      '@odb/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@tuckin/auth':
+      '@odb/auth':
         specifier: workspace:*
         version: link:../../packages/features/auth
-      '@tuckin/billing':
+      '@odb/billing':
         specifier: workspace:*
         version: link:../../packages/billing/core
-      '@tuckin/billing-gateway':
+      '@odb/billing-gateway':
         specifier: workspace:*
         version: link:../../packages/billing/gateway
-      '@tuckin/database-webhooks':
+      '@odb/database-webhooks':
         specifier: workspace:*
         version: link:../../packages/database-webhooks
-      '@tuckin/i18n':
+      '@odb/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@tuckin/keystatic':
+      '@odb/keystatic':
         specifier: workspace:*
         version: link:../../packages/cms/keystatic
-      '@tuckin/monitoring':
+      '@odb/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring/core
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../packages/next
-      '@tuckin/notifications':
+      '@odb/notifications':
         specifier: workspace:*
         version: link:../../packages/features/notifications
-      '@tuckin/policies':
+      '@odb/policies':
         specifier: workspace:*
         version: link:../../packages/policies
-      '@tuckin/seed':
+      '@odb/seed':
         specifier: workspace:*
         version: link:../../packages/seed
-      '@tuckin/sentry':
+      '@odb/sentry':
         specifier: workspace:*
         version: link:../../packages/monitoring/sentry
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@tuckin/stripe':
+      '@odb/stripe':
         specifier: workspace:*
         version: link:../../packages/billing/stripe
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
-      '@tuckin/team-accounts':
+      '@odb/team-accounts':
         specifier: workspace:*
         version: link:../../packages/features/team-accounts
-      '@tuckin/templates':
+      '@odb/templates':
         specifier: workspace:*
         version: link:../../packages/templates
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -389,7 +389,7 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.3.0
         version: 4.3.3
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -419,14 +419,14 @@ importers:
       '@temporalio/worker':
         specifier: 'catalog:'
         version: 1.24.0(@swc/helpers@0.5.23)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@25.6.2))
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
-      '@tuckin/workflows':
+      '@odb/workflows':
         specifier: workspace:*
         version: link:../../packages/workflows
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -435,14 +435,14 @@ importers:
 
   packages/analytics:
     dependencies:
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../shared
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -457,11 +457,11 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -476,13 +476,13 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 'catalog:'
         version: 1.30.1(supports-color@8.1.1)(zod@4.4.3)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../ui
       next:
@@ -495,7 +495,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -514,7 +514,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       vitest:
@@ -523,11 +523,11 @@ importers:
 
   packages/billing/gateway:
     dependencies:
-      '@tuckin/billing':
+      '@odb/billing':
         specifier: workspace:*
         version: link:../core
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -542,10 +542,10 @@ importers:
       '@stripe/stripe-js':
         specifier: 'catalog:'
         version: 9.17.0
-      '@tuckin/billing':
+      '@odb/billing':
         specifier: workspace:*
         version: link:../core
-      '@tuckin/billing-gateway':
+      '@odb/billing-gateway':
         specifier: workspace:*
         version: link:../gateway
       stripe:
@@ -555,7 +555,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -567,11 +567,11 @@ importers:
 
   packages/cms/core:
     dependencies:
-      '@tuckin/cms-types':
+      '@odb/cms-types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -592,14 +592,14 @@ importers:
       '@markdoc/markdoc':
         specifier: 0.5.1
         version: 0.5.1(@types/react@19.2.14)(react@19.2.6)
-      '@tuckin/cms':
+      '@odb/cms':
         specifier: workspace:*
         version: link:../core
-      '@tuckin/cms-types':
+      '@odb/cms-types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -615,7 +615,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       vitest:
@@ -627,13 +627,13 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
-      '@tuckin/templates':
+      '@odb/templates':
         specifier: workspace:*
         version: link:../templates
       next:
@@ -646,7 +646,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -667,13 +667,13 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/policies':
+      '@odb/policies':
         specifier: workspace:*
         version: link:../policies
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
       react:
@@ -683,7 +683,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -698,23 +698,23 @@ importers:
 
   packages/database-webhooks:
     dependencies:
-      '@tuckin/billing-gateway':
+      '@odb/billing-gateway':
         specifier: workspace:*
         version: link:../billing/gateway
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../shared
-      '@tuckin/stripe':
+      '@odb/stripe':
         specifier: workspace:*
         version: link:../billing/stripe
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -729,16 +729,16 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/deals':
+      '@odb/deals':
         specifier: workspace:*
         version: link:../features/deals
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
-      '@tuckin/templates':
+      '@odb/templates':
         specifier: workspace:*
         version: link:../templates
       react:
@@ -748,7 +748,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/react':
@@ -770,7 +770,7 @@ importers:
         specifier: 'catalog:'
         version: 6.1.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@8.1.1)
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/react':
@@ -788,13 +788,13 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../ui
       react:
@@ -807,7 +807,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -831,13 +831,13 @@ importers:
       '@tanstack/react-table':
         specifier: 'catalog:'
         version: 8.21.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../ui
       react:
@@ -847,7 +847,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -865,10 +865,10 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../ui
       react:
@@ -881,7 +881,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -896,14 +896,14 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../../shared
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -915,10 +915,10 @@ importers:
 
   packages/features/close:
     dependencies:
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
       react:
@@ -928,7 +928,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -943,13 +943,13 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/policies':
+      '@odb/policies':
         specifier: workspace:*
         version: link:../../policies
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
       react:
@@ -959,7 +959,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -971,17 +971,17 @@ importers:
 
   packages/features/hr-audit:
     dependencies:
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -993,17 +993,17 @@ importers:
 
   packages/features/meetings:
     dependencies:
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -1018,13 +1018,13 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../ui
       lucide-react:
@@ -1037,7 +1037,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -1058,16 +1058,16 @@ importers:
       '@tanstack/react-table':
         specifier: 'catalog:'
         version: 8.21.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../../next
-      '@tuckin/policies':
+      '@odb/policies':
         specifier: workspace:*
         version: link:../../policies
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
-      '@tuckin/ui':
+      '@odb/ui':
         specifier: workspace:*
         version: link:../../ui
       react:
@@ -1080,7 +1080,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/react':
@@ -1092,7 +1092,7 @@ importers:
 
   packages/i18n:
     dependencies:
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../shared
       next-intl:
@@ -1105,7 +1105,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1123,14 +1123,14 @@ importers:
       '@nangohq/node':
         specifier: 'catalog:'
         version: 0.71.10(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1142,14 +1142,14 @@ importers:
 
   packages/mailers/core:
     dependencies:
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../../shared
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -1161,14 +1161,14 @@ importers:
 
   packages/mailers/nodemailer:
     dependencies:
-      '@tuckin/mailers':
+      '@odb/mailers':
         specifier: workspace:*
         version: link:../core
       nodemailer:
         specifier: 'catalog:'
         version: 8.0.9
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -1183,14 +1183,14 @@ importers:
 
   packages/mailers/resend:
     dependencies:
-      '@tuckin/mailers':
+      '@odb/mailers':
         specifier: workspace:*
         version: link:../core
       resend:
         specifier: 'catalog:'
         version: 6.30.0(@react-email/render@2.1.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -1202,14 +1202,14 @@ importers:
 
   packages/monitoring/core:
     dependencies:
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../../shared
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -1224,11 +1224,11 @@ importers:
       '@sentry/nextjs':
         specifier: 'catalog:'
         version: 10.52.0(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.214.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.11.0(@opentelemetry/api@1.9.1))(next@16.3.6(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)(supports-color@8.1.1)(webpack@5.111.1(@swc/core@1.16.2(@swc/helpers@0.5.23))(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@25.6.2)))
-      '@tuckin/monitoring':
+      '@odb/monitoring':
         specifier: workspace:*
         version: link:../core
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
       '@types/node':
@@ -1243,13 +1243,13 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/monitoring':
+      '@odb/monitoring':
         specifier: workspace:*
         version: link:../monitoring/core
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../shared
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
       next:
@@ -1268,7 +1268,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1280,11 +1280,11 @@ importers:
 
   packages/otp:
     dependencies:
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1300,7 +1300,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       vitest:
@@ -1309,14 +1309,14 @@ importers:
 
   packages/seed:
     dependencies:
-      '@tuckin/data-room':
+      '@odb/data-room':
         specifier: workspace:*
         version: link:../data-room
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1332,7 +1332,7 @@ importers:
         specifier: 'catalog:'
         version: 10.3.1
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1350,10 +1350,10 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
       next:
@@ -1369,7 +1369,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1396,7 +1396,7 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../shared
       next:
@@ -1409,7 +1409,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1430,16 +1430,16 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/shared':
+      '@odb/shared':
         specifier: workspace:*
         version: link:../shared
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
-      '@tuckin/workflows':
+      '@odb/workflows':
         specifier: workspace:*
         version: link:../workflows
       next:
@@ -1452,7 +1452,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1519,7 +1519,7 @@ importers:
         specifier: 'catalog:'
         version: 3.7.0
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/react':
@@ -1549,26 +1549,26 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
-      '@tuckin/mailers':
+      '@odb/mailers':
         specifier: workspace:*
         version: link:../mailers/core
-      '@tuckin/next':
+      '@odb/next':
         specifier: workspace:*
         version: link:../next
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
-      '@tuckin/templates':
+      '@odb/templates':
         specifier: workspace:*
         version: link:../templates
-      '@tuckin/workflows':
+      '@odb/workflows':
         specifier: workspace:*
         version: link:../workflows
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':
@@ -1592,17 +1592,17 @@ importers:
       '@temporalio/workflow':
         specifier: 'catalog:'
         version: 1.24.0
-      '@tuckin/mailers':
+      '@odb/mailers':
         specifier: workspace:*
         version: link:../mailers/core
-      '@tuckin/supabase':
+      '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
       zod:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@tuckin/tsconfig':
+      '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
       '@types/node':

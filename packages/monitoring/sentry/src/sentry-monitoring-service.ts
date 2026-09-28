@@ -4,7 +4,7 @@ import type {
   MonitoringContext,
   MonitoringService,
   UserTraits,
-} from '@tuckin/monitoring';
+} from '@odb/monitoring';
 
 export class SentryMonitoringService implements MonitoringService {
   captureException(error: Error, context?: MonitoringContext) {

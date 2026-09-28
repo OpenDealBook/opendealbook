@@ -1,4 +1,4 @@
-import { authenticateReadRequest } from '@tuckin/api/auth';
+import { authenticateReadRequest } from '@odb/api/auth';
 
 interface ResolvedAccount {
   accountId?: string;

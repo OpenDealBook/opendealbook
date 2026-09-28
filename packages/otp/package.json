@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/otp",
+  "name": "@odb/otp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,10 +19,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tuckin/supabase": "workspace:*"
+    "@odb/supabase": "workspace:*"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

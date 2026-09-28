@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 export interface TrialState {
   isActive: boolean;

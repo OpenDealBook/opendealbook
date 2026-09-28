@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 import { notFound, redirect } from 'next/navigation';
 
-import { adminGuard } from '@tuckin/admin';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { adminGuard } from '@odb/admin';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 export default async function AdminLayout({
   children,

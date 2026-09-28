@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '@tuckin/supabase';
+import type { Database } from '@odb/supabase';
 
 import type { BuyerProfile } from './render-buyer-profile-html';
 

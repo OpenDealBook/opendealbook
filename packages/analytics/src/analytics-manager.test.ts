@@ -5,7 +5,7 @@ import type { AnalyticsService } from './types';
 
 const debug = vi.fn();
 
-vi.mock('@tuckin/shared/logger', () => ({
+vi.mock('@odb/shared/logger', () => ({
   getLogger: () => ({ debug }),
 }));
 

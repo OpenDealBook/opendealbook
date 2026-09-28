@@ -10,11 +10,11 @@
   "dependencies": {
     "@temporalio/activity": "catalog:",
     "@temporalio/worker": "catalog:",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/workflows": "workspace:*"
+    "@odb/supabase": "workspace:*",
+    "@odb/workflows": "workspace:*"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:"
   }
 }

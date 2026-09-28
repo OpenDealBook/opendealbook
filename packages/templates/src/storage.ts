@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '@tuckin/supabase';
+import type { Database } from '@odb/supabase';
 
 export const TEMPLATES_BUCKET = 'templates';
 export const GENERATED_BUCKET = 'generated';

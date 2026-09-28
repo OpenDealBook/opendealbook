@@ -7,7 +7,7 @@
     "dev": "node --experimental-strip-types src/index.ts"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:"
   }
 }

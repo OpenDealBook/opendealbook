@@ -1,11 +1,11 @@
-import { PasswordResetRequestForm } from '@tuckin/auth';
+import { PasswordResetRequestForm } from '@odb/auth';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 import appConfig from '~/config/app.config';
 import pathsConfig from '~/config/paths.config';

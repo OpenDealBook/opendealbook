@@ -3,8 +3,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 
-import { hasPermission, type AppPermission } from '@tuckin/policies';
-import { Button } from '@tuckin/ui/button';
+import { hasPermission, type AppPermission } from '@odb/policies';
+import { Button } from '@odb/ui/button';
 import {
   Form,
   FormControl,
@@ -12,8 +12,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@tuckin/ui/form';
-import { Input } from '@tuckin/ui/input';
+} from '@odb/ui/form';
+import { Input } from '@odb/ui/input';
 
 import {
   updateTeamSchema,

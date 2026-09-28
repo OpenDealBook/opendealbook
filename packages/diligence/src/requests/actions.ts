@@ -2,9 +2,9 @@
 
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
-import { generateFromTemplate } from '@tuckin/templates/server';
+import { enhanceAction } from '@odb/next/actions';
+import { getSupabaseServerClient } from '@odb/supabase/server';
+import { generateFromTemplate } from '@odb/templates/server';
 
 const sendRequestSchema = z.object({ checklistItemId: z.uuid() });
 

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { ChecklistTable } from '@tuckin/ui/checklist-table';
+import { ChecklistTable } from '@odb/ui/checklist-table';
 
 const meta: Meta<typeof ChecklistTable> = {
   title: 'Custom/ChecklistTable',

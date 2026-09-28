@@ -4,7 +4,7 @@ import { useTransition } from 'react';
 
 import Link from 'next/link';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 
 import { reloadSampleData } from '../_lib/trial-actions';
 

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
 
 const meta: Meta<typeof Alert> = {
   title: 'Base/Alert',

@@ -1,4 +1,4 @@
-import { createBillingConfig } from '@tuckin/billing';
+import { createBillingConfig } from '@odb/billing';
 
 export const billingConfig = createBillingConfig({
   provider: 'stripe',

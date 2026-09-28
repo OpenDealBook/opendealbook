@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@tuckin/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@odb/ui/avatar';
 
 const meta: Meta<typeof Avatar> = {
   title: 'Base/Avatar',

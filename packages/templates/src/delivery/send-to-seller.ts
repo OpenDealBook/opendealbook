@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database, Tables } from '@tuckin/supabase';
-import { TASK_QUEUE, getTemporalClient } from '@tuckin/workflows/client';
+import type { Database, Tables } from '@odb/supabase';
+import { TASK_QUEUE, getTemporalClient } from '@odb/workflows/client';
 
 import type { SharePermission } from '../types';
 
@@ -83,7 +83,7 @@ export async function sendToSeller(
 }
 
 // Assumes a workflow registered as 'sellerDelivery' on the shared task queue in
-// @tuckin/workflows; the email and reminder timers live there, not here.
+// @odb/workflows; the email and reminder timers live there, not here.
 export function createSellerDeliveryClient(): SellerDeliveryClient {
   return {
     async startSellerDelivery(input) {

@@ -8,7 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 const meta: Meta<typeof Table> = {
   title: 'Base/Table',

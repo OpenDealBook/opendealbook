@@ -1,8 +1,8 @@
 'use client';
 
-import { useSignOut } from '@tuckin/auth';
-import { Avatar, AvatarFallback } from '@tuckin/ui/avatar';
-import { Button } from '@tuckin/ui/button';
+import { useSignOut } from '@odb/auth';
+import { Avatar, AvatarFallback } from '@odb/ui/avatar';
+import { Button } from '@odb/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@tuckin/ui/dropdown-menu';
+} from '@odb/ui/dropdown-menu';
 
 export function AccountDropdown({ email }: { email: string }) {
   const signOut = useSignOut();

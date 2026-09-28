@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/stripe",
+  "name": "@odb/stripe",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -20,13 +20,13 @@
   },
   "dependencies": {
     "@stripe/stripe-js": "catalog:",
-    "@tuckin/billing": "workspace:*",
-    "@tuckin/billing-gateway": "workspace:*",
+    "@odb/billing": "workspace:*",
+    "@odb/billing-gateway": "workspace:*",
     "stripe": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

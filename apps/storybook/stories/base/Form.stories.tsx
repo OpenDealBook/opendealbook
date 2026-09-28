@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useForm } from 'react-hook-form';
 import { fn } from 'storybook/test';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Form,
   FormControl,
@@ -11,8 +11,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@tuckin/ui/form';
-import { Input } from '@tuckin/ui/input';
+} from '@odb/ui/form';
+import { Input } from '@odb/ui/input';
 
 type DealForm = { name: string };
 

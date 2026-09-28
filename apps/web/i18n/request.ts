@@ -1,4 +1,4 @@
-import { createI18nRequestConfig, type MessagesLoader } from '@tuckin/i18n';
+import { createI18nRequestConfig, type MessagesLoader } from '@odb/i18n';
 
 const loadMessages: MessagesLoader = async (locale) => {
   const messages = await import(`../messages/${locale}.json`);

@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/sentry",
+  "name": "@odb/sentry",
   "version": "0.1.0",
   "private": true,
   "typesVersions": {
@@ -21,10 +21,10 @@
   },
   "dependencies": {
     "@sentry/nextjs": "catalog:",
-    "@tuckin/monitoring": "workspace:*"
+    "@odb/monitoring": "workspace:*"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

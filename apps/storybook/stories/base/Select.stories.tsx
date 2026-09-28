@@ -9,7 +9,7 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from '@tuckin/ui/select';
+} from '@odb/ui/select';
 
 const meta: Meta<typeof Select> = {
   title: 'Base/Select',

@@ -26,7 +26,7 @@
       },
       {
         "groupName": "tuckin",
-        "elementNamePattern": ["@tuckin/**"],
+        "elementNamePattern": ["@odb/**"],
       },
       {
         "groupName": "app",

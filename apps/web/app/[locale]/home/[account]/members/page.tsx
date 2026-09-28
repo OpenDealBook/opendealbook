@@ -1,11 +1,11 @@
-import type { Role } from '@tuckin/policies';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import type { Role } from '@odb/policies';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 import {
   InvitationsList,
   InviteMemberForm,
   MembersTable,
   type TeamMember,
-} from '@tuckin/team-accounts';
+} from '@odb/team-accounts';
 
 import { loadTeamWorkspace } from '../layout';
 

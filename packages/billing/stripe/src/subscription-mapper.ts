@@ -1,6 +1,6 @@
 import type Stripe from 'stripe';
 
-import type { Subscription, SubscriptionLineItem } from '@tuckin/billing';
+import type { Subscription, SubscriptionLineItem } from '@odb/billing';
 
 export function mapStripeSubscription(
   subscription: Stripe.Subscription,

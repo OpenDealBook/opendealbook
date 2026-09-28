@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/notifications",
+  "name": "@odb/notifications",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,14 +22,14 @@
   },
   "dependencies": {
     "@tanstack/react-query": "catalog:",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/ui": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/ui": "workspace:*",
     "lucide-react": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "vitest": "catalog:"
   },

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
-import { SignUpForm } from '@tuckin/auth';
+import { SignUpForm } from '@odb/auth';
 
 export function SignUpRedirect({
   emailRedirectTo,

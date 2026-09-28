@@ -1,6 +1,6 @@
 import { Resend } from 'resend';
 
-import type { Mailer, MailerConfig, MailerSendResult } from '@tuckin/mailers';
+import type { Mailer, MailerConfig, MailerSendResult } from '@odb/mailers';
 
 export function createMailer(): Mailer {
   return new ResendMailer();

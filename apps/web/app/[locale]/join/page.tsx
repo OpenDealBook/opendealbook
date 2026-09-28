@@ -1,16 +1,16 @@
 import Link from 'next/link';
 
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
-import { AcceptInvitation } from '@tuckin/team-accounts';
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Button } from '@tuckin/ui/button';
+import { getSupabaseServerClient } from '@odb/supabase/server';
+import { AcceptInvitation } from '@odb/team-accounts';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Button } from '@odb/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 export default async function JoinPage({
   searchParams,

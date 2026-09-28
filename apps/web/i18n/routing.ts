@@ -1,6 +1,6 @@
 import { defineRouting } from 'next-intl/routing';
 
-import { i18nConfig } from '@tuckin/i18n/config';
+import { i18nConfig } from '@odb/i18n/config';
 
 export const routing = defineRouting({
   locales: i18nConfig.locales,

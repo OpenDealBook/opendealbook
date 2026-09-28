@@ -3,11 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { enhanceAction } from '@tuckin/next/actions';
+import { enhanceAction } from '@odb/next/actions';
 import {
   getSupabaseServerAdminClient,
   getSupabaseServerClient,
-} from '@tuckin/supabase/server';
+} from '@odb/supabase/server';
 
 import { UpdateAccountNameSchema } from '../schema/update-account-name.schema';
 import { UpdateEmailSchema } from '../schema/update-email.schema';

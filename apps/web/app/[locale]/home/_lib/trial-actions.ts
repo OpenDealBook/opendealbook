@@ -2,9 +2,9 @@
 
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import { hasSampleData, seedSampleDeals } from '@tuckin/seed';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import { hasSampleData, seedSampleDeals } from '@odb/seed';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 const accountSchema = z.object({ accountId: z.string() });
 

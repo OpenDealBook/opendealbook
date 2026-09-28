@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/diligence",
+  "name": "@odb/diligence",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,14 +23,14 @@
   },
   "dependencies": {
     "@tanstack/react-query": "catalog:",
-    "@tuckin/deals": "workspace:*",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/templates": "workspace:*",
+    "@odb/deals": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/templates": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "vitest": "catalog:"
   },

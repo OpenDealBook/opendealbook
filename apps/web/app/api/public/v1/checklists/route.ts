@@ -1,4 +1,4 @@
-import { listChecklistItems } from '@tuckin/api/queries';
+import { listChecklistItems } from '@odb/api/queries';
 
 import { parseListParams, resolveAccount } from '../_shared';
 

@@ -13,7 +13,7 @@ import {
   canManageMember,
   type AppPermission,
   type Role,
-} from '@tuckin/policies';
+} from '@odb/policies';
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 import type { TeamMember } from '../../lib/types';
 import { MemberRoleBadge } from './member-role-badge';

@@ -1,13 +1,13 @@
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
-import { Input } from '@tuckin/ui/input';
-import { Label } from '@tuckin/ui/label';
+} from '@odb/ui/card';
+import { Input } from '@odb/ui/input';
+import { Label } from '@odb/ui/label';
 
 export default async function ContactPage({
   params,

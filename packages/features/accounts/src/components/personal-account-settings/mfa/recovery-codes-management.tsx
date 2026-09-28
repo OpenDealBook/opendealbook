@@ -4,9 +4,9 @@ import { useState } from 'react';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Button } from '@tuckin/ui/button';
-import { Spinner } from '@tuckin/ui/spinner';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Button } from '@odb/ui/button';
+import { Spinner } from '@odb/ui/spinner';
 
 import { generateRecoveryCodesAction } from '../../../server/mfa-recovery-server-actions';
 import { RecoveryCodesDisplay } from './recovery-codes-display';

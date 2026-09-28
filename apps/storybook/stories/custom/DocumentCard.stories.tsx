@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { DocumentCard } from '@tuckin/ui/document-card';
+import { DocumentCard } from '@odb/ui/document-card';
 
 const meta: Meta<typeof DocumentCard> = {
   title: 'Custom/DocumentCard',

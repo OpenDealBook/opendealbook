@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/keystatic",
+  "name": "@odb/keystatic",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,11 +23,11 @@
     "@keystatic/core": "catalog:",
     "@keystatic/next": "5.0.4",
     "@markdoc/markdoc": "0.5.1",
-    "@tuckin/cms": "workspace:*",
-    "@tuckin/cms-types": "workspace:*"
+    "@odb/cms": "workspace:*",
+    "@odb/cms-types": "workspace:*"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

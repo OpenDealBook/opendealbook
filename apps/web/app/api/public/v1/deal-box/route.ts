@@ -1,4 +1,4 @@
-import { getDealBox } from '@tuckin/api/queries';
+import { getDealBox } from '@odb/api/queries';
 
 import { resolveAccount } from '../_shared';
 

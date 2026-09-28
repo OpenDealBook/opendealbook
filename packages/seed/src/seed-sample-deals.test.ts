@@ -29,7 +29,7 @@ const from = vi.fn((table: string) => {
   return builder;
 });
 
-vi.mock('@tuckin/supabase/admin', () => ({
+vi.mock('@odb/supabase/admin', () => ({
   getSupabaseServerAdminClient: () => ({ from }),
 }));
 

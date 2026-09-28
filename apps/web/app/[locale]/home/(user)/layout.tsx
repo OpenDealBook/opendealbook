@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { NotificationsPopover } from '@tuckin/notifications/components';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { NotificationsPopover } from '@odb/notifications/components';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import personalAccountNavigationConfig from '~/config/personal-account-navigation.config';
 
@@ -39,7 +39,7 @@ export default async function UserWorkspaceLayout({
         className={'bg-muted/40 hidden w-64 flex-col border-r p-4 md:flex'}
       >
         <Link href={'/home'} className={'px-2 py-4 text-lg font-semibold'}>
-          Tuckin
+          Open Deal Book
         </Link>
 
         <nav className={'mt-2 flex flex-col gap-1'}>

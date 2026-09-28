@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
-import { getLogger } from '@tuckin/shared/logger';
-import { getSupabaseServerAdminClient } from '@tuckin/supabase/server';
+import { getLogger } from '@odb/shared/logger';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
 import type { AnyRecordChange } from './record-change';
 

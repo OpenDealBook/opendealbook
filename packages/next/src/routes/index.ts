@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 
 import type { ZodType } from 'zod';
 
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 interface EnhanceRouteHandlerConfig<Body> {
   auth?: boolean;

@@ -9,18 +9,18 @@ import type {
   FieldType,
   TemplateFieldDraft,
   TemplateType,
-} from '@tuckin/templates';
-import { Button } from '@tuckin/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@tuckin/ui/card';
-import { Input } from '@tuckin/ui/input';
-import { Label } from '@tuckin/ui/label';
+} from '@odb/templates';
+import { Button } from '@odb/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { Input } from '@odb/ui/input';
+import { Label } from '@odb/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@tuckin/ui/select';
+} from '@odb/ui/select';
 
 import { parseTemplateDocx, saveTemplate } from '../actions';
 

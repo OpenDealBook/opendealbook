@@ -1,9 +1,9 @@
 import 'server-only';
 import { z } from 'zod';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import type { TablesInsert } from '@tuckin/supabase';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import type { TablesInsert } from '@odb/supabase';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { assertDealsCreate, assertDealsManage } from '../permission';
 

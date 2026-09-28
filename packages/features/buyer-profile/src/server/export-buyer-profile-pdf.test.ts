@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Database } from '@tuckin/supabase';
+import type { Database } from '@odb/supabase';
 
 import { exportBuyerProfilePdf } from './export-buyer-profile-pdf';
 import { loadBuyerProfile } from './load-buyer-profile';

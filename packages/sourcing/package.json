@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/sourcing",
+  "name": "@odb/sourcing",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,13 +22,13 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
     "papaparse": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/papaparse": "catalog:",
     "@types/react": "catalog:",

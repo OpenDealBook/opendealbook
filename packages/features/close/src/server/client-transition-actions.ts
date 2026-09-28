@@ -1,8 +1,8 @@
 'use server';
 
-import { enhanceAction } from '@tuckin/next/actions';
-import type { TablesInsert, TablesUpdate } from '@tuckin/supabase';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { enhanceAction } from '@odb/next/actions';
+import type { TablesInsert, TablesUpdate } from '@odb/supabase';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
   clientTransitionSchema,

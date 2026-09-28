@@ -4,10 +4,10 @@ import { useState } from 'react';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Badge } from '@tuckin/ui/badge';
-import { Button } from '@tuckin/ui/button';
+import { useSupabase } from '@odb/supabase/hooks';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -15,8 +15,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@tuckin/ui/dialog';
-import { Spinner } from '@tuckin/ui/spinner';
+} from '@odb/ui/dialog';
+import { Spinner } from '@odb/ui/spinner';
 import {
   Table,
   TableBody,
@@ -24,7 +24,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@tuckin/ui/table';
+} from '@odb/ui/table';
 
 import { MultiFactorAuthSetupDialog } from './multi-factor-auth-setup-dialog';
 

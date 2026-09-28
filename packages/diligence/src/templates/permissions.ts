@@ -1,4 +1,4 @@
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 type ServerClient = ReturnType<typeof getSupabaseServerClient>;
 

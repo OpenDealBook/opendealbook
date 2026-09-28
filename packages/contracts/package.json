@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/contracts",
+  "name": "@odb/contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -23,13 +23,13 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/templates": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/templates": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "vitest": "catalog:"

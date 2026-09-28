@@ -3,7 +3,7 @@ import type {
   ContentItem,
   ContentItemsResult,
   GetContentItemsParams,
-} from '@tuckin/cms-types';
+} from '@odb/cms-types';
 
 export interface Cms {
   getContentItems(

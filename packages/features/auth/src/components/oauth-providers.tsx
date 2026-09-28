@@ -4,8 +4,8 @@ import { useState } from 'react';
 
 import type { Provider } from '@supabase/supabase-js';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
-import { Button } from '@tuckin/ui/button';
+import { useSupabase } from '@odb/supabase/hooks';
+import { Button } from '@odb/ui/button';
 
 import { signInWithOAuth } from '../lib/auth-flows';
 import { AuthErrorAlert } from './auth-error-alert';

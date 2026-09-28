@@ -6,9 +6,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-import { useSupabase } from '@tuckin/supabase/hooks';
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Button } from '@tuckin/ui/button';
+import { useSupabase } from '@odb/supabase/hooks';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Button } from '@odb/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@tuckin/ui/dialog';
+} from '@odb/ui/dialog';
 import {
   Form,
   FormControl,
@@ -24,9 +24,9 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@tuckin/ui/form';
-import { Input } from '@tuckin/ui/input';
-import { Spinner } from '@tuckin/ui/spinner';
+} from '@odb/ui/form';
+import { Input } from '@odb/ui/input';
+import { Spinner } from '@odb/ui/spinner';
 
 type PendingFactor = { id: string; qrCode: string; secret: string };
 

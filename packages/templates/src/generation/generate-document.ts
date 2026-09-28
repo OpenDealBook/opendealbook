@@ -1,4 +1,4 @@
-import type { Tables, TablesInsert } from '@tuckin/supabase';
+import type { Tables, TablesInsert } from '@odb/supabase';
 
 import {
   type TemplateStorage,

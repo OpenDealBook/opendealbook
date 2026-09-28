@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@tuckin/workflows/client', () => ({
+vi.mock('@odb/workflows/client', () => ({
   TASK_QUEUE: 'opendealbook',
   getTemporalClient: vi.fn(),
 }));

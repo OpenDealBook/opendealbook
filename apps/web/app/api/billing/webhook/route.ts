@@ -1,4 +1,4 @@
-import { handleBillingWebhook } from '@tuckin/database-webhooks';
+import { handleBillingWebhook } from '@odb/database-webhooks';
 
 export async function POST(request: Request) {
   const signature = request.headers.get('stripe-signature');

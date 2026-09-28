@@ -4,7 +4,7 @@ const adminClient = {
   from: vi.fn(),
 };
 
-vi.mock('@tuckin/supabase/admin', () => ({
+vi.mock('@odb/supabase/admin', () => ({
   getSupabaseServerAdminClient: () => adminClient,
 }));
 

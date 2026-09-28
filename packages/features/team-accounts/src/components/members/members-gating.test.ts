@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canManageMember, type Role } from '@tuckin/policies';
+import { canManageMember, type Role } from '@odb/policies';
 
 describe('member management gating', () => {
   const actor: Role = { name: 'owner', hierarchyLevel: 1 };

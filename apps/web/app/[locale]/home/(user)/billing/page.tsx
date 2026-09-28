@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
-import { PersonalAccountBillingPanel } from '@tuckin/accounts/personal-account-billing';
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { PersonalAccountBillingPanel } from '@odb/accounts/personal-account-billing';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import billingConfig from '~/config/billing.config';
 

@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
 
-import { getSupabaseServerClient } from '@tuckin/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
+} from '@odb/ui/card';
 
 import { ensureTrialSampleData } from '../_lib/trial-actions';
 

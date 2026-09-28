@@ -3,23 +3,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFieldArray, useForm } from 'react-hook-form';
 
-import { hasPermission, type AppPermission, type Role } from '@tuckin/policies';
-import { Button } from '@tuckin/ui/button';
+import { hasPermission, type AppPermission, type Role } from '@odb/policies';
+import { Button } from '@odb/ui/button';
 import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
-} from '@tuckin/ui/form';
-import { Input } from '@tuckin/ui/input';
+} from '@odb/ui/form';
+import { Input } from '@odb/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@tuckin/ui/select';
+} from '@odb/ui/select';
 
 import {
   inviteMembersSchema,

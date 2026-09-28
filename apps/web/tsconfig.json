@@ -1,5 +1,5 @@
 {
-  "extends": "@tuckin/tsconfig/nextjs.json",
+  "extends": "@odb/tsconfig/nextjs.json",
   "compilerOptions": {
     "paths": {
       "~/*": ["./*"]

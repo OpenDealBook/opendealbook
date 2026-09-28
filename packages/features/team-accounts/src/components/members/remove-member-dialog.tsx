@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Button } from '@tuckin/ui/button';
+import { Button } from '@odb/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@tuckin/ui/dialog';
+} from '@odb/ui/dialog';
 
 import { removeMemberAction } from '../../server/members-actions';
 

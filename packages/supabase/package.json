@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/supabase",
+  "name": "@odb/supabase",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -26,11 +26,11 @@
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "@tanstack/react-query": "catalog:",
-    "@tuckin/shared": "workspace:*",
+    "@odb/shared": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "vitest": "catalog:"

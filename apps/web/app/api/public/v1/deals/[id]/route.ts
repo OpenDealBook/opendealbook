@@ -1,4 +1,4 @@
-import { getDeal } from '@tuckin/api/queries';
+import { getDeal } from '@odb/api/queries';
 
 import { resolveAccount } from '../../_shared';
 

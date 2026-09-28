@@ -1,7 +1,7 @@
 import { withThemeByClassName } from '@storybook/addon-themes';
 import type { Preview } from '@storybook/react-vite';
 
-import '@tuckin/ui/globals.css';
+import '@odb/ui/globals.css';
 
 // The token stylesheet drives both palettes off a `dark` class on <html>
 // (its `@custom-variant dark (&:is(.dark *))`), so the toolbar toggle swaps

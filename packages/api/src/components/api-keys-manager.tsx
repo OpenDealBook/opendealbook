@@ -2,17 +2,17 @@
 
 import { useState, useTransition } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '@tuckin/ui/alert';
-import { Button } from '@tuckin/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
+import { Button } from '@odb/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@tuckin/ui/card';
-import { Input } from '@tuckin/ui/input';
-import { Label } from '@tuckin/ui/label';
+} from '@odb/ui/card';
+import { Input } from '@odb/ui/input';
+import { Label } from '@odb/ui/label';
 
 import { createApiKey, listApiKeys, revokeApiKey } from '../server';
 

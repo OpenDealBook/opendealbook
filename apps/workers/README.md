@@ -29,7 +29,7 @@ pnpm --filter workers dev
 
 - `TEMPORAL_ADDRESS`: Temporal server address; defaults to `localhost:7233`.
 - Supabase service-role credentials, read by the activities through
-  `@tuckin/supabase/server`: `NEXT_PUBLIC_SUPABASE_URL` and
+  `@odb/supabase/server`: `NEXT_PUBLIC_SUPABASE_URL` and
   `SUPABASE_SERVICE_ROLE_KEY`.
 
 The namespace is `default` and the task queue is `opendealbook`.

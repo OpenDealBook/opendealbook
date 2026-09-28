@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@tuckin/supabase/server', () => ({
+vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerAdminClient: () => ({ from: mocks.from }),
 }));
 

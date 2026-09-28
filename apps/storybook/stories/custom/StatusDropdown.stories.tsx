@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { fn } from 'storybook/test';
 
-import { StatusDropdown } from '@tuckin/ui/status-dropdown';
+import { StatusDropdown } from '@odb/ui/status-dropdown';
 
 const meta: Meta<typeof StatusDropdown> = {
   title: 'Custom/StatusDropdown',

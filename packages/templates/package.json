@@ -1,5 +1,5 @@
 {
-  "name": "@tuckin/templates",
+  "name": "@odb/templates",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -25,14 +25,14 @@
   "dependencies": {
     "@harbour-enterprises/superdoc": "catalog:",
     "@supabase/supabase-js": "catalog:",
-    "@tuckin/next": "workspace:*",
-    "@tuckin/shared": "workspace:*",
-    "@tuckin/supabase": "workspace:*",
-    "@tuckin/workflows": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/shared": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/workflows": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@tuckin/tsconfig": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "vitest": "catalog:"

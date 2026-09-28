@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 const handleEvent = vi.fn();
 const rpc = vi.fn();
 
-vi.mock('@tuckin/stripe', () => ({
+vi.mock('@odb/stripe', () => ({
   createStripeWebhookHandler: () => ({ handleEvent }),
 }));
 
-vi.mock('@tuckin/supabase/server', () => ({
+vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerAdminClient: () => ({ rpc }),
 }));
 

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Spinner } from '@tuckin/ui/spinner';
+import { Spinner } from '@odb/ui/spinner';
 
 const meta: Meta<typeof Spinner> = {
   title: 'Base/Spinner',
