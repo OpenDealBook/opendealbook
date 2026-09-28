@@ -1891,17 +1891,15 @@ create index ix_deal_account_stage on public.deal (account_id, stage);
 create index ix_deal_firm on public.deal (firm_id);
 create index ix_deal_owner on public.deal (owner_user_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.deal from authenticated, service_role;
-grant select, insert, update, delete on public.deal to authenticated;
-grant select, insert, update, delete on public.deal to service_role;
+grant select on public.deal to authenticated;
+grant select on public.deal to service_role;
 
 create trigger deal_timestamps
   before insert or update on public.deal
   for each row execute function public.set_timestamps();
-
-create trigger deal_user_tracking
-  before insert or update on public.deal
-  for each row execute function public.set_user_tracking();
 
 -- ===== schemas/23-deal-participant.sql =====
 -- Per-deal access grants for internal and external parties. A grant scoped
@@ -1929,17 +1927,15 @@ alter table public.deal_participant enable row level security;
 create index ix_deal_participant_deal on public.deal_participant (deal_id);
 create index ix_deal_participant_user on public.deal_participant (user_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.deal_participant from authenticated, service_role;
-grant select, insert, update, delete on public.deal_participant to authenticated;
-grant select, insert, update, delete on public.deal_participant to service_role;
+grant select on public.deal_participant to authenticated;
+grant select on public.deal_participant to service_role;
 
 create trigger deal_participant_timestamps
   before insert or update on public.deal_participant
   for each row execute function public.set_timestamps();
-
-create trigger deal_participant_user_tracking
-  before insert or update on public.deal_participant
-  for each row execute function public.set_user_tracking();
 
 -- ===== schemas/24-deal-access.sql =====
 -- Deal-scoped access. A caller reaches a deal either as an internal member of
@@ -2038,17 +2034,15 @@ alter table public.checklist_item enable row level security;
 create index ix_checklist_item_deal_status on public.checklist_item (deal_id, status);
 create index ix_checklist_item_account on public.checklist_item (account_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.checklist_item from authenticated, service_role;
-grant select, insert, update, delete on public.checklist_item to authenticated;
-grant select, insert, update, delete on public.checklist_item to service_role;
+grant select on public.checklist_item to authenticated;
+grant select on public.checklist_item to service_role;
 
 create trigger checklist_item_timestamps
   before insert or update on public.checklist_item
   for each row execute function public.set_timestamps();
-
-create trigger checklist_item_user_tracking
-  before insert or update on public.checklist_item
-  for each row execute function public.set_user_tracking();
 
 create policy checklist_item_read on public.checklist_item
   for select to authenticated
@@ -2091,9 +2085,11 @@ alter table public.approval enable row level security;
 
 create index ix_approval_deal on public.approval (deal_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.approval from authenticated, service_role;
-grant select, insert, update, delete on public.approval to authenticated;
-grant select, insert, update, delete on public.approval to service_role;
+grant select on public.approval to authenticated;
+grant select on public.approval to service_role;
 
 create policy approval_read on public.approval
   for select to authenticated
@@ -2114,43 +2110,6 @@ create policy approval_update on public.approval
 create policy approval_delete on public.approval
   for delete to authenticated
   using (public.has_permission((select auth.uid()), (select account_id from public.deal where id = deal_id), 'deals.manage'));
-
--- ===== schemas/27-audit-event.sql =====
--- Append-only audit trail. Rows are never updated or deleted: no update/delete
--- grant and no update/delete policy exist, so those operations are refused.
-
-create table if not exists public.audit_event (
-  id uuid primary key default gen_random_uuid(),
-  account_id uuid not null references public.accounts (id) on delete cascade,
-  deal_id uuid references public.deal (id) on delete cascade,
-  actor_user_id uuid not null default auth.uid() references auth.users,
-  event_type text not null,
-  payload jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
-
-alter table public.audit_event enable row level security;
-
-create index ix_audit_event_account on public.audit_event (account_id, created_at);
-create index ix_audit_event_deal on public.audit_event (deal_id, created_at);
-
-revoke all on public.audit_event from authenticated, service_role;
-grant select, insert on public.audit_event to authenticated;
-grant select, insert on public.audit_event to service_role;
-
-create policy audit_event_read on public.audit_event
-  for select to authenticated
-  using (
-    public.has_role_on_account(account_id)
-    or (deal_id is not null and public.has_deal_permission(deal_id, 'deals.manage'))
-  );
-
-create policy audit_event_insert on public.audit_event
-  for insert to authenticated
-  with check (
-    public.has_role_on_account(account_id)
-    or (deal_id is not null and public.has_deal_permission(deal_id, 'deals.manage'))
-  );
 
 -- ===== schemas/28-api-key.sql =====
 -- Account API keys for the MCP/REST surface. Only the sha256 hash is stored;
@@ -2855,9 +2814,11 @@ alter table public.dr_document enable row level security;
 create index ix_dr_document_deal on public.dr_document (deal_id);
 create index ix_dr_document_folder on public.dr_document (folder_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.dr_document from authenticated, service_role;
-grant select, insert, update, delete on public.dr_document to authenticated;
-grant select, insert, update, delete on public.dr_document to service_role;
+grant select on public.dr_document to authenticated;
+grant select on public.dr_document to service_role;
 
 create trigger dr_document_timestamps
   before insert or update on public.dr_document
@@ -3502,9 +3463,11 @@ alter table public.contract enable row level security;
 create index ix_contract_deal on public.contract (deal_id);
 create index ix_contract_account on public.contract (account_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.contract from authenticated, service_role;
-grant select, insert, update, delete on public.contract to authenticated;
-grant select, insert, update, delete on public.contract to service_role;
+grant select on public.contract to authenticated;
+grant select on public.contract to service_role;
 
 create trigger contract_timestamps
   before insert or update on public.contract
@@ -3677,17 +3640,15 @@ create index ix_meeting_deal on public.meeting (deal_id);
 create index ix_meeting_account on public.meeting (account_id);
 create index ix_meeting_series on public.meeting (series_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.meeting from authenticated, service_role;
-grant select, insert, update, delete on public.meeting to authenticated;
-grant select, insert, update, delete on public.meeting to service_role;
+grant select on public.meeting to authenticated;
+grant select on public.meeting to service_role;
 
 create trigger meeting_timestamps
   before insert or update on public.meeting
   for each row execute function public.set_timestamps();
-
-create trigger meeting_user_tracking
-  before insert or update on public.meeting
-  for each row execute function public.set_user_tracking();
 
 create policy meeting_read on public.meeting
   for select to authenticated
@@ -3739,17 +3700,15 @@ create index ix_meeting_action_item_meeting on public.meeting_action_item (meeti
 create index ix_meeting_action_item_deal on public.meeting_action_item (deal_id);
 create index ix_meeting_action_item_account on public.meeting_action_item (account_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.meeting_action_item from authenticated, service_role;
-grant select, insert, update, delete on public.meeting_action_item to authenticated;
-grant select, insert, update, delete on public.meeting_action_item to service_role;
+grant select on public.meeting_action_item to authenticated;
+grant select on public.meeting_action_item to service_role;
 
 create trigger meeting_action_item_timestamps
   before insert or update on public.meeting_action_item
   for each row execute function public.set_timestamps();
-
-create trigger meeting_action_item_user_tracking
-  before insert or update on public.meeting_action_item
-  for each row execute function public.set_user_tracking();
 
 create policy meeting_action_item_read on public.meeting_action_item
   for select to authenticated
@@ -3976,56 +3935,6 @@ create or replace function public.analytics_pipeline_by_stage(p_account_id uuid,
   order by ps.sort_order;
 $$;
 
-create or replace function public.analytics_deals_added_lost_by_month(p_account_id uuid)
-  returns table (month date, added bigint, lost bigint)
-  language sql security definer
-  set search_path = '' as $$
-  with added as (
-    select date_trunc('month', d.created_at)::date as m, count(*) as c
-    from public.deal d
-    where d.account_id = p_account_id
-      and public.has_role_on_account(p_account_id)
-    group by 1
-  ),
-  lost as (
-    select date_trunc('month', ae.created_at)::date as m, count(*) as c
-    from public.audit_event ae
-    where ae.account_id = p_account_id
-      and ae.event_type = 'stage_move'
-      and ae.payload ->> 'to' = 'closed_lost'
-      and public.has_role_on_account(p_account_id)
-    group by 1
-  )
-  select coalesce(added.m, lost.m), coalesce(added.c, 0), coalesce(lost.c, 0)
-  from added
-  full outer join lost on added.m = lost.m
-  order by 1;
-$$;
-
--- Median days a deal spent in each stage, measured between consecutive
--- stage_move events. The stage entered is payload->>'to'; its dwell time ends
--- at the next move, so a deal still in its current stage is not yet counted.
-create or replace function public.analytics_median_days_in_stage(p_account_id uuid)
-  returns table (stage text, median_days numeric)
-  language sql security definer
-  set search_path = '' as $$
-  with moves as (
-    select ae.deal_id,
-      ae.payload ->> 'to' as stage,
-      ae.created_at,
-      lead(ae.created_at) over (partition by ae.deal_id order by ae.created_at) as next_at
-    from public.audit_event ae
-    where ae.account_id = p_account_id
-      and ae.event_type = 'stage_move'
-      and public.has_role_on_account(p_account_id)
-  )
-  select stage,
-    percentile_cont(0.5) within group (order by extract(epoch from (next_at - created_at)) / 86400)
-  from moves
-  where next_at is not null
-  group by stage;
-$$;
-
 create or replace function public.analytics_checklist_status_by_deal(p_account_id uuid)
   returns table (deal_id uuid, status public.checklist_status, item_count bigint)
   language sql security definer
@@ -4103,8 +4012,6 @@ create or replace function public.analytics_broker_deal_flow_by_quarter(p_accoun
 $$;
 
 grant execute on function public.analytics_pipeline_by_stage(uuid, boolean) to authenticated, service_role;
-grant execute on function public.analytics_deals_added_lost_by_month(uuid) to authenticated, service_role;
-grant execute on function public.analytics_median_days_in_stage(uuid) to authenticated, service_role;
 grant execute on function public.analytics_checklist_status_by_deal(uuid) to authenticated, service_role;
 grant execute on function public.analytics_requested_to_received_median(uuid) to authenticated, service_role;
 grant execute on function public.analytics_contract_turns_per_deal(uuid) to authenticated, service_role;
@@ -4630,20 +4537,34 @@ create or replace function public.project_deal(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.created' then
-    insert into public.deal (id, account_id, firm_id, owner_user_id, description, source, stage, created_by, updated_by)
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'firm_id')::uuid,
       (ev.payload ->> 'owner_user_id')::uuid,
       ev.payload ->> 'description',
+      (ev.payload ->> 'asking_price')::numeric,
+      (ev.payload ->> 'revenue_ttm')::numeric,
+      (ev.payload ->> 'sde_ttm')::numeric,
+      (ev.payload ->> 'ebitda_ttm')::numeric,
+      ev.payload ->> 'notes',
       coalesce((ev.payload ->> 'source')::public.deal_source, 'manual'),
       coalesce(ev.payload ->> 'stage', 'sourced'),
+      (ev.payload ->> 'broker_contact_id')::uuid,
+      (ev.payload ->> 'deal_box_version')::int,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
       firm_id = excluded.firm_id,
       owner_user_id = excluded.owner_user_id,
       description = excluded.description,
+      asking_price = excluded.asking_price,
+      revenue_ttm = excluded.revenue_ttm,
+      sde_ttm = excluded.sde_ttm,
+      ebitda_ttm = excluded.ebitda_ttm,
+      notes = excluded.notes,
+      broker_contact_id = excluded.broker_contact_id,
+      deal_box_version = excluded.deal_box_version,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
@@ -4695,7 +4616,7 @@ create or replace function public.project_checklist_item(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'checklist_item.added' then
-    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, created_by, updated_by)
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       ev.payload ->> 'category',
@@ -4703,6 +4624,10 @@ begin
       (ev.payload ->> 'owner_user_id')::uuid,
       (ev.payload ->> 'due_at')::timestamptz,
       coalesce((ev.payload ->> 'status')::public.checklist_status, 'not_started'),
+      coalesce((ev.payload ->> 'priority')::int, 0),
+      coalesce((ev.payload ->> 'deal_killer')::boolean, false),
+      (ev.payload ->> 'schedule_week_id')::uuid,
+      (ev.payload ->> 'due_offset_days')::int,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -4711,6 +4636,10 @@ begin
       owner_user_id = excluded.owner_user_id,
       due_at = excluded.due_at,
       status = excluded.status,
+      priority = excluded.priority,
+      deal_killer = excluded.deal_killer,
+      schedule_week_id = excluded.schedule_week_id,
+      due_offset_days = excluded.due_offset_days,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'checklist_item.status_changed' then
     update public.checklist_item set
@@ -4718,7 +4647,15 @@ begin
       requested_at = coalesce((ev.payload ->> 'requested_at')::timestamptz, requested_at),
       received_at = coalesce((ev.payload ->> 'received_at')::timestamptz, received_at),
       reviewed_at = coalesce((ev.payload ->> 'reviewed_at')::timestamptz, reviewed_at),
+      reviewed_by = coalesce((ev.payload ->> 'reviewed_by')::uuid, reviewed_by),
       outcome = coalesce((ev.payload ->> 'outcome')::public.checklist_outcome, outcome),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.rescheduled' then
+    update public.checklist_item set
+      schedule_week_id = (ev.payload ->> 'schedule_week_id')::uuid,
+      priority = coalesce((ev.payload ->> 'priority')::int, priority),
+      deal_killer = coalesce((ev.payload ->> 'deal_killer')::boolean, deal_killer),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   elsif ev.event_type = 'checklist_item.removed' then
@@ -4759,19 +4696,21 @@ create or replace function public.project_deal_participant(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal_participant.added' then
-    insert into public.deal_participant (id, deal_id, user_id, party, role, scope, permission, expires_at, created_by, updated_by)
+    insert into public.deal_participant (id, deal_id, user_id, party, role, scope, scope_id, permission, expires_at, created_by, updated_by)
     values (
       ev.aggregate_id, ev.deal_id,
       (ev.payload ->> 'user_id')::uuid,
       (ev.payload ->> 'party')::public.participant_party,
       ev.payload ->> 'role',
       coalesce((ev.payload ->> 'scope')::public.participant_scope, 'deal'),
+      (ev.payload ->> 'scope_id')::uuid,
       coalesce((ev.payload ->> 'permission')::public.participant_permission, 'view'),
       (ev.payload ->> 'expires_at')::timestamptz,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
       role = excluded.role,
+      scope_id = excluded.scope_id,
       permission = excluded.permission,
       expires_at = excluded.expires_at,
       updated_by = excluded.updated_by;
@@ -4816,18 +4755,20 @@ create or replace function public.project_meeting(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'meeting.scheduled' then
-    insert into public.meeting (id, deal_id, account_id, series_id, type, scheduled_at, status, created_by, updated_by)
+    insert into public.meeting (id, deal_id, account_id, series_id, type, scheduled_at, status, notes, created_by, updated_by)
     values (
       ev.aggregate_id, ev.deal_id, ev.account_id,
       (ev.payload ->> 'series_id')::uuid,
       ev.payload ->> 'type',
       (ev.payload ->> 'scheduled_at')::timestamptz,
       coalesce((ev.payload ->> 'status')::public.meeting_status, 'scheduled'),
+      ev.payload ->> 'notes',
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
       scheduled_at = excluded.scheduled_at,
       status = excluded.status,
+      notes = excluded.notes,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'meeting.updated' then
     update public.meeting set
@@ -4848,7 +4789,7 @@ create or replace function public.project_meeting_action_item(ev public.deal_eve
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'meeting_action_item.added' then
-    insert into public.meeting_action_item (id, meeting_id, deal_id, account_id, description, owner_user_id, owner_is_seller, due_at, status, checklist_item_id, created_by, updated_by)
+    insert into public.meeting_action_item (id, meeting_id, deal_id, account_id, description, owner_user_id, owner_is_seller, due_at, status, checklist_item_id, schedule_week_id, created_by, updated_by)
     values (
       ev.aggregate_id,
       (ev.payload ->> 'meeting_id')::uuid,
@@ -4859,6 +4800,7 @@ begin
       (ev.payload ->> 'due_at')::timestamptz,
       coalesce((ev.payload ->> 'status')::public.checklist_status, 'not_started'),
       (ev.payload ->> 'checklist_item_id')::uuid,
+      (ev.payload ->> 'schedule_week_id')::uuid,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -4866,6 +4808,7 @@ begin
       owner_user_id = excluded.owner_user_id,
       due_at = excluded.due_at,
       status = excluded.status,
+      schedule_week_id = excluded.schedule_week_id,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'meeting_action_item.updated' then
     update public.meeting_action_item set
@@ -5144,3 +5087,65 @@ end;
 $$;
 
 grant execute on function public.replay_deal(uuid) to service_role;
+
+-- ===== schemas/68-account-analytics-events.sql =====
+-- Analytics that read the deal_event log. They live after the event-store
+-- files because their bodies reference public.deal_event, which is created in
+-- 64-deal-event.sql; a security definer SQL function is validated against the
+-- catalogue at creation time, so it must be declared after that table exists.
+-- Stage moves are recorded as deal.stage_changed events; the entered stage is
+-- payload->>'stage'.
+
+create or replace function public.analytics_deals_added_lost_by_month(p_account_id uuid)
+  returns table (month date, added bigint, lost bigint)
+  language sql security definer
+  set search_path = '' as $$
+  with added as (
+    select date_trunc('month', d.created_at)::date as m, count(*) as c
+    from public.deal d
+    where d.account_id = p_account_id
+      and public.has_role_on_account(p_account_id)
+    group by 1
+  ),
+  lost as (
+    select date_trunc('month', de.created_at)::date as m, count(*) as c
+    from public.deal_event de
+    where de.account_id = p_account_id
+      and de.event_type = 'deal.stage_changed'
+      and de.payload ->> 'stage' = 'closed_lost'
+      and public.has_role_on_account(p_account_id)
+    group by 1
+  )
+  select coalesce(added.m, lost.m), coalesce(added.c, 0), coalesce(lost.c, 0)
+  from added
+  full outer join lost on added.m = lost.m
+  order by 1;
+$$;
+
+-- Median days a deal spent in each stage, measured between consecutive
+-- deal.stage_changed events. The stage entered is payload->>'stage'; its dwell
+-- time ends at the next move, so a deal still in its current stage is not yet
+-- counted.
+create or replace function public.analytics_median_days_in_stage(p_account_id uuid)
+  returns table (stage text, median_days numeric)
+  language sql security definer
+  set search_path = '' as $$
+  with moves as (
+    select de.deal_id,
+      de.payload ->> 'stage' as stage,
+      de.created_at,
+      lead(de.created_at) over (partition by de.deal_id order by de.created_at) as next_at
+    from public.deal_event de
+    where de.account_id = p_account_id
+      and de.event_type = 'deal.stage_changed'
+      and public.has_role_on_account(p_account_id)
+  )
+  select stage,
+    percentile_cont(0.5) within group (order by extract(epoch from (next_at - created_at)) / 86400)
+  from moves
+  where next_at is not null
+  group by stage;
+$$;
+
+grant execute on function public.analytics_deals_added_lost_by_month(uuid) to authenticated, service_role;
+grant execute on function public.analytics_median_days_in_stage(uuid) to authenticated, service_role;

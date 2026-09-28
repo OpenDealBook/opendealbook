@@ -4,14 +4,24 @@ const mocks = vi.hoisted(() => {
   const eqSpy = vi.fn();
   const inSpy = vi.fn();
   const updateSpy = vi.fn();
+  const appendSpy = vi.fn();
+  const appendEventsSpy = vi.fn();
 
-  function dataFor(table: string): unknown {
+  function singleFor(table: string): unknown {
     if (table === 'diligence_schedule') {
-      return { id: 'sched-1' };
+      return { id: 'sched-1', deal_id: 'deal-1' };
     }
     if (table === 'schedule_week') {
       return { id: 'week-next', schedule_id: 'sched-1', week_no: 3 };
     }
+    if (table === 'checklist_item') {
+      return { id: 'item-1', deal_id: 'deal-1' };
+    }
+
+    return { id: `${table}-1` };
+  }
+
+  function listFor(table: string): unknown[] {
     if (table === 'checklist_item') {
       return [{ id: 'item-1' }, { id: 'item-2' }];
     }
@@ -19,18 +29,22 @@ const mocks = vi.hoisted(() => {
       return [{ id: 'question-1' }];
     }
 
-    return { id: `${table}-1` };
+    return [];
   }
 
   function makeBuilder(table: string) {
     const builder: Record<string, unknown> = {};
     const chain = () => builder;
+    let singleMode = false;
 
     builder.select = chain;
     builder.order = chain;
     builder.limit = chain;
-    builder.single = chain;
     builder.throwOnError = chain;
+    builder.single = () => {
+      singleMode = true;
+      return builder;
+    };
     builder.eq = (column: string, value: unknown) => {
       eqSpy(table, column, value);
       return builder;
@@ -44,14 +58,18 @@ const mocks = vi.hoisted(() => {
       return builder;
     };
     builder.then = (resolve: (value: unknown) => void) =>
-      resolve({ data: dataFor(table), error: null });
+      resolve({
+        data: singleMode ? singleFor(table) : listFor(table),
+        error: null,
+      });
 
     return builder;
   }
 
   const from = vi.fn((table: string) => makeBuilder(table));
+  const client = { from };
 
-  return { eqSpy, inSpy, updateSpy, from };
+  return { eqSpy, inSpy, updateSpy, appendSpy, appendEventsSpy, from, client };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -59,32 +77,86 @@ vi.mock('@odb/next/actions', () => ({
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ from: mocks.from }),
+  getSupabaseServerClient: () => mocks.client,
 }));
 
-import { sellerWeekView, slipUnreceived } from './actions';
+vi.mock('@odb/events', () => ({
+  appendDealEvent: (client: unknown, input: unknown) => {
+    mocks.appendSpy(client, input);
+    return Promise.resolve([{ deal_seq: 1, aggregate_seq: 1 }]);
+  },
+  appendDealEvents: (client: unknown, dealId: unknown, events: unknown) => {
+    mocks.appendEventsSpy(client, dealId, events);
+    return Promise.resolve([{ deal_seq: 1, aggregate_seq: 1 }]);
+  },
+}));
 
-const runSlipUnreceived = slipUnreceived as unknown as (
-  data: Record<string, unknown>,
-) => Promise<unknown>;
+import { assignItemToWeek, sellerWeekView, slipUnreceived } from './actions';
 
-const runSellerWeekView = sellerWeekView as unknown as (
-  data: Record<string, unknown>,
-) => Promise<unknown>;
+type Action = (data: Record<string, unknown>) => Promise<unknown>;
+
+const runAssignItemToWeek = assignItemToWeek as unknown as Action;
+const runSlipUnreceived = slipUnreceived as unknown as Action;
+const runSellerWeekView = sellerWeekView as unknown as Action;
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
+describe('assignItemToWeek', () => {
+  it('reschedules the item onto the target week via a deal event', async () => {
+    await runAssignItemToWeek({
+      checklistItemId: 'item-1',
+      weekId: 'week-7',
+    });
+
+    expect(mocks.appendSpy).toHaveBeenCalledTimes(1);
+
+    const [client, input] = mocks.appendSpy.mock.calls[0] as [
+      unknown,
+      Record<string, unknown>,
+    ];
+
+    expect(client).toBe(mocks.client);
+    expect(input).toMatchObject({
+      dealId: 'deal-1',
+      aggregateType: 'checklist_item',
+      aggregateId: 'item-1',
+      eventType: 'checklist_item.rescheduled',
+      payload: { schedule_week_id: 'week-7' },
+    });
+  });
+});
+
 describe('slipUnreceived', () => {
-  it('carries unreceived items forward into the next week', async () => {
+  it('reschedules every unreceived item into the next week in one batch', async () => {
     await runSlipUnreceived({ weekId: 'week-3' });
 
-    const itemMove = mocks.updateSpy.mock.calls.find(
-      ([table]) => table === 'checklist_item',
-    );
+    expect(mocks.appendEventsSpy).toHaveBeenCalledTimes(1);
 
-    expect(itemMove?.[1]).toEqual({ schedule_week_id: 'week-next' });
+    const [client, dealId, events] = mocks.appendEventsSpy.mock.calls[0] as [
+      unknown,
+      string,
+      Array<Record<string, unknown>>,
+    ];
+
+    expect(client).toBe(mocks.client);
+    expect(dealId).toBe('deal-1');
+    expect(events).toEqual([
+      {
+        aggregateType: 'checklist_item',
+        aggregateId: 'item-1',
+        eventType: 'checklist_item.rescheduled',
+        payload: { schedule_week_id: 'week-next' },
+      },
+      {
+        aggregateType: 'checklist_item',
+        aggregateId: 'item-2',
+        eventType: 'checklist_item.rescheduled',
+        payload: { schedule_week_id: 'week-next' },
+      },
+    ]);
+
     expect(mocks.inSpy).toHaveBeenCalledWith('checklist_item', 'status', [
       'not_started',
       'requested',

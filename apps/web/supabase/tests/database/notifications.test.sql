@@ -49,18 +49,25 @@ select isnt_empty(
 
 -- ---- Deal stage move: one targeted row per participant, excluding the actor ----
 select tests.login_as_service_role();
-insert into public.deal (id, account_id, owner_user_id, description, stage)
-values ('dddddddd-0000-0000-0000-0000000000d1', tests.account_id('notif-team'), tests.get_uid('notif_owner'), 'A deal', 'sourced');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal',
+  'dddddddd-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('notif-team'), 'owner_user_id', tests.get_uid('notif_owner'),
+    'description', 'A deal', 'stage', 'sourced'), null, 'service');
 
-insert into public.deal_participant (deal_id, user_id, party)
-values
-  ('dddddddd-0000-0000-0000-0000000000d1', tests.get_uid('notif_owner'), 'seller'),
-  ('dddddddd-0000-0000-0000-0000000000d1', tests.get_uid('notif_part_a'), 'buyer'),
-  ('dddddddd-0000-0000-0000-0000000000d1', tests.get_uid('notif_part_b'), 'broker');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('notif_owner'), 'party', 'seller'), null, 'service');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('notif_part_a'), 'party', 'buyer'), null, 'service');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('notif_part_b'), 'party', 'broker'), null, 'service');
 
 -- The owner (a participant) moves the stage; the trigger excludes the actor.
 select tests.login_as('notif_owner');
-update public.deal set stage = 'diligence' where id = 'dddddddd-0000-0000-0000-0000000000d1';
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal',
+  'dddddddd-0000-0000-0000-0000000000d1', 'deal.stage_changed', '{"stage":"diligence"}'::jsonb);
 
 select tests.login_as_service_role();
 select bag_eq(

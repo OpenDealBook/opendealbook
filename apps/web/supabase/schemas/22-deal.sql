@@ -30,14 +30,12 @@ create index ix_deal_account_stage on public.deal (account_id, stage);
 create index ix_deal_firm on public.deal (firm_id);
 create index ix_deal_owner on public.deal (owner_user_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.deal from authenticated, service_role;
-grant select, insert, update, delete on public.deal to authenticated;
-grant select, insert, update, delete on public.deal to service_role;
+grant select on public.deal to authenticated;
+grant select on public.deal to service_role;
 
 create trigger deal_timestamps
   before insert or update on public.deal
   for each row execute function public.set_timestamps();
-
-create trigger deal_user_tracking
-  before insert or update on public.deal
-  for each row execute function public.set_user_tracking();

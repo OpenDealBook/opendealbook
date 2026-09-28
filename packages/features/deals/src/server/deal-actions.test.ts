@@ -147,25 +147,6 @@ describe('updateDealStage', () => {
     ];
   }
 
-  it('records a stage_move audit event on every move', async () => {
-    await runUpdateDealStage(
-      { deal_id: 'deal-1', stage: 'qualifying' },
-      { id: 'user-1' },
-    );
-
-    const auditInsert = mocks.insertSpy.mock.calls.find(
-      ([table]) => table === 'audit_event',
-    );
-
-    expect(auditInsert?.[1]).toMatchObject({
-      account_id: 'account-1',
-      deal_id: 'deal-1',
-      actor_user_id: 'user-1',
-      event_type: 'stage_move',
-      payload: { from: 'sourced', to: 'qualifying' },
-    });
-  });
-
   it('batches only a deal.stage_changed event when no approval is due', async () => {
     await runUpdateDealStage(
       { deal_id: 'deal-1', stage: 'qualifying' },

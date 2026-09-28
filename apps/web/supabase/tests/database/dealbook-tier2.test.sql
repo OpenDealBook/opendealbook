@@ -10,11 +10,14 @@ select tests.login_as_service_role();
 select public.create_team_account('Tier2 A', tests.get_uid('t2_a_owner'), 'tier2-a');
 select public.create_team_account('Tier2 B', tests.get_uid('t2_b_owner'), 'tier2-b');
 
-insert into public.deal (id, account_id, owner_user_id, description)
-values ('dddddddd-0000-0000-0000-0000000000a1', tests.account_id('tier2-a'), tests.get_uid('t2_a_owner'), 'Tier2 A deal');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'deal',
+  'dddddddd-0000-0000-0000-0000000000a1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('tier2-a'), 'owner_user_id', tests.get_uid('t2_a_owner'),
+    'description', 'Tier2 A deal'), null, 'service');
 
-insert into public.deal_participant (deal_id, user_id, party, permission)
-values ('dddddddd-0000-0000-0000-0000000000a1', tests.get_uid('t2_ext'), 'seller', 'view');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('t2_ext'), 'party', 'seller', 'permission', 'view'), null, 'service');
 
 -- ---- is_trial_active ----
 select ok(
@@ -69,11 +72,21 @@ values ('dddddddd-0000-0000-0000-0000000000c1', tests.account_id('tier2-a'), 'St
 insert into public.checklist_template_item (template_id, title, priority, deal_killer)
 values ('dddddddd-0000-0000-0000-0000000000c1', 'Environmental clearance', 10, true);
 
--- Applying a template copies each item's shape (priority, deal_killer) onto the deal.
-insert into public.checklist_item (account_id, deal_id, title, priority, deal_killer)
-select tests.account_id('tier2-a'), 'dddddddd-0000-0000-0000-0000000000a1', ti.title, ti.priority, ti.deal_killer
-from public.checklist_template_item ti
-where ti.template_id = 'dddddddd-0000-0000-0000-0000000000c1';
+-- Applying a template copies each item's shape (priority, deal_killer) onto the
+-- deal through a checklist_item.added event per template item.
+do $$
+declare ti record;
+begin
+  for ti in
+    select title, priority, deal_killer from public.checklist_template_item
+    where template_id = 'dddddddd-0000-0000-0000-0000000000c1'
+  loop
+    perform public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'checklist_item',
+      gen_random_uuid(), 'checklist_item.added',
+      jsonb_build_object('title', ti.title, 'priority', ti.priority, 'deal_killer', ti.deal_killer),
+      null, 'service');
+  end loop;
+end $$;
 
 select tests.login_as('t2_a_owner');
 select isnt_empty(
@@ -128,8 +141,9 @@ select is_empty(
 
 -- ---- Contract versions: unique(contract, version) and deal-scoped access ----
 select tests.login_as_service_role();
-insert into public.contract (id, deal_id, account_id, type, status)
-values ('dddddddd-0000-0000-0000-000000000091', 'dddddddd-0000-0000-0000-0000000000a1', tests.account_id('tier2-a'), 'loi', 'draft');
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'contract',
+  'dddddddd-0000-0000-0000-000000000091', 'contract.created',
+  jsonb_build_object('type', 'loi', 'status', 'draft'), null, 'service');
 
 insert into public.contract_version (contract_id, account_id, version, source, party)
 values ('dddddddd-0000-0000-0000-000000000091', tests.account_id('tier2-a'), 1, 'editor_save', 'buyer');

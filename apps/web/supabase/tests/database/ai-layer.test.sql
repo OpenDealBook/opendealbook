@@ -32,27 +32,32 @@ select is(
   'ai_redaction_enabled defaults to false on a new account'
 );
 
-insert into public.deal (id, account_id, owner_user_id, description)
-values ('aaaaaaaa-0000-0000-0000-0000000000e2', tests.account_id('ai-acct-a'), tests.get_uid('ai_a_owner'), 'Deal A');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e2', 'deal',
+  'aaaaaaaa-0000-0000-0000-0000000000e2', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('ai-acct-a'), 'owner_user_id', tests.get_uid('ai_a_owner'),
+    'description', 'Deal A'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name)
 values ('aaaaaaaa-0000-0000-0000-000000000fd1', tests.account_id('ai-acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000e2', 'Root');
 
-insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path)
-values ('aaaaaaaa-0000-0000-0000-000000000dc1', tests.account_id('ai-acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000e2',
-  'aaaaaaaa-0000-0000-0000-000000000fd1', 'financials.pdf', 'deals/a/financials.pdf');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e2', 'dr_document',
+  'aaaaaaaa-0000-0000-0000-000000000dc1', 'dr_document.added',
+  jsonb_build_object('folder_id', 'aaaaaaaa-0000-0000-0000-000000000fd1', 'name', 'financials.pdf',
+    'storage_path', 'deals/a/financials.pdf'), null, 'service');
 
 insert into public.document_chunk (account_id, deal_id, document_id, chunk_index, content)
 values (tests.account_id('ai-acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000e2',
   'aaaaaaaa-0000-0000-0000-000000000dc1', 0, 'quarterly financials workpapers');
 
-insert into public.deal_participant (deal_id, user_id, party, scope, permission)
-values ('aaaaaaaa-0000-0000-0000-0000000000e2', tests.get_uid('ai_ext'), 'buyer', 'deal', 'view');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e2', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('ai_ext'), 'party', 'buyer', 'scope', 'deal', 'permission', 'view'), null, 'service');
 
--- A status outside the enum is rejected.
+-- A status outside the enum is rejected on the cast inside the projector.
 select throws_ok(
-  $$ insert into public.meeting (deal_id, account_id, type, status)
-     values ('aaaaaaaa-0000-0000-0000-0000000000e2', tests.account_id('ai-acct-a'), 'weekly', 'postponed') $$,
+  $$ select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e2', 'meeting',
+       gen_random_uuid(), 'meeting.scheduled',
+       jsonb_build_object('type', 'weekly', 'status', 'postponed'), null, 'service') $$,
   '22P02',
   null,
   'meeting.status rejects a value outside the meeting_status enum'

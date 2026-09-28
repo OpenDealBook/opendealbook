@@ -8,14 +8,22 @@ select tests.create_user('es_other');
 select tests.login_as_service_role();
 select public.create_team_account('ES Acct', tests.get_uid('es_owner'), 'es-acct');
 
--- Deals and a data-room folder, seeded conventionally. The event store is
--- additive this wave, so direct inserts still stand for setup.
+-- Deals are born of the log now that direct DML is revoked; each deal.created
+-- is the deal's deal_seq 1. A data-room folder is not evented and is seeded
+-- directly.
 select tests.login_as('es_owner');
-insert into public.deal (id, account_id, description) values
-  ('d1d1d1d1-0000-0000-0000-000000000001', tests.account_id('es-acct'), 'Deal One'),
-  ('d2d2d2d2-0000-0000-0000-000000000002', tests.account_id('es-acct'), 'Deal Two'),
-  ('d3d3d3d3-0000-0000-0000-000000000003', tests.account_id('es-acct'), 'Deal Three'),
-  ('d4d4d4d4-0000-0000-0000-000000000004', tests.account_id('es-acct'), 'Deal Four');
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal',
+  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal One'));
+select public.append_deal_event('d2d2d2d2-0000-0000-0000-000000000002', 'deal',
+  'd2d2d2d2-0000-0000-0000-000000000002', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal Two'));
+select public.append_deal_event('d3d3d3d3-0000-0000-0000-000000000003', 'deal',
+  'd3d3d3d3-0000-0000-0000-000000000003', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal Three'));
+select public.append_deal_event('d4d4d4d4-0000-0000-0000-000000000004', 'deal',
+  'd4d4d4d4-0000-0000-0000-000000000004', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal Four'));
 insert into public.dr_folder (id, account_id, deal_id, name) values
   ('f1f1f1f1-0000-0000-0000-000000000001', tests.account_id('es-acct'), 'd1d1d1d1-0000-0000-0000-000000000001', 'Root'),
   ('f1f1f1f1-0000-0000-0000-0000000000b2', tests.account_id('es-acct'), 'd1d1d1d1-0000-0000-0000-000000000001', 'Financials');
@@ -40,8 +48,8 @@ select is(
 );
 select is(
   (select deal_seq from public.deal_event where aggregate_id = 'c1c1c1c1-0000-0000-0000-000000000001'),
-  1::bigint,
-  'the first event on the deal has deal_seq 1'
+  2::bigint,
+  'the checklist_item.added is deal_seq 2 (deal.created is deal_seq 1)'
 );
 
 -- ---- gapless sequencing ----
@@ -204,7 +212,8 @@ select is_empty(
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal_participant',
   'aaaaaaaa-0000-0000-0000-0000000000aa', 'deal_participant.added',
   ('{"party":"buyer","user_id":"' || tests.get_uid('es_other')::text || '"}')::jsonb);
-update public.deal set stage = 'diligence' where id = 'd1d1d1d1-0000-0000-0000-000000000001';
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal',
+  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.stage_changed', '{"stage":"diligence"}'::jsonb);
 select tests.login_as_service_role();
 select is(
   (select count(*) from public.notifications where recipient_user_id = tests.get_uid('es_other')),
@@ -212,7 +221,8 @@ select is(
   'a live stage move notifies the participant'
 );
 select set_config('odb.replay', 'on', true);
-update public.deal set stage = 'loi' where id = 'd1d1d1d1-0000-0000-0000-000000000001';
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal',
+  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.stage_changed', '{"stage":"loi"}'::jsonb, null, 'service');
 select is(
   (select count(*) from public.notifications where recipient_user_id = tests.get_uid('es_other')),
   1::bigint,
@@ -325,6 +335,84 @@ select throws_ok(
              'c1c1c1c1-0000-0000-0000-000000000099', 'checklist_item.added', 'user', 99, 99) $$,
   '42501', null,
   'a direct insert into the event log is refused');
+
+-- ---- lossless field coverage: newly-carried projector fields ----
+-- A schedule with two weeks on d1, so schedule_week_id references resolve.
+select tests.login_as_service_role();
+insert into public.diligence_schedule (id, deal_id, account_id) values
+  ('dc000000-0000-0000-0000-0000000000d1', 'd1d1d1d1-0000-0000-0000-000000000001', tests.account_id('es-acct'));
+insert into public.schedule_week (id, schedule_id, account_id, week_no) values
+  ('dc000000-0000-0000-0000-0000000000d2', 'dc000000-0000-0000-0000-0000000000d1', tests.account_id('es-acct'), 1),
+  ('dc000000-0000-0000-0000-0000000000d3', 'dc000000-0000-0000-0000-0000000000d1', tests.account_id('es-acct'), 2);
+select tests.login_as('es_owner');
+
+-- deal.created carries the financial and box fields, not only description.
+select public.append_deal_event('d6d6d6d6-0000-0000-0000-000000000006', 'deal',
+  'd6d6d6d6-0000-0000-0000-000000000006', 'deal.created',
+  ('{"account_id":"' || tests.account_id('es-acct')::text || '","description":"Rich deal","asking_price":1250000,"revenue_ttm":800000,"sde_ttm":300000,"ebitda_ttm":250000,"notes":"hot lead","deal_box_version":2}')::jsonb);
+select is(
+  (select asking_price from public.deal where id = 'd6d6d6d6-0000-0000-0000-000000000006'),
+  1250000::numeric, 'deal.created projects asking_price');
+select is(
+  (select notes from public.deal where id = 'd6d6d6d6-0000-0000-0000-000000000006'),
+  'hot lead', 'deal.created projects notes');
+select is(
+  (select deal_box_version from public.deal where id = 'd6d6d6d6-0000-0000-0000-000000000006'),
+  2, 'deal.created projects deal_box_version');
+
+-- checklist_item.added carries priority, deal_killer, and the schedule week.
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'checklist_item',
+  'c1c1c1c1-0000-0000-0000-0000000000c5', 'checklist_item.added',
+  '{"title":"Prioritised","priority":7,"deal_killer":true,"schedule_week_id":"dc000000-0000-0000-0000-0000000000d2"}'::jsonb);
+select is(
+  (select priority from public.checklist_item where id = 'c1c1c1c1-0000-0000-0000-0000000000c5'),
+  7, 'checklist_item.added projects priority');
+select is(
+  (select deal_killer from public.checklist_item where id = 'c1c1c1c1-0000-0000-0000-0000000000c5'),
+  true, 'checklist_item.added projects deal_killer');
+select is(
+  (select schedule_week_id from public.checklist_item where id = 'c1c1c1c1-0000-0000-0000-0000000000c5'),
+  'dc000000-0000-0000-0000-0000000000d2'::uuid, 'checklist_item.added projects schedule_week_id');
+
+-- checklist_item.rescheduled moves the item to another week.
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'checklist_item',
+  'c1c1c1c1-0000-0000-0000-0000000000c5', 'checklist_item.rescheduled',
+  '{"schedule_week_id":"dc000000-0000-0000-0000-0000000000d3"}'::jsonb);
+select is(
+  (select schedule_week_id from public.checklist_item where id = 'c1c1c1c1-0000-0000-0000-0000000000c5'),
+  'dc000000-0000-0000-0000-0000000000d3'::uuid, 'checklist_item.rescheduled updates schedule_week_id');
+
+-- status_changed carries reviewed_by when the payload names the reviewer.
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'checklist_item',
+  'c1c1c1c1-0000-0000-0000-0000000000c5', 'checklist_item.status_changed',
+  ('{"status":"reviewed","reviewed_by":"' || tests.get_uid('es_owner')::text || '"}')::jsonb);
+select is(
+  (select reviewed_by from public.checklist_item where id = 'c1c1c1c1-0000-0000-0000-0000000000c5'),
+  tests.get_uid('es_owner'), 'checklist_item.status_changed carries reviewed_by');
+
+-- meeting.scheduled carries notes.
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'meeting',
+  '30000000-0000-0000-0000-000000000032', 'meeting.scheduled',
+  '{"type":"weekly","notes":"kickoff agenda"}'::jsonb);
+select is(
+  (select notes from public.meeting where id = '30000000-0000-0000-0000-000000000032'),
+  'kickoff agenda', 'meeting.scheduled projects notes');
+
+-- meeting_action_item.added carries schedule_week_id.
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'meeting_action_item',
+  '40000000-0000-0000-0000-000000000042', 'meeting_action_item.added',
+  '{"meeting_id":"30000000-0000-0000-0000-000000000032","description":"Prep pack","schedule_week_id":"dc000000-0000-0000-0000-0000000000d2"}'::jsonb);
+select is(
+  (select schedule_week_id from public.meeting_action_item where id = '40000000-0000-0000-0000-000000000042'),
+  'dc000000-0000-0000-0000-0000000000d2'::uuid, 'meeting_action_item.added projects schedule_week_id');
+
+-- deal_participant.added carries scope_id for a scoped grant.
+select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal_participant',
+  'aaaaaaaa-0000-0000-0000-0000000000ab', 'deal_participant.added',
+  ('{"party":"buyer","user_id":"' || tests.get_uid('es_other')::text || '","scope_id":"f1f1f1f1-0000-0000-0000-000000000001"}')::jsonb);
+select is(
+  (select scope_id from public.deal_participant where id = 'aaaaaaaa-0000-0000-0000-0000000000ab'),
+  'f1f1f1f1-0000-0000-0000-000000000001'::uuid, 'deal_participant.added projects scope_id');
 
 select * from finish();
 rollback;

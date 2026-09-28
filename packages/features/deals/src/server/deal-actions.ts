@@ -57,25 +57,14 @@ export const createDeal = enhanceAction(
 );
 
 export const updateDealStage = enhanceAction(
-  async (data, user) => {
+  async (data, _user) => {
     const client = getSupabaseServerClient();
 
     const { data: deal } = await client
       .from('deal')
-      .select('account_id, stage')
+      .select('account_id')
       .eq('id', data.deal_id)
       .single()
-      .throwOnError();
-
-    await client
-      .from('audit_event')
-      .insert({
-        account_id: deal.account_id,
-        deal_id: data.deal_id,
-        actor_user_id: user.id,
-        event_type: 'stage_move',
-        payload: { from: deal.stage, to: data.stage },
-      })
       .throwOnError();
 
     const events: DealEventInput[] = [

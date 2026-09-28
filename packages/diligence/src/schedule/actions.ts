@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 
+import { appendDealEvent, appendDealEvents } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import type { TablesInsert } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -106,15 +107,20 @@ export const assignItemToWeek = enhanceAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
-    const { data } = await client
+    const { data: item } = await client
       .from('checklist_item')
-      .update({ schedule_week_id: input.weekId })
+      .select('deal_id')
       .eq('id', input.checklistItemId)
-      .select('*')
       .single()
       .throwOnError();
 
-    return data;
+    return appendDealEvent(client, {
+      dealId: item.deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: input.checklistItemId,
+      eventType: 'checklist_item.rescheduled',
+      payload: { schedule_week_id: input.weekId },
+    });
   },
   { auth: true, schema: assignItemToWeekSchema },
 );
@@ -140,13 +146,30 @@ export const slipUnreceived = enhanceAction(
       .single()
       .throwOnError();
 
+    const { data: schedule } = await client
+      .from('diligence_schedule')
+      .select('deal_id')
+      .eq('id', week.schedule_id)
+      .single()
+      .throwOnError();
+
     const { data: slipped } = await client
       .from('checklist_item')
-      .update({ schedule_week_id: nextWeek.id })
+      .select('id')
       .eq('schedule_week_id', input.weekId)
       .in('status', ['not_started', 'requested'])
-      .select('*')
       .throwOnError();
+
+    await appendDealEvents(
+      client,
+      schedule.deal_id,
+      slipped.map((item) => ({
+        aggregateType: 'checklist_item',
+        aggregateId: item.id,
+        eventType: 'checklist_item.rescheduled',
+        payload: { schedule_week_id: nextWeek.id },
+      })),
+    );
 
     await client
       .from('schedule_week')

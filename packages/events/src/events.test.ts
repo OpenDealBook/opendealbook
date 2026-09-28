@@ -58,6 +58,48 @@ describe('appendDealEvent', () => {
     });
   });
 
+  it('forwards p_actor_kind when actorKind is supplied', async () => {
+    const { client, rpc } = makeClient({ data: [], error: null });
+
+    await appendDealEvent(client, {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.updated',
+      payload: {},
+      actorKind: 'service',
+    });
+
+    expect(rpc).toHaveBeenCalledWith('append_deal_event', {
+      p_deal_id: 'deal-1',
+      p_aggregate_type: 'deal',
+      p_aggregate_id: 'deal-1',
+      p_event_type: 'deal.updated',
+      p_payload: {},
+      p_actor_kind: 'service',
+    });
+  });
+
+  it('omits p_actor_kind when actorKind is not supplied', async () => {
+    const { client, rpc } = makeClient({ data: [], error: null });
+
+    await appendDealEvent(client, {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.updated',
+      payload: {},
+    });
+
+    expect(rpc).toHaveBeenCalledWith('append_deal_event', {
+      p_deal_id: 'deal-1',
+      p_aggregate_type: 'deal',
+      p_aggregate_id: 'deal-1',
+      p_event_type: 'deal.updated',
+      p_payload: {},
+    });
+  });
+
   it('throws when the rpc returns an error', async () => {
     const { client } = makeClient({ data: null, error: new Error('denied') });
 
@@ -116,6 +158,45 @@ describe('appendDealEvents', () => {
       ],
     });
     expect(result).toEqual(rows);
+  });
+
+  it('forwards actor_kind per event, only for events that supply it', async () => {
+    const { client, rpc } = makeClient({ data: [], error: null });
+
+    await appendDealEvents(client, 'deal-1', [
+      {
+        aggregateType: 'contract',
+        aggregateId: 'c-1',
+        eventType: 'contract.created',
+        payload: { title: 'APA' },
+        actorKind: 'service',
+      },
+      {
+        aggregateType: 'meeting',
+        aggregateId: 'm-1',
+        eventType: 'meeting.scheduled',
+        payload: { at: '2026-02-01' },
+      },
+    ]);
+
+    expect(rpc).toHaveBeenCalledWith('append_deal_events', {
+      p_deal_id: 'deal-1',
+      p_events: [
+        {
+          aggregate_type: 'contract',
+          aggregate_id: 'c-1',
+          event_type: 'contract.created',
+          payload: { title: 'APA' },
+          actor_kind: 'service',
+        },
+        {
+          aggregate_type: 'meeting',
+          aggregate_id: 'm-1',
+          event_type: 'meeting.scheduled',
+          payload: { at: '2026-02-01' },
+        },
+      ],
+    });
   });
 
   it('throws when the rpc returns an error', async () => {

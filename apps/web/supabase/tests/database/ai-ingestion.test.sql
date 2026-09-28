@@ -29,18 +29,22 @@ select tests.login_as_service_role();
 select public.create_team_account('EJ Acct A', tests.get_uid('ej_a_owner'), 'ej-acct-a');
 select public.create_team_account('EJ Acct B', tests.get_uid('ej_b_owner'), 'ej-acct-b');
 
-insert into public.deal (id, account_id, owner_user_id, description)
-values ('cccccccc-0000-0000-0000-0000000000e2', tests.account_id('ej-acct-a'), tests.get_uid('ej_a_owner'), 'Deal A');
+select public.append_deal_event('cccccccc-0000-0000-0000-0000000000e2', 'deal',
+  'cccccccc-0000-0000-0000-0000000000e2', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('ej-acct-a'), 'owner_user_id', tests.get_uid('ej_a_owner'),
+    'description', 'Deal A'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name)
 values ('cccccccc-0000-0000-0000-000000000fd1', tests.account_id('ej-acct-a'), 'cccccccc-0000-0000-0000-0000000000e2', 'Root');
 
-insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path)
-values ('cccccccc-0000-0000-0000-000000000dc1', tests.account_id('ej-acct-a'), 'cccccccc-0000-0000-0000-0000000000e2',
-  'cccccccc-0000-0000-0000-000000000fd1', 'financials.pdf', 'deals/a/financials.pdf');
+select public.append_deal_event('cccccccc-0000-0000-0000-0000000000e2', 'dr_document',
+  'cccccccc-0000-0000-0000-000000000dc1', 'dr_document.added',
+  jsonb_build_object('folder_id', 'cccccccc-0000-0000-0000-000000000fd1', 'name', 'financials.pdf',
+    'storage_path', 'deals/a/financials.pdf'), null, 'service');
 
-insert into public.deal_participant (deal_id, user_id, party, scope, permission)
-values ('cccccccc-0000-0000-0000-0000000000e2', tests.get_uid('ej_ext'), 'buyer', 'deal', 'view');
+select public.append_deal_event('cccccccc-0000-0000-0000-0000000000e2', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('ej_ext'), 'party', 'buyer', 'scope', 'deal', 'permission', 'view'), null, 'service');
 
 insert into public.embedding_job (account_id, deal_id, dr_document_id, status, model)
 values (tests.account_id('ej-acct-a'), 'cccccccc-0000-0000-0000-0000000000e2',

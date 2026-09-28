@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
-  const insertSpy = vi.fn();
+  const appendEventsSpy = vi.fn();
 
   function dataFor(table: string): unknown {
-    if (table === 'deal') {
-      return { account_id: 'acct-1' };
-    }
     if (table === 'checklist_template_item') {
       return [
         {
@@ -38,10 +35,6 @@ const mocks = vi.hoisted(() => {
     builder.order = chain;
     builder.single = chain;
     builder.throwOnError = chain;
-    builder.insert = (payload: unknown) => {
-      insertSpy(table, payload);
-      return builder;
-    };
     builder.then = (resolve: (value: unknown) => void) =>
       resolve({ data: dataFor(table), error: null });
 
@@ -50,8 +43,9 @@ const mocks = vi.hoisted(() => {
 
   const from = vi.fn((table: string) => makeBuilder(table));
   const rpc = vi.fn(() => Promise.resolve({ data: true, error: null }));
+  const client = { from, rpc };
 
-  return { insertSpy, from, rpc };
+  return { appendEventsSpy, from, rpc, client };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -59,7 +53,15 @@ vi.mock('@odb/next/actions', () => ({
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
+  getSupabaseServerClient: () => mocks.client,
+}));
+
+vi.mock('@odb/events', () => ({
+  appendDealEvent: vi.fn(),
+  appendDealEvents: (client: unknown, dealId: unknown, events: unknown) => {
+    mocks.appendEventsSpy(client, dealId, events);
+    return Promise.resolve([{ deal_seq: 1, aggregate_seq: 1 }]);
+  },
 }));
 
 import { applyTemplateToDeal } from './actions';
@@ -73,23 +75,48 @@ beforeEach(() => {
 });
 
 describe('applyTemplateToDeal', () => {
-  it('copies deal_killer and priority from each template item onto the deal', async () => {
+  it('appends one checklist_item.added event per template item in a single batch', async () => {
     await runApplyTemplateToDeal({ dealId: 'deal-1', templateId: 'tpl-1' });
 
-    const checklistInsert = mocks.insertSpy.mock.calls.find(
-      ([table]) => table === 'checklist_item',
-    );
-    const rows = checklistInsert?.[1] as Array<Record<string, unknown>>;
+    expect(mocks.appendEventsSpy).toHaveBeenCalledTimes(1);
 
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toMatchObject({
-      account_id: 'acct-1',
-      deal_id: 'deal-1',
-      title: 'Trailing P&L',
-      priority: 8,
-      deal_killer: true,
-      due_offset_days: 7,
+    const [client, dealId, events] = mocks.appendEventsSpy.mock.calls[0] as [
+      unknown,
+      string,
+      Array<Record<string, unknown>>,
+    ];
+
+    expect(client).toBe(mocks.client);
+    expect(dealId).toBe('deal-1');
+    expect(events).toHaveLength(2);
+
+    expect(events[0]).toMatchObject({
+      aggregateType: 'checklist_item',
+      eventType: 'checklist_item.added',
+      payload: {
+        category: 'financials',
+        title: 'Trailing P&L',
+        owner_user_id: null,
+        due_at: null,
+        status: null,
+        priority: 8,
+        deal_killer: true,
+        schedule_week_id: null,
+      },
     });
-    expect(rows[1]).toMatchObject({ priority: 2, deal_killer: false });
+    expect(typeof events[0]!.aggregateId).toBe('string');
+
+    expect(events[1]).toMatchObject({
+      aggregateType: 'checklist_item',
+      eventType: 'checklist_item.added',
+      payload: {
+        category: 'hr',
+        title: 'Org chart',
+        priority: 2,
+        deal_killer: false,
+      },
+    });
+    expect(typeof events[1]!.aggregateId).toBe('string');
+    expect(events[0]!.aggregateId).not.toBe(events[1]!.aggregateId);
   });
 });

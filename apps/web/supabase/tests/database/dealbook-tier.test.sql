@@ -10,11 +10,14 @@ select tests.login_as_service_role();
 select public.create_team_account('Tier A', tests.get_uid('tier_a_owner'), 'tier-a');
 select public.create_team_account('Tier B', tests.get_uid('tier_b_owner'), 'tier-b');
 
-insert into public.deal (id, account_id, owner_user_id, description)
-values ('cccccccc-0000-0000-0000-0000000000d1', tests.account_id('tier-a'), tests.get_uid('tier_a_owner'), 'Tier A deal');
+select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'deal',
+  'cccccccc-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('tier-a'), 'owner_user_id', tests.get_uid('tier_a_owner'),
+    'description', 'Tier A deal'), null, 'service');
 
-insert into public.deal_participant (deal_id, user_id, party, permission)
-values ('cccccccc-0000-0000-0000-0000000000d1', tests.get_uid('tier_ext'), 'seller', 'view');
+select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('tier_ext'), 'party', 'seller', 'permission', 'view'), null, 'service');
 
 -- Account-scoped rows in team A.
 insert into public.integration_connection (account_id, provider, nango_connection_id)
@@ -37,8 +40,10 @@ from public.document_template where account_id = tests.account_id('tier-a') limi
 insert into public.dr_folder (id, account_id, deal_id, name)
 values ('cccccccc-0000-0000-0000-0000000000f1', tests.account_id('tier-a'), 'cccccccc-0000-0000-0000-0000000000d1', 'Financials');
 
-insert into public.dr_document (account_id, deal_id, folder_id, name, storage_path)
-values (tests.account_id('tier-a'), 'cccccccc-0000-0000-0000-0000000000d1', 'cccccccc-0000-0000-0000-0000000000f1', 'P&L.pdf', 'deals/a/pl.pdf');
+select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'dr_document',
+  gen_random_uuid(), 'dr_document.added',
+  jsonb_build_object('folder_id', 'cccccccc-0000-0000-0000-0000000000f1', 'name', 'P&L.pdf', 'storage_path', 'deals/a/pl.pdf'),
+  null, 'service');
 
 -- ---- Account-scoped isolation: a foreign account sees nothing ----
 select tests.login_as('tier_b_owner');
@@ -104,7 +109,8 @@ select is_empty(
 -- ---- A stage move fires a notification for the deal participant ----
 select tests.login_as('tier_a_owner');
 select lives_ok(
-  $$ update public.deal set stage = 'qualifying' where id = 'cccccccc-0000-0000-0000-0000000000d1' $$,
+  $$ select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'deal',
+       'cccccccc-0000-0000-0000-0000000000d1', 'deal.stage_changed', '{"stage":"qualifying"}'::jsonb) $$,
   'the deal owner can move the deal stage'
 );
 

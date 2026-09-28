@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 
+import { appendDealEvent } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { generateFromTemplate } from '@odb/templates/server';
@@ -26,18 +27,16 @@ export const sendRequest = enhanceAction(
       fieldValues: {},
     });
 
-    const { data } = await client
-      .from('checklist_item')
-      .update({
+    return appendDealEvent(client, {
+      dealId: item.deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: input.checklistItemId,
+      eventType: 'checklist_item.status_changed',
+      payload: {
         status: 'requested',
         requested_at: new Date().toISOString(),
-      })
-      .eq('id', input.checklistItemId)
-      .select('*')
-      .single()
-      .throwOnError();
-
-    return data;
+      },
+    });
   },
   { auth: true, schema: sendRequestSchema },
 );

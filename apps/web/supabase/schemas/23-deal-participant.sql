@@ -23,14 +23,12 @@ alter table public.deal_participant enable row level security;
 create index ix_deal_participant_deal on public.deal_participant (deal_id);
 create index ix_deal_participant_user on public.deal_participant (user_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.deal_participant from authenticated, service_role;
-grant select, insert, update, delete on public.deal_participant to authenticated;
-grant select, insert, update, delete on public.deal_participant to service_role;
+grant select on public.deal_participant to authenticated;
+grant select on public.deal_participant to service_role;
 
 create trigger deal_participant_timestamps
   before insert or update on public.deal_participant
   for each row execute function public.set_timestamps();
-
-create trigger deal_participant_user_tracking
-  before insert or update on public.deal_participant
-  for each row execute function public.set_user_tracking();

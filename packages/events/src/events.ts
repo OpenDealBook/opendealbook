@@ -27,6 +27,7 @@ export type EventType =
   | 'checklist_item.added'
   | 'checklist_item.removed'
   | 'checklist_item.status_changed'
+  | 'checklist_item.rescheduled'
   | 'approval.requested'
   | 'approval.decided'
   | 'deal_participant.added'
@@ -49,6 +50,7 @@ export interface DealEventInput {
   eventType: EventType;
   payload: Json;
   expectedAggregateSeq?: number;
+  actorKind?: ActorKind;
 }
 
 export type AppendDealEventInput = DealEventInput & { dealId: string };
@@ -65,6 +67,9 @@ export async function appendDealEvent(
     p_payload: input.payload,
     ...(input.expectedAggregateSeq !== undefined && {
       p_expected_aggregate_seq: input.expectedAggregateSeq,
+    }),
+    ...(input.actorKind !== undefined && {
+      p_actor_kind: input.actorKind,
     }),
   });
 
@@ -89,6 +94,9 @@ export async function appendDealEvents(
       payload: event.payload,
       ...(event.expectedAggregateSeq !== undefined && {
         expected_aggregate_seq: event.expectedAggregateSeq,
+      }),
+      ...(event.actorKind !== undefined && {
+        actor_kind: event.actorKind,
       }),
     })),
   });

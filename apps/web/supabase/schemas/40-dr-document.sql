@@ -23,9 +23,11 @@ alter table public.dr_document enable row level security;
 create index ix_dr_document_deal on public.dr_document (deal_id);
 create index ix_dr_document_folder on public.dr_document (folder_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.dr_document from authenticated, service_role;
-grant select, insert, update, delete on public.dr_document to authenticated;
-grant select, insert, update, delete on public.dr_document to service_role;
+grant select on public.dr_document to authenticated;
+grant select on public.dr_document to service_role;
 
 create trigger dr_document_timestamps
   before insert or update on public.dr_document

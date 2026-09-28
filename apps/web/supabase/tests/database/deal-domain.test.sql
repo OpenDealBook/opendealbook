@@ -16,17 +16,24 @@ values
   ('aaaaaaaa-0000-0000-0000-000000000001', tests.account_id('acct-a'), 'Firm A', 'https://firm-a.test'),
   ('bbbbbbbb-0000-0000-0000-000000000001', tests.account_id('acct-b'), 'Firm B', 'https://firm-b.test');
 
-insert into public.deal (id, account_id, firm_id, owner_user_id, description)
-values
-  ('aaaaaaaa-0000-0000-0000-0000000000d1', tests.account_id('acct-a'), 'aaaaaaaa-0000-0000-0000-000000000001', tests.get_uid('acc_a_owner'), 'Deal A'),
-  ('bbbbbbbb-0000-0000-0000-0000000000d1', tests.account_id('acct-b'), 'bbbbbbbb-0000-0000-0000-000000000001', tests.get_uid('acc_b_owner'), 'Deal B');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'deal',
+  'aaaaaaaa-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('acct-a'), 'firm_id', 'aaaaaaaa-0000-0000-0000-000000000001',
+    'owner_user_id', tests.get_uid('acc_a_owner'), 'description', 'Deal A'), null, 'service');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000d1', 'deal',
+  'bbbbbbbb-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('acct-b'), 'firm_id', 'bbbbbbbb-0000-0000-0000-000000000001',
+    'owner_user_id', tests.get_uid('acc_b_owner'), 'description', 'Deal B'), null, 'service');
 
-insert into public.checklist_item (id, account_id, deal_id, title)
-values ('aaaaaaaa-0000-0000-0000-0000000000c1', tests.account_id('acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000d1', 'NDA');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'checklist_item',
+  'aaaaaaaa-0000-0000-0000-0000000000c1', 'checklist_item.added',
+  jsonb_build_object('title', 'NDA'), null, 'service');
 
 -- Grant the external counsel a contract-scoped participant grant on Deal A only.
-insert into public.deal_participant (deal_id, user_id, party, scope, permission)
-values ('aaaaaaaa-0000-0000-0000-0000000000d1', tests.get_uid('ext_counsel'), 'broker', 'contract', 'view');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('ext_counsel'), 'party', 'broker', 'scope', 'contract', 'permission', 'view'),
+  null, 'service');
 
 -- ---- Tenant isolation ----
 select tests.login_as('acc_a_owner');
@@ -97,15 +104,18 @@ select throws_ok(
 -- ---- Checklist status transitions ----
 select tests.login_as('acc_a_owner');
 select lives_ok(
-  $$ update public.checklist_item set status = 'requested', requested_at = now() where id = 'aaaaaaaa-0000-0000-0000-0000000000c1' $$,
+  $$ select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'checklist_item',
+       'aaaaaaaa-0000-0000-0000-0000000000c1', 'checklist_item.status_changed', '{"status":"requested"}'::jsonb) $$,
   'checklist item can move not_started -> requested'
 );
 select lives_ok(
-  $$ update public.checklist_item set status = 'received', received_at = now() where id = 'aaaaaaaa-0000-0000-0000-0000000000c1' $$,
+  $$ select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'checklist_item',
+       'aaaaaaaa-0000-0000-0000-0000000000c1', 'checklist_item.status_changed', '{"status":"received"}'::jsonb) $$,
   'checklist item can move requested -> received'
 );
 select lives_ok(
-  $$ update public.checklist_item set status = 'reviewed', reviewed_at = now(), outcome = 'accepted' where id = 'aaaaaaaa-0000-0000-0000-0000000000c1' $$,
+  $$ select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'checklist_item',
+       'aaaaaaaa-0000-0000-0000-0000000000c1', 'checklist_item.status_changed', '{"status":"reviewed","outcome":"accepted"}'::jsonb) $$,
   'checklist item can move received -> reviewed with an outcome'
 );
 select is(

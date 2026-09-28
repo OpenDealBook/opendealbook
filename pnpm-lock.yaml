@@ -744,6 +744,9 @@ importers:
       '@odb/deals':
         specifier: workspace:*
         version: link:../features/deals
+      '@odb/events':
+        specifier: workspace:*
+        version: link:../events
       '@odb/next':
         specifier: workspace:*
         version: link:../next
@@ -1358,6 +1361,9 @@ importers:
       '@odb/data-room':
         specifier: workspace:*
         version: link:../data-room
+      '@odb/events':
+        specifier: workspace:*
+        version: link:../events
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase

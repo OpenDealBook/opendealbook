@@ -1,4 +1,5 @@
 import { dataRoomObjectPath } from '@odb/data-room/storage';
+import { appendDealEvents, type DealEventInput } from '@odb/events';
 import type { TablesInsert } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
@@ -54,6 +55,7 @@ export async function seedSampleDeals({
   const rootFolderId = crypto.randomUUID();
   const financialsFolderId = crypto.randomUUID();
   const legalFolderId = crypto.randomUUID();
+  const documentId = crypto.randomUUID();
 
   const firms: TablesInsert<'firm'>[] = [
     {
@@ -114,123 +116,86 @@ export async function seedSampleDeals({
     },
   ];
 
-  const deals: TablesInsert<'deal'>[] = [
-    {
-      id: dealIds[0],
+  const dealCreated = (
+    dealId: string,
+    firmId: string,
+    stage: string,
+    source: string,
+    description: string,
+    financials: { revenue_ttm: number; ebitda_ttm: number; asking_price: number },
+  ): DealEventInput => ({
+    aggregateType: 'deal',
+    aggregateId: dealId,
+    eventType: 'deal.created',
+    actorKind: 'service',
+    payload: {
       account_id: accountId,
-      firm_id: firmIds[0],
-      stage: STAGE_SOURCED,
-      source: 'marketplace',
-      description: `${SAMPLE_TAG} Sample sourced deal for onboarding`,
-      revenue_ttm: 4200000,
-      ebitda_ttm: 780000,
-      asking_price: 3100000,
+      firm_id: firmId,
       owner_user_id: userId,
-      created_by: userId,
+      description,
+      source,
+      stage,
+      revenue_ttm: financials.revenue_ttm,
+      ebitda_ttm: financials.ebitda_ttm,
+      asking_price: financials.asking_price,
     },
-    {
-      id: dealIds[1],
-      account_id: accountId,
-      firm_id: firmIds[1],
-      stage: STAGE_LOI,
-      source: 'referral',
-      description: `${SAMPLE_TAG} Sample deal under letter of intent`,
-      revenue_ttm: 2600000,
-      ebitda_ttm: 640000,
-      asking_price: 2900000,
-      owner_user_id: userId,
-      created_by: userId,
-    },
-    {
-      id: diligenceDealId,
-      account_id: accountId,
-      firm_id: firmIds[2],
-      stage: STAGE_DILIGENCE,
-      source: 'outreach',
-      description: `${SAMPLE_TAG} Sample deal in diligence`,
-      revenue_ttm: 9800000,
-      ebitda_ttm: 1450000,
-      asking_price: 7200000,
-      owner_user_id: userId,
-      created_by: userId,
-    },
-    {
-      id: dealIds[3],
-      account_id: accountId,
-      firm_id: firmIds[3],
-      stage: STAGE_CLOSED_WON,
-      source: 'manual',
-      description: `${SAMPLE_TAG} Sample closed-won deal`,
-      revenue_ttm: 1800000,
-      ebitda_ttm: 410000,
-      asking_price: 1650000,
-      close_date: '2026-06-30',
-      owner_user_id: userId,
-      created_by: userId,
-    },
+  });
+
+  const contractCreated: DealEventInput = {
+    aggregateType: 'contract',
+    aggregateId: contractId,
+    eventType: 'contract.created',
+    actorKind: 'service',
+    payload: { type: 'loi', status: 'draft', current_version: 1 },
+  };
+
+  const checklistSeeds = [
+    { title: 'Trailing 12-month P&L', category: 'Financials', priority: 1, deal_killer: true, status: 'reviewed' },
+    { title: 'Federal tax returns (3 years)', category: 'Financials', priority: 2, deal_killer: false, status: 'received' },
+    { title: 'Corporate formation documents', category: 'Legal', priority: 1, deal_killer: true, status: 'requested' },
+    { title: 'Material customer contracts', category: 'Legal', priority: 3, deal_killer: false, status: 'not_started' },
+    { title: 'Customer concentration analysis', category: 'Operations', priority: 2, deal_killer: false, status: 'requested' },
+    { title: 'Employee roster and org chart', category: 'Operations', priority: 3, deal_killer: false, status: 'not_started' },
+    { title: 'Facility lease agreement', category: 'Real Estate', priority: 3, deal_killer: false, status: 'not_started' },
   ];
 
-  const checklistItems: TablesInsert<'checklist_item'>[] = [
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Trailing 12-month P&L`,
-      category: 'Financials',
-      priority: 1,
-      deal_killer: true,
-      status: 'reviewed',
-      outcome: 'accepted',
+  const checklistAdded: DealEventInput[] = checklistSeeds.map((seed) => ({
+    aggregateType: 'checklist_item',
+    aggregateId: crypto.randomUUID(),
+    eventType: 'checklist_item.added',
+    actorKind: 'service',
+    payload: {
+      title: `${SAMPLE_TAG} ${seed.title}`,
+      category: seed.category,
+      priority: seed.priority,
+      deal_killer: seed.deal_killer,
+      status: seed.status,
     },
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Federal tax returns (3 years)`,
-      category: 'Financials',
-      priority: 2,
-      status: 'received',
+  }));
+
+  const firstChecklistItemId = (checklistAdded[0] as DealEventInput).aggregateId;
+
+  const firstChecklistReviewed: DealEventInput = {
+    aggregateType: 'checklist_item',
+    aggregateId: firstChecklistItemId,
+    eventType: 'checklist_item.status_changed',
+    actorKind: 'service',
+    payload: { status: 'reviewed', outcome: 'accepted' },
+  };
+
+  const documentName = `${SAMPLE_TAG} Trailing 12-month P&L.pdf`;
+
+  const documentAdded: DealEventInput = {
+    aggregateType: 'dr_document',
+    aggregateId: documentId,
+    eventType: 'dr_document.added',
+    actorKind: 'service',
+    payload: {
+      folder_id: financialsFolderId,
+      name: documentName,
+      storage_path: dataRoomObjectPath(diligenceDealId, documentName),
     },
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Corporate formation documents`,
-      category: 'Legal',
-      priority: 1,
-      deal_killer: true,
-      status: 'requested',
-    },
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Material customer contracts`,
-      category: 'Legal',
-      priority: 3,
-      status: 'not_started',
-    },
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Customer concentration analysis`,
-      category: 'Operations',
-      priority: 2,
-      status: 'requested',
-    },
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Employee roster and org chart`,
-      category: 'Operations',
-      priority: 3,
-      status: 'not_started',
-    },
-    {
-      account_id: accountId,
-      deal_id: diligenceDealId,
-      title: `${SAMPLE_TAG} Facility lease agreement`,
-      category: 'Real Estate',
-      priority: 3,
-      status: 'not_started',
-    },
-  ];
+  };
 
   const folders: TablesInsert<'dr_folder'>[] = [
     {
@@ -259,20 +224,61 @@ export async function seedSampleDeals({
     },
   ];
 
-  const documentName = `${SAMPLE_TAG} Trailing 12-month P&L.pdf`;
-
   await client.from('firm').insert(firms);
-  await client.from('deal').insert(deals);
 
-  await client.from('contract').insert({
-    id: contractId,
-    account_id: accountId,
-    deal_id: dealIds[1] as string,
-    type: 'loi',
-    status: 'draft',
-    current_version: 1,
-    created_by: userId,
-  } satisfies TablesInsert<'contract'>);
+  await appendDealEvents(client, dealIds[0] as string, [
+    dealCreated(
+      dealIds[0] as string,
+      firmIds[0] as string,
+      STAGE_SOURCED,
+      'marketplace',
+      `${SAMPLE_TAG} Sample sourced deal for onboarding`,
+      { revenue_ttm: 4200000, ebitda_ttm: 780000, asking_price: 3100000 },
+    ),
+  ]);
+
+  await appendDealEvents(client, dealIds[1] as string, [
+    dealCreated(
+      dealIds[1] as string,
+      firmIds[1] as string,
+      STAGE_LOI,
+      'referral',
+      `${SAMPLE_TAG} Sample deal under letter of intent`,
+      { revenue_ttm: 2600000, ebitda_ttm: 640000, asking_price: 2900000 },
+    ),
+    contractCreated,
+  ]);
+
+  await appendDealEvents(client, diligenceDealId, [
+    dealCreated(
+      diligenceDealId,
+      firmIds[2] as string,
+      STAGE_DILIGENCE,
+      'outreach',
+      `${SAMPLE_TAG} Sample deal in diligence`,
+      { revenue_ttm: 9800000, ebitda_ttm: 1450000, asking_price: 7200000 },
+    ),
+    ...checklistAdded,
+    firstChecklistReviewed,
+  ]);
+
+  await appendDealEvents(client, dealIds[3] as string, [
+    dealCreated(
+      dealIds[3] as string,
+      firmIds[3] as string,
+      STAGE_CLOSED_WON,
+      'manual',
+      `${SAMPLE_TAG} Sample closed-won deal`,
+      { revenue_ttm: 1800000, ebitda_ttm: 410000, asking_price: 1650000 },
+    ),
+    {
+      aggregateType: 'deal',
+      aggregateId: dealIds[3] as string,
+      eventType: 'deal.updated',
+      actorKind: 'service',
+      payload: { close_date: '2026-06-30' },
+    },
+  ]);
 
   await client.from('contract_version').insert({
     account_id: accountId,
@@ -293,17 +299,8 @@ export async function seedSampleDeals({
     values_json: { note: `${SAMPLE_TAG} Letter of intent` },
   } satisfies TablesInsert<'generated_document'>);
 
-  await client.from('checklist_item').insert(checklistItems);
   await client.from('dr_folder').insert(folders);
-
-  await client.from('dr_document').insert({
-    account_id: accountId,
-    deal_id: diligenceDealId,
-    folder_id: financialsFolderId,
-    name: documentName,
-    storage_path: dataRoomObjectPath(diligenceDealId, documentName),
-    uploaded_by: userId,
-  } satisfies TablesInsert<'dr_document'>);
+  await appendDealEvents(client, diligenceDealId, [documentAdded]);
 
   await client.from('buyer_profile').insert({
     account_id: accountId,

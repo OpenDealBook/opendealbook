@@ -29,17 +29,15 @@ alter table public.checklist_item enable row level security;
 create index ix_checklist_item_deal_status on public.checklist_item (deal_id, status);
 create index ix_checklist_item_account on public.checklist_item (account_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.checklist_item from authenticated, service_role;
-grant select, insert, update, delete on public.checklist_item to authenticated;
-grant select, insert, update, delete on public.checklist_item to service_role;
+grant select on public.checklist_item to authenticated;
+grant select on public.checklist_item to service_role;
 
 create trigger checklist_item_timestamps
   before insert or update on public.checklist_item
   for each row execute function public.set_timestamps();
-
-create trigger checklist_item_user_tracking
-  before insert or update on public.checklist_item
-  for each row execute function public.set_user_tracking();
 
 create policy checklist_item_read on public.checklist_item
   for select to authenticated

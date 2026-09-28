@@ -293,65 +293,6 @@ export type Database = {
           },
         ]
       }
-      audit_event: {
-        Row: {
-          account_id: string
-          actor_user_id: string
-          created_at: string
-          deal_id: string | null
-          event_type: string
-          id: string
-          payload: Json
-        }
-        Insert: {
-          account_id: string
-          actor_user_id?: string
-          created_at?: string
-          deal_id?: string | null
-          event_type: string
-          id?: string
-          payload?: Json
-        }
-        Update: {
-          account_id?: string
-          actor_user_id?: string
-          created_at?: string
-          deal_id?: string | null
-          event_type?: string
-          id?: string
-          payload?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_event_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "audit_event_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "user_account_workspace"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "audit_event_account_id_fkey"
-            columns: ["account_id"]
-            isOneToOne: false
-            referencedRelation: "user_accounts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "audit_event_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       billing_customers: {
         Row: {
           account_id: string

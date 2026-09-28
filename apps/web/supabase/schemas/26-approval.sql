@@ -15,9 +15,11 @@ alter table public.approval enable row level security;
 
 create index ix_approval_deal on public.approval (deal_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.approval from authenticated, service_role;
-grant select, insert, update, delete on public.approval to authenticated;
-grant select, insert, update, delete on public.approval to service_role;
+grant select on public.approval to authenticated;
+grant select on public.approval to service_role;
 
 create policy approval_read on public.approval
   for select to authenticated

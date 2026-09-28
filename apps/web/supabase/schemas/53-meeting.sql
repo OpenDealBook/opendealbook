@@ -28,17 +28,15 @@ create index ix_meeting_deal on public.meeting (deal_id);
 create index ix_meeting_account on public.meeting (account_id);
 create index ix_meeting_series on public.meeting (series_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.meeting from authenticated, service_role;
-grant select, insert, update, delete on public.meeting to authenticated;
-grant select, insert, update, delete on public.meeting to service_role;
+grant select on public.meeting to authenticated;
+grant select on public.meeting to service_role;
 
 create trigger meeting_timestamps
   before insert or update on public.meeting
   for each row execute function public.set_timestamps();
-
-create trigger meeting_user_tracking
-  before insert or update on public.meeting
-  for each row execute function public.set_user_tracking();
 
 create policy meeting_read on public.meeting
   for select to authenticated

@@ -1,5 +1,5 @@
 import { getMailer } from '@odb/mailers';
-import type { Enums, Json } from '@odb/supabase';
+import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
@@ -7,32 +7,6 @@ import { chunkMarkdown } from '../documentIngestion/chunk';
 import { extractMarkdown } from '../documentIngestion/docling';
 import { embedTexts } from '../documentIngestion/embeddings';
 import type { BrokerCatchUpConfig } from '../workflows/brokerCatchUp';
-
-export interface WriteAuditEventInput {
-  accountId: string;
-  dealId: string;
-  actorUserId: string;
-  eventType: string;
-  payload: NonNullable<Json>;
-}
-
-export async function writeAuditEvent(
-  input: WriteAuditEventInput,
-): Promise<void> {
-  const client = getSupabaseServerAdminClient();
-
-  const { error } = await client.from('audit_event').insert({
-    account_id: input.accountId,
-    deal_id: input.dealId,
-    actor_user_id: input.actorUserId,
-    event_type: input.eventType,
-    payload: input.payload,
-  });
-
-  if (error) {
-    throw error;
-  }
-}
 
 export interface CreateNotificationInput {
   accountId: string;

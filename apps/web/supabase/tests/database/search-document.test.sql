@@ -10,10 +10,14 @@ select tests.login_as_service_role();
 select public.create_team_account('SD Acct A', tests.get_uid('sd_a_owner'), 'sd-acct-a');
 select public.create_team_account('SD Acct B', tests.get_uid('sd_b_owner'), 'sd-acct-b');
 
-insert into public.deal (id, account_id, owner_user_id, description)
-values
-  ('aaaaaaaa-0000-0000-0000-0000000000d1', tests.account_id('sd-acct-a'), tests.get_uid('sd_a_owner'), 'Deal A'),
-  ('bbbbbbbb-0000-0000-0000-0000000000d1', tests.account_id('sd-acct-b'), tests.get_uid('sd_b_owner'), 'Deal B');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'deal',
+  'aaaaaaaa-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('sd-acct-a'), 'owner_user_id', tests.get_uid('sd_a_owner'),
+    'description', 'Deal A'), null, 'service');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000d1', 'deal',
+  'bbbbbbbb-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('sd-acct-b'), 'owner_user_id', tests.get_uid('sd_b_owner'),
+    'description', 'Deal B'), null, 'service');
 
 -- Projection rows: an account-scoped firm row and a deal-scoped document row on
 -- account A, plus one row on account B.
@@ -26,8 +30,9 @@ values
   ('firm', 'bbbbbbbb-0000-0000-0000-0000000000f1', tests.account_id('sd-acct-b'), null,
     to_tsvector('english', 'Beta accounting firm'));
 
-insert into public.deal_participant (deal_id, user_id, party, scope, permission)
-values ('aaaaaaaa-0000-0000-0000-0000000000d1', tests.get_uid('sd_ext'), 'buyer', 'deal', 'view');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('sd_ext'), 'party', 'buyer', 'scope', 'deal', 'permission', 'view'), null, 'service');
 
 -- ---- Member of A sees both A rows and can search them ----
 select tests.login_as('sd_a_owner');

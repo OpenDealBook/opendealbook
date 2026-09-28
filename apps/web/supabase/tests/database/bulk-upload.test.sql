@@ -21,14 +21,17 @@ select tests.login_as_service_role();
 select public.create_team_account('UB Acct A', tests.get_uid('ub_a_owner'), 'ub-acct-a');
 select public.create_team_account('UB Acct B', tests.get_uid('ub_b_owner'), 'ub-acct-b');
 
-insert into public.deal (id, account_id, owner_user_id, description)
-values ('bbbbbbbb-0000-0000-0000-0000000000e2', tests.account_id('ub-acct-a'), tests.get_uid('ub_a_owner'), 'Deal A');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e2', 'deal',
+  'bbbbbbbb-0000-0000-0000-0000000000e2', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('ub-acct-a'), 'owner_user_id', tests.get_uid('ub_a_owner'),
+    'description', 'Deal A'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name)
 values ('bbbbbbbb-0000-0000-0000-000000000fd1', tests.account_id('ub-acct-a'), 'bbbbbbbb-0000-0000-0000-0000000000e2', 'Root');
 
-insert into public.deal_participant (deal_id, user_id, party, scope, permission)
-values ('bbbbbbbb-0000-0000-0000-0000000000e2', tests.get_uid('ub_ext'), 'buyer', 'deal', 'view');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e2', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('ub_ext'), 'party', 'buyer', 'scope', 'deal', 'permission', 'view'), null, 'service');
 
 -- The extraction worker (service_role) stages a zip upload and one item.
 insert into public.upload_batch (id, account_id, deal_id, kind, status, source_filename)

@@ -12,10 +12,14 @@ select public.create_team_account('RS Acct B', tests.get_uid('rs_b_owner'), 'rs-
 
 -- A deal in each account. Deal A carries an asking_price so the revenue gate is
 -- observable in the pipeline analytics.
-insert into public.deal (id, account_id, owner_user_id, description, asking_price)
-values
-  ('aaaaaaaa-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-a'), tests.get_uid('rs_a_owner'), 'Deal A', 1000000),
-  ('bbbbbbbb-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-b'), tests.get_uid('rs_b_owner'), 'Deal B', 500000);
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'deal',
+  'aaaaaaaa-0000-0000-0000-0000000000e1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('rs-acct-a'), 'owner_user_id', tests.get_uid('rs_a_owner'),
+    'description', 'Deal A', 'asking_price', 1000000), null, 'service');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e1', 'deal',
+  'bbbbbbbb-0000-0000-0000-0000000000e1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('rs-acct-b'), 'owner_user_id', tests.get_uid('rs_b_owner'),
+    'description', 'Deal B', 'asking_price', 500000), null, 'service');
 
 -- One row per new deal-scoped table under each deal.
 insert into public.meeting_series (id, deal_id, account_id, status)
@@ -23,16 +27,22 @@ values
   ('aaaaaaaa-0000-0000-0000-0000000000f1', 'aaaaaaaa-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-a'), 'active'),
   ('bbbbbbbb-0000-0000-0000-0000000000f1', 'bbbbbbbb-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-b'), 'active');
 
-insert into public.meeting (id, deal_id, account_id, series_id, type, status)
-values
-  ('aaaaaaaa-0000-0000-0000-000000000a01', 'aaaaaaaa-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000f1', 'weekly', 'held'),
-  ('aaaaaaaa-0000-0000-0000-000000000a02', 'aaaaaaaa-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000f1', 'weekly', 'skipped'),
-  ('bbbbbbbb-0000-0000-0000-000000000a01', 'bbbbbbbb-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-b'), 'bbbbbbbb-0000-0000-0000-0000000000f1', 'weekly', 'held');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'meeting',
+  'aaaaaaaa-0000-0000-0000-000000000a01', 'meeting.scheduled',
+  jsonb_build_object('series_id', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'type', 'weekly', 'status', 'held'), null, 'service');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'meeting',
+  'aaaaaaaa-0000-0000-0000-000000000a02', 'meeting.scheduled',
+  jsonb_build_object('series_id', 'aaaaaaaa-0000-0000-0000-0000000000f1', 'type', 'weekly', 'status', 'skipped'), null, 'service');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e1', 'meeting',
+  'bbbbbbbb-0000-0000-0000-000000000a01', 'meeting.scheduled',
+  jsonb_build_object('series_id', 'bbbbbbbb-0000-0000-0000-0000000000f1', 'type', 'weekly', 'status', 'held'), null, 'service');
 
-insert into public.meeting_action_item (meeting_id, deal_id, account_id, description, owner_is_seller)
-values
-  ('aaaaaaaa-0000-0000-0000-000000000a01', 'aaaaaaaa-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-a'), 'Send financials', false),
-  ('bbbbbbbb-0000-0000-0000-000000000a01', 'bbbbbbbb-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-b'), 'Send financials', false);
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'meeting_action_item',
+  gen_random_uuid(), 'meeting_action_item.added',
+  jsonb_build_object('meeting_id', 'aaaaaaaa-0000-0000-0000-000000000a01', 'description', 'Send financials', 'owner_is_seller', false), null, 'service');
+select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e1', 'meeting_action_item',
+  gen_random_uuid(), 'meeting_action_item.added',
+  jsonb_build_object('meeting_id', 'bbbbbbbb-0000-0000-0000-000000000a01', 'description', 'Send financials', 'owner_is_seller', false), null, 'service');
 
 insert into public.hr_audit_engagement (deal_id, account_id, provider)
 values
@@ -50,8 +60,9 @@ values
   ('bbbbbbbb-0000-0000-0000-0000000000e1', tests.account_id('rs-acct-b'), 'Beta LLC');
 
 -- The external participant reaches Deal A through a deal_participant grant.
-insert into public.deal_participant (deal_id, user_id, party, scope, permission)
-values ('aaaaaaaa-0000-0000-0000-0000000000e1', tests.get_uid('rs_ext'), 'buyer', 'deal', 'view');
+select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'deal_participant',
+  gen_random_uuid(), 'deal_participant.added',
+  jsonb_build_object('user_id', tests.get_uid('rs_ext'), 'party', 'buyer', 'scope', 'deal', 'permission', 'view'), null, 'service');
 
 -- ---- Deal-scoped visibility: a participant sees their granted deal ----
 select tests.login_as('rs_ext');

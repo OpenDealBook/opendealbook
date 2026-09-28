@@ -20,9 +20,11 @@ alter table public.contract enable row level security;
 create index ix_contract_deal on public.contract (deal_id);
 create index ix_contract_account on public.contract (account_id);
 
+-- Writes go through append_deal_event; the projectors run security definer as
+-- the table owner. authenticated and service_role keep read only.
 revoke all on public.contract from authenticated, service_role;
-grant select, insert, update, delete on public.contract to authenticated;
-grant select, insert, update, delete on public.contract to service_role;
+grant select on public.contract to authenticated;
+grant select on public.contract to service_role;
 
 create trigger contract_timestamps
   before insert or update on public.contract

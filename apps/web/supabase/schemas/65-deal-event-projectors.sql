@@ -15,20 +15,34 @@ create or replace function public.project_deal(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.created' then
-    insert into public.deal (id, account_id, firm_id, owner_user_id, description, source, stage, created_by, updated_by)
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'firm_id')::uuid,
       (ev.payload ->> 'owner_user_id')::uuid,
       ev.payload ->> 'description',
+      (ev.payload ->> 'asking_price')::numeric,
+      (ev.payload ->> 'revenue_ttm')::numeric,
+      (ev.payload ->> 'sde_ttm')::numeric,
+      (ev.payload ->> 'ebitda_ttm')::numeric,
+      ev.payload ->> 'notes',
       coalesce((ev.payload ->> 'source')::public.deal_source, 'manual'),
       coalesce(ev.payload ->> 'stage', 'sourced'),
+      (ev.payload ->> 'broker_contact_id')::uuid,
+      (ev.payload ->> 'deal_box_version')::int,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
       firm_id = excluded.firm_id,
       owner_user_id = excluded.owner_user_id,
       description = excluded.description,
+      asking_price = excluded.asking_price,
+      revenue_ttm = excluded.revenue_ttm,
+      sde_ttm = excluded.sde_ttm,
+      ebitda_ttm = excluded.ebitda_ttm,
+      notes = excluded.notes,
+      broker_contact_id = excluded.broker_contact_id,
+      deal_box_version = excluded.deal_box_version,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
@@ -80,7 +94,7 @@ create or replace function public.project_checklist_item(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'checklist_item.added' then
-    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, created_by, updated_by)
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       ev.payload ->> 'category',
@@ -88,6 +102,10 @@ begin
       (ev.payload ->> 'owner_user_id')::uuid,
       (ev.payload ->> 'due_at')::timestamptz,
       coalesce((ev.payload ->> 'status')::public.checklist_status, 'not_started'),
+      coalesce((ev.payload ->> 'priority')::int, 0),
+      coalesce((ev.payload ->> 'deal_killer')::boolean, false),
+      (ev.payload ->> 'schedule_week_id')::uuid,
+      (ev.payload ->> 'due_offset_days')::int,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -96,6 +114,10 @@ begin
       owner_user_id = excluded.owner_user_id,
       due_at = excluded.due_at,
       status = excluded.status,
+      priority = excluded.priority,
+      deal_killer = excluded.deal_killer,
+      schedule_week_id = excluded.schedule_week_id,
+      due_offset_days = excluded.due_offset_days,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'checklist_item.status_changed' then
     update public.checklist_item set
@@ -103,7 +125,15 @@ begin
       requested_at = coalesce((ev.payload ->> 'requested_at')::timestamptz, requested_at),
       received_at = coalesce((ev.payload ->> 'received_at')::timestamptz, received_at),
       reviewed_at = coalesce((ev.payload ->> 'reviewed_at')::timestamptz, reviewed_at),
+      reviewed_by = coalesce((ev.payload ->> 'reviewed_by')::uuid, reviewed_by),
       outcome = coalesce((ev.payload ->> 'outcome')::public.checklist_outcome, outcome),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.rescheduled' then
+    update public.checklist_item set
+      schedule_week_id = (ev.payload ->> 'schedule_week_id')::uuid,
+      priority = coalesce((ev.payload ->> 'priority')::int, priority),
+      deal_killer = coalesce((ev.payload ->> 'deal_killer')::boolean, deal_killer),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   elsif ev.event_type = 'checklist_item.removed' then
@@ -144,19 +174,21 @@ create or replace function public.project_deal_participant(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal_participant.added' then
-    insert into public.deal_participant (id, deal_id, user_id, party, role, scope, permission, expires_at, created_by, updated_by)
+    insert into public.deal_participant (id, deal_id, user_id, party, role, scope, scope_id, permission, expires_at, created_by, updated_by)
     values (
       ev.aggregate_id, ev.deal_id,
       (ev.payload ->> 'user_id')::uuid,
       (ev.payload ->> 'party')::public.participant_party,
       ev.payload ->> 'role',
       coalesce((ev.payload ->> 'scope')::public.participant_scope, 'deal'),
+      (ev.payload ->> 'scope_id')::uuid,
       coalesce((ev.payload ->> 'permission')::public.participant_permission, 'view'),
       (ev.payload ->> 'expires_at')::timestamptz,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
       role = excluded.role,
+      scope_id = excluded.scope_id,
       permission = excluded.permission,
       expires_at = excluded.expires_at,
       updated_by = excluded.updated_by;
@@ -201,18 +233,20 @@ create or replace function public.project_meeting(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'meeting.scheduled' then
-    insert into public.meeting (id, deal_id, account_id, series_id, type, scheduled_at, status, created_by, updated_by)
+    insert into public.meeting (id, deal_id, account_id, series_id, type, scheduled_at, status, notes, created_by, updated_by)
     values (
       ev.aggregate_id, ev.deal_id, ev.account_id,
       (ev.payload ->> 'series_id')::uuid,
       ev.payload ->> 'type',
       (ev.payload ->> 'scheduled_at')::timestamptz,
       coalesce((ev.payload ->> 'status')::public.meeting_status, 'scheduled'),
+      ev.payload ->> 'notes',
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
       scheduled_at = excluded.scheduled_at,
       status = excluded.status,
+      notes = excluded.notes,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'meeting.updated' then
     update public.meeting set
@@ -233,7 +267,7 @@ create or replace function public.project_meeting_action_item(ev public.deal_eve
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'meeting_action_item.added' then
-    insert into public.meeting_action_item (id, meeting_id, deal_id, account_id, description, owner_user_id, owner_is_seller, due_at, status, checklist_item_id, created_by, updated_by)
+    insert into public.meeting_action_item (id, meeting_id, deal_id, account_id, description, owner_user_id, owner_is_seller, due_at, status, checklist_item_id, schedule_week_id, created_by, updated_by)
     values (
       ev.aggregate_id,
       (ev.payload ->> 'meeting_id')::uuid,
@@ -244,6 +278,7 @@ begin
       (ev.payload ->> 'due_at')::timestamptz,
       coalesce((ev.payload ->> 'status')::public.checklist_status, 'not_started'),
       (ev.payload ->> 'checklist_item_id')::uuid,
+      (ev.payload ->> 'schedule_week_id')::uuid,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -251,6 +286,7 @@ begin
       owner_user_id = excluded.owner_user_id,
       due_at = excluded.due_at,
       status = excluded.status,
+      schedule_week_id = excluded.schedule_week_id,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'meeting_action_item.updated' then
     update public.meeting_action_item set

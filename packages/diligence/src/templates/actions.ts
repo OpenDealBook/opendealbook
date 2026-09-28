@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 
+import { appendDealEvents } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
-import type { TablesInsert } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
@@ -100,13 +100,6 @@ export const applyTemplateToDeal = enhanceAction(
 
     await assertDealChecklistsManager(client, input.dealId);
 
-    const { data: deal } = await client
-      .from('deal')
-      .select('account_id')
-      .eq('id', input.dealId)
-      .single()
-      .throwOnError();
-
     const { data: templateItems } = await client
       .from('checklist_template_item')
       .select('*')
@@ -114,28 +107,25 @@ export const applyTemplateToDeal = enhanceAction(
       .order('sort_order', { ascending: true })
       .throwOnError();
 
-    const rows: TablesInsert<'checklist_item'>[] = templateItems.map(
-      (item) => ({
-        account_id: deal.account_id,
-        deal_id: input.dealId,
-        category: item.category,
-        title: item.title,
-        priority: item.priority,
-        deal_killer: item.deal_killer,
-        due_offset_days: item.due_offset_days,
-      }),
+    return appendDealEvents(
+      client,
+      input.dealId,
+      templateItems.map((item) => ({
+        aggregateType: 'checklist_item',
+        aggregateId: crypto.randomUUID(),
+        eventType: 'checklist_item.added',
+        payload: {
+          category: item.category,
+          title: item.title,
+          owner_user_id: null,
+          due_at: null,
+          status: null,
+          priority: item.priority,
+          deal_killer: item.deal_killer,
+          schedule_week_id: null,
+        },
+      })),
     );
-
-    const { data, error } = await client
-      .from('checklist_item')
-      .insert(rows)
-      .select('*');
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
   },
   { auth: true, schema: applyTemplateToDealSchema },
 );
