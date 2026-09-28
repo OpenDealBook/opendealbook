@@ -2029,7 +2029,8 @@ create table if not exists public.checklist_item (
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  removed_at timestamptz
 );
 
 alter table public.checklist_item enable row level security;
@@ -2052,8 +2053,11 @@ create trigger checklist_item_user_tracking
 create policy checklist_item_read on public.checklist_item
   for select to authenticated
   using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'checklists.manage')
+    removed_at is null
+    and (
+      public.has_role_on_account(account_id)
+      or public.has_deal_permission(deal_id, 'checklists.manage')
+    )
   );
 
 create policy checklist_item_insert on public.checklist_item
@@ -2842,7 +2846,8 @@ create table if not exists public.dr_document (
   uploaded_by uuid references auth.users default auth.uid(),
   checklist_item_id uuid references public.checklist_item (id) on delete set null,
   created_at timestamptz,
-  updated_at timestamptz
+  updated_at timestamptz,
+  removed_at timestamptz
 );
 
 alter table public.dr_document enable row level security;
@@ -2861,8 +2866,11 @@ create trigger dr_document_timestamps
 create policy dr_document_read on public.dr_document
   for select to authenticated
   using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'deals.manage')
+    removed_at is null
+    and (
+      public.has_role_on_account(account_id)
+      or public.has_deal_permission(deal_id, 'deals.manage')
+    )
   );
 
 create policy dr_document_insert on public.dr_document
@@ -2975,6 +2983,10 @@ create or replace function tuckin.notify_on_deal_stage_move()
   language plpgsql security definer
   set search_path = '' as $$
 begin
+  if coalesce(current_setting('odb.replay', true), 'off') = 'on' then
+    return new;
+  end if;
+
   insert into public.notifications (account_id, recipient_user_id, type, body)
   select distinct new.account_id, dp.user_id, 'info'::public.notification_type, 'Deal moved to ' || new.stage
   from public.deal_participant dp
@@ -3717,7 +3729,8 @@ create table if not exists public.meeting_action_item (
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  removed_at timestamptz
 );
 
 alter table public.meeting_action_item enable row level security;
@@ -3741,8 +3754,11 @@ create trigger meeting_action_item_user_tracking
 create policy meeting_action_item_read on public.meeting_action_item
   for select to authenticated
   using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'deals.manage')
+    removed_at is null
+    and (
+      public.has_role_on_account(account_id)
+      or public.has_deal_permission(deal_id, 'deals.manage')
+    )
   );
 
 create policy meeting_action_item_insert on public.meeting_action_item
@@ -4524,3 +4540,607 @@ create policy embedding_job_update on public.embedding_job
 create policy embedding_job_delete on public.embedding_job
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/64-deal-event.sql =====
+-- The deal-wide event store. deal_event is the append-only source of truth for
+-- everything that happens inside a deal's saga; the domain tables are synchronous
+-- projections of this log. Rows are written only through append_deal_event
+-- (66-deal-event-append.sql): there is no insert/update/delete grant to anyone.
+-- deal_event_snapshot holds materialised checkpoints written on the every-64
+-- boundary. Both are deal-scoped and read with the same visibility as the deal.
+
+create type public.event_actor_kind as enum ('user', 'service', 'api_key', 'system');
+
+create table if not exists public.deal_event (
+  id uuid primary key default gen_random_uuid(),
+  global_seq bigint generated always as identity,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade deferrable initially deferred,
+  aggregate_type text not null,
+  aggregate_id uuid not null,
+  event_type text not null,
+  payload jsonb not null default '{}'::jsonb,
+  actor_kind public.event_actor_kind not null,
+  actor_ref uuid,
+  actor_via text,
+  deal_seq bigint not null,
+  aggregate_seq bigint not null,
+  created_at timestamptz not null default clock_timestamp(),
+  unique (deal_id, deal_seq),
+  unique (aggregate_type, aggregate_id, aggregate_seq)
+);
+
+alter table public.deal_event enable row level security;
+
+create index ix_deal_event_deal_seq on public.deal_event (deal_id, deal_seq);
+create index ix_deal_event_aggregate on public.deal_event (aggregate_type, aggregate_id, aggregate_seq);
+create index ix_deal_event_account on public.deal_event (account_id, created_at);
+
+revoke all on public.deal_event from authenticated, service_role;
+grant select on public.deal_event to authenticated, service_role;
+
+create policy deal_event_read on public.deal_event
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create table if not exists public.deal_event_snapshot (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade deferrable initially deferred,
+  aggregate_type text not null,
+  aggregate_id uuid not null,
+  through_seq bigint not null,
+  state jsonb not null,
+  created_at timestamptz not null default clock_timestamp(),
+  unique (aggregate_type, aggregate_id, through_seq)
+);
+
+alter table public.deal_event_snapshot enable row level security;
+
+create index ix_deal_event_snapshot_latest on public.deal_event_snapshot (aggregate_type, aggregate_id, through_seq desc);
+
+revoke all on public.deal_event_snapshot from authenticated, service_role;
+grant select on public.deal_event_snapshot to authenticated, service_role;
+
+create policy deal_event_snapshot_read on public.deal_event_snapshot
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+-- ===== schemas/65-deal-event-projectors.sql =====
+-- Per-aggregate projectors. Each project_* function folds one event into its
+-- domain table with an upsert or a tombstone; project_deal_event is the explicit
+-- dispatch. append_deal_event (live) and rebuild_deal (replay) are the two
+-- callers, so a projection has exactly one code path. Projectors run as the
+-- table owner (security definer) and are never granted to authenticated: the
+-- log is the only public write surface. created_by/updated_by are stamped from
+-- the event actor; timestamp/tracking triggers on the projection tables still
+-- run this wave and are neutralised with the grant revokes in a later wave.
+--
+-- An unknown event_type raises rather than falling through, and enum-typed
+-- payload fields are cast so an illegal value raises on the cast.
+
+create or replace function public.project_deal(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'deal.created' then
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, source, stage, created_by, updated_by)
+    values (
+      ev.aggregate_id, ev.account_id,
+      (ev.payload ->> 'firm_id')::uuid,
+      (ev.payload ->> 'owner_user_id')::uuid,
+      ev.payload ->> 'description',
+      coalesce((ev.payload ->> 'source')::public.deal_source, 'manual'),
+      coalesce(ev.payload ->> 'stage', 'sourced'),
+      ev.actor_ref, ev.actor_ref
+    )
+    on conflict (id) do update set
+      firm_id = excluded.firm_id,
+      owner_user_id = excluded.owner_user_id,
+      description = excluded.description,
+      updated_by = excluded.updated_by;
+  elsif ev.event_type = 'deal.updated' then
+    update public.deal set
+      description = coalesce(ev.payload ->> 'description', description),
+      asking_price = coalesce((ev.payload ->> 'asking_price')::numeric, asking_price),
+      revenue_ttm = coalesce((ev.payload ->> 'revenue_ttm')::numeric, revenue_ttm),
+      sde_ttm = coalesce((ev.payload ->> 'sde_ttm')::numeric, sde_ttm),
+      ebitda_ttm = coalesce((ev.payload ->> 'ebitda_ttm')::numeric, ebitda_ttm),
+      notes = coalesce(ev.payload ->> 'notes', notes),
+      close_date = coalesce((ev.payload ->> 'close_date')::date, close_date),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.stage_changed' then
+    update public.deal set
+      stage = ev.payload ->> 'stage',
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  else
+    raise exception 'unknown deal event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_deal_box(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'deal_box.set' then
+    insert into public.deal_box (id, account_id, version, criteria_json, broker_summary, created_by, updated_by)
+    values (
+      ev.aggregate_id, ev.account_id,
+      (ev.payload ->> 'version')::int,
+      coalesce(ev.payload -> 'criteria_json', '{}'::jsonb),
+      ev.payload ->> 'broker_summary',
+      ev.actor_ref, ev.actor_ref
+    )
+    on conflict (id) do update set
+      criteria_json = excluded.criteria_json,
+      broker_summary = excluded.broker_summary,
+      updated_by = excluded.updated_by;
+  else
+    raise exception 'unknown deal_box event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_checklist_item(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'checklist_item.added' then
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, created_by, updated_by)
+    values (
+      ev.aggregate_id, ev.account_id, ev.deal_id,
+      ev.payload ->> 'category',
+      ev.payload ->> 'title',
+      (ev.payload ->> 'owner_user_id')::uuid,
+      (ev.payload ->> 'due_at')::timestamptz,
+      coalesce((ev.payload ->> 'status')::public.checklist_status, 'not_started'),
+      ev.actor_ref, ev.actor_ref
+    )
+    on conflict (id) do update set
+      category = excluded.category,
+      title = excluded.title,
+      owner_user_id = excluded.owner_user_id,
+      due_at = excluded.due_at,
+      status = excluded.status,
+      updated_by = excluded.updated_by;
+  elsif ev.event_type = 'checklist_item.status_changed' then
+    update public.checklist_item set
+      status = (ev.payload ->> 'status')::public.checklist_status,
+      requested_at = coalesce((ev.payload ->> 'requested_at')::timestamptz, requested_at),
+      received_at = coalesce((ev.payload ->> 'received_at')::timestamptz, received_at),
+      reviewed_at = coalesce((ev.payload ->> 'reviewed_at')::timestamptz, reviewed_at),
+      outcome = coalesce((ev.payload ->> 'outcome')::public.checklist_outcome, outcome),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.removed' then
+    update public.checklist_item set removed_at = ev.created_at, updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  else
+    raise exception 'unknown checklist_item event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_approval(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'approval.requested' then
+    insert into public.approval (id, deal_id, subject, requested_by)
+    values (
+      ev.aggregate_id, ev.deal_id,
+      (ev.payload ->> 'subject')::public.approval_subject,
+      ev.actor_ref
+    )
+    on conflict (id) do update set subject = excluded.subject;
+  elsif ev.event_type = 'approval.decided' then
+    update public.approval set
+      decision = (ev.payload ->> 'decision')::public.approval_decision,
+      decided_by = ev.actor_ref,
+      decided_at = ev.created_at
+    where id = ev.aggregate_id;
+  else
+    raise exception 'unknown approval event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_deal_participant(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'deal_participant.added' then
+    insert into public.deal_participant (id, deal_id, user_id, party, role, scope, permission, expires_at, created_by, updated_by)
+    values (
+      ev.aggregate_id, ev.deal_id,
+      (ev.payload ->> 'user_id')::uuid,
+      (ev.payload ->> 'party')::public.participant_party,
+      ev.payload ->> 'role',
+      coalesce((ev.payload ->> 'scope')::public.participant_scope, 'deal'),
+      coalesce((ev.payload ->> 'permission')::public.participant_permission, 'view'),
+      (ev.payload ->> 'expires_at')::timestamptz,
+      ev.actor_ref, ev.actor_ref
+    )
+    on conflict (id) do update set
+      role = excluded.role,
+      permission = excluded.permission,
+      expires_at = excluded.expires_at,
+      updated_by = excluded.updated_by;
+  else
+    raise exception 'unknown deal_participant event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_dr_document(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'dr_document.added' then
+    insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path, version, checklist_item_id, uploaded_by)
+    values (
+      ev.aggregate_id, ev.account_id, ev.deal_id,
+      (ev.payload ->> 'folder_id')::uuid,
+      ev.payload ->> 'name',
+      ev.payload ->> 'storage_path',
+      coalesce((ev.payload ->> 'version')::int, 1),
+      (ev.payload ->> 'checklist_item_id')::uuid,
+      ev.actor_ref
+    )
+    on conflict (id) do update set
+      folder_id = excluded.folder_id,
+      name = excluded.name,
+      checklist_item_id = excluded.checklist_item_id;
+  elsif ev.event_type = 'dr_document.moved' then
+    update public.dr_document set folder_id = (ev.payload ->> 'folder_id')::uuid
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'dr_document.removed' then
+    update public.dr_document set removed_at = ev.created_at where id = ev.aggregate_id;
+  else
+    raise exception 'unknown dr_document event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_meeting(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'meeting.scheduled' then
+    insert into public.meeting (id, deal_id, account_id, series_id, type, scheduled_at, status, created_by, updated_by)
+    values (
+      ev.aggregate_id, ev.deal_id, ev.account_id,
+      (ev.payload ->> 'series_id')::uuid,
+      ev.payload ->> 'type',
+      (ev.payload ->> 'scheduled_at')::timestamptz,
+      coalesce((ev.payload ->> 'status')::public.meeting_status, 'scheduled'),
+      ev.actor_ref, ev.actor_ref
+    )
+    on conflict (id) do update set
+      scheduled_at = excluded.scheduled_at,
+      status = excluded.status,
+      updated_by = excluded.updated_by;
+  elsif ev.event_type = 'meeting.updated' then
+    update public.meeting set
+      status = coalesce((ev.payload ->> 'status')::public.meeting_status, status),
+      scheduled_at = coalesce((ev.payload ->> 'scheduled_at')::timestamptz, scheduled_at),
+      notes = coalesce(ev.payload ->> 'notes', notes),
+      decisions = coalesce(ev.payload ->> 'decisions', decisions),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  else
+    raise exception 'unknown meeting event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_meeting_action_item(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'meeting_action_item.added' then
+    insert into public.meeting_action_item (id, meeting_id, deal_id, account_id, description, owner_user_id, owner_is_seller, due_at, status, checklist_item_id, created_by, updated_by)
+    values (
+      ev.aggregate_id,
+      (ev.payload ->> 'meeting_id')::uuid,
+      ev.deal_id, ev.account_id,
+      ev.payload ->> 'description',
+      (ev.payload ->> 'owner_user_id')::uuid,
+      coalesce((ev.payload ->> 'owner_is_seller')::boolean, false),
+      (ev.payload ->> 'due_at')::timestamptz,
+      coalesce((ev.payload ->> 'status')::public.checklist_status, 'not_started'),
+      (ev.payload ->> 'checklist_item_id')::uuid,
+      ev.actor_ref, ev.actor_ref
+    )
+    on conflict (id) do update set
+      description = excluded.description,
+      owner_user_id = excluded.owner_user_id,
+      due_at = excluded.due_at,
+      status = excluded.status,
+      updated_by = excluded.updated_by;
+  elsif ev.event_type = 'meeting_action_item.updated' then
+    update public.meeting_action_item set
+      status = coalesce((ev.payload ->> 'status')::public.checklist_status, status),
+      description = coalesce(ev.payload ->> 'description', description),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'meeting_action_item.removed' then
+    update public.meeting_action_item set removed_at = ev.created_at, updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  else
+    raise exception 'unknown meeting_action_item event %', ev.event_type;
+  end if;
+end;
+$$;
+
+create or replace function public.project_contract(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'contract.created' then
+    insert into public.contract (id, deal_id, account_id, type, status, current_version, created_by)
+    values (
+      ev.aggregate_id, ev.deal_id, ev.account_id,
+      ev.payload ->> 'type',
+      ev.payload ->> 'status',
+      (ev.payload ->> 'current_version')::int,
+      ev.actor_ref
+    )
+    on conflict (id) do update set
+      status = excluded.status,
+      current_version = excluded.current_version;
+  elsif ev.event_type = 'contract.version_set' then
+    update public.contract set
+      current_version = (ev.payload ->> 'current_version')::int,
+      status = coalesce(ev.payload ->> 'status', status)
+    where id = ev.aggregate_id;
+  else
+    raise exception 'unknown contract event %', ev.event_type;
+  end if;
+end;
+$$;
+
+-- Explicit dispatch. Unknown aggregate_type raises rather than silently
+-- dropping the event.
+create or replace function public.project_deal_event(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.aggregate_type = 'deal' then
+    perform public.project_deal(ev);
+  elsif ev.aggregate_type = 'deal_box' then
+    perform public.project_deal_box(ev);
+  elsif ev.aggregate_type = 'checklist_item' then
+    perform public.project_checklist_item(ev);
+  elsif ev.aggregate_type = 'approval' then
+    perform public.project_approval(ev);
+  elsif ev.aggregate_type = 'deal_participant' then
+    perform public.project_deal_participant(ev);
+  elsif ev.aggregate_type = 'dr_document' then
+    perform public.project_dr_document(ev);
+  elsif ev.aggregate_type = 'meeting' then
+    perform public.project_meeting(ev);
+  elsif ev.aggregate_type = 'meeting_action_item' then
+    perform public.project_meeting_action_item(ev);
+  elsif ev.aggregate_type = 'contract' then
+    perform public.project_contract(ev);
+  else
+    raise exception 'no projector for aggregate_type %', ev.aggregate_type;
+  end if;
+end;
+$$;
+
+-- The permission an event of a given aggregate must satisfy, mirroring the
+-- insert policies the projection tables carried before the log.
+create or replace function public.deal_event_permission(p_aggregate_type text)
+  returns text
+  language sql immutable set search_path = '' as $$
+  select case p_aggregate_type
+    when 'checklist_item' then 'checklists.manage'
+    when 'deal_participant' then 'participants.manage'
+    else 'deals.manage'
+  end;
+$$;
+
+-- The materialised state stored in an aggregate-level snapshot: the projected
+-- row as jsonb.
+create or replace function public.deal_aggregate_state(p_aggregate_type text, p_aggregate_id uuid)
+  returns jsonb
+  language plpgsql security definer set search_path = '' as $$
+declare
+  v_state jsonb;
+begin
+  execute format('select to_jsonb(t) from public.%I t where t.id = $1', p_aggregate_type)
+    into v_state using p_aggregate_id;
+  return v_state;
+end;
+$$;
+
+-- The deal-level snapshot body: the deal row plus a compact manifest of each
+-- child aggregate's current head aggregate_seq (D3), not a full child bundle.
+create or replace function public.deal_wide_manifest(p_deal_id uuid)
+  returns jsonb
+  language sql security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'deal', (select to_jsonb(d) from public.deal d where d.id = p_deal_id),
+    'heads', coalesce((
+      select jsonb_object_agg(k, mx)
+      from (
+        select de.aggregate_type || ':' || de.aggregate_id::text as k, max(de.aggregate_seq) as mx
+        from public.deal_event de
+        where de.deal_id = p_deal_id
+        group by de.aggregate_type, de.aggregate_id
+      ) s
+    ), '{}'::jsonb)
+  );
+$$;
+
+-- ===== schemas/66-deal-event-append.sql =====
+-- The single write entry point for the event store. append_deal_event
+-- authorises the event, serialises appends per deal under a transaction advisory
+-- lock, computes the gapless deal_seq and aggregate_seq, inserts the event,
+-- dispatches to the projector in the same transaction, and writes the every-64
+-- snapshots. append_deal_events appends several events atomically under one lock
+-- so a cross-aggregate action stays in one transaction (D7).
+--
+-- Optimistic concurrency: p_expected_aggregate_seq, when supplied, must equal the
+-- current aggregate head or the append raises serialization_failure (40001). When
+-- omitted the write is last-writer-wins. A deal.created event authorises against
+-- deals.create on the account and resolves the account from the payload, since the
+-- deal row does not exist yet; every other event authorises with the log's
+-- has_deal_permission and resolves the account from the deal.
+
+create or replace function public.append_deal_event(
+  p_deal_id uuid,
+  p_aggregate_type text,
+  p_aggregate_id uuid,
+  p_event_type text,
+  p_payload jsonb default '{}'::jsonb,
+  p_expected_aggregate_seq bigint default null,
+  p_actor_kind public.event_actor_kind default 'user',
+  p_actor_via text default 'web'
+) returns table (deal_seq bigint, aggregate_seq bigint)
+  language plpgsql security definer set search_path = '' as $$
+declare
+  v_account_id uuid;
+  v_actor_ref uuid;
+  v_deal_seq bigint;
+  v_agg_seq bigint;
+  v_event public.deal_event;
+begin
+  select d.account_id into v_account_id from public.deal d where d.id = p_deal_id;
+  if v_account_id is null then
+    v_account_id := (p_payload ->> 'account_id')::uuid;
+  end if;
+  if v_account_id is null then
+    raise exception 'cannot resolve account for deal %', p_deal_id using errcode = 'foreign_key_violation';
+  end if;
+
+  if p_actor_kind = 'user' then
+    v_actor_ref := (select auth.uid());
+    if p_event_type = 'deal.created' then
+      if not public.has_permission(v_actor_ref, v_account_id, 'deals.create') then
+        raise exception 'not authorized to create a deal on account %', v_account_id using errcode = 'insufficient_privilege';
+      end if;
+    elsif not public.has_deal_permission(p_deal_id, public.deal_event_permission(p_aggregate_type)) then
+      raise exception 'not authorized to append % on deal %', p_event_type, p_deal_id using errcode = 'insufficient_privilege';
+    end if;
+  elsif (select auth.role()) <> 'service_role' then
+    raise exception 'non-user events require the service role' using errcode = 'insufficient_privilege';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(p_deal_id::text));
+
+  select coalesce(max(de.deal_seq), 0) + 1 into v_deal_seq
+  from public.deal_event de where de.deal_id = p_deal_id;
+
+  select coalesce(max(de.aggregate_seq), 0) + 1 into v_agg_seq
+  from public.deal_event de
+  where de.aggregate_type = p_aggregate_type and de.aggregate_id = p_aggregate_id;
+
+  if p_expected_aggregate_seq is not null and p_expected_aggregate_seq <> v_agg_seq - 1 then
+    raise exception 'stale aggregate %/%: expected head %, actual head %',
+      p_aggregate_type, p_aggregate_id, p_expected_aggregate_seq, v_agg_seq - 1
+      using errcode = 'serialization_failure';
+  end if;
+
+  insert into public.deal_event (
+    account_id, deal_id, aggregate_type, aggregate_id, event_type, payload,
+    actor_kind, actor_ref, actor_via, deal_seq, aggregate_seq
+  )
+  values (
+    v_account_id, p_deal_id, p_aggregate_type, p_aggregate_id, p_event_type, p_payload,
+    p_actor_kind, v_actor_ref, p_actor_via, v_deal_seq, v_agg_seq
+  )
+  returning * into v_event;
+
+  perform public.project_deal_event(v_event);
+
+  if v_agg_seq % 64 = 0 then
+    insert into public.deal_event_snapshot (account_id, deal_id, aggregate_type, aggregate_id, through_seq, state)
+    values (v_account_id, p_deal_id, p_aggregate_type, p_aggregate_id, v_agg_seq,
+            public.deal_aggregate_state(p_aggregate_type, p_aggregate_id));
+  end if;
+
+  if v_deal_seq % 64 = 0 then
+    insert into public.deal_event_snapshot (account_id, deal_id, aggregate_type, aggregate_id, through_seq, state)
+    values (v_account_id, p_deal_id, 'deal-wide', p_deal_id, v_deal_seq,
+            public.deal_wide_manifest(p_deal_id));
+  end if;
+
+  return query select v_deal_seq, v_agg_seq;
+end;
+$$;
+
+grant execute on function public.append_deal_event(uuid, text, uuid, text, jsonb, bigint, public.event_actor_kind, text) to authenticated, service_role;
+
+create or replace function public.append_deal_events(p_deal_id uuid, p_events jsonb)
+  returns table (deal_seq bigint, aggregate_seq bigint)
+  language plpgsql security definer set search_path = '' as $$
+declare
+  e jsonb;
+begin
+  for e in select * from jsonb_array_elements(p_events)
+  loop
+    return query
+    select r.deal_seq, r.aggregate_seq
+    from public.append_deal_event(
+      p_deal_id,
+      e ->> 'aggregate_type',
+      (e ->> 'aggregate_id')::uuid,
+      e ->> 'event_type',
+      coalesce(e -> 'payload', '{}'::jsonb),
+      (e ->> 'expected_aggregate_seq')::bigint,
+      coalesce((e ->> 'actor_kind')::public.event_actor_kind, 'user'),
+      coalesce(e ->> 'actor_via', 'web')
+    ) r;
+  end loop;
+end;
+$$;
+
+grant execute on function public.append_deal_events(uuid, jsonb) to authenticated, service_role;
+
+-- ===== schemas/67-deal-event-replay.sql =====
+-- Authoritative whole-deal rebuild. replay_deal deletes the deal's child
+-- projection rows and re-applies every event in deal_seq order through the same
+-- projectors the live append uses, so projections equal fold(events). It runs
+-- under the odb.replay GUC, which the deal-domain side-effect triggers honour by
+-- early-returning, so a rebuild emits no notifications. The deal and deal_box
+-- parents are upserted by their own events rather than deleted, so foreign keys
+-- and account-shared rows are preserved. Rebuild is idempotent.
+
+create or replace function public.replay_deal(p_deal_id uuid)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+declare
+  v_event public.deal_event;
+begin
+  perform set_config('odb.replay', 'on', true);
+
+  delete from public.meeting_action_item where deal_id = p_deal_id;
+  delete from public.dr_document where deal_id = p_deal_id;
+  delete from public.meeting where deal_id = p_deal_id;
+  delete from public.approval where deal_id = p_deal_id;
+  delete from public.deal_participant where deal_id = p_deal_id;
+  delete from public.checklist_item where deal_id = p_deal_id;
+
+  for v_event in
+    select * from public.deal_event de where de.deal_id = p_deal_id order by de.deal_seq
+  loop
+    perform public.project_deal_event(v_event);
+  end loop;
+
+  perform set_config('odb.replay', 'off', true);
+end;
+$$;
+
+grant execute on function public.replay_deal(uuid) to service_role;

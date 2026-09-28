@@ -17,7 +17,8 @@ create table if not exists public.meeting_action_item (
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  removed_at timestamptz
 );
 
 alter table public.meeting_action_item enable row level security;
@@ -41,8 +42,11 @@ create trigger meeting_action_item_user_tracking
 create policy meeting_action_item_read on public.meeting_action_item
   for select to authenticated
   using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'deals.manage')
+    removed_at is null
+    and (
+      public.has_role_on_account(account_id)
+      or public.has_deal_permission(deal_id, 'deals.manage')
+    )
   );
 
 create policy meeting_action_item_insert on public.meeting_action_item

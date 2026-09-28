@@ -23,6 +23,7 @@ function item(overrides: Partial<ChecklistItem>): ChecklistItem {
     owner_user_id: null,
     priority: 0,
     received_at: null,
+    removed_at: null,
     requested_at: null,
     reviewed_at: null,
     reviewed_by: null,

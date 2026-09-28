@@ -14,7 +14,8 @@ create table if not exists public.dr_document (
   uploaded_by uuid references auth.users default auth.uid(),
   checklist_item_id uuid references public.checklist_item (id) on delete set null,
   created_at timestamptz,
-  updated_at timestamptz
+  updated_at timestamptz,
+  removed_at timestamptz
 );
 
 alter table public.dr_document enable row level security;
@@ -33,8 +34,11 @@ create trigger dr_document_timestamps
 create policy dr_document_read on public.dr_document
   for select to authenticated
   using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'deals.manage')
+    removed_at is null
+    and (
+      public.has_role_on_account(account_id)
+      or public.has_deal_permission(deal_id, 'deals.manage')
+    )
   );
 
 create policy dr_document_insert on public.dr_document

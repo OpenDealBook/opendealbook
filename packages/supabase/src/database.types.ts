@@ -587,6 +587,7 @@ export type Database = {
           owner_user_id: string | null
           priority: number
           received_at: string | null
+          removed_at: string | null
           requested_at: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -612,6 +613,7 @@ export type Database = {
           owner_user_id?: string | null
           priority?: number
           received_at?: string | null
+          removed_at?: string | null
           requested_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -637,6 +639,7 @@ export type Database = {
           owner_user_id?: string | null
           priority?: number
           received_at?: string | null
+          removed_at?: string | null
           requested_at?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -1304,6 +1307,148 @@ export type Database = {
           },
         ]
       }
+      deal_event: {
+        Row: {
+          account_id: string
+          actor_kind: Database["public"]["Enums"]["event_actor_kind"]
+          actor_ref: string | null
+          actor_via: string | null
+          aggregate_id: string
+          aggregate_seq: number
+          aggregate_type: string
+          created_at: string
+          deal_id: string
+          deal_seq: number
+          event_type: string
+          global_seq: number
+          id: string
+          payload: Json
+        }
+        Insert: {
+          account_id: string
+          actor_kind: Database["public"]["Enums"]["event_actor_kind"]
+          actor_ref?: string | null
+          actor_via?: string | null
+          aggregate_id: string
+          aggregate_seq: number
+          aggregate_type: string
+          created_at?: string
+          deal_id: string
+          deal_seq: number
+          event_type: string
+          global_seq?: never
+          id?: string
+          payload?: Json
+        }
+        Update: {
+          account_id?: string
+          actor_kind?: Database["public"]["Enums"]["event_actor_kind"]
+          actor_ref?: string | null
+          actor_via?: string | null
+          aggregate_id?: string
+          aggregate_seq?: number
+          aggregate_type?: string
+          created_at?: string
+          deal_id?: string
+          deal_seq?: number
+          event_type?: string
+          global_seq?: never
+          id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_event_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_event_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_event_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_event_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_event_snapshot: {
+        Row: {
+          account_id: string
+          aggregate_id: string
+          aggregate_type: string
+          created_at: string
+          deal_id: string
+          id: string
+          state: Json
+          through_seq: number
+        }
+        Insert: {
+          account_id: string
+          aggregate_id: string
+          aggregate_type: string
+          created_at?: string
+          deal_id: string
+          id?: string
+          state: Json
+          through_seq: number
+        }
+        Update: {
+          account_id?: string
+          aggregate_id?: string
+          aggregate_type?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+          state?: Json
+          through_seq?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_event_snapshot_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_event_snapshot_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_event_snapshot_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_event_snapshot_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_participant: {
         Row: {
           created_at: string | null
@@ -1632,6 +1777,7 @@ export type Database = {
           folder_id: string
           id: string
           name: string
+          removed_at: string | null
           storage_path: string
           updated_at: string | null
           uploaded_by: string | null
@@ -1645,6 +1791,7 @@ export type Database = {
           folder_id: string
           id?: string
           name: string
+          removed_at?: string | null
           storage_path: string
           updated_at?: string | null
           uploaded_by?: string | null
@@ -1658,6 +1805,7 @@ export type Database = {
           folder_id?: string
           id?: string
           name?: string
+          removed_at?: string | null
           storage_path?: string
           updated_at?: string | null
           uploaded_by?: string | null
@@ -2506,6 +2654,7 @@ export type Database = {
           meeting_id: string
           owner_is_seller: boolean
           owner_user_id: string | null
+          removed_at: string | null
           schedule_week_id: string | null
           status: Database["public"]["Enums"]["checklist_status"]
           updated_at: string | null
@@ -2523,6 +2672,7 @@ export type Database = {
           meeting_id: string
           owner_is_seller?: boolean
           owner_user_id?: string | null
+          removed_at?: string | null
           schedule_week_id?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
           updated_at?: string | null
@@ -2540,6 +2690,7 @@ export type Database = {
           meeting_id?: string
           owner_is_seller?: boolean
           owner_user_id?: string | null
+          removed_at?: string | null
           schedule_week_id?: string | null
           status?: Database["public"]["Enums"]["checklist_status"]
           updated_at?: string | null
@@ -3929,6 +4080,29 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: number
       }
+      append_deal_event: {
+        Args: {
+          p_actor_kind?: Database["public"]["Enums"]["event_actor_kind"]
+          p_actor_via?: string
+          p_aggregate_id: string
+          p_aggregate_type: string
+          p_deal_id: string
+          p_event_type: string
+          p_expected_aggregate_seq?: number
+          p_payload?: Json
+        }
+        Returns: {
+          aggregate_seq: number
+          deal_seq: number
+        }[]
+      }
+      append_deal_events: {
+        Args: { p_deal_id: string; p_events: Json }
+        Returns: {
+          aggregate_seq: number
+          deal_seq: number
+        }[]
+      }
       can_action_account_member: {
         Args: { target_team_account_id: string; target_user_id: string }
         Returns: boolean
@@ -4003,6 +4177,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      deal_aggregate_state: {
+        Args: { p_aggregate_id: string; p_aggregate_type: string }
+        Returns: Json
+      }
+      deal_event_permission: {
+        Args: { p_aggregate_type: string }
+        Returns: string
+      }
+      deal_wide_manifest: { Args: { p_deal_id: string }; Returns: Json }
       get_config: { Args: never; Returns: Json }
       get_upper_system_role: { Args: never; Returns: string }
       has_active_subscription: {
@@ -4052,10 +4235,51 @@ export type Database = {
           unused: number
         }[]
       }
+      project_approval: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_checklist_item: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_contract: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_deal: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_deal_box: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_deal_event: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_deal_participant: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_dr_document: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_meeting: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_meeting_action_item: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
       replace_mfa_recovery_codes: {
         Args: { p_codes: string[] }
         Returns: undefined
       }
+      replay_deal: { Args: { p_deal_id: string }; Returns: undefined }
       search_documents: {
         Args: { p_account_id: string; p_query: string }
         Returns: {
@@ -4199,6 +4423,7 @@ export type Database = {
       checklist_status: "not_started" | "requested" | "received" | "reviewed"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
       embedding_job_status: "queued" | "running" | "done" | "failed"
+      event_actor_kind: "user" | "service" | "api_key" | "system"
       meeting_status: "scheduled" | "held" | "skipped" | "cancelled"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
@@ -4380,6 +4605,7 @@ export const Constants = {
       checklist_status: ["not_started", "requested", "received", "reviewed"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
       embedding_job_status: ["queued", "running", "done", "failed"],
+      event_actor_kind: ["user", "service", "api_key", "system"],
       meeting_status: ["scheduled", "held", "skipped", "cancelled"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],

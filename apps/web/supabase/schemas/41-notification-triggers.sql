@@ -94,6 +94,10 @@ create or replace function tuckin.notify_on_deal_stage_move()
   language plpgsql security definer
   set search_path = '' as $$
 begin
+  if coalesce(current_setting('odb.replay', true), 'off') = 'on' then
+    return new;
+  end if;
+
   insert into public.notifications (account_id, recipient_user_id, type, body)
   select distinct new.account_id, dp.user_id, 'info'::public.notification_type, 'Deal moved to ' || new.stage
   from public.deal_participant dp

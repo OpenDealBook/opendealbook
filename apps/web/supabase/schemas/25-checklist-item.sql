@@ -20,7 +20,8 @@ create table if not exists public.checklist_item (
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  removed_at timestamptz
 );
 
 alter table public.checklist_item enable row level security;
@@ -43,8 +44,11 @@ create trigger checklist_item_user_tracking
 create policy checklist_item_read on public.checklist_item
   for select to authenticated
   using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'checklists.manage')
+    removed_at is null
+    and (
+      public.has_role_on_account(account_id)
+      or public.has_deal_permission(deal_id, 'checklists.manage')
+    )
   );
 
 create policy checklist_item_insert on public.checklist_item
