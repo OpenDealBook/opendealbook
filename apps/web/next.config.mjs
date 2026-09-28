@@ -1,6 +1,10 @@
+import { fileURLToPath } from 'node:url';
+
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
+
+const MONOREPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 const TUCKIN_PACKAGES = [
   '@odb/analytics',
@@ -27,6 +31,11 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const config = {
   reactStrictMode: true,
   poweredByHeader: false,
+  output: 'standalone',
+  outputFileTracingRoot: MONOREPO_ROOT,
+  outputFileTracingIncludes: {
+    '/**': ['node_modules/@pyroscope/nodejs/**/*', 'node_modules/@datadog/pprof/**/*'],
+  },
   transpilePackages: TUCKIN_PACKAGES,
   serverExternalPackages: ['pino', 'pino-pretty', '@pyroscope/nodejs', '@datadog/pprof'],
   images: {

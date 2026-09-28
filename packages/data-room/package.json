@@ -13,6 +13,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
+    "./uploads/actions": "./src/uploads/actions.ts",
     "./hooks": "./src/hooks/index.ts",
     "./storage": "./src/storage.ts"
   },

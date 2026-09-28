@@ -1,0 +1,34 @@
+# Dependencies and build output are recreated inside the image.
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+**/*.tsbuildinfo
+**/coverage
+**/storybook-static
+
+# Local env and secrets.
+.env
+.env.*
+!.env.example
+
+# Supabase local runtime volumes and state.
+**/supabase/.branches
+**/supabase/.temp
+**/supabase/volumes
+
+# VCS, CI, tooling, editor.
+.git
+.github
+.idea
+.vscode
+**/.DS_Store
+
+# Test artifacts.
+**/playwright-report
+**/test-results
+
+# Docker files themselves.
+Dockerfile
+.dockerignore

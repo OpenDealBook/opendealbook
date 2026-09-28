@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 
 import type { ExpandResult, StagedBatch } from '@odb/data-room';
-import { expandUploadBatch, stageUpload } from '@odb/data-room/server';
+import { expandUploadBatch, stageUpload } from '@odb/data-room/uploads/actions';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
