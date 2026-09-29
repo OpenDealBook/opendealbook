@@ -1697,6 +1697,9 @@ importers:
 
   packages/workflows:
     dependencies:
+      '@odb/comps':
+        specifier: workspace:*
+        version: link:../comps
       '@odb/mailers':
         specifier: workspace:*
         version: link:../mailers/core
@@ -1721,6 +1724,9 @@ importers:
       '@temporalio/workflow':
         specifier: 'catalog:'
         version: 1.24.0
+      papaparse:
+        specifier: 'catalog:'
+        version: 5.5.3
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1731,6 +1737,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+      '@types/papaparse':
+        specifier: 'catalog:'
+        version: 5.5.2
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))

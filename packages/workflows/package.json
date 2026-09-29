@@ -25,15 +25,18 @@
     "@temporalio/client": "catalog:",
     "@temporalio/common": "catalog:",
     "@temporalio/workflow": "catalog:",
+    "@odb/comps": "workspace:*",
     "@odb/mailers": "workspace:*",
     "@odb/notifications": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/verification": "workspace:*",
+    "papaparse": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@types/papaparse": "catalog:",
     "vitest": "catalog:"
   }
 }

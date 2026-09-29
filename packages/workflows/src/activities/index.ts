@@ -4,6 +4,13 @@ import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { runVerification, structuredInputChecks } from '@odb/verification';
 
+export {
+  discoverSbaResources,
+  loadDealBoxNaicsUnion,
+  refreshSbaProgram,
+} from '../comps/sbaLoans';
+export { writeCloseComp } from '../comps/writeCloseComp';
+
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import { chunkMarkdown } from '../documentIngestion/chunk';
 import { extractMarkdown } from '../documentIngestion/docling';
