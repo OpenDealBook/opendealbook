@@ -1,5 +1,5 @@
 {
-  "name": "@odb/workflows",
+  "name": "@odb/ai",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./activities": "./src/activities/index.ts"
+    "./server": "./src/server.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -21,18 +20,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@temporalio/activity": "catalog:",
-    "@temporalio/client": "catalog:",
-    "@temporalio/common": "catalog:",
-    "@temporalio/workflow": "catalog:",
-    "@odb/mailers": "workspace:*",
-    "@odb/notifications": "workspace:*",
     "@odb/supabase": "workspace:*",
-    "@odb/verification": "workspace:*",
-    "zod": "catalog:"
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   }

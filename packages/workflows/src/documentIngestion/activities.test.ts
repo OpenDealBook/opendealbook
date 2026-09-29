@@ -177,6 +177,54 @@ describe('embedDocumentChunks', () => {
     );
   });
 
+  it('logs the embedding model call to ai_call_log scoped to the account and deal', async () => {
+    const { client, capture } = makeClient({
+      rows: {
+        llm_endpoint: {
+          model: 'text-embedding-3-small',
+          base_url: 'http://llm.test',
+          api_key_secret_ref: 'TENANT_LLM_KEY',
+        },
+      },
+    });
+    state.client = client;
+    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
+
+    await embedDocumentChunks({
+      ...chunkScope,
+      markdown: '# Only\n\nOne short chunk.',
+    });
+
+    expect(capture.inserts.ai_call_log).toMatchObject({
+      account_id: 'acct1',
+      deal_id: 'deal1',
+      model: 'text-embedding-3-small',
+    });
+  });
+
+  it('logs null token counts when the embeddings response carries no usage', async () => {
+    const { client, capture } = makeClient({
+      rows: {
+        llm_endpoint: {
+          model: 'text-embedding-3-small',
+          base_url: 'http://llm.test',
+          api_key_secret_ref: 'TENANT_LLM_KEY',
+        },
+      },
+    });
+    state.client = client;
+    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
+
+    await embedDocumentChunks({
+      ...chunkScope,
+      markdown: '# Only\n\nOne short chunk.',
+    });
+
+    const call = capture.inserts.ai_call_log as Record<string, unknown>;
+    expect(call.prompt_tokens).toBeNull();
+    expect(call.completion_tokens).toBeNull();
+  });
+
   it('fails with a dimension error and writes no chunks when the model returns the wrong size', async () => {
     const { client, capture } = makeClient({
       rows: {

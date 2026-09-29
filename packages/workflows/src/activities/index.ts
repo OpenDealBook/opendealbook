@@ -1,6 +1,8 @@
 import { getMailer } from '@odb/mailers';
+import { createNovuClient, triggerNotification } from '@odb/notifications/server';
 import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
+import { runVerification, structuredInputChecks } from '@odb/verification';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import { chunkMarkdown } from '../documentIngestion/chunk';
@@ -364,6 +366,14 @@ export async function embedDocumentChunks(
     throw insertError;
   }
 
+  await client.from('ai_call_log').insert({
+    account_id: input.accountId,
+    deal_id: input.dealId,
+    model: endpoint.model,
+    prompt_tokens: null,
+    completion_tokens: null,
+  });
+
   return { chunkCount: rows.length, model: endpoint.model };
 }
 
@@ -386,6 +396,25 @@ export async function completeEmbeddingJob(
   if (error) {
     throw error;
   }
+}
+
+export interface RunDealVerificationInput {
+  dealId: string;
+}
+
+export async function runDealVerification(
+  input: RunDealVerificationInput,
+): Promise<void> {
+  const client = getSupabaseServerAdminClient();
+
+  await runVerification({
+    client,
+    dealId: input.dealId,
+    trigger: 'ingest',
+    runnableChecks: structuredInputChecks({}),
+    notify: (notification) =>
+      triggerNotification({ novu: createNovuClient(), client }, notification),
+  });
 }
 
 export interface FailEmbeddingJobInput {

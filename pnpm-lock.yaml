@@ -286,6 +286,9 @@ importers:
       '@odb/admin':
         specifier: workspace:*
         version: link:../../packages/features/admin
+      '@odb/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@odb/analytics':
         specifier: workspace:*
         version: link:../../packages/analytics
@@ -438,6 +441,28 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+
+  packages/ai:
+    dependencies:
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+    devDependencies:
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
 
   packages/analytics:
     dependencies:
@@ -1615,6 +1640,16 @@ importers:
         version: 6.0.3
 
   packages/verification:
+    dependencies:
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../features/notifications
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../supabase
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
     devDependencies:
       '@odb/tsconfig':
         specifier: workspace:*
@@ -1665,9 +1700,15 @@ importers:
       '@odb/mailers':
         specifier: workspace:*
         version: link:../mailers/core
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../features/notifications
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
+      '@odb/verification':
+        specifier: workspace:*
+        version: link:../verification
       '@temporalio/activity':
         specifier: 'catalog:'
         version: 1.24.0

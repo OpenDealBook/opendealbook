@@ -9,6 +9,7 @@ const {
   embedDocumentChunks,
   completeEmbeddingJob,
   failEmbeddingJob,
+  runDealVerification,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '10 minutes',
 });
@@ -48,4 +49,6 @@ export async function documentIngestion(
 
     throw error;
   }
+
+  await runDealVerification({ dealId });
 }

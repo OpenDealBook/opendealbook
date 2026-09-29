@@ -3318,6 +3318,7 @@ export type Database = {
           account_id: string
           api_key_secret_ref: string | null
           base_url: string | null
+          chat_model: string | null
           created_at: string | null
           created_by: string | null
           id: string
@@ -3330,6 +3331,7 @@ export type Database = {
           account_id: string
           api_key_secret_ref?: string | null
           base_url?: string | null
+          chat_model?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -3342,6 +3344,7 @@ export type Database = {
           account_id?: string
           api_key_secret_ref?: string | null
           base_url?: string | null
+          chat_model?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
@@ -4587,6 +4590,169 @@ export type Database = {
           },
         ]
       }
+      verification_finding: {
+        Row: {
+          account_id: string
+          check_key: string
+          checklist_item_id: string | null
+          created_at: string | null
+          deal_id: string
+          detail: Json
+          dr_document_id: string | null
+          id: string
+          run_id: string
+          severity: Database["public"]["Enums"]["verification_severity"]
+          status: Database["public"]["Enums"]["verification_finding_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          check_key: string
+          checklist_item_id?: string | null
+          created_at?: string | null
+          deal_id: string
+          detail?: Json
+          dr_document_id?: string | null
+          id?: string
+          run_id: string
+          severity: Database["public"]["Enums"]["verification_severity"]
+          status?: Database["public"]["Enums"]["verification_finding_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          check_key?: string
+          checklist_item_id?: string | null
+          created_at?: string | null
+          deal_id?: string
+          detail?: Json
+          dr_document_id?: string | null
+          id?: string
+          run_id?: string
+          severity?: Database["public"]["Enums"]["verification_severity"]
+          status?: Database["public"]["Enums"]["verification_finding_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_finding_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_finding_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_finding_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_finding_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_finding_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_finding_dr_document_id_fkey"
+            columns: ["dr_document_id"]
+            isOneToOne: false
+            referencedRelation: "dr_document"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_finding_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "verification_run"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verification_run: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          finished_at: string | null
+          id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["verification_run_status"]
+          trigger: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          finished_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["verification_run_status"]
+          trigger: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          finished_at?: string | null
+          id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["verification_run_status"]
+          trigger?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verification_run_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_run_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_run_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verification_run_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workbook: {
         Row: {
           account_id: string
@@ -5138,6 +5304,14 @@ export type Database = {
         Returns: boolean
       }
       is_trial_active: { Args: { p_account_id: string }; Returns: boolean }
+      match_document_chunks: {
+        Args: { p_deal_id: string; p_embedding: string; p_match_count: number }
+        Returns: {
+          content: string
+          distance: number
+          id: string
+        }[]
+      }
       mfa_recovery_codes_status: {
         Args: never
         Returns: {
@@ -5298,6 +5472,14 @@ export type Database = {
         }
       }
       user_has_verified_mfa: { Args: never; Returns: boolean }
+      verification_finding_counts: {
+        Args: { p_deal_id: string }
+        Returns: {
+          error: number
+          info: number
+          warning: number
+        }[]
+      }
       verify_agent_key: {
         Args: { prefix: string; raw: string }
         Returns: string
@@ -5367,6 +5549,9 @@ export type Database = {
         | "imported"
         | "failed"
       upload_item_status: "pending" | "imported" | "failed"
+      verification_finding_status: "open" | "resolved" | "dismissed"
+      verification_run_status: "queued" | "running" | "done" | "failed"
+      verification_severity: "info" | "warning" | "error"
     }
     CompositeTypes: {
       invitation: {
@@ -5554,6 +5739,9 @@ export const Constants = {
         "failed",
       ],
       upload_item_status: ["pending", "imported", "failed"],
+      verification_finding_status: ["open", "resolved", "dismissed"],
+      verification_run_status: ["queued", "running", "done", "failed"],
+      verification_severity: ["info", "warning", "error"],
     },
   },
 } as const
