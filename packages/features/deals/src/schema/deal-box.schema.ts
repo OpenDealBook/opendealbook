@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const dealBoxCriteriaSchema = z.object({
   industries: z.array(z.string()).optional(),
+  naics: z.array(z.string()).optional(),
   states: z.array(z.string()).optional(),
   min_revenue: z.number().optional(),
   max_asking_price: z.number().optional(),

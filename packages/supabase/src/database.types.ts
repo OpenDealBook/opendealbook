@@ -1043,6 +1043,7 @@ export type Database = {
           account_id: string | null
           asking_price: number | null
           close_date: string | null
+          confidence: string | null
           created_at: string | null
           created_by: string | null
           data_class: Database["public"]["Enums"]["comp_data_class"]
@@ -1054,11 +1055,13 @@ export type Database = {
           multiple_revenue: number | null
           multiple_sde: number | null
           naics_code: string | null
+          price_basis: string | null
           region: string | null
           revenue: number | null
           sale_price: number | null
           sde: number | null
           source: string
+          source_label: string | null
           source_ref: string | null
           state: string | null
           updated_at: string | null
@@ -1068,6 +1071,7 @@ export type Database = {
           account_id?: string | null
           asking_price?: number | null
           close_date?: string | null
+          confidence?: string | null
           created_at?: string | null
           created_by?: string | null
           data_class: Database["public"]["Enums"]["comp_data_class"]
@@ -1079,11 +1083,13 @@ export type Database = {
           multiple_revenue?: number | null
           multiple_sde?: number | null
           naics_code?: string | null
+          price_basis?: string | null
           region?: string | null
           revenue?: number | null
           sale_price?: number | null
           sde?: number | null
           source: string
+          source_label?: string | null
           source_ref?: string | null
           state?: string | null
           updated_at?: string | null
@@ -1093,6 +1099,7 @@ export type Database = {
           account_id?: string | null
           asking_price?: number | null
           close_date?: string | null
+          confidence?: string | null
           created_at?: string | null
           created_by?: string | null
           data_class?: Database["public"]["Enums"]["comp_data_class"]
@@ -1104,11 +1111,13 @@ export type Database = {
           multiple_revenue?: number | null
           multiple_sde?: number | null
           naics_code?: string | null
+          price_basis?: string | null
           region?: string | null
           revenue?: number | null
           sale_price?: number | null
           sde?: number | null
           source?: string
+          source_label?: string | null
           source_ref?: string | null
           state?: string | null
           updated_at?: string | null
@@ -1225,6 +1234,7 @@ export type Database = {
       comp_license: {
         Row: {
           account_id: string
+          contributor_member: boolean
           created_at: string | null
           created_by: string | null
           expires_at: string | null
@@ -1239,6 +1249,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          contributor_member?: boolean
           created_at?: string | null
           created_by?: string | null
           expires_at?: string | null
@@ -1253,6 +1264,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          contributor_member?: boolean
           created_at?: string | null
           created_by?: string | null
           expires_at?: string | null

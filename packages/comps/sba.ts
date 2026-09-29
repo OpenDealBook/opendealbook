@@ -9,6 +9,7 @@ export type SbaProgram = '7a' | '504';
 export interface SbaCompFacts {
   program: SbaProgram;
   source: 'sba_foia';
+  sourceLabel: 'SBA 7(a) FOIA' | 'SBA 504 FOIA';
   sourceRef: string;
   dataClass: 'external';
   priceBasis: 'loan_proxy';
@@ -95,6 +96,7 @@ export function mapSbaRow(
   return {
     program,
     source: 'sba_foia',
+    sourceLabel: program === '504' ? 'SBA 504 FOIA' : 'SBA 7(a) FOIA',
     sourceRef: sbaUpsertKey(row),
     dataClass: 'external',
     priceBasis: 'loan_proxy',

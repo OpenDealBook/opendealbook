@@ -10,8 +10,8 @@ select tests.login_as_service_role();
 select public.create_team_account('Comp A', tests.get_uid('comp_a_owner'), 'comp-a');
 select public.create_team_account('Comp B', tests.get_uid('comp_b_owner'), 'comp-b');
 
-insert into public.comp (id, data_class, source, source_ref, naics_code, industry, region, state, sale_price, sde)
-values ('e1111111-0000-0000-0000-000000000001', 'external', 'sba_7a', 'sba-1', '541211', 'Accounting', 'South', 'GA', 500000, 125000);
+insert into public.comp (id, data_class, source, source_label, source_ref, naics_code, industry, region, state, sale_price, sde, price_basis, confidence)
+values ('e1111111-0000-0000-0000-000000000001', 'external', 'sba_foia', 'SBA 7(a) FOIA', 'sba-1', '541211', 'Accounting', 'South', 'GA', 500000, 125000, 'loan_proxy', 'proxy');
 
 insert into public.comp (id, account_id, data_class, source, industry, sale_price, sde)
 values ('c1111111-0000-0000-0000-000000000001', tests.account_id('comp-a'), 'internal', 'internal_close', 'Accounting', 600000, 150000);
@@ -27,6 +27,26 @@ select is(
   (select multiple_sde from public.comp where id = 'c1111111-0000-0000-0000-000000000001'),
   4.0,
   'multiple_sde is generated from sale_price and sde'
+);
+
+-- ---- data-source labeling: external rows are always attributed ----
+select is(
+  (select contributor_member from public.comp_license where id = 'd1111111-0000-0000-0000-000000000001'),
+  false,
+  'comp_license.contributor_member defaults to false'
+);
+select has_column('public', 'comp', 'price_basis', 'comp carries a price_basis');
+select has_column('public', 'comp', 'confidence', 'comp carries a confidence');
+select throws_ok(
+  $$ insert into public.comp (data_class, source, sale_price) values ('external', 'sba_foia', 100000) $$,
+  '23514',
+  null,
+  'an external comp without a source_label is rejected'
+);
+select lives_ok(
+  $$ insert into public.comp (account_id, data_class, source, sale_price)
+     values (tests.account_id('comp-a'), 'internal', 'own_close', 100000) $$,
+  'an internal comp without a source_label is allowed'
 );
 
 -- ---- external rows are cross-tenant open data, served only through the view ----

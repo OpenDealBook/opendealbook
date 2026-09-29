@@ -51,6 +51,16 @@ export async function writeCloseComp(
     throw error;
   }
 
+  const { error: licenseError } = await client
+    .from('comp_license')
+    .update({ contributor_member: true })
+    .eq('account_id', input.accountId)
+    .eq('vendor', 'DealStats');
+
+  if (licenseError) {
+    throw licenseError;
+  }
+
   return {
     compId: data.id,
     contributorPackage: buildDealStatsContributorPackage(input.deal),

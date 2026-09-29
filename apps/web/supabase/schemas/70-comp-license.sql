@@ -9,6 +9,7 @@ create table if not exists public.comp_license (
   account_id uuid not null references public.accounts (id) on delete cascade,
   vendor text not null,
   status public.comp_license_status not null default 'active',
+  contributor_member boolean not null default false,
   seats int,
   starts_at timestamptz,
   expires_at timestamptz,

@@ -5,7 +5,9 @@
 -- only while the owning tenant holds an active comp_license. data_class is set at
 -- insert and made immutable by comp_data_class_immutable so a row can never be
 -- reclassified into a more permissive class. Money multiples are generated so no
--- writer can desynchronise them. account_id is null for external rows.
+-- writer can desynchronise them. account_id is null for external rows, and
+-- comp_external_labeled holds every external row to a source and a human-readable
+-- source_label so open-data rows always carry their data-source attribution.
 
 create table if not exists public.comp (
   id uuid primary key default gen_random_uuid(),
@@ -14,6 +16,9 @@ create table if not exists public.comp (
   data_class public.comp_data_class not null,
   source text not null,
   source_ref text,
+  source_label text,
+  price_basis text,
+  confidence text,
   naics_code text,
   industry text,
   region text,
@@ -30,7 +35,10 @@ create table if not exists public.comp (
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  constraint comp_external_labeled check (
+    data_class <> 'external' or (source is not null and source_label is not null)
+  )
 );
 
 alter table public.comp enable row level security;

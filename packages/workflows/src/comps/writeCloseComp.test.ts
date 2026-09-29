@@ -11,7 +11,10 @@ vi.mock('@odb/supabase/admin', () => ({
 }));
 
 function makeClient() {
-  const capture = { inserts: {} as Record<string, unknown> };
+  const capture = {
+    inserts: {} as Record<string, unknown>,
+    updates: {} as Record<string, { values: unknown; filters: Record<string, unknown> }>,
+  };
   const client = {
     from(table: string) {
       return {
@@ -20,6 +23,18 @@ function makeClient() {
           return {
             select: () => ({ single: async () => ({ data: { id: 'comp-1' }, error: null }) }),
           };
+        },
+        update(values: unknown) {
+          const filters: Record<string, unknown> = {};
+          capture.updates[table] = { values, filters };
+          const builder = {
+            eq(column: string, value: unknown) {
+              filters[column] = value;
+              return builder;
+            },
+            then: (resolve: (value: { error: null }) => unknown) => resolve({ error: null }),
+          };
+          return builder;
         },
       };
     },
@@ -85,5 +100,17 @@ describe('writeCloseComp', () => {
     expect(result.contributorPackage.vendor).toBe('DealStats');
     expect(result.contributorPackage.fields['MVIC Price']).toBe(900_000);
     expect(result.contributorOffer).toEqual({ vendor: 'DealStats', setContributorMember: true });
+  });
+
+  it('marks the tenant DealStats license as a contributor member', async () => {
+    const { client, capture } = makeClient();
+    state.client = client;
+
+    await writeCloseComp({ dealId: 'deal-1', accountId: 'acct-1', deal });
+
+    expect(capture.updates.comp_license).toEqual({
+      values: { contributor_member: true },
+      filters: { account_id: 'acct-1', vendor: 'DealStats' },
+    });
   });
 });

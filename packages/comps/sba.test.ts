@@ -90,6 +90,7 @@ describe('mapSbaRow', () => {
     expect(facts).toMatchObject({
       program: '7a',
       source: 'sba_foia',
+      sourceLabel: 'SBA 7(a) FOIA',
       dataClass: 'external',
       priceBasis: 'loan_proxy',
       confidence: 'proxy',
@@ -108,6 +109,7 @@ describe('mapSbaRow', () => {
     const facts = mapSbaRow(fiveOhFour, { ratio: 0.85 });
     expect(facts).toMatchObject({
       program: '504',
+      sourceLabel: 'SBA 504 FOIA',
       price: 1_800_000,
       lender: 'Sierra Bank',
       state: 'NV',
