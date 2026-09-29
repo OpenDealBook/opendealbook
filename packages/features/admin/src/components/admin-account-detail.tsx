@@ -1,10 +1,20 @@
 'use client';
 
+import { useState } from 'react';
+
 import { useQueryClient } from '@tanstack/react-query';
 
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@odb/ui/dialog';
 import { Spinner } from '@odb/ui/spinner';
 import {
   Table,
@@ -24,6 +34,7 @@ import {
 export function AdminAccountDetail({ accountId }: { accountId: string }) {
   const queryClient = useQueryClient();
   const { data, isPending } = useAdminAccount(accountId);
+  const [banTarget, setBanTarget] = useState<string | null>(null);
 
   if (isPending) {
     return <Spinner />;
@@ -68,10 +79,7 @@ export function AdminAccountDetail({ accountId }: { accountId: string }) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={async () => {
-                        await banUserAction({ userId: membership.user_id });
-                        await invalidate();
-                      }}
+                      onClick={() => setBanTarget(membership.user_id)}
                     >
                       Ban
                     </Button>
@@ -107,6 +115,44 @@ export function AdminAccountDetail({ accountId }: { accountId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={banTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBanTarget(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ban member</DialogTitle>
+            <DialogDescription>
+              This signs the member out and blocks them from signing back in
+              until they are reactivated.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBanTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!banTarget) {
+                  return;
+                }
+
+                await banUserAction({ userId: banTarget });
+                setBanTarget(null);
+                await invalidate();
+              }}
+            >
+              Ban member
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

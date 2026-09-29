@@ -12,6 +12,14 @@ import {
 
 import { Button } from '@odb/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@odb/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -27,8 +35,9 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
-import { useAdminAccounts } from '../hooks/use-admin-accounts';
+import { nameMatchesConfirmation } from '../lib/confirm';
 import { deleteAccountAction } from '../lib/server/admin-actions';
+import { useAdminAccounts } from '../hooks/use-admin-accounts';
 
 type AccountRow = {
   id: string;
@@ -46,6 +55,8 @@ export function AdminAccountsTable({
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState<AccountRow | null>(null);
+  const [confirmName, setConfirmName] = useState('');
   const queryClient = useQueryClient();
 
   const { data, isPending } = useAdminAccounts({
@@ -78,11 +89,9 @@ export function AdminAccountsTable({
               View
             </DropdownMenuItem>
             <DropdownMenuItem
-              onSelect={async () => {
-                await deleteAccountAction({ accountId: row.original.id });
-                await queryClient.invalidateQueries({
-                  queryKey: ['admin', 'accounts'],
-                });
+              onSelect={() => {
+                setConfirmName('');
+                setDeleteTarget(row.original);
               }}
             >
               Delete account
@@ -98,6 +107,10 @@ export function AdminAccountsTable({
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
+
+  const confirmed =
+    deleteTarget !== null &&
+    nameMatchesConfirmation(confirmName, deleteTarget.name);
 
   return (
     <div className="space-y-4">
@@ -158,6 +171,52 @@ export function AdminAccountsTable({
           Next
         </Button>
       </div>
+
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete account</DialogTitle>
+            <DialogDescription>
+              This permanently deletes {deleteTarget?.name} and everything it
+              owns. Type the account name to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={confirmName}
+            placeholder={deleteTarget?.name}
+            onChange={(event) => setConfirmName(event.target.value)}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={!confirmed}
+              onClick={async () => {
+                if (!deleteTarget) {
+                  return;
+                }
+
+                await deleteAccountAction({ accountId: deleteTarget.id });
+                setDeleteTarget(null);
+                await queryClient.invalidateQueries({
+                  queryKey: ['admin', 'accounts'],
+                });
+              }}
+            >
+              Delete account
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,7 @@
 'use server';
 
+import type { User } from '@supabase/supabase-js';
+
 import { enhanceAction } from '@odb/next/actions';
 import {
   getSupabaseServerAdminClient,
@@ -14,7 +16,9 @@ import {
   type ListAccountsInput,
   type UserIdInput,
 } from './schemas';
+import { recordAdminAction } from './utils/audit';
 import { assertSuperAdmin } from './utils/super-admin';
+import { assertTargetUserMutable } from './utils/target-guard';
 
 const BAN_DURATION = '876000h';
 
@@ -71,37 +75,69 @@ export const getAccountDetailAction = enhanceAction(
 );
 
 export const deleteAccountAction = enhanceAction(
-  async (input: AccountIdInput) => {
+  async (input: AccountIdInput, user: User) => {
     await assertSuperAdmin(getSupabaseServerClient());
 
-    await getSupabaseServerAdminClient()
+    const client = getSupabaseServerAdminClient();
+
+    const { data: account } = await client
       .from('accounts')
-      .delete()
-      .eq('id', input.accountId);
+      .select('primary_owner_user_id')
+      .eq('id', input.accountId)
+      .single();
+
+    await assertTargetUserMutable(client, user.id, account!.primary_owner_user_id);
+
+    await client.from('accounts').delete().eq('id', input.accountId);
+
+    await recordAdminAction(client, {
+      actorUserId: user.id,
+      action: 'account.delete',
+      targetType: 'account',
+      targetId: input.accountId,
+    });
   },
   { schema: AccountIdSchema },
 );
 
 export const banUserAction = enhanceAction(
-  async (input: UserIdInput) => {
+  async (input: UserIdInput, user: User) => {
     await assertSuperAdmin(getSupabaseServerClient());
 
-    await getSupabaseServerAdminClient().auth.admin.updateUserById(
-      input.userId,
-      { ban_duration: BAN_DURATION },
-    );
+    const client = getSupabaseServerAdminClient();
+
+    await assertTargetUserMutable(client, user.id, input.userId);
+
+    await client.auth.admin.updateUserById(input.userId, {
+      ban_duration: BAN_DURATION,
+    });
+
+    await recordAdminAction(client, {
+      actorUserId: user.id,
+      action: 'user.ban',
+      targetType: 'user',
+      targetId: input.userId,
+    });
   },
   { schema: UserIdSchema },
 );
 
 export const reactivateUserAction = enhanceAction(
-  async (input: UserIdInput) => {
+  async (input: UserIdInput, user: User) => {
     await assertSuperAdmin(getSupabaseServerClient());
 
-    await getSupabaseServerAdminClient().auth.admin.updateUserById(
-      input.userId,
-      { ban_duration: 'none' },
-    );
+    const client = getSupabaseServerAdminClient();
+
+    await client.auth.admin.updateUserById(input.userId, {
+      ban_duration: 'none',
+    });
+
+    await recordAdminAction(client, {
+      actorUserId: user.id,
+      action: 'user.reactivate',
+      targetType: 'user',
+      targetId: input.userId,
+    });
   },
   { schema: UserIdSchema },
 );

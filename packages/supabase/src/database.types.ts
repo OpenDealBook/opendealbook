@@ -226,6 +226,36 @@ export type Database = {
           },
         ]
       }
+      admin_action_log: {
+        Row: {
+          action: string
+          actor_user_id: string
+          created_at: string
+          detail: Json
+          id: string
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       agent: {
         Row: {
           account_id: string
@@ -5304,6 +5334,10 @@ export type Database = {
         Returns: boolean
       }
       is_trial_active: { Args: { p_account_id: string }; Returns: boolean }
+      is_user_super_admin: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
       match_document_chunks: {
         Args: { p_deal_id: string; p_embedding: string; p_match_count: number }
         Returns: {
