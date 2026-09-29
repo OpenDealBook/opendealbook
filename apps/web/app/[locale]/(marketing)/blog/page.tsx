@@ -9,13 +9,7 @@ import {
   CardTitle,
 } from '@odb/ui/card';
 
-export default async function BlogPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-
+export default async function BlogPage() {
   const cms = await createCmsClient();
   const { items } = await cms.getContentItems({
     collection: 'posts',
@@ -35,7 +29,7 @@ export default async function BlogPage({
 
       <div className={'mt-12 flex flex-col gap-6'}>
         {items.map((post) => (
-          <Link key={post.id} href={`/${locale}/blog/${post.slug}`}>
+          <Link key={post.id} href={`/blog/${post.slug}`}>
             <Card>
               <CardHeader>
                 <CardTitle>{post.title}</CardTitle>

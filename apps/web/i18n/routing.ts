@@ -5,5 +5,6 @@ import { i18nConfig } from '@odb/i18n/config';
 export const routing = defineRouting({
   locales: i18nConfig.locales,
   defaultLocale: i18nConfig.defaultLocale,
+  localePrefix: 'as-needed',
   localeCookie: { name: i18nConfig.localeCookieName },
 });
