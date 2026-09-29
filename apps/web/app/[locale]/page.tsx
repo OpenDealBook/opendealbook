@@ -15,6 +15,8 @@ import featureFlagsConfig from '~/config/feature-flags.config';
 import { marketingGateRedirect } from '~/config/marketing-gate';
 import pathsConfig from '~/config/paths.config';
 
+import { MarketingShell } from './_components/marketing-shell';
+
 export const metadata: Metadata = {
   title: 'OpenDealbook, the deal platform for M&A teams',
   description:
@@ -95,161 +97,163 @@ export default function LandingPage() {
   }
 
   return (
-    <div className={'flex flex-col'}>
-      <section
-        className={
-          'mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-24 text-center'
-        }
-      >
-        <h1 className={'max-w-3xl text-4xl font-bold sm:text-5xl'}>
-          Run every acquisition in one place.
-        </h1>
-        <p className={'text-muted-foreground max-w-2xl text-lg'}>
-          OpenDealbook is the deal platform for teams that grow by acquisition.
-          Pipeline, diligence, data room, contracts, and closing, with your team
-          and outside counsel, sellers, and brokers each in exactly the right
-          lane. Start free with a workspace of example deals already in flight.
-        </p>
-        <div className={'flex flex-wrap items-center justify-center gap-3'}>
-          <Button asChild size={'lg'}>
-            <Link href={signUpHref}>Start your free trial</Link>
-          </Button>
-          <Button asChild variant={'outline'} size={'lg'}>
-            <Link href={'#how-it-works'}>See how a deal runs</Link>
-          </Button>
-        </div>
-      </section>
+    <MarketingShell>
+      <div className={'flex flex-col'}>
+        <section
+          className={
+            'mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-24 text-center'
+          }
+        >
+          <h1 className={'max-w-3xl text-4xl font-bold sm:text-5xl'}>
+            Run every acquisition in one place.
+          </h1>
+          <p className={'text-muted-foreground max-w-2xl text-lg'}>
+            OpenDealbook is the deal platform for teams that grow by acquisition.
+            Pipeline, diligence, data room, contracts, and closing, with your team
+            and outside counsel, sellers, and brokers each in exactly the right
+            lane. Start free with a workspace of example deals already in flight.
+          </p>
+          <div className={'flex flex-wrap items-center justify-center gap-3'}>
+            <Button asChild size={'lg'}>
+              <Link href={signUpHref}>Start your free trial</Link>
+            </Button>
+            <Button asChild variant={'outline'} size={'lg'}>
+              <Link href={'#how-it-works'}>See how a deal runs</Link>
+            </Button>
+          </div>
+        </section>
 
-      {/* Social proof strip omitted: real customer logos, stats, and testimonials go here once available. */}
+        {/* Social proof strip omitted: real customer logos, stats, and testimonials go here once available. */}
 
-      <section
-        className={
-          'mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-16 text-center'
-        }
-      >
-        <h2 className={'text-3xl font-bold'}>
-          Your deals live in twelve tools. None of them talk.
-        </h2>
-        <p className={'text-muted-foreground text-lg'}>
-          Acquisitions run across inboxes, spreadsheets, shared drives, a
-          separate data room, and a signing tool, with counsel and sellers
-          looped in by email. Every deal starts the process over. Leadership
-          cannot see where things stand. And the one thing that has to be
-          airtight, who can see what, is the hardest thing to control. When
-          acquisition is your growth strategy, that does not scale.
-        </p>
-      </section>
-
-      <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
-        <div className={'grid gap-6 sm:grid-cols-2'}>
-          {benefits.map((benefit) => (
-            <Card key={benefit.title}>
-              <CardHeader>
-                <CardTitle>{benefit.title}</CardTitle>
-                <CardDescription>{benefit.body}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section
-        id={'how-it-works'}
-        className={'mx-auto w-full max-w-6xl px-6 py-16'}
-      >
-        <h2 className={'mb-10 text-center text-3xl font-bold'}>
-          From first conversation to close, on one clock.
-        </h2>
-        <ol className={'grid gap-6 sm:grid-cols-2'}>
-          {steps.map((step, index) => (
-            <li key={step.title}>
-              <Card className={'h-full'}>
-                <CardHeader>
-                  <CardTitle>
-                    <span className={'text-muted-foreground mr-2'}>
-                      {index + 1}.
-                    </span>
-                    {step.title}
-                  </CardTitle>
-                  <CardDescription>{step.body}</CardDescription>
-                </CardHeader>
-              </Card>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section
-        className={
-          'mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-16 text-center'
-        }
-      >
-        <h2 className={'text-3xl font-bold'}>
-          Explore a real pipeline on day one.
-        </h2>
-        <p className={'text-muted-foreground text-lg'}>
-          Your trial account comes loaded with example deals across every stage,
-          so you can open a live-looking data room, work a diligence checklist,
-          and page through a contract before you add a single deal of your own.
-        </p>
-      </section>
-
-      <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
-        <div className={'mb-10 flex flex-col gap-3 text-center'}>
+        <section
+          className={
+            'mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-16 text-center'
+          }
+        >
           <h2 className={'text-3xl font-bold'}>
-            Built for the people who run the deal.
+            Your deals live in twelve tools. None of them talk.
           </h2>
           <p className={'text-muted-foreground text-lg'}>
-            Your deal team, your counsel, and the other side, working in the
-            same system.
+            Acquisitions run across inboxes, spreadsheets, shared drives, a
+            separate data room, and a signing tool, with counsel and sellers
+            looped in by email. Every deal starts the process over. Leadership
+            cannot see where things stand. And the one thing that has to be
+            airtight, who can see what, is the hardest thing to control. When
+            acquisition is your growth strategy, that does not scale.
           </p>
-        </div>
-        <div className={'grid gap-6 sm:grid-cols-2'}>
-          {roles.map((role) => (
-            <Card key={role}>
-              <CardContent className={'pt-6'}>
-                <p>{role}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
+        </section>
 
-      <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
-        <h2 className={'mb-10 text-center text-3xl font-bold'}>
-          Your deal data stays yours.
-        </h2>
-        <div className={'grid gap-6 sm:grid-cols-2'}>
-          {trust.map((item) => (
-            <Card key={item.title}>
-              <CardHeader>
-                <CardTitle>{item.title}</CardTitle>
-                <CardDescription>{item.body}</CardDescription>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      </section>
+        <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
+          <div className={'grid gap-6 sm:grid-cols-2'}>
+            {benefits.map((benefit) => (
+              <Card key={benefit.title}>
+                <CardHeader>
+                  <CardTitle>{benefit.title}</CardTitle>
+                  <CardDescription>{benefit.body}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </section>
 
-      <section
-        className={
-          'mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center'
-        }
-      >
-        <h2 className={'text-3xl font-bold'}>
-          Give your next acquisition a home.
-        </h2>
-        <p className={'text-muted-foreground text-lg'}>
-          Start free with a full pipeline of example deals to explore, then
-          bring your own when you are ready.
-        </p>
-        <Button asChild size={'lg'}>
-          <Link href={signUpHref}>Start your 30-day free trial</Link>
-        </Button>
-        <p className={'text-muted-foreground text-sm'}>
-          Free for 30 days. No credit card to start.
-        </p>
-      </section>
-    </div>
+        <section
+          id={'how-it-works'}
+          className={'mx-auto w-full max-w-6xl px-6 py-16'}
+        >
+          <h2 className={'mb-10 text-center text-3xl font-bold'}>
+            From first conversation to close, on one clock.
+          </h2>
+          <ol className={'grid gap-6 sm:grid-cols-2'}>
+            {steps.map((step, index) => (
+              <li key={step.title}>
+                <Card className={'h-full'}>
+                  <CardHeader>
+                    <CardTitle>
+                      <span className={'text-muted-foreground mr-2'}>
+                        {index + 1}.
+                      </span>
+                      {step.title}
+                    </CardTitle>
+                    <CardDescription>{step.body}</CardDescription>
+                  </CardHeader>
+                </Card>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section
+          className={
+            'mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-16 text-center'
+          }
+        >
+          <h2 className={'text-3xl font-bold'}>
+            Explore a real pipeline on day one.
+          </h2>
+          <p className={'text-muted-foreground text-lg'}>
+            Your trial account comes loaded with example deals across every stage,
+            so you can open a live-looking data room, work a diligence checklist,
+            and page through a contract before you add a single deal of your own.
+          </p>
+        </section>
+
+        <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
+          <div className={'mb-10 flex flex-col gap-3 text-center'}>
+            <h2 className={'text-3xl font-bold'}>
+              Built for the people who run the deal.
+            </h2>
+            <p className={'text-muted-foreground text-lg'}>
+              Your deal team, your counsel, and the other side, working in the
+              same system.
+            </p>
+          </div>
+          <div className={'grid gap-6 sm:grid-cols-2'}>
+            {roles.map((role) => (
+              <Card key={role}>
+                <CardContent className={'pt-6'}>
+                  <p>{role}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
+          <h2 className={'mb-10 text-center text-3xl font-bold'}>
+            Your deal data stays yours.
+          </h2>
+          <div className={'grid gap-6 sm:grid-cols-2'}>
+            {trust.map((item) => (
+              <Card key={item.title}>
+                <CardHeader>
+                  <CardTitle>{item.title}</CardTitle>
+                  <CardDescription>{item.body}</CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section
+          className={
+            'mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-6 py-24 text-center'
+          }
+        >
+          <h2 className={'text-3xl font-bold'}>
+            Give your next acquisition a home.
+          </h2>
+          <p className={'text-muted-foreground text-lg'}>
+            Start free with a full pipeline of example deals to explore, then
+            bring your own when you are ready.
+          </p>
+          <Button asChild size={'lg'}>
+            <Link href={signUpHref}>Start your 30-day free trial</Link>
+          </Button>
+          <p className={'text-muted-foreground text-sm'}>
+            Free for 30 days. No credit card to start.
+          </p>
+        </section>
+      </div>
+    </MarketingShell>
   );
 }
