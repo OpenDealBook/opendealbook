@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { getTranslations } from 'next-intl/server';
+
 import { NotificationsPopover } from '@odb/notifications/components';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -19,7 +21,9 @@ export default async function UserWorkspaceLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  await params;
+  const { locale } = await params;
+
+  const t = await getTranslations({ locale });
 
   const client = getSupabaseServerClient();
 
@@ -51,7 +55,7 @@ export default async function UserWorkspaceLayout({
                 'hover:bg-muted rounded-md px-2 py-2 text-sm font-medium'
               }
             >
-              {item.label}
+              {t(item.label)}
             </Link>
           ))}
         </nav>

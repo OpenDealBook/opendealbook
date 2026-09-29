@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
+import { getTranslations } from 'next-intl/server';
+
 import { isAccountOwner, type Role } from '@odb/policies';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -76,7 +78,9 @@ export default async function TeamAccountLayout({
   children,
   params,
 }: TeamAccountLayoutProps) {
-  const { account } = await params;
+  const { locale, account } = await params;
+
+  const t = await getTranslations({ locale });
 
   const { user, team } = await loadTeamWorkspace(account);
   const teams = await loadTeamAccounts(user.id);
@@ -116,7 +120,7 @@ export default async function TeamAccountLayout({
               href={item.path}
               className={'rounded px-3 py-2 text-sm'}
             >
-              {item.label}
+              {t(item.label)}
             </Link>
           ))}
         </nav>

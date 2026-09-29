@@ -1,6 +1,7 @@
 {
   "common": {
     "appName": "Open Deal Book",
+    "home": "Home",
     "loading": "Loading",
     "signIn": "Sign in",
     "signUp": "Sign up",
