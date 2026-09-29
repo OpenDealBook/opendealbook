@@ -1,0 +1,51 @@
+{
+  "vendor": "DealStats",
+  "version": "v1",
+  "source_of_field_names": "DealStats Companion Guide sample Transaction Report (bvresources.com), parsed 2026-09-28",
+  "price_basis": "actual",
+  "default_confidence": "high",
+  "notes": [
+    "DealStats reports observed transaction prices, so price_basis = actual, not loan_proxy.",
+    "MVIC (Market Value of Invested Capital) is the headline selling price. PPMVIC (Pure Play MVIC) strips non-operating items; pick one consistently. Default: MVIC.",
+    "Full 'All Available Fields' export carries up to ~149-210 data points; only the labels visible on the published sample report are verified below. All other fields set verified=false pending a real export.",
+    "Covers both asset and stock sales; Transaction Type distinguishes them.",
+    "Target comp column names are INFERRED from the task; verify against the real module spec."
+  ],
+  "ar_ap_normalization": {
+    "flag": "not_stripped",
+    "detail": "DealStats reports Accounts Receivable and Inventory as balance-sheet line items and does NOT strip AR/AP from MVIC by default. To compare against PeerComps/BIZCOMPS (which exclude AR/AP), a normalization step may be required. Confirm treatment per transaction (asset vs stock).",
+    "verified": true
+  },
+  "columns": [
+    {"vendor_column": "Business Description", "target_comp_column": "description", "parser": "string", "required": false, "verified": true},
+    {"vendor_column": "SIC", "target_comp_column": "sic", "parser": "string", "required": false, "verified": true},
+    {"vendor_column": "NAICS", "target_comp_column": "naics", "parser": "string", "required": true, "verified": true},
+    {"vendor_column": "Sale Date", "target_comp_column": "sale_date", "parser": "date", "required": true, "verified": true},
+    {"vendor_column": "Days To Sell", "target_comp_column": "days_on_market", "parser": "integer", "required": false, "verified": true},
+    {"vendor_column": "Percentage Acquired", "target_comp_column": "percent_acquired", "parser": "percent", "required": false, "verified": true},
+    {"vendor_column": "Transaction Type", "target_comp_column": "transaction_type", "parser": "enum", "required": false, "verified": true, "enum_values": ["Asset", "Stock"]},
+    {"vendor_column": "Asking Price", "target_comp_column": "asking_price", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "MVIC Price", "target_comp_column": "sale_price", "parser": "currency", "required": true, "verified": true},
+    {"vendor_column": "Pure Play MVIC (PPMVIC)", "target_comp_column": "sale_price_pureplay", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Debt Assumed", "target_comp_column": "debt_assumed", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Amount Down", "target_comp_column": "amount_down", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Net Sales", "target_comp_column": "revenue", "parser": "currency", "required": true, "verified": true},
+    {"vendor_column": "COGS", "target_comp_column": "cogs", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Gross Profit", "target_comp_column": "gross_profit", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Rent", "target_comp_column": "rent", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Owner's Compensation", "target_comp_column": "owner_compensation", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Operating Profit", "target_comp_column": "operating_profit", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "SDE", "target_comp_column": "sde", "parser": "currency", "required": true, "verified": true},
+    {"vendor_column": "EBITDA", "target_comp_column": "ebitda", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Accounts Receivable", "target_comp_column": "accounts_receivable", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Inventory", "target_comp_column": "inventory", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Total Current Assets", "target_comp_column": "total_current_assets", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "MVIC/Net Sales", "target_comp_column": "mult_price_revenue", "parser": "number", "required": false, "verified": true},
+    {"vendor_column": "MVIC/EBITDA", "target_comp_column": "mult_price_ebitda", "parser": "number", "required": false, "verified": true},
+    {"vendor_column": "MVIC/SDE", "target_comp_column": "mult_price_sde", "parser": "number", "required": false, "verified": true},
+    {"vendor_column": "MVIC/Gross Profit", "target_comp_column": "mult_price_gross_profit", "parser": "number", "required": false, "verified": true},
+    {"vendor_column": "MVIC/EBIT", "target_comp_column": "mult_price_ebit", "parser": "number", "required": false, "verified": true},
+    {"vendor_column": "Employees", "target_comp_column": "employees", "parser": "integer", "required": false, "verified": false},
+    {"vendor_column": "Company Location (state/country)", "target_comp_column": "state", "parser": "string", "required": false, "verified": false}
+  ]
+}

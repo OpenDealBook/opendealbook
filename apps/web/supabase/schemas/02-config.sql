@@ -5,7 +5,8 @@ create table if not exists public.config (
   enable_team_accounts boolean not null default true,
   enable_account_billing boolean not null default true,
   enable_team_account_billing boolean not null default true,
-  billing_provider public.billing_provider not null default 'stripe'
+  billing_provider public.billing_provider not null default 'stripe',
+  comp_pool_min_bucket int not null default 5
 );
 
 alter table public.config enable row level security;

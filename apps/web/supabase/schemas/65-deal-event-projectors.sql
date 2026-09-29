@@ -15,7 +15,7 @@ create or replace function public.project_deal(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.created' then
-    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, created_by, updated_by)
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, capture_method, source_url, created_by_kind, created_by_ref, created_by_via, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'firm_id')::uuid,
@@ -30,6 +30,16 @@ begin
       coalesce(ev.payload ->> 'stage', 'sourced'),
       (ev.payload ->> 'broker_contact_id')::uuid,
       (ev.payload ->> 'deal_box_version')::int,
+      ev.payload ->> 'capture_method',
+      ev.payload ->> 'source_url',
+      case ev.actor_kind
+        when 'user' then 'user'
+        when 'service' then 'workflow'
+        when 'api_key' then 'agent'
+        when 'system' then 'integration'
+      end,
+      ev.actor_ref::text,
+      ev.actor_via,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -43,6 +53,8 @@ begin
       notes = excluded.notes,
       broker_contact_id = excluded.broker_contact_id,
       deal_box_version = excluded.deal_box_version,
+      capture_method = excluded.capture_method,
+      source_url = excluded.source_url,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
@@ -58,6 +70,17 @@ begin
   elsif ev.event_type = 'deal.stage_changed' then
     update public.deal set
       stage = ev.payload ->> 'stage',
+      outcome_reason = coalesce(ev.payload ->> 'outcome_reason', outcome_reason),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.duplicate_flagged' then
+    update public.deal set
+      duplicate_of = (ev.payload ->> 'duplicate_of')::uuid,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.duplicate_cleared' then
+    update public.deal set
+      duplicate_of = null,
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   else

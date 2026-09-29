@@ -1,0 +1,34 @@
+{
+  "vendor": "PeerComps",
+  "version": "v1",
+  "source_of_field_names": "PeerComps public descriptions (peercomps.com, gvalue.com, valuationproducts.com) parsed 2026-09-28; delivered as PDF reports",
+  "price_basis": "actual",
+  "default_confidence": "medium",
+  "notes": [
+    "PeerComps sources SBA-lender transactions (16,000+, ~100/month added since 1999). Overlaps conceptually with our SBA loan-proxy comps but PeerComps carries the ACTUAL sale price plus normalized financials, so price_basis = actual, not loan_proxy.",
+    "Delivered as PDF comp reports, not a clean CSV/API export. Ingest likely needs PDF parsing or a manual/exported data pull; confirm the actual delivery format before building the parser.",
+    "Reports price to revenue, price to SDE, and price to EBITDA multiples.",
+    "Field labels below are INFERRED from public descriptions; no real export/PDF was parsed for exact headers, so most are verified=false pending a real sample."
+  ],
+  "ar_ap_normalization": {
+    "flag": "stripped",
+    "detail": "VERIFIED from public descriptions: PeerComps Price includes normal fixed assets, normal inventory, and goodwill, but EXCLUDES accounts receivable and accounts payable; ~90% of transactions are asset sales with real estate, cash, AR, non-operating assets, and all liabilities stripped. Set ar_ap_excluded = true on ingest (consistent with BIZCOMPS; differs from DealStats default).",
+    "verified": true
+  },
+  "columns": [
+    {"vendor_column": "NAICS Code", "target_comp_column": "naics", "parser": "string", "required": true, "verified": false},
+    {"vendor_column": "SIC Code", "target_comp_column": "sic", "parser": "string", "required": false, "verified": false},
+    {"vendor_column": "Sale Date", "target_comp_column": "sale_date", "parser": "date", "required": true, "verified": false},
+    {"vendor_column": "State / Region", "target_comp_column": "state", "parser": "string", "required": false, "verified": false},
+    {"vendor_column": "Sale Price", "target_comp_column": "sale_price", "parser": "currency", "required": true, "verified": false},
+    {"vendor_column": "Gross Revenue", "target_comp_column": "revenue", "parser": "currency", "required": true, "verified": false},
+    {"vendor_column": "SDE", "target_comp_column": "sde", "parser": "currency", "required": true, "verified": false},
+    {"vendor_column": "EBITDA", "target_comp_column": "ebitda", "parser": "currency", "required": false, "verified": false},
+    {"vendor_column": "Inventory", "target_comp_column": "inventory", "parser": "currency", "required": false, "verified": false},
+    {"vendor_column": "Fixed Assets / FF&E", "target_comp_column": "ffe", "parser": "currency", "required": false, "verified": false},
+    {"vendor_column": "Terms", "target_comp_column": "terms", "parser": "string", "required": false, "verified": false},
+    {"vendor_column": "Price / Revenue", "target_comp_column": "mult_price_revenue", "parser": "number", "required": false, "verified": false},
+    {"vendor_column": "Price / SDE", "target_comp_column": "mult_price_sde", "parser": "number", "required": false, "verified": false},
+    {"vendor_column": "Price / EBITDA", "target_comp_column": "mult_price_ebitda", "parser": "number", "required": false, "verified": false}
+  ]
+}

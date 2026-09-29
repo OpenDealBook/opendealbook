@@ -23,6 +23,8 @@ export type EventType =
   | 'deal.created'
   | 'deal.updated'
   | 'deal.stage_changed'
+  | 'deal.duplicate_flagged'
+  | 'deal.duplicate_cleared'
   | 'deal_box.set'
   | 'checklist_item.added'
   | 'checklist_item.removed'

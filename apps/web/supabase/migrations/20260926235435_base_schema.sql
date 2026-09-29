@@ -77,7 +77,8 @@ create table if not exists public.config (
   enable_team_accounts boolean not null default true,
   enable_account_billing boolean not null default true,
   enable_team_account_billing boolean not null default true,
-  billing_provider public.billing_provider not null default 'stripe'
+  billing_provider public.billing_provider not null default 'stripe',
+  comp_pool_min_bucket int not null default 5
 );
 
 alter table public.config enable row level security;
@@ -1879,6 +1880,13 @@ create table if not exists public.deal (
   deal_box_version int,
   close_date date,
   broker_contact_id uuid references public.contact (id) on delete set null,
+  outcome_reason text,
+  duplicate_of uuid references public.deal (id) on delete set null,
+  capture_method text,
+  source_url text,
+  created_by_kind text,
+  created_by_ref text,
+  created_by_via text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -4537,7 +4545,7 @@ create or replace function public.project_deal(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.created' then
-    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, created_by, updated_by)
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, capture_method, source_url, created_by_kind, created_by_ref, created_by_via, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'firm_id')::uuid,
@@ -4552,6 +4560,16 @@ begin
       coalesce(ev.payload ->> 'stage', 'sourced'),
       (ev.payload ->> 'broker_contact_id')::uuid,
       (ev.payload ->> 'deal_box_version')::int,
+      ev.payload ->> 'capture_method',
+      ev.payload ->> 'source_url',
+      case ev.actor_kind
+        when 'user' then 'user'
+        when 'service' then 'workflow'
+        when 'api_key' then 'agent'
+        when 'system' then 'integration'
+      end,
+      ev.actor_ref::text,
+      ev.actor_via,
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -4565,6 +4583,8 @@ begin
       notes = excluded.notes,
       broker_contact_id = excluded.broker_contact_id,
       deal_box_version = excluded.deal_box_version,
+      capture_method = excluded.capture_method,
+      source_url = excluded.source_url,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
@@ -4580,6 +4600,17 @@ begin
   elsif ev.event_type = 'deal.stage_changed' then
     update public.deal set
       stage = ev.payload ->> 'stage',
+      outcome_reason = coalesce(ev.payload ->> 'outcome_reason', outcome_reason),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.duplicate_flagged' then
+    update public.deal set
+      duplicate_of = (ev.payload ->> 'duplicate_of')::uuid,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.duplicate_cleared' then
+    update public.deal set
+      duplicate_of = null,
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   else
@@ -5149,3 +5180,610 @@ $$;
 
 grant execute on function public.analytics_deals_added_lost_by_month(uuid) to authenticated, service_role;
 grant execute on function public.analytics_median_days_in_stage(uuid) to authenticated, service_role;
+
+-- ===== schemas/69-comps-enums.sql =====
+-- Enums for the Comparables module. data_class is the core RLS invariant: it is
+-- set once at insert and frozen by a trigger, and every cross-tenant path
+-- excludes proprietary rows. license status drives the proprietary read join;
+-- activity confidence tracks how far an anonymized deal was qualified.
+
+create type public.comp_data_class as enum (
+  'external',
+  'proprietary',
+  'internal'
+);
+
+create type public.comp_license_status as enum (
+  'active',
+  'expired',
+  'revoked'
+);
+
+create type public.activity_confidence as enum (
+  'listed',
+  'screened',
+  'verified'
+);
+
+-- ===== schemas/70-comp-license.sql =====
+-- A tenant's vendor-seat license (DealStats, BIZCOMPS, PeerComps). An active
+-- license is what the comp read policy joins to before it will expose that
+-- tenant's proprietary rows; an expired or revoked license closes that door
+-- without touching the rows. storage_path points at the raw vendor export kept
+-- encrypted behind the same proprietary predicate.
+
+create table if not exists public.comp_license (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  vendor text not null,
+  status public.comp_license_status not null default 'active',
+  seats int,
+  starts_at timestamptz,
+  expires_at timestamptz,
+  storage_path text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.comp_license enable row level security;
+
+create index ix_comp_license_account on public.comp_license (account_id, status);
+
+revoke all on public.comp_license from authenticated, service_role;
+grant select on public.comp_license to authenticated;
+grant select, insert, update, delete on public.comp_license to service_role;
+
+create trigger comp_license_timestamps
+  before insert or update on public.comp_license
+  for each row execute function public.set_timestamps();
+
+create policy comp_license_read on public.comp_license
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+-- ===== schemas/71-comp.sql =====
+-- A comparable transaction. Every row carries a data_class that fixes its
+-- visibility for the life of the row: external rows are platform-owned open data
+-- served cross-tenant through comp_external; internal and proprietary rows are
+-- tenant-owned and never cross a tenant boundary. proprietary rows are readable
+-- only while the owning tenant holds an active comp_license. data_class is set at
+-- insert and made immutable by comp_data_class_immutable so a row can never be
+-- reclassified into a more permissive class. Money multiples are generated so no
+-- writer can desynchronise them. account_id is null for external rows.
+
+create table if not exists public.comp (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid references public.accounts (id) on delete cascade,
+  deal_id uuid references public.deal (id) on delete set null,
+  data_class public.comp_data_class not null,
+  source text not null,
+  source_ref text,
+  naics_code text,
+  industry text,
+  region text,
+  state text,
+  close_date date,
+  asking_price numeric,
+  sale_price numeric,
+  revenue numeric,
+  sde numeric,
+  ebitda numeric,
+  multiple_sde numeric generated always as (sale_price / nullif(sde, 0)) stored,
+  multiple_revenue numeric generated always as (sale_price / nullif(revenue, 0)) stored,
+  multiple_ebitda numeric generated always as (sale_price / nullif(ebitda, 0)) stored,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.comp enable row level security;
+
+create index ix_comp_data_class on public.comp (data_class);
+create index ix_comp_account on public.comp (account_id, data_class);
+create index ix_comp_deal on public.comp (deal_id);
+create index ix_comp_naics on public.comp (naics_code);
+create unique index ux_comp_source_ref on public.comp (source, source_ref) where source_ref is not null;
+
+revoke all on public.comp from authenticated, service_role;
+grant select on public.comp to authenticated;
+grant select, insert, update, delete on public.comp to service_role;
+
+create trigger comp_timestamps
+  before insert or update on public.comp
+  for each row execute function public.set_timestamps();
+
+-- data_class is frozen after insert. Reclassifying a row would move it between
+-- visibility rules, so the change is rejected outright.
+create or replace function public.comp_data_class_immutable()
+  returns trigger
+  set search_path = '' as $$
+begin
+  if new.data_class <> old.data_class then
+    raise exception 'comp.data_class is immutable' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger comp_data_class_immutable
+  before update on public.comp
+  for each row execute function public.comp_data_class_immutable();
+
+-- internal rows are visible within the owning tenant or to a granted deal
+-- participant; proprietary rows only while the tenant holds an active license.
+-- external rows are not exposed here: they are served by comp_external.
+create policy comp_read on public.comp
+  for select to authenticated
+  using (
+    (
+      data_class = 'internal'
+      and (
+        public.has_role_on_account(account_id)
+        or (deal_id is not null and public.has_deal_permission(deal_id, 'deals.manage'))
+      )
+    )
+    or (
+      data_class = 'proprietary'
+      and public.has_role_on_account(account_id)
+      and exists (
+        select 1 from public.comp_license l
+        where l.account_id = comp.account_id
+          and l.status = 'active'
+          and (l.expires_at is null or l.expires_at > now())
+      )
+    )
+  );
+
+-- The cross-tenant open-data surface. Runs with the view owner's rights so
+-- external rows are public, and filters to external so the proprietary and
+-- internal rows behind the same table never leak. The comps data-class guard
+-- asserts no view over comp omits this exclusion.
+create view public.comp_external as
+  select
+    id, source, source_ref, naics_code, industry, region, state, close_date,
+    asking_price, sale_price, revenue, sde, ebitda,
+    multiple_sde, multiple_revenue, multiple_ebitda, created_at
+  from public.comp
+  where data_class = 'external';
+
+grant select on public.comp_external to authenticated, service_role;
+
+-- Keep internal and proprietary comps searchable inside their tenant. External
+-- rows have no account and are cross-tenant, so they are not indexed here.
+create or replace function public.comp_search_index()
+  returns trigger
+  security definer set search_path = '' as $$
+begin
+  if new.account_id is not null then
+    insert into public.search_document (entity_type, entity_id, account_id, deal_id, tsv)
+    values (
+      'comp', new.id, new.account_id, new.deal_id,
+      to_tsvector('english', coalesce(new.industry, '') || ' ' || coalesce(new.naics_code, '') || ' ' || coalesce(new.region, '') || ' ' || coalesce(new.source, ''))
+    )
+    on conflict (entity_type, entity_id) do update set
+      account_id = excluded.account_id,
+      deal_id = excluded.deal_id,
+      tsv = excluded.tsv;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger comp_search_index
+  after insert or update on public.comp
+  for each row execute function public.comp_search_index();
+
+-- ===== schemas/72-comp-import.sql =====
+-- A vendor export import batch. One row per uploaded file, recording what was
+-- imported and under which license, so proprietary comps trace back to the seat
+-- that authorised them.
+
+create table if not exists public.comp_import (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  license_id uuid references public.comp_license (id) on delete set null,
+  vendor text not null,
+  filename text,
+  status text not null default 'pending',
+  row_count int,
+  storage_path text,
+  imported_at timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.comp_import enable row level security;
+
+create index ix_comp_import_account on public.comp_import (account_id);
+
+revoke all on public.comp_import from authenticated, service_role;
+grant select on public.comp_import to authenticated;
+grant select, insert, update, delete on public.comp_import to service_role;
+
+create trigger comp_import_timestamps
+  before insert or update on public.comp_import
+  for each row execute function public.set_timestamps();
+
+create policy comp_import_read on public.comp_import
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+-- ===== schemas/73-comp-search-recipe.sql =====
+-- A saved comp-search definition owned by a tenant. criteria holds the filter
+-- set a search runs against the comp corpus.
+
+create table if not exists public.comp_search_recipe (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name text not null,
+  criteria jsonb not null default '{}'::jsonb,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.comp_search_recipe enable row level security;
+
+create index ix_comp_search_recipe_account on public.comp_search_recipe (account_id);
+
+revoke all on public.comp_search_recipe from authenticated, service_role;
+grant select on public.comp_search_recipe to authenticated;
+grant select, insert, update, delete on public.comp_search_recipe to service_role;
+
+create trigger comp_search_recipe_timestamps
+  before insert or update on public.comp_search_recipe
+  for each row execute function public.set_timestamps();
+
+create policy comp_search_recipe_read on public.comp_search_recipe
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+-- ===== schemas/74-comp-set.sql =====
+-- A curated collection of comps and its members. A member links a comp into a
+-- set; the set carries the tenant ownership, so a member's visibility follows
+-- the set it belongs to.
+
+create table if not exists public.comp_set (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name text not null,
+  description text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.comp_set enable row level security;
+
+create index ix_comp_set_account on public.comp_set (account_id);
+
+revoke all on public.comp_set from authenticated, service_role;
+grant select on public.comp_set to authenticated;
+grant select, insert, update, delete on public.comp_set to service_role;
+
+create trigger comp_set_timestamps
+  before insert or update on public.comp_set
+  for each row execute function public.set_timestamps();
+
+create policy comp_set_read on public.comp_set
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create table if not exists public.comp_set_member (
+  id uuid primary key default gen_random_uuid(),
+  comp_set_id uuid not null references public.comp_set (id) on delete cascade,
+  comp_id uuid not null references public.comp (id) on delete cascade,
+  created_at timestamptz,
+  created_by uuid references auth.users,
+  unique (comp_set_id, comp_id)
+);
+
+alter table public.comp_set_member enable row level security;
+
+create index ix_comp_set_member_set on public.comp_set_member (comp_set_id);
+
+revoke all on public.comp_set_member from authenticated, service_role;
+grant select on public.comp_set_member to authenticated;
+grant select, insert, update, delete on public.comp_set_member to service_role;
+
+create policy comp_set_member_read on public.comp_set_member
+  for select to authenticated
+  using (
+    exists (
+      select 1 from public.comp_set s
+      where s.id = comp_set_id and public.has_role_on_account(s.account_id)
+    )
+  );
+
+-- ===== schemas/75-benchmark.sql =====
+-- Platform-managed benchmark multiples per vertical. Readable by every tenant;
+-- written only by the platform through the service role, so authenticated has no
+-- write grant. Rows carry a citation and an as-of date; survey rows exist only
+-- where a citation backs them.
+
+create table if not exists public.benchmark (
+  id uuid primary key default gen_random_uuid(),
+  naics_code text,
+  industry text,
+  metric text not null,
+  low numeric,
+  median numeric,
+  high numeric,
+  source_citation text,
+  as_of date,
+  created_at timestamptz,
+  updated_at timestamptz
+);
+
+alter table public.benchmark enable row level security;
+
+create index ix_benchmark_naics on public.benchmark (naics_code);
+
+revoke all on public.benchmark from authenticated, service_role;
+grant select on public.benchmark to authenticated;
+grant select, insert, update, delete on public.benchmark to service_role;
+
+create trigger benchmark_timestamps
+  before insert or update on public.benchmark
+  for each row execute function public.set_timestamps();
+
+create policy benchmark_read on public.benchmark
+  for select to authenticated
+  using (true);
+
+-- ===== schemas/76-comp-pool.sql =====
+-- The anonymized closed-deal pool: one platform-owned row per contributed close,
+-- already pseudonymised and banded by the anonymize module before it lands here.
+-- The base table is never read by tenants; comp_pool_public is the only tenant
+-- surface, and it hides any bucket thinner than the admin-set minimum (default
+-- from config.comp_pool_min_bucket) and exposes only the coarse dimensions
+-- (region, NAICS 3-digit), so a single contributor can never be singled out.
+-- comp_pool_key holds the pseudonym-to-deal link and cross-tenant fingerprint and
+-- is platform-admin-only: it is never granted to tenants and never enters a view.
+
+create table if not exists public.comp_pool (
+  id uuid primary key default gen_random_uuid(),
+  pseudonym text not null,
+  region text,
+  naics3 text,
+  industry_short text,
+  close_quarter text,
+  sale_price_banded numeric,
+  revenue_banded numeric,
+  sde_banded numeric,
+  sde_multiple numeric,
+  outcome text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.comp_pool enable row level security;
+
+create index ix_comp_pool_bucket on public.comp_pool (region, naics3, industry_short, close_quarter);
+
+revoke all on public.comp_pool from authenticated, service_role;
+grant select, insert, update, delete on public.comp_pool to service_role;
+
+create table if not exists public.comp_pool_key (
+  id uuid primary key default gen_random_uuid(),
+  pseudonym text not null,
+  deal_id uuid references public.deal (id) on delete set null,
+  account_id uuid references public.accounts (id) on delete cascade,
+  fingerprint text not null,
+  created_at timestamptz not null default now(),
+  unique (pseudonym)
+);
+
+alter table public.comp_pool_key enable row level security;
+
+create index ix_comp_pool_key_fingerprint on public.comp_pool_key (fingerprint);
+
+-- Never granted to tenants: the pseudonym-to-deal link is platform-admin-only
+-- and reached through the service role, so authenticated has no privilege here.
+revoke all on public.comp_pool_key from authenticated, service_role;
+grant select, insert, update, delete on public.comp_pool_key to service_role;
+
+create table if not exists public.comp_pool_optin (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  opted_in boolean not null default false,
+  opted_in_at timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id)
+);
+
+alter table public.comp_pool_optin enable row level security;
+
+revoke all on public.comp_pool_optin from authenticated, service_role;
+grant select on public.comp_pool_optin to authenticated;
+grant select, insert, update, delete on public.comp_pool_optin to service_role;
+
+create trigger comp_pool_optin_timestamps
+  before insert or update on public.comp_pool_optin
+  for each row execute function public.set_timestamps();
+
+create policy comp_pool_optin_read on public.comp_pool_optin
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+-- The k-anonymity read surface. Runs with the owner's rights over the base pool,
+-- groups to the coarse bucket, and drops any bucket below the admin-set minimum.
+create view public.comp_pool_public as
+  select
+    region, naics3, industry_short, close_quarter,
+    count(*) as n,
+    percentile_cont(0.5) within group (order by sde_multiple) as median_sde_multiple,
+    percentile_cont(0.5) within group (order by sale_price_banded) as median_sale_price
+  from public.comp_pool
+  group by region, naics3, industry_short, close_quarter
+  having count(*) >= (select c.comp_pool_min_bucket from public.config c limit 1);
+
+grant select on public.comp_pool_public to authenticated, service_role;
+
+-- ===== schemas/77-activity-pool.sql =====
+-- The anonymized activity pool: one platform-owned row per deal from creation,
+-- capturing how far it went and how it ended, pseudonymised and banded upstream.
+-- Like comp_pool, tenants read only activity_pool_public, which coarsens to the
+-- bucket and hides any bucket below the admin-set minimum. activity_pool_key is
+-- platform-admin-only and never enters a view or export.
+
+create table if not exists public.activity_pool (
+  id uuid primary key default gen_random_uuid(),
+  pseudonym text not null,
+  region text,
+  naics3 text,
+  industry_short text,
+  created_quarter text,
+  confidence public.activity_confidence,
+  asking_price_banded numeric,
+  loi_price_banded numeric,
+  furthest_stage text,
+  outcome text,
+  outcome_reason text,
+  loss_reason text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.activity_pool enable row level security;
+
+create index ix_activity_pool_bucket on public.activity_pool (region, naics3, industry_short, created_quarter);
+
+revoke all on public.activity_pool from authenticated, service_role;
+grant select, insert, update, delete on public.activity_pool to service_role;
+
+create table if not exists public.activity_pool_key (
+  id uuid primary key default gen_random_uuid(),
+  pseudonym text not null,
+  deal_id uuid references public.deal (id) on delete set null,
+  account_id uuid references public.accounts (id) on delete cascade,
+  fingerprint text not null,
+  created_at timestamptz not null default now(),
+  unique (pseudonym)
+);
+
+alter table public.activity_pool_key enable row level security;
+
+create index ix_activity_pool_key_fingerprint on public.activity_pool_key (fingerprint);
+
+-- Platform-admin-only, reached through the service role; no tenant privilege.
+revoke all on public.activity_pool_key from authenticated, service_role;
+grant select, insert, update, delete on public.activity_pool_key to service_role;
+
+-- The k-anonymity read surface over the activity pool.
+create view public.activity_pool_public as
+  select
+    region, naics3, industry_short, created_quarter, outcome,
+    count(*) as n,
+    percentile_cont(0.5) within group (order by asking_price_banded) as median_asking_price,
+    percentile_cont(0.5) within group (order by loi_price_banded) as median_loi_price
+  from public.activity_pool
+  group by region, naics3, industry_short, created_quarter, outcome
+  having count(*) >= (select c.comp_pool_min_bucket from public.config c limit 1);
+
+grant select on public.activity_pool_public to authenticated, service_role;
+
+-- ===== schemas/78-agent.sql =====
+-- A non-human principal (workflow or external agent) registered under a tenant.
+-- An agent rides its owner's Supabase identity and authenticates with its own
+-- hashed API key; only the sha256 hash is stored, and it is excluded from the
+-- authenticated select grant so a client can list and revoke agents without ever
+-- reading the hash. Mirrors api_key.
+
+create table if not exists public.agent (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  owner_user_id uuid not null references auth.users,
+  name text not null,
+  key_hash bytea not null,
+  key_prefix text not null,
+  scopes text[] not null default '{}',
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now(),
+  created_by uuid references auth.users
+);
+
+alter table public.agent enable row level security;
+
+create index ix_agent_account on public.agent (account_id);
+create index ix_agent_prefix on public.agent (key_prefix);
+
+revoke all on public.agent from authenticated, service_role;
+grant select (id, account_id, owner_user_id, name, key_prefix, scopes, last_used_at, revoked_at, created_at, created_by)
+  on public.agent to authenticated;
+grant select, insert, update, delete on public.agent to service_role;
+
+create policy agent_read on public.agent
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+-- Match a presented raw key against its stored hash, stamp last_used_at, and
+-- return the owning account. Definer so the caller never reads key_hash.
+create or replace function public.verify_agent_key(prefix text, raw text)
+  returns uuid
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  matched_account uuid;
+begin
+  update public.agent
+    set last_used_at = now()
+    where key_prefix = verify_agent_key.prefix
+      and key_hash = extensions.digest(verify_agent_key.raw, 'sha256')
+      and revoked_at is null
+    returning account_id into matched_account;
+  return matched_account;
+end;
+$$;
+
+grant execute on function public.verify_agent_key(text, text) to service_role;
+
+-- ===== schemas/79-duplicate-candidate.sql =====
+-- A softer-signal duplicate suggestion raised by DetectDuplicates. An exact
+-- listing-id or URL match auto-flags the deal itself (deal.duplicate_of, set
+-- through the event store); anything below that bar lands here for a human to
+-- confirm or dismiss. Scoped to the tenant and to the deals it references.
+
+create table if not exists public.duplicate_candidate (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  candidate_deal_id uuid not null references public.deal (id) on delete cascade,
+  signal text,
+  score numeric,
+  status text not null default 'open',
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (deal_id, candidate_deal_id)
+);
+
+alter table public.duplicate_candidate enable row level security;
+
+create index ix_duplicate_candidate_account on public.duplicate_candidate (account_id);
+create index ix_duplicate_candidate_deal on public.duplicate_candidate (deal_id);
+
+revoke all on public.duplicate_candidate from authenticated, service_role;
+grant select on public.duplicate_candidate to authenticated;
+grant select, insert, update, delete on public.duplicate_candidate to service_role;
+
+create trigger duplicate_candidate_timestamps
+  before insert or update on public.duplicate_candidate
+  for each row execute function public.set_timestamps();
+
+create policy duplicate_candidate_read on public.duplicate_candidate
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );

@@ -1,0 +1,37 @@
+{
+  "vendor": "BIZCOMPS",
+  "version": "v1",
+  "source_of_field_names": "BIZCOMPS User Guide 2025 (bizcomps.com), parsed 2026-09-28",
+  "price_basis": "actual",
+  "default_confidence": "medium",
+  "notes": [
+    "BIZCOMPS is SDE-based, main-street focus (small businesses sold through brokers).",
+    "Sale price should run roughly 30%-100% of gross revenue and 1.5-3.5x SDE (guide guidance).",
+    "Each record has ~20 searchable fields; primary reported fields verified below. Exact export column headers were not confirmed from a real export, so verified=false where the label is inferred.",
+    "Target comp column names are INFERRED from the task; verify against the real module spec."
+  ],
+  "ar_ap_normalization": {
+    "flag": "stripped",
+    "detail": "VERIFIED from guide: BIZCOMPS Asking Price and Sale Price contain ONLY Fixtures & Equipment (FF&E) and Goodwill. Cash, accounts receivable, accounts payable, other liabilities, and inventory are all EXCLUDED. Inventory amount is reported separately for each sale. Set ar_ap_excluded = true on ingest so BIZCOMPS comps are apples-to-apples with PeerComps.",
+    "verified": true
+  },
+  "columns": [
+    {"vendor_column": "Business Type", "target_comp_column": "description", "parser": "string", "required": false, "verified": true},
+    {"vendor_column": "SIC", "target_comp_column": "sic", "parser": "string", "required": true, "verified": true},
+    {"vendor_column": "NAICS", "target_comp_column": "naics", "parser": "string", "required": false, "verified": true},
+    {"vendor_column": "Sale Date", "target_comp_column": "sale_date", "parser": "date", "required": true, "verified": true},
+    {"vendor_column": "Location", "target_comp_column": "state", "parser": "string", "required": false, "verified": true},
+    {"vendor_column": "Annual Gross Revenue", "target_comp_column": "revenue", "parser": "currency", "required": true, "verified": true},
+    {"vendor_column": "SDE", "target_comp_column": "sde", "parser": "currency", "required": true, "verified": true},
+    {"vendor_column": "Asking Price", "target_comp_column": "asking_price", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Sale Price", "target_comp_column": "sale_price", "parser": "currency", "required": true, "verified": true},
+    {"vendor_column": "Inventory", "target_comp_column": "inventory", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "FF&E", "target_comp_column": "ffe", "parser": "currency", "required": false, "verified": true},
+    {"vendor_column": "Rent as % of Sales", "target_comp_column": "rent_pct_sales", "parser": "percent", "required": false, "verified": true},
+    {"vendor_column": "% Down", "target_comp_column": "percent_down", "parser": "percent", "required": false, "verified": true},
+    {"vendor_column": "Terms of Sale", "target_comp_column": "terms", "parser": "string", "required": false, "verified": true},
+    {"vendor_column": "Days on Market", "target_comp_column": "days_on_market", "parser": "integer", "required": false, "verified": true},
+    {"vendor_column": "Sale Price / Gross Revenue (Gross Revenue Multiple)", "target_comp_column": "mult_price_revenue", "parser": "number", "required": false, "verified": true},
+    {"vendor_column": "Sale Price / SDE (SDE Multiple)", "target_comp_column": "mult_price_sde", "parser": "number", "required": false, "verified": true}
+  ]
+}

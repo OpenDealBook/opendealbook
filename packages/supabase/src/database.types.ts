@@ -119,6 +119,177 @@ export type Database = {
           },
         ]
       }
+      activity_pool: {
+        Row: {
+          asking_price_banded: number | null
+          confidence: Database["public"]["Enums"]["activity_confidence"] | null
+          created_at: string
+          created_quarter: string | null
+          furthest_stage: string | null
+          id: string
+          industry_short: string | null
+          loi_price_banded: number | null
+          loss_reason: string | null
+          naics3: string | null
+          outcome: string | null
+          outcome_reason: string | null
+          pseudonym: string
+          region: string | null
+        }
+        Insert: {
+          asking_price_banded?: number | null
+          confidence?: Database["public"]["Enums"]["activity_confidence"] | null
+          created_at?: string
+          created_quarter?: string | null
+          furthest_stage?: string | null
+          id?: string
+          industry_short?: string | null
+          loi_price_banded?: number | null
+          loss_reason?: string | null
+          naics3?: string | null
+          outcome?: string | null
+          outcome_reason?: string | null
+          pseudonym: string
+          region?: string | null
+        }
+        Update: {
+          asking_price_banded?: number | null
+          confidence?: Database["public"]["Enums"]["activity_confidence"] | null
+          created_at?: string
+          created_quarter?: string | null
+          furthest_stage?: string | null
+          id?: string
+          industry_short?: string | null
+          loi_price_banded?: number | null
+          loss_reason?: string | null
+          naics3?: string | null
+          outcome?: string | null
+          outcome_reason?: string | null
+          pseudonym?: string
+          region?: string | null
+        }
+        Relationships: []
+      }
+      activity_pool_key: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          deal_id: string | null
+          fingerprint: string
+          id: string
+          pseudonym: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          fingerprint: string
+          id?: string
+          pseudonym: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          fingerprint?: string
+          id?: string
+          pseudonym?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_pool_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_pool_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_pool_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_pool_key_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          owner_user_id: string
+          revoked_at: string | null
+          scopes: string[]
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          owner_user_id: string
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          owner_user_id?: string
+          revoked_at?: string | null
+          scopes?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_call_log: {
         Row: {
           account_id: string
@@ -292,6 +463,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      benchmark: {
+        Row: {
+          as_of: string | null
+          created_at: string | null
+          high: number | null
+          id: string
+          industry: string | null
+          low: number | null
+          median: number | null
+          metric: string
+          naics_code: string | null
+          source_citation: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          as_of?: string | null
+          created_at?: string | null
+          high?: number | null
+          id?: string
+          industry?: string | null
+          low?: number | null
+          median?: number | null
+          metric: string
+          naics_code?: string | null
+          source_citation?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          as_of?: string | null
+          created_at?: string | null
+          high?: number | null
+          id?: string
+          industry?: string | null
+          low?: number | null
+          median?: number | null
+          metric?: string
+          naics_code?: string | null
+          source_citation?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       billing_customers: {
         Row: {
@@ -795,21 +1008,587 @@ export type Database = {
           },
         ]
       }
+      comp: {
+        Row: {
+          account_id: string | null
+          asking_price: number | null
+          close_date: string | null
+          created_at: string | null
+          created_by: string | null
+          data_class: Database["public"]["Enums"]["comp_data_class"]
+          deal_id: string | null
+          ebitda: number | null
+          id: string
+          industry: string | null
+          multiple_ebitda: number | null
+          multiple_revenue: number | null
+          multiple_sde: number | null
+          naics_code: string | null
+          region: string | null
+          revenue: number | null
+          sale_price: number | null
+          sde: number | null
+          source: string
+          source_ref: string | null
+          state: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          asking_price?: number | null
+          close_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_class: Database["public"]["Enums"]["comp_data_class"]
+          deal_id?: string | null
+          ebitda?: number | null
+          id?: string
+          industry?: string | null
+          multiple_ebitda?: number | null
+          multiple_revenue?: number | null
+          multiple_sde?: number | null
+          naics_code?: string | null
+          region?: string | null
+          revenue?: number | null
+          sale_price?: number | null
+          sde?: number | null
+          source: string
+          source_ref?: string | null
+          state?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          asking_price?: number | null
+          close_date?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          data_class?: Database["public"]["Enums"]["comp_data_class"]
+          deal_id?: string | null
+          ebitda?: number | null
+          id?: string
+          industry?: string | null
+          multiple_ebitda?: number | null
+          multiple_revenue?: number | null
+          multiple_sde?: number | null
+          naics_code?: string | null
+          region?: string | null
+          revenue?: number | null
+          sale_price?: number | null
+          sde?: number | null
+          source?: string
+          source_ref?: string | null
+          state?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_import: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          filename: string | null
+          id: string
+          imported_at: string | null
+          license_id: string | null
+          row_count: number | null
+          status: string
+          storage_path: string | null
+          updated_at: string | null
+          updated_by: string | null
+          vendor: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          filename?: string | null
+          id?: string
+          imported_at?: string | null
+          license_id?: string | null
+          row_count?: number | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vendor: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          filename?: string | null
+          id?: string
+          imported_at?: string | null
+          license_id?: string | null
+          row_count?: number | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vendor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_import_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_import_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_import_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_import_license_id_fkey"
+            columns: ["license_id"]
+            isOneToOne: false
+            referencedRelation: "comp_license"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_license: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          seats: number | null
+          starts_at: string | null
+          status: Database["public"]["Enums"]["comp_license_status"]
+          storage_path: string | null
+          updated_at: string | null
+          updated_by: string | null
+          vendor: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          seats?: number | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["comp_license_status"]
+          storage_path?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vendor: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          seats?: number | null
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["comp_license_status"]
+          storage_path?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          vendor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_license_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_license_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_license_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_pool: {
+        Row: {
+          close_quarter: string | null
+          created_at: string
+          id: string
+          industry_short: string | null
+          naics3: string | null
+          outcome: string | null
+          pseudonym: string
+          region: string | null
+          revenue_banded: number | null
+          sale_price_banded: number | null
+          sde_banded: number | null
+          sde_multiple: number | null
+        }
+        Insert: {
+          close_quarter?: string | null
+          created_at?: string
+          id?: string
+          industry_short?: string | null
+          naics3?: string | null
+          outcome?: string | null
+          pseudonym: string
+          region?: string | null
+          revenue_banded?: number | null
+          sale_price_banded?: number | null
+          sde_banded?: number | null
+          sde_multiple?: number | null
+        }
+        Update: {
+          close_quarter?: string | null
+          created_at?: string
+          id?: string
+          industry_short?: string | null
+          naics3?: string | null
+          outcome?: string | null
+          pseudonym?: string
+          region?: string | null
+          revenue_banded?: number | null
+          sale_price_banded?: number | null
+          sde_banded?: number | null
+          sde_multiple?: number | null
+        }
+        Relationships: []
+      }
+      comp_pool_key: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          deal_id: string | null
+          fingerprint: string
+          id: string
+          pseudonym: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          fingerprint: string
+          id?: string
+          pseudonym: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          deal_id?: string | null
+          fingerprint?: string
+          id?: string
+          pseudonym?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_pool_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_pool_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_pool_key_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_pool_key_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_pool_optin: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          opted_in: boolean
+          opted_in_at: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          opted_in?: boolean
+          opted_in_at?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          opted_in?: boolean
+          opted_in_at?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_pool_optin_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_pool_optin_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_pool_optin_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_search_recipe: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          criteria: Json
+          id: string
+          name: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          criteria?: Json
+          id?: string
+          name: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          criteria?: Json
+          id?: string
+          name?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_search_recipe_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_search_recipe_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_search_recipe_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_set: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_set_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_set_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_set_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comp_set_member: {
+        Row: {
+          comp_id: string
+          comp_set_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+        }
+        Insert: {
+          comp_id: string
+          comp_set_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+        }
+        Update: {
+          comp_id?: string
+          comp_set_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comp_set_member_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "comp"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_set_member_comp_id_fkey"
+            columns: ["comp_id"]
+            isOneToOne: false
+            referencedRelation: "comp_external"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comp_set_member_comp_set_id_fkey"
+            columns: ["comp_set_id"]
+            isOneToOne: false
+            referencedRelation: "comp_set"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       config: {
         Row: {
           billing_provider: Database["public"]["Enums"]["billing_provider"]
+          comp_pool_min_bucket: number
           enable_account_billing: boolean
           enable_team_account_billing: boolean
           enable_team_accounts: boolean
         }
         Insert: {
           billing_provider?: Database["public"]["Enums"]["billing_provider"]
+          comp_pool_min_bucket?: number
           enable_account_billing?: boolean
           enable_team_account_billing?: boolean
           enable_team_accounts?: boolean
         }
         Update: {
           billing_provider?: Database["public"]["Enums"]["billing_provider"]
+          comp_pool_min_bucket?: number
           enable_account_billing?: boolean
           enable_team_account_billing?: boolean
           enable_team_accounts?: boolean
@@ -1086,19 +1865,26 @@ export type Database = {
           account_id: string
           asking_price: number | null
           broker_contact_id: string | null
+          capture_method: string | null
           close_date: string | null
           created_at: string | null
           created_by: string | null
+          created_by_kind: string | null
+          created_by_ref: string | null
+          created_by_via: string | null
           deal_box_version: number | null
           description: string | null
+          duplicate_of: string | null
           ebitda_ttm: number | null
           firm_id: string | null
           id: string
           notes: string | null
+          outcome_reason: string | null
           owner_user_id: string | null
           revenue_ttm: number | null
           sde_ttm: number | null
           source: Database["public"]["Enums"]["deal_source"]
+          source_url: string | null
           stage: string
           updated_at: string | null
           updated_by: string | null
@@ -1107,19 +1893,26 @@ export type Database = {
           account_id: string
           asking_price?: number | null
           broker_contact_id?: string | null
+          capture_method?: string | null
           close_date?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_by_kind?: string | null
+          created_by_ref?: string | null
+          created_by_via?: string | null
           deal_box_version?: number | null
           description?: string | null
+          duplicate_of?: string | null
           ebitda_ttm?: number | null
           firm_id?: string | null
           id?: string
           notes?: string | null
+          outcome_reason?: string | null
           owner_user_id?: string | null
           revenue_ttm?: number | null
           sde_ttm?: number | null
           source?: Database["public"]["Enums"]["deal_source"]
+          source_url?: string | null
           stage?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -1128,19 +1921,26 @@ export type Database = {
           account_id?: string
           asking_price?: number | null
           broker_contact_id?: string | null
+          capture_method?: string | null
           close_date?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_by_kind?: string | null
+          created_by_ref?: string | null
+          created_by_via?: string | null
           deal_box_version?: number | null
           description?: string | null
+          duplicate_of?: string | null
           ebitda_ttm?: number | null
           firm_id?: string | null
           id?: string
           notes?: string | null
+          outcome_reason?: string | null
           owner_user_id?: string | null
           revenue_ttm?: number | null
           sde_ttm?: number | null
           source?: Database["public"]["Enums"]["deal_source"]
+          source_url?: string | null
           stage?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -1172,6 +1972,13 @@ export type Database = {
             columns: ["broker_contact_id"]
             isOneToOne: false
             referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_duplicate_of_fkey"
+            columns: ["duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "deal"
             referencedColumns: ["id"]
           },
           {
@@ -1862,6 +2669,84 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      duplicate_candidate: {
+        Row: {
+          account_id: string
+          candidate_deal_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          id: string
+          score: number | null
+          signal: string | null
+          status: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          candidate_deal_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          id?: string
+          score?: number | null
+          signal?: string | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          candidate_deal_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+          score?: number | null
+          signal?: string | null
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "duplicate_candidate_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_candidate_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_candidate_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_candidate_candidate_deal_id_fkey"
+            columns: ["candidate_deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "duplicate_candidate_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
             referencedColumns: ["id"]
           },
         ]
@@ -3895,6 +4780,91 @@ export type Database = {
       }
     }
     Views: {
+      activity_pool_public: {
+        Row: {
+          created_quarter: string | null
+          industry_short: string | null
+          median_asking_price: number | null
+          median_loi_price: number | null
+          n: number | null
+          naics3: string | null
+          outcome: string | null
+          region: string | null
+        }
+        Relationships: []
+      }
+      comp_external: {
+        Row: {
+          asking_price: number | null
+          close_date: string | null
+          created_at: string | null
+          ebitda: number | null
+          id: string | null
+          industry: string | null
+          multiple_ebitda: number | null
+          multiple_revenue: number | null
+          multiple_sde: number | null
+          naics_code: string | null
+          region: string | null
+          revenue: number | null
+          sale_price: number | null
+          sde: number | null
+          source: string | null
+          source_ref: string | null
+          state: string | null
+        }
+        Insert: {
+          asking_price?: number | null
+          close_date?: string | null
+          created_at?: string | null
+          ebitda?: number | null
+          id?: string | null
+          industry?: string | null
+          multiple_ebitda?: number | null
+          multiple_revenue?: number | null
+          multiple_sde?: number | null
+          naics_code?: string | null
+          region?: string | null
+          revenue?: number | null
+          sale_price?: number | null
+          sde?: number | null
+          source?: string | null
+          source_ref?: string | null
+          state?: string | null
+        }
+        Update: {
+          asking_price?: number | null
+          close_date?: string | null
+          created_at?: string | null
+          ebitda?: number | null
+          id?: string | null
+          industry?: string | null
+          multiple_ebitda?: number | null
+          multiple_revenue?: number | null
+          multiple_sde?: number | null
+          naics_code?: string | null
+          region?: string | null
+          revenue?: number | null
+          sale_price?: number | null
+          sde?: number | null
+          source?: string | null
+          source_ref?: string | null
+          state?: string | null
+        }
+        Relationships: []
+      }
+      comp_pool_public: {
+        Row: {
+          close_quarter: string | null
+          industry_short: string | null
+          median_sale_price: number | null
+          median_sde_multiple: number | null
+          n: number | null
+          naics3: string | null
+          region: string | null
+        }
+        Relationships: []
+      }
       user_account_workspace: {
         Row: {
           id: string | null
@@ -4328,6 +5298,10 @@ export type Database = {
         }
       }
       user_has_verified_mfa: { Args: never; Returns: boolean }
+      verify_agent_key: {
+        Args: { prefix: string; raw: string }
+        Returns: string
+      }
       verify_api_key: { Args: { prefix: string; raw: string }; Returns: string }
       verify_nonce: {
         Args: {
@@ -4340,6 +5314,7 @@ export type Database = {
       }
     }
     Enums: {
+      activity_confidence: "listed" | "screened" | "verified"
       app_permissions:
         | "roles.manage"
         | "billing.manage"
@@ -4362,6 +5337,8 @@ export type Database = {
       broker_intake_status: "new" | "accepted" | "rejected"
       checklist_outcome: "accepted" | "follow_up" | "rejected"
       checklist_status: "not_started" | "requested" | "received" | "reviewed"
+      comp_data_class: "external" | "proprietary" | "internal"
+      comp_license_status: "active" | "expired" | "revoked"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
       embedding_job_status: "queued" | "running" | "done" | "failed"
       event_actor_kind: "user" | "service" | "api_key" | "system"
@@ -4520,6 +5497,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      activity_confidence: ["listed", "screened", "verified"],
       app_permissions: [
         "roles.manage",
         "billing.manage",
@@ -4544,6 +5522,8 @@ export const Constants = {
       broker_intake_status: ["new", "accepted", "rejected"],
       checklist_outcome: ["accepted", "follow_up", "rejected"],
       checklist_status: ["not_started", "requested", "received", "reviewed"],
+      comp_data_class: ["external", "proprietary", "internal"],
+      comp_license_status: ["active", "expired", "revoked"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
       embedding_job_status: ["queued", "running", "done", "failed"],
       event_actor_kind: ["user", "service", "api_key", "system"],

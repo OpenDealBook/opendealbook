@@ -1,0 +1,27 @@
+{
+  "name": "@odb/comps",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./*"
+      ]
+    }
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./vendors": "./vendors/column-map.ts"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@odb/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
