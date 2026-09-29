@@ -160,6 +160,8 @@ spec:
               value: http://novu-api.novu.svc.cluster.local:3000
             - name: NANGO_SERVER_URL
               value: http://nango-server.nango.svc.cluster.local:3003
+            - name: APP_TARGET
+              value: worker
           envFrom:
             - secretRef:
                 name: opendealbook-secrets

@@ -123,7 +123,7 @@ _workers: #Deployment & {
 					if len(values.workers.args) > 0 {
 						args: values.workers.args
 					}
-					env:     _env
+					env:     list.Concat([_env, [{name: "APP_TARGET", value: "worker"}]])
 					envFrom: _envFrom
 					resources: {
 						requests: {cpu: values.workers.resources.requests.cpu, memory: values.workers.resources.requests.memory}
