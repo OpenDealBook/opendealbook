@@ -1,8 +1,8 @@
-export { MailerSchema, type MailerConfig } from './config';
-export type { Mailer, MailerSendResult } from './mailer';
+export { MailerSchema, type MailerConfig } from './config.ts';
+export type { Mailer, MailerSendResult } from './mailer.ts';
 export {
   MAILER_PROVIDERS,
   getMailerProvider,
   type MailerProvider,
-} from './provider';
-export { getMailer } from './factory';
+} from './provider.ts';
+export { getMailer } from './factory.ts';

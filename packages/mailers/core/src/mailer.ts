@@ -1,4 +1,4 @@
-import type { MailerConfig } from './config';
+import type { MailerConfig } from './config.ts';
 
 export interface MailerSendResult {
   messageId?: string;
