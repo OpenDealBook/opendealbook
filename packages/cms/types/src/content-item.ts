@@ -9,9 +9,11 @@ export interface ContentItem {
   publishedAt: string;
   status: ContentStatus;
   categories?: string[];
+  category?: string;
   tags?: string[];
   author?: string;
   image?: string;
+  cover?: string;
   order?: number;
   parentId?: string;
   children?: ContentItem[];

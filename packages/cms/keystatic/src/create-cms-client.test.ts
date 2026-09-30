@@ -8,8 +8,11 @@ interface FakeEntry {
   publishedAt: string;
   status: 'draft' | 'published' | 'review';
   categories?: string[];
+  category?: string | null;
   tags?: string[];
+  author?: string | null;
   image?: string | null;
+  cover?: string | null;
   order?: number | null;
   parent?: string | null;
   body: unknown;
@@ -49,8 +52,11 @@ const published: FakeEntry = {
   publishedAt: '2024-02-01',
   status: 'published',
   categories: ['news'],
+  category: 'announcements',
   tags: ['launch'],
+  author: 'jane-doe',
   image: '/img.png',
+  cover: '/cover.png',
   order: 2,
   parent: 'root',
   body: 'published-body',
@@ -78,8 +84,11 @@ describe('getContentItems', () => {
         publishedAt: '2024-02-01',
         status: 'published',
         categories: ['news'],
+        category: 'announcements',
         tags: ['launch'],
+        author: 'jane-doe',
         image: '/img.png',
+        cover: '/cover.png',
         order: 2,
         parentId: 'root',
       },

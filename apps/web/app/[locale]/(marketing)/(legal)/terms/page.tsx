@@ -1,3 +1,13 @@
+import type { Metadata } from 'next';
+
+import { pageMetadata } from '~/config/seo';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Terms of Service',
+  description: 'The terms that govern your use of Open Deal Book.',
+  path: '/terms',
+});
+
 export default async function TermsPage({
   params,
 }: {

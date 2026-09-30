@@ -15,8 +15,11 @@ interface ReaderEntry {
   publishedAt: string;
   status: ContentStatus;
   categories?: readonly string[];
+  category?: string | null;
   tags?: readonly string[];
+  author?: string | null;
   image?: string | null;
+  cover?: string | null;
   order?: number | null;
   parent?: string | null;
   content: () => Promise<unknown>;
@@ -49,8 +52,11 @@ async function mapEntry(
     publishedAt: entry.publishedAt,
     status: entry.status,
     categories: entry.categories ? [...entry.categories] : undefined,
+    category: entry.category ?? undefined,
     tags: entry.tags ? [...entry.tags] : undefined,
+    author: entry.author ?? undefined,
     image: entry.image ?? undefined,
+    cover: entry.cover ?? undefined,
     order: entry.order ?? undefined,
     parentId: entry.parent ?? undefined,
   };

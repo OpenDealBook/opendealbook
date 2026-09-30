@@ -11,16 +11,51 @@ import {
   CardTitle,
 } from '@odb/ui/card';
 
+import { StructuredData } from '~/components/structured-data';
+import appConfig from '~/config/app.config';
+import billingConfig from '~/config/billing.config';
 import featureFlagsConfig from '~/config/feature-flags.config';
 import { marketingGateRedirect } from '~/config/marketing-gate';
 import pathsConfig from '~/config/paths.config';
 
 import { MarketingShell } from './_components/marketing-shell';
 
+const title = 'Open Deal Book: run every acquisition in one place';
+const description =
+  'Run every acquisition in one place: pipeline, diligence, data room, contracts, and closing. Start a free 30-day trial preloaded with example deals.';
+
 export const metadata: Metadata = {
-  title: 'OpenDealbook, the deal platform for M&A teams',
-  description:
-    'Run every acquisition in one place. Start a free 30-day trial preloaded with example deals: pipeline, diligence, data room, contracts, and closing, with your team and the other side in the right lanes.',
+  title: { absolute: title },
+  description,
+  alternates: { canonical: '/' },
+  openGraph: { title, description, url: '/' },
+  twitter: { title, description },
+};
+
+const organizationData = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: appConfig.name,
+  url: appConfig.url,
+  logo: `${appConfig.url}/apple-icon`,
+};
+
+const softwareApplicationData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: appConfig.name,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Web',
+  url: appConfig.url,
+  offers: billingConfig.products.flatMap((product) =>
+    product.plans.map((plan) => ({
+      '@type': 'Offer',
+      priceCurrency: product.currency,
+      price: String(
+        plan.lineItems.reduce((total, item) => total + item.cost, 0),
+      ),
+    })),
+  ),
 };
 
 const signUpHref = pathsConfig.auth.signUp;
@@ -98,6 +133,8 @@ export default function LandingPage() {
 
   return (
     <MarketingShell>
+      <StructuredData data={organizationData} />
+      <StructuredData data={softwareApplicationData} />
       <div className={'flex flex-col'}>
         <section
           className={

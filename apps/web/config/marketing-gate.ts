@@ -17,13 +17,34 @@ export function marketingRobots(
   return { rules: { userAgent: '*', allow: '/' }, sitemap: sitemapUrl };
 }
 
+const marketingRoutes: Array<{
+  path: string;
+  changeFrequency: 'weekly' | 'monthly' | 'yearly';
+  priority: number;
+}> = [
+  { path: '', changeFrequency: 'weekly', priority: 1 },
+  { path: '/pricing', changeFrequency: 'monthly', priority: 0.8 },
+  { path: '/blog', changeFrequency: 'weekly', priority: 0.8 },
+  { path: '/faq', changeFrequency: 'monthly', priority: 0.6 },
+  { path: '/contact', changeFrequency: 'yearly', priority: 0.5 },
+  { path: '/privacy', changeFrequency: 'yearly', priority: 0.3 },
+  { path: '/terms', changeFrequency: 'yearly', priority: 0.3 },
+];
+
 export function marketingSitemap(
   enableMarketing: boolean,
-  url: string,
+  baseUrl: string,
 ): MetadataRoute.Sitemap {
   if (!enableMarketing) {
     return [];
   }
 
-  return [{ url, lastModified: new Date() }];
+  const lastModified = new Date();
+
+  return marketingRoutes.map((route) => ({
+    url: `${baseUrl}${route.path}`,
+    lastModified,
+    changeFrequency: route.changeFrequency,
+    priority: route.priority,
+  }));
 }

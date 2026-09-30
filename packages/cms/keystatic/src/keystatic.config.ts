@@ -57,7 +57,35 @@ export const keystaticConfig = config({
       slugField: 'title',
       path: 'posts/*',
       format: { contentField: 'content' },
-      schema: collectionSchema('posts'),
+      schema: {
+        ...collectionSchema('posts'),
+        author: fields.relationship({ label: 'Author', collection: 'authors' }),
+        category: fields.relationship({
+          label: 'Category',
+          collection: 'categories',
+        }),
+        cover: fields.image({
+          label: 'Cover',
+          directory: 'public/site/images',
+          publicPath: '/site/images',
+        }),
+      },
+    }),
+    authors: collection({
+      label: 'Authors',
+      slugField: 'name',
+      path: 'authors/*',
+      schema: {
+        name: fields.slug({ name: { label: 'Name' } }),
+      },
+    }),
+    categories: collection({
+      label: 'Categories',
+      slugField: 'title',
+      path: 'categories/*',
+      schema: {
+        title: fields.slug({ name: { label: 'Title' } }),
+      },
     }),
     documentation: collection({
       label: 'Documentation',

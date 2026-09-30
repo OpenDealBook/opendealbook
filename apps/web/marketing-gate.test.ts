@@ -51,10 +51,20 @@ describe('marketingRobots', () => {
 });
 
 describe('marketingSitemap', () => {
-  it('lists the site url when enabled', () => {
-    const entries = marketingSitemap(true, 'https://example.com');
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.url).toBe('https://example.com');
+  it('lists every static marketing route under the base host when enabled', () => {
+    const urls = marketingSitemap(true, 'https://example.com').map(
+      (entry) => entry.url,
+    );
+
+    expect(urls).toEqual([
+      'https://example.com',
+      'https://example.com/pricing',
+      'https://example.com/blog',
+      'https://example.com/faq',
+      'https://example.com/contact',
+      'https://example.com/privacy',
+      'https://example.com/terms',
+    ]);
   });
 
   it('returns an empty sitemap when disabled', () => {

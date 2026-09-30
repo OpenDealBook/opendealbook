@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+
 import { Button } from '@odb/ui/button';
 import {
   Card,
@@ -8,6 +10,15 @@ import {
 } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
+
+import { pageMetadata } from '~/config/seo';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Contact',
+  description:
+    'Talk to the Open Deal Book team about running your acquisitions in one place, self-hosting, a security review, or a rollout for your deal team.',
+  path: '/contact',
+});
 
 export default async function ContactPage({
   params,

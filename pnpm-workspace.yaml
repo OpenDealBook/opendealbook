@@ -89,5 +89,9 @@ allowBuilds:
   '@parcel/watcher': false
   '@sentry/cli': false
   '@swc/core': false
+  core-js: false
   esbuild: false
   vue-demi: false
+minimumReleaseAgeExclude:
+  - '@posthog/types@1.413.0'
+  - posthog-js@1.435.2

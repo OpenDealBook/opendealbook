@@ -1,3 +1,13 @@
+import type { Metadata } from 'next';
+
+import { pageMetadata } from '~/config/seo';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Privacy Policy',
+  description: 'How Open Deal Book collects, uses, and protects your data.',
+  path: '/privacy',
+});
+
 export default async function PrivacyPage({
   params,
 }: {
