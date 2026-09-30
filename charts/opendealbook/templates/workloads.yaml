@@ -39,6 +39,8 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+            - name: SUPABASE_URL
+              value: http://supabase-kong.supabase.svc:8000
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector.observability.svc.cluster.local:4318
             - name: OTEL_SERVICE_NAME
@@ -144,6 +146,8 @@ spec:
           env:
             - name: NODE_ENV
               value: production
+            - name: SUPABASE_URL
+              value: http://supabase-kong.supabase.svc:8000
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector.observability.svc.cluster.local:4318
             - name: OTEL_SERVICE_NAME

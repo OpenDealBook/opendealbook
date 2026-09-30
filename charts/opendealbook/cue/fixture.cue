@@ -28,6 +28,7 @@ values: #Values & {
 
 	env: {
 		NODE_ENV:                    "production"
+		SUPABASE_URL:                "http://supabase-kong.supabase.svc:8000"
 		OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.observability.svc.cluster.local:4318"
 		OTEL_SERVICE_NAME:           "opendealbook-web"
 		PYROSCOPE_SERVER_ADDRESS:    "http://pyroscope.observability.svc.cluster.local:4040"
