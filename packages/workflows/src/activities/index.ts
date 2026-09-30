@@ -10,6 +10,10 @@ export {
   refreshSbaProgram,
 } from '../comps/sbaLoans';
 export { writeCloseComp } from '../comps/writeCloseComp';
+export {
+  fetchDueOutreachAccounts,
+  dispatchAccountOutreach,
+} from '../outreach/dispatch';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import { chunkMarkdown } from '../documentIngestion/chunk';

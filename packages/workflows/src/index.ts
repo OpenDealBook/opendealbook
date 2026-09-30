@@ -16,8 +16,17 @@ export {
   type RefreshSbaLoansResult,
 } from './workflows/refreshSbaLoans';
 export { writeCloseCompWorkflow } from './workflows/writeCloseComp';
+export { outreachDispatch } from './workflows/outreachDispatch';
 export {
   SBA_REFRESH_SCHEDULE_ID,
   ensureSbaRefreshSchedule,
   triggerSbaRefresh,
 } from './schedules/sbaRefresh';
+export {
+  ensureOutreachDispatchSchedule,
+  triggerOutreachDispatch,
+} from './schedules/outreachDispatch';
+export {
+  OUTREACH_DISPATCH_SCHEDULE_ID,
+  OUTREACH_DISPATCH_WORKFLOW_TYPE,
+} from './ids';
