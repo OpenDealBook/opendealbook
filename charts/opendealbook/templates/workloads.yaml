@@ -40,7 +40,7 @@ spec:
             - name: NODE_ENV
               value: production
             - name: SUPABASE_URL
-              value: http://supabase-kong.supabase.svc:8000
+              value: http://supabase-kong.supabase.svc.cluster.local:8000
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector.observability.svc.cluster.local:4318
             - name: OTEL_SERVICE_NAME
@@ -71,7 +71,7 @@ spec:
               memory: 1Gi
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /api/healthcheck
               port: http
             initialDelaySeconds: 15
             periodSeconds: 20
@@ -79,7 +79,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /api/healthcheck
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
@@ -147,7 +147,7 @@ spec:
             - name: NODE_ENV
               value: production
             - name: SUPABASE_URL
-              value: http://supabase-kong.supabase.svc:8000
+              value: http://supabase-kong.supabase.svc.cluster.local:8000
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector.observability.svc.cluster.local:4318
             - name: OTEL_SERVICE_NAME

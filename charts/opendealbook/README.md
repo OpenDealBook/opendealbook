@@ -145,7 +145,7 @@ Both workloads load secrets via `envFrom.secretRef` -> `opendealbook-secrets`;
 the chart never inlines secret material. That Secret is synced by an ESO
 `ExternalSecret` authored in `composites/<cluster>/externalsecrets.cue`
 (`secretStoreRef: openbao-backend`), following the repo pattern. Expected keys:
-`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+`SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
 `DATABASE_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NANGO_SECRET_KEY`,
 `NOVU_API_KEY`, `DOCUMENSO_API_TOKEN`, `LLM_ENDPOINT`, `LLM_API_KEY`. Seed
 OpenBao (`bao kv put secret/<env>/opendealbook ...`) before the ExternalSecret

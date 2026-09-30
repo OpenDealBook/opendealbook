@@ -101,6 +101,13 @@ package opendealbook
 	}
 }
 
+#ServiceAccount: {
+	apiVersion: "v1"
+	kind:       "ServiceAccount"
+	metadata:   #ObjectMeta
+	...
+}
+
 #ServicePort: {
 	name?:       string
 	port:        int & >0 & <65536
