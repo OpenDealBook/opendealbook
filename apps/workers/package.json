@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --experimental-strip-types --watch src/worker.ts",
-    "start": "node --experimental-strip-types src/worker.ts"
+    "dev": "node --import tsx --watch src/worker.ts",
+    "start": "node --import tsx src/worker.ts"
   },
   "dependencies": {
     "@temporalio/activity": "catalog:",
     "@temporalio/worker": "catalog:",
     "@odb/supabase": "workspace:*",
-    "@odb/workflows": "workspace:*"
+    "@odb/workflows": "workspace:*",
+    "tsx": "catalog:"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
