@@ -2,7 +2,7 @@ import { getMailer } from '@odb/mailers';
 import { createNovuClient, triggerNotification } from '@odb/notifications/server';
 import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
-import { runVerification, structuredInputChecks } from '@odb/verification';
+import { runVerification } from '@odb/verification';
 
 export {
   discoverSbaResources,
@@ -15,6 +15,7 @@ import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import { chunkMarkdown } from '../documentIngestion/chunk';
 import { extractMarkdown } from '../documentIngestion/docling';
 import { embedTexts } from '../documentIngestion/embeddings';
+import { buildDocumentExtractionChecks } from '../documentIngestion/verificationGather';
 import type { BrokerCatchUpConfig } from '../workflows/brokerCatchUp';
 
 export interface CreateNotificationInput {
@@ -414,11 +415,20 @@ export async function runDealVerification(
 ): Promise<void> {
   const client = getSupabaseServerAdminClient();
 
+  const runnableChecks = await buildDocumentExtractionChecks({
+    client,
+    dealId: input.dealId,
+    docling: {
+      baseUrl: process.env.DOCLING_URL!,
+      apiKey: process.env.DOCLING_API_KEY!,
+    },
+  });
+
   await runVerification({
     client,
     dealId: input.dealId,
     trigger: 'ingest',
-    runnableChecks: structuredInputChecks({}),
+    runnableChecks,
     notify: (notification) =>
       triggerNotification({ novu: createNovuClient(), client }, notification),
   });

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
   client: { marker: 'admin-client' } as unknown,
   runVerification: vi.fn(),
-  structuredInputChecks: vi.fn(() => []),
+  buildDocumentExtractionChecks: vi.fn(async () => [] as unknown[]),
 }));
 
 vi.mock('@odb/supabase/admin', () => ({
@@ -12,7 +12,10 @@ vi.mock('@odb/supabase/admin', () => ({
 
 vi.mock('@odb/verification', () => ({
   runVerification: state.runVerification,
-  structuredInputChecks: state.structuredInputChecks,
+}));
+
+vi.mock('./verificationGather', () => ({
+  buildDocumentExtractionChecks: state.buildDocumentExtractionChecks,
 }));
 
 vi.mock('@odb/notifications/server', () => ({
@@ -24,8 +27,8 @@ import { runDealVerification } from '../activities';
 
 beforeEach(() => {
   state.runVerification.mockReset();
-  state.structuredInputChecks.mockReset();
-  state.structuredInputChecks.mockReturnValue([]);
+  state.buildDocumentExtractionChecks.mockReset();
+  state.buildDocumentExtractionChecks.mockResolvedValue([]);
 });
 
 describe('runDealVerification', () => {
@@ -47,5 +50,9 @@ describe('runDealVerification', () => {
     };
     expect(options.notify).toBeTypeOf('function');
     expect(options.runnableChecks).toEqual([]);
+
+    expect(state.buildDocumentExtractionChecks).toHaveBeenCalledWith(
+      expect.objectContaining({ client: state.client, dealId: 'deal1' }),
+    );
   });
 });
