@@ -10,6 +10,7 @@ create table if not exists public.accounts (
   is_personal_account boolean not null default false,
   picture_url varchar(1000),
   public_data jsonb not null default '{}'::jsonb,
+  onboarded boolean not null default false,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,

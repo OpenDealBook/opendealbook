@@ -50,3 +50,10 @@ select public.create_team_account('Tuckin HQ', '11111111-1111-1111-1111-11111111
 insert into public.accounts_memberships (account_id, user_id, account_role)
 select id, '22222222-2222-2222-2222-222222222222', 'member'
 from public.accounts where slug = 'tuckin-hq';
+
+-- Mark only the owner's personal account as onboarded; member@tuckin.test and
+-- the team account stay at the default false so onboarding can be exercised.
+update public.accounts
+set onboarded = true
+where primary_owner_user_id = '11111111-1111-1111-1111-111111111111'
+  and is_personal_account;

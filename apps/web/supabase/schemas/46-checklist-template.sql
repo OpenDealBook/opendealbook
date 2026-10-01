@@ -7,6 +7,7 @@ create table if not exists public.checklist_template (
   account_id uuid not null references public.accounts (id) on delete cascade,
   name text not null,
   category text,
+  kind text check (kind in ('offer', 'diligence', 'closing', 'post_close')),
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
   updated_at timestamptz
@@ -49,6 +50,9 @@ create table if not exists public.checklist_template_item (
   priority int not null default 0,
   deal_killer boolean not null default false,
   due_offset_days int,
+  owner_role text check (owner_role in ('buyer', 'attorney', 'cpa', 'broker', 'seller', 'sales_team')),
+  importance text check (importance in ('required', 'nice_to_have', 'na')),
+  offer_term_key text,
   sort_order int not null default 0
 );
 

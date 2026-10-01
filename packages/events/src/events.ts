@@ -17,7 +17,8 @@ export type AggregateType =
   | 'dr_document'
   | 'meeting'
   | 'meeting_action_item'
-  | 'contract';
+  | 'contract'
+  | 'offer';
 
 export type EventType =
   | 'deal.created'
@@ -25,6 +26,11 @@ export type EventType =
   | 'deal.stage_changed'
   | 'deal.duplicate_flagged'
   | 'deal.duplicate_cleared'
+  | 'deal.resolved'
+  | 'deal.archived'
+  | 'deal.unarchived'
+  | 'deal.listing_status_changed'
+  | 'deal.financials_adopted'
   | 'deal_box.set'
   | 'checklist_item.added'
   | 'checklist_item.removed'
@@ -42,7 +48,15 @@ export type EventType =
   | 'meeting_action_item.removed'
   | 'meeting_action_item.updated'
   | 'contract.created'
-  | 'contract.version_set';
+  | 'contract.version_set'
+  | 'offer.drafted'
+  | 'offer.version_added'
+  | 'offer.submitted'
+  | 'offer.countered'
+  | 'offer.accepted'
+  | 'offer.rejected'
+  | 'offer.withdrawn'
+  | 'offer.expired';
 
 export type AppendDealEventResult = Functions['append_deal_event']['Returns'];
 

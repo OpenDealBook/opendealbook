@@ -15,7 +15,7 @@ create or replace function public.project_deal(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.created' then
-    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, capture_method, source_url, created_by_kind, created_by_ref, created_by_via, created_by, updated_by)
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, capture_method, source_url, discovered_at, created_by_kind, created_by_ref, created_by_via, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'firm_id')::uuid,
@@ -32,6 +32,7 @@ begin
       (ev.payload ->> 'deal_box_version')::int,
       ev.payload ->> 'capture_method',
       ev.payload ->> 'source_url',
+      coalesce((ev.payload ->> 'discovered_at')::timestamptz, ev.created_at),
       case ev.actor_kind
         when 'user' then 'user'
         when 'service' then 'workflow'
@@ -56,6 +57,27 @@ begin
       capture_method = excluded.capture_method,
       source_url = excluded.source_url,
       updated_by = excluded.updated_by;
+    insert into public.deal_profile (deal_id, account_id, year_established, industry_id, location_id, location_raw, employee_band, website, owner_role, reason_for_sale)
+    values (
+      ev.aggregate_id, ev.account_id,
+      (ev.payload ->> 'year_established')::int,
+      (ev.payload ->> 'industry_id')::uuid,
+      (ev.payload ->> 'location_id')::uuid,
+      ev.payload ->> 'location_raw',
+      ev.payload ->> 'employee_band',
+      ev.payload ->> 'website',
+      ev.payload ->> 'owner_role',
+      ev.payload ->> 'reason_for_sale'
+    )
+    on conflict (deal_id) do update set
+      year_established = excluded.year_established,
+      industry_id = excluded.industry_id,
+      location_id = excluded.location_id,
+      location_raw = excluded.location_raw,
+      employee_band = excluded.employee_band,
+      website = excluded.website,
+      owner_role = excluded.owner_role,
+      reason_for_sale = excluded.reason_for_sale;
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
       description = coalesce(ev.payload ->> 'description', description),
@@ -67,10 +89,42 @@ begin
       close_date = coalesce((ev.payload ->> 'close_date')::date, close_date),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
+    update public.deal_profile set
+      year_established = coalesce((ev.payload ->> 'year_established')::int, year_established),
+      industry_id = coalesce((ev.payload ->> 'industry_id')::uuid, industry_id),
+      location_id = coalesce((ev.payload ->> 'location_id')::uuid, location_id),
+      location_raw = coalesce(ev.payload ->> 'location_raw', location_raw),
+      employee_band = coalesce(ev.payload ->> 'employee_band', employee_band),
+      website = coalesce(ev.payload ->> 'website', website),
+      owner_role = coalesce(ev.payload ->> 'owner_role', owner_role),
+      reason_for_sale = coalesce(ev.payload ->> 'reason_for_sale', reason_for_sale)
+    where deal_id = ev.aggregate_id;
   elsif ev.event_type = 'deal.stage_changed' then
     update public.deal set
       stage = ev.payload ->> 'stage',
+      stage_changed_at = ev.created_at,
       outcome_reason = coalesce(ev.payload ->> 'outcome_reason', outcome_reason),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.resolved' then
+    update public.deal set
+      resolution = ev.payload ->> 'resolution',
+      resolution_reason = ev.payload ->> 'resolution_reason',
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.archived' then
+    update public.deal set
+      archived_at = coalesce((ev.payload ->> 'archived_at')::timestamptz, ev.created_at),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.unarchived' then
+    update public.deal set
+      archived_at = null,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.listing_status_changed' then
+    update public.deal set
+      listing_status = ev.payload ->> 'listing_status',
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   elsif ev.event_type = 'deal.duplicate_flagged' then
@@ -117,7 +171,7 @@ create or replace function public.project_checklist_item(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'checklist_item.added' then
-    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, created_by, updated_by)
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, kind, owner_role, importance, answer, offer_term_key, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       ev.payload ->> 'category',
@@ -129,6 +183,11 @@ begin
       coalesce((ev.payload ->> 'deal_killer')::boolean, false),
       (ev.payload ->> 'schedule_week_id')::uuid,
       (ev.payload ->> 'due_offset_days')::int,
+      ev.payload ->> 'kind',
+      ev.payload ->> 'owner_role',
+      ev.payload ->> 'importance',
+      ev.payload ->> 'answer',
+      ev.payload ->> 'offer_term_key',
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -141,6 +200,11 @@ begin
       deal_killer = excluded.deal_killer,
       schedule_week_id = excluded.schedule_week_id,
       due_offset_days = excluded.due_offset_days,
+      kind = excluded.kind,
+      owner_role = excluded.owner_role,
+      importance = excluded.importance,
+      answer = excluded.answer,
+      offer_term_key = excluded.offer_term_key,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'checklist_item.status_changed' then
     update public.checklist_item set
@@ -150,6 +214,7 @@ begin
       reviewed_at = coalesce((ev.payload ->> 'reviewed_at')::timestamptz, reviewed_at),
       reviewed_by = coalesce((ev.payload ->> 'reviewed_by')::uuid, reviewed_by),
       outcome = coalesce((ev.payload ->> 'outcome')::public.checklist_outcome, outcome),
+      answer = coalesce(ev.payload ->> 'answer', answer),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   elsif ev.event_type = 'checklist_item.rescheduled' then
@@ -353,13 +418,101 @@ begin
 end;
 $$;
 
+-- offer.version_added carries the new offer_version's id in payload.version_id;
+-- the offer aggregate_id is the parent offer. Version rows are insert-only so a
+-- submitted version stays frozen; the insert is guarded on conflict do nothing
+-- so a replay re-applying the event is a no-op rather than a unique violation.
+-- The stage move to loi_submitted/loi_accepted and the contract.created for an
+-- accepted offer are separate events the accept/submit action emits, not folded
+-- here.
+create or replace function public.project_offer(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'offer.drafted' then
+    insert into public.offer (id, account_id, deal_id, status)
+    values (ev.aggregate_id, ev.account_id, ev.deal_id, 'draft')
+    on conflict (id) do nothing;
+  elsif ev.event_type = 'offer.version_added' then
+    insert into public.offer_version (id, account_id, offer_id, number, author_side, purchase_price, real_estate_portion, target_close_date, offer_expires_at, exclusivity_days, diligence_days, terms, calc_version_id, approved_by, approved_at)
+    values (
+      (ev.payload ->> 'version_id')::uuid,
+      ev.account_id, ev.aggregate_id,
+      (ev.payload ->> 'number')::int,
+      ev.payload ->> 'author_side',
+      (ev.payload ->> 'purchase_price')::numeric,
+      (ev.payload ->> 'real_estate_portion')::numeric,
+      (ev.payload ->> 'target_close_date')::date,
+      (ev.payload ->> 'offer_expires_at')::timestamptz,
+      (ev.payload ->> 'exclusivity_days')::int,
+      (ev.payload ->> 'diligence_days')::int,
+      coalesce(ev.payload -> 'terms', '{}'::jsonb),
+      (ev.payload ->> 'calc_version_id')::uuid,
+      (ev.payload ->> 'approved_by')::uuid,
+      (ev.payload ->> 'approved_at')::timestamptz
+    )
+    on conflict (id) do nothing;
+    update public.offer set current_version_id = (ev.payload ->> 'version_id')::uuid
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.submitted' then
+    update public.offer set status = 'submitted', submitted_at = ev.created_at
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.countered' then
+    update public.offer set status = 'countered' where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.accepted' then
+    update public.offer set status = 'accepted', responded_at = ev.created_at
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.rejected' then
+    update public.offer set status = 'rejected' where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.withdrawn' then
+    update public.offer set status = 'withdrawn' where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.expired' then
+    update public.offer set status = 'expired' where id = ev.aggregate_id;
+  else
+    raise exception 'unknown offer event %', ev.event_type;
+  end if;
+end;
+$$;
+
+-- deal.financials_adopted rides the 'deal' aggregate but folds into the
+-- deal_financials projection (86-deal-financials.sql) rather than the deal row.
+create or replace function public.project_deal_financials(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'deal.financials_adopted' then
+    insert into public.deal_financials (deal_id, account_id, adopted_revenue, adopted_sde, adopted_ebitda, source_calc_version_id, adopted_by, adopted_at)
+    values (
+      ev.aggregate_id, ev.account_id,
+      (ev.payload ->> 'adopted_revenue')::numeric,
+      (ev.payload ->> 'adopted_sde')::numeric,
+      (ev.payload ->> 'adopted_ebitda')::numeric,
+      (ev.payload ->> 'source_calc_version_id')::uuid,
+      ev.actor_ref,
+      ev.created_at
+    )
+    on conflict (deal_id) do update set
+      adopted_revenue = excluded.adopted_revenue,
+      adopted_sde = excluded.adopted_sde,
+      adopted_ebitda = excluded.adopted_ebitda,
+      source_calc_version_id = excluded.source_calc_version_id,
+      adopted_by = excluded.adopted_by,
+      adopted_at = excluded.adopted_at;
+  else
+    raise exception 'unknown deal_financials event %', ev.event_type;
+  end if;
+end;
+$$;
+
 -- Explicit dispatch. Unknown aggregate_type raises rather than silently
 -- dropping the event.
 create or replace function public.project_deal_event(ev public.deal_event)
   returns void
   language plpgsql security definer set search_path = '' as $$
 begin
-  if ev.aggregate_type = 'deal' then
+  if ev.aggregate_type = 'deal' and ev.event_type = 'deal.financials_adopted' then
+    perform public.project_deal_financials(ev);
+  elsif ev.aggregate_type = 'deal' then
     perform public.project_deal(ev);
   elsif ev.aggregate_type = 'deal_box' then
     perform public.project_deal_box(ev);
@@ -377,6 +530,8 @@ begin
     perform public.project_meeting_action_item(ev);
   elsif ev.aggregate_type = 'contract' then
     perform public.project_contract(ev);
+  elsif ev.aggregate_type = 'offer' then
+    perform public.project_offer(ev);
   else
     raise exception 'no projector for aggregate_type %', ev.aggregate_type;
   end if;

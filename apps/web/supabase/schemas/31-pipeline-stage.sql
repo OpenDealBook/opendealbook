@@ -1,7 +1,9 @@
 -- Account-scoped deal pipeline stages. Every account owns its own ordered set,
--- seeded from the default 8-stage pipeline (plus the two terminal closed
--- stages) at account creation. Renaming, reordering, and adding stages are
--- plain updates and inserts; deal.stage is validated against this table.
+-- seeded from the default 9-stage pipeline at account creation. Renaming,
+-- reordering, and adding stages are plain updates and inserts; deal.stage is
+-- validated against this table. Terminality is no longer a stage: a deal keeps
+-- its stage and carries resolution separately (see deal.resolution), so every
+-- seeded stage is non-terminal.
 
 create table if not exists public.pipeline_stage (
   id uuid primary key default gen_random_uuid(),
@@ -60,16 +62,15 @@ create or replace function public.seed_default_pipeline_stages(p_account_id uuid
   set search_path = '' as $$
   insert into public.pipeline_stage (account_id, key, label, sort_order, is_terminal)
   values
-    (p_account_id, 'sourced', 'Sourced', 1, false),
-    (p_account_id, 'qualifying', 'Qualifying', 2, false),
-    (p_account_id, 'loi', 'LOI', 3, false),
-    (p_account_id, 'diligence', 'Diligence', 4, false),
-    (p_account_id, 'hr_audit', 'HR Audit', 5, false),
-    (p_account_id, 'apa', 'APA', 6, false),
-    (p_account_id, 'announcement', 'Announcement', 7, false),
-    (p_account_id, 'integration', 'Integration', 8, false),
-    (p_account_id, 'closed_won', 'Closed Won', 9, true),
-    (p_account_id, 'closed_lost', 'Closed Lost', 10, true);
+    (p_account_id, 'sourcing', 'Sourcing', 1, false),
+    (p_account_id, 'pre_nda', 'Pre-NDA', 2, false),
+    (p_account_id, 'nda_signed', 'NDA Signed', 3, false),
+    (p_account_id, 'loi_submitted', 'LOI Submitted', 4, false),
+    (p_account_id, 'loi_accepted', 'LOI Accepted', 5, false),
+    (p_account_id, 'pa_submitted', 'PA Submitted', 6, false),
+    (p_account_id, 'pa_accepted', 'PA Accepted', 7, false),
+    (p_account_id, 'announcement', 'Announcement', 8, false),
+    (p_account_id, 'integration', 'Integration', 9, false);
 $$;
 
 grant execute on function public.seed_default_pipeline_stages(uuid) to service_role;

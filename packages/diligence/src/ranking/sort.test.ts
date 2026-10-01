@@ -9,6 +9,7 @@ type ChecklistItem = Tables<'checklist_item'>;
 function item(overrides: Partial<ChecklistItem>): ChecklistItem {
   return {
     account_id: 'acct-1',
+    answer: null,
     artifact_id: null,
     artifact_type: null,
     category: null,
@@ -19,7 +20,11 @@ function item(overrides: Partial<ChecklistItem>): ChecklistItem {
     due_at: null,
     due_offset_days: null,
     id: 'item',
+    importance: null,
+    kind: null,
+    offer_term_key: null,
     outcome: null,
+    owner_role: null,
     owner_user_id: null,
     priority: 0,
     received_at: null,

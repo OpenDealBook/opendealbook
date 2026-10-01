@@ -175,6 +175,7 @@ create table if not exists public.accounts (
   is_personal_account boolean not null default false,
   picture_url varchar(1000),
   public_data jsonb not null default '{}'::jsonb,
+  onboarded boolean not null default false,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -1704,6 +1705,8 @@ create table if not exists public.deal_box (
   version int not null,
   criteria_json jsonb not null default '{}'::jsonb,
   broker_summary text,
+  min_dscr numeric,
+  required_personal_cash_flow numeric,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -1875,15 +1878,28 @@ create table if not exists public.deal (
   sde_ttm numeric,
   ebitda_ttm numeric,
   source public.deal_source not null default 'manual',
-  stage text not null default 'sourced',
+  stage text not null default 'sourcing',
   notes text,
   deal_box_version int,
   close_date date,
   broker_contact_id uuid references public.contact (id) on delete set null,
   outcome_reason text,
+  -- resolution is the structured lifecycle outcome, set by deal.resolved; a
+  -- resolved deal keeps its stage. resolution_reason is the structured reason,
+  -- validated by the feature layer. The legacy free-text outcome_reason stays
+  -- for the comps/activity_pool path and is not superseded here.
+  resolution text,
+  resolution_reason text,
+  listing_status text not null default 'active' check (listing_status in ('active', 'pulled', 'sold')),
+  archived_at timestamptz,
+  stage_changed_at timestamptz,
+  discovered_at timestamptz,
+  earnings_basis text not null default 'sde' check (earnings_basis in ('sde', 'ebitda')),
+  open_to_partnership boolean not null default false,
   duplicate_of uuid references public.deal (id) on delete set null,
   capture_method text,
   source_url text,
+  search_tsv tsvector,
   created_by_kind text,
   created_by_ref text,
   created_by_via text,
@@ -1899,6 +1915,20 @@ create index ix_deal_account_stage on public.deal (account_id, stage);
 create index ix_deal_firm on public.deal (firm_id);
 create index ix_deal_owner on public.deal (owner_user_id);
 
+-- List and search indexes for the deals list. The list query is always
+-- account-scoped, so the range indexes lead with account_id to stay useful
+-- under the account filter. pg_trgm backs the title (description) prefix and
+-- fuzzy match; it is enabled here because the index below needs gin_trgm_ops,
+-- but it belongs with the other extensions in 00-privileges.sql (see report).
+create extension if not exists pg_trgm with schema extensions;
+
+create index ix_deal_search_tsv on public.deal using gin (search_tsv);
+create index ix_deal_description_trgm on public.deal using gin (description extensions.gin_trgm_ops);
+create index ix_deal_account_archived_stage_updated on public.deal (account_id, archived_at, stage, updated_at desc);
+create index ix_deal_account_asking_price on public.deal (account_id, asking_price);
+create index ix_deal_account_revenue_ttm on public.deal (account_id, revenue_ttm);
+create index ix_deal_account_sde_ttm on public.deal (account_id, sde_ttm);
+
 -- Writes go through append_deal_event; the projectors run security definer as
 -- the table owner. authenticated and service_role keep read only.
 revoke all on public.deal from authenticated, service_role;
@@ -1908,6 +1938,24 @@ grant select on public.deal to service_role;
 create trigger deal_timestamps
   before insert or update on public.deal
   for each row execute function public.set_timestamps();
+
+-- search_tsv is kept in a BEFORE trigger rather than a stored generated column:
+-- to_tsvector is only stable, not immutable, so a generated column rejects it.
+-- The trigger fires on the projector's writes even though deal is DML-revoked,
+-- the same way deal_timestamps does. Only deal-local text is indexed here;
+-- industry, location and broker text live on deal_profile and contact (report).
+create or replace function public.deal_search_tsv()
+  returns trigger
+  set search_path = '' as $$
+begin
+  new.search_tsv := to_tsvector('english', coalesce(new.description, ''));
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger deal_search_tsv
+  before insert or update on public.deal
+  for each row execute function public.deal_search_tsv();
 
 -- ===== schemas/23-deal-participant.sql =====
 -- Per-deal access grants for internal and external parties. A grant scoped
@@ -2030,6 +2078,11 @@ create table if not exists public.checklist_item (
   due_offset_days int,
   artifact_type text,
   artifact_id uuid,
+  kind text check (kind in ('offer', 'diligence', 'closing', 'post_close')),
+  owner_role text check (owner_role in ('buyer', 'attorney', 'cpa', 'broker', 'seller', 'sales_team')),
+  importance text check (importance in ('required', 'nice_to_have', 'na')),
+  answer text,
+  offer_term_key text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -2309,9 +2362,11 @@ grant execute on function public.current_buyer_profile(uuid) to authenticated, s
 
 -- ===== schemas/31-pipeline-stage.sql =====
 -- Account-scoped deal pipeline stages. Every account owns its own ordered set,
--- seeded from the default 8-stage pipeline (plus the two terminal closed
--- stages) at account creation. Renaming, reordering, and adding stages are
--- plain updates and inserts; deal.stage is validated against this table.
+-- seeded from the default 9-stage pipeline at account creation. Renaming,
+-- reordering, and adding stages are plain updates and inserts; deal.stage is
+-- validated against this table. Terminality is no longer a stage: a deal keeps
+-- its stage and carries resolution separately (see deal.resolution), so every
+-- seeded stage is non-terminal.
 
 create table if not exists public.pipeline_stage (
   id uuid primary key default gen_random_uuid(),
@@ -2370,16 +2425,15 @@ create or replace function public.seed_default_pipeline_stages(p_account_id uuid
   set search_path = '' as $$
   insert into public.pipeline_stage (account_id, key, label, sort_order, is_terminal)
   values
-    (p_account_id, 'sourced', 'Sourced', 1, false),
-    (p_account_id, 'qualifying', 'Qualifying', 2, false),
-    (p_account_id, 'loi', 'LOI', 3, false),
-    (p_account_id, 'diligence', 'Diligence', 4, false),
-    (p_account_id, 'hr_audit', 'HR Audit', 5, false),
-    (p_account_id, 'apa', 'APA', 6, false),
-    (p_account_id, 'announcement', 'Announcement', 7, false),
-    (p_account_id, 'integration', 'Integration', 8, false),
-    (p_account_id, 'closed_won', 'Closed Won', 9, true),
-    (p_account_id, 'closed_lost', 'Closed Lost', 10, true);
+    (p_account_id, 'sourcing', 'Sourcing', 1, false),
+    (p_account_id, 'pre_nda', 'Pre-NDA', 2, false),
+    (p_account_id, 'nda_signed', 'NDA Signed', 3, false),
+    (p_account_id, 'loi_submitted', 'LOI Submitted', 4, false),
+    (p_account_id, 'loi_accepted', 'LOI Accepted', 5, false),
+    (p_account_id, 'pa_submitted', 'PA Submitted', 6, false),
+    (p_account_id, 'pa_accepted', 'PA Accepted', 7, false),
+    (p_account_id, 'announcement', 'Announcement', 8, false),
+    (p_account_id, 'integration', 'Integration', 9, false);
 $$;
 
 grant execute on function public.seed_default_pipeline_stages(uuid) to service_role;
@@ -3189,6 +3243,7 @@ create table if not exists public.checklist_template (
   account_id uuid not null references public.accounts (id) on delete cascade,
   name text not null,
   category text,
+  kind text check (kind in ('offer', 'diligence', 'closing', 'post_close')),
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
   updated_at timestamptz
@@ -3231,6 +3286,9 @@ create table if not exists public.checklist_template_item (
   priority int not null default 0,
   deal_killer boolean not null default false,
   due_offset_days int,
+  owner_role text check (owner_role in ('buyer', 'attorney', 'cpa', 'broker', 'seller', 'sales_team')),
+  importance text check (importance in ('required', 'nice_to_have', 'na')),
+  offer_term_key text,
   sort_order int not null default 0
 );
 
@@ -4545,7 +4603,7 @@ create or replace function public.project_deal(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.created' then
-    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, capture_method, source_url, created_by_kind, created_by_ref, created_by_via, created_by, updated_by)
+    insert into public.deal (id, account_id, firm_id, owner_user_id, description, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, notes, source, stage, broker_contact_id, deal_box_version, capture_method, source_url, discovered_at, created_by_kind, created_by_ref, created_by_via, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'firm_id')::uuid,
@@ -4562,6 +4620,7 @@ begin
       (ev.payload ->> 'deal_box_version')::int,
       ev.payload ->> 'capture_method',
       ev.payload ->> 'source_url',
+      coalesce((ev.payload ->> 'discovered_at')::timestamptz, ev.created_at),
       case ev.actor_kind
         when 'user' then 'user'
         when 'service' then 'workflow'
@@ -4586,6 +4645,27 @@ begin
       capture_method = excluded.capture_method,
       source_url = excluded.source_url,
       updated_by = excluded.updated_by;
+    insert into public.deal_profile (deal_id, account_id, year_established, industry_id, location_id, location_raw, employee_band, website, owner_role, reason_for_sale)
+    values (
+      ev.aggregate_id, ev.account_id,
+      (ev.payload ->> 'year_established')::int,
+      (ev.payload ->> 'industry_id')::uuid,
+      (ev.payload ->> 'location_id')::uuid,
+      ev.payload ->> 'location_raw',
+      ev.payload ->> 'employee_band',
+      ev.payload ->> 'website',
+      ev.payload ->> 'owner_role',
+      ev.payload ->> 'reason_for_sale'
+    )
+    on conflict (deal_id) do update set
+      year_established = excluded.year_established,
+      industry_id = excluded.industry_id,
+      location_id = excluded.location_id,
+      location_raw = excluded.location_raw,
+      employee_band = excluded.employee_band,
+      website = excluded.website,
+      owner_role = excluded.owner_role,
+      reason_for_sale = excluded.reason_for_sale;
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
       description = coalesce(ev.payload ->> 'description', description),
@@ -4597,10 +4677,42 @@ begin
       close_date = coalesce((ev.payload ->> 'close_date')::date, close_date),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
+    update public.deal_profile set
+      year_established = coalesce((ev.payload ->> 'year_established')::int, year_established),
+      industry_id = coalesce((ev.payload ->> 'industry_id')::uuid, industry_id),
+      location_id = coalesce((ev.payload ->> 'location_id')::uuid, location_id),
+      location_raw = coalesce(ev.payload ->> 'location_raw', location_raw),
+      employee_band = coalesce(ev.payload ->> 'employee_band', employee_band),
+      website = coalesce(ev.payload ->> 'website', website),
+      owner_role = coalesce(ev.payload ->> 'owner_role', owner_role),
+      reason_for_sale = coalesce(ev.payload ->> 'reason_for_sale', reason_for_sale)
+    where deal_id = ev.aggregate_id;
   elsif ev.event_type = 'deal.stage_changed' then
     update public.deal set
       stage = ev.payload ->> 'stage',
+      stage_changed_at = ev.created_at,
       outcome_reason = coalesce(ev.payload ->> 'outcome_reason', outcome_reason),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.resolved' then
+    update public.deal set
+      resolution = ev.payload ->> 'resolution',
+      resolution_reason = ev.payload ->> 'resolution_reason',
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.archived' then
+    update public.deal set
+      archived_at = coalesce((ev.payload ->> 'archived_at')::timestamptz, ev.created_at),
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.unarchived' then
+    update public.deal set
+      archived_at = null,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.listing_status_changed' then
+    update public.deal set
+      listing_status = ev.payload ->> 'listing_status',
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   elsif ev.event_type = 'deal.duplicate_flagged' then
@@ -4647,7 +4759,7 @@ create or replace function public.project_checklist_item(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'checklist_item.added' then
-    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, created_by, updated_by)
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, kind, owner_role, importance, answer, offer_term_key, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       ev.payload ->> 'category',
@@ -4659,6 +4771,11 @@ begin
       coalesce((ev.payload ->> 'deal_killer')::boolean, false),
       (ev.payload ->> 'schedule_week_id')::uuid,
       (ev.payload ->> 'due_offset_days')::int,
+      ev.payload ->> 'kind',
+      ev.payload ->> 'owner_role',
+      ev.payload ->> 'importance',
+      ev.payload ->> 'answer',
+      ev.payload ->> 'offer_term_key',
       ev.actor_ref, ev.actor_ref
     )
     on conflict (id) do update set
@@ -4671,6 +4788,11 @@ begin
       deal_killer = excluded.deal_killer,
       schedule_week_id = excluded.schedule_week_id,
       due_offset_days = excluded.due_offset_days,
+      kind = excluded.kind,
+      owner_role = excluded.owner_role,
+      importance = excluded.importance,
+      answer = excluded.answer,
+      offer_term_key = excluded.offer_term_key,
       updated_by = excluded.updated_by;
   elsif ev.event_type = 'checklist_item.status_changed' then
     update public.checklist_item set
@@ -4680,6 +4802,7 @@ begin
       reviewed_at = coalesce((ev.payload ->> 'reviewed_at')::timestamptz, reviewed_at),
       reviewed_by = coalesce((ev.payload ->> 'reviewed_by')::uuid, reviewed_by),
       outcome = coalesce((ev.payload ->> 'outcome')::public.checklist_outcome, outcome),
+      answer = coalesce(ev.payload ->> 'answer', answer),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   elsif ev.event_type = 'checklist_item.rescheduled' then
@@ -4883,13 +5006,101 @@ begin
 end;
 $$;
 
+-- offer.version_added carries the new offer_version's id in payload.version_id;
+-- the offer aggregate_id is the parent offer. Version rows are insert-only so a
+-- submitted version stays frozen; the insert is guarded on conflict do nothing
+-- so a replay re-applying the event is a no-op rather than a unique violation.
+-- The stage move to loi_submitted/loi_accepted and the contract.created for an
+-- accepted offer are separate events the accept/submit action emits, not folded
+-- here.
+create or replace function public.project_offer(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'offer.drafted' then
+    insert into public.offer (id, account_id, deal_id, status)
+    values (ev.aggregate_id, ev.account_id, ev.deal_id, 'draft')
+    on conflict (id) do nothing;
+  elsif ev.event_type = 'offer.version_added' then
+    insert into public.offer_version (id, account_id, offer_id, number, author_side, purchase_price, real_estate_portion, target_close_date, offer_expires_at, exclusivity_days, diligence_days, terms, calc_version_id, approved_by, approved_at)
+    values (
+      (ev.payload ->> 'version_id')::uuid,
+      ev.account_id, ev.aggregate_id,
+      (ev.payload ->> 'number')::int,
+      ev.payload ->> 'author_side',
+      (ev.payload ->> 'purchase_price')::numeric,
+      (ev.payload ->> 'real_estate_portion')::numeric,
+      (ev.payload ->> 'target_close_date')::date,
+      (ev.payload ->> 'offer_expires_at')::timestamptz,
+      (ev.payload ->> 'exclusivity_days')::int,
+      (ev.payload ->> 'diligence_days')::int,
+      coalesce(ev.payload -> 'terms', '{}'::jsonb),
+      (ev.payload ->> 'calc_version_id')::uuid,
+      (ev.payload ->> 'approved_by')::uuid,
+      (ev.payload ->> 'approved_at')::timestamptz
+    )
+    on conflict (id) do nothing;
+    update public.offer set current_version_id = (ev.payload ->> 'version_id')::uuid
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.submitted' then
+    update public.offer set status = 'submitted', submitted_at = ev.created_at
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.countered' then
+    update public.offer set status = 'countered' where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.accepted' then
+    update public.offer set status = 'accepted', responded_at = ev.created_at
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.rejected' then
+    update public.offer set status = 'rejected' where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.withdrawn' then
+    update public.offer set status = 'withdrawn' where id = ev.aggregate_id;
+  elsif ev.event_type = 'offer.expired' then
+    update public.offer set status = 'expired' where id = ev.aggregate_id;
+  else
+    raise exception 'unknown offer event %', ev.event_type;
+  end if;
+end;
+$$;
+
+-- deal.financials_adopted rides the 'deal' aggregate but folds into the
+-- deal_financials projection (86-deal-financials.sql) rather than the deal row.
+create or replace function public.project_deal_financials(ev public.deal_event)
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+begin
+  if ev.event_type = 'deal.financials_adopted' then
+    insert into public.deal_financials (deal_id, account_id, adopted_revenue, adopted_sde, adopted_ebitda, source_calc_version_id, adopted_by, adopted_at)
+    values (
+      ev.aggregate_id, ev.account_id,
+      (ev.payload ->> 'adopted_revenue')::numeric,
+      (ev.payload ->> 'adopted_sde')::numeric,
+      (ev.payload ->> 'adopted_ebitda')::numeric,
+      (ev.payload ->> 'source_calc_version_id')::uuid,
+      ev.actor_ref,
+      ev.created_at
+    )
+    on conflict (deal_id) do update set
+      adopted_revenue = excluded.adopted_revenue,
+      adopted_sde = excluded.adopted_sde,
+      adopted_ebitda = excluded.adopted_ebitda,
+      source_calc_version_id = excluded.source_calc_version_id,
+      adopted_by = excluded.adopted_by,
+      adopted_at = excluded.adopted_at;
+  else
+    raise exception 'unknown deal_financials event %', ev.event_type;
+  end if;
+end;
+$$;
+
 -- Explicit dispatch. Unknown aggregate_type raises rather than silently
 -- dropping the event.
 create or replace function public.project_deal_event(ev public.deal_event)
   returns void
   language plpgsql security definer set search_path = '' as $$
 begin
-  if ev.aggregate_type = 'deal' then
+  if ev.aggregate_type = 'deal' and ev.event_type = 'deal.financials_adopted' then
+    perform public.project_deal_financials(ev);
+  elsif ev.aggregate_type = 'deal' then
     perform public.project_deal(ev);
   elsif ev.aggregate_type = 'deal_box' then
     perform public.project_deal_box(ev);
@@ -4907,6 +5118,8 @@ begin
     perform public.project_meeting_action_item(ev);
   elsif ev.aggregate_type = 'contract' then
     perform public.project_contract(ev);
+  elsif ev.aggregate_type = 'offer' then
+    perform public.project_offer(ev);
   else
     raise exception 'no projector for aggregate_type %', ev.aggregate_type;
   end if;
@@ -5973,3 +6186,780 @@ create or replace function public.is_user_super_admin(target_user_id uuid)
 $$;
 
 grant execute on function public.is_user_super_admin(uuid) to authenticated, service_role;
+
+-- ===== schemas/83-industry.sql =====
+-- Per-account industry taxonomy, two levels deep. A root industry carries a null
+-- parent_id; a child points at its root. deal and comp classification reference
+-- these rows, so every account owns and curates its own set. Renaming and
+-- reparenting are plain updates and inserts gated on deals.manage; every member
+-- may read.
+
+create table if not exists public.industry (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  name text not null,
+  parent_id uuid references public.industry (id) on delete set null,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, name, parent_id)
+);
+
+alter table public.industry enable row level security;
+
+create index ix_industry_account on public.industry (account_id);
+create index ix_industry_account_parent on public.industry (account_id, parent_id);
+
+revoke all on public.industry from authenticated, service_role;
+grant select, insert, update, delete on public.industry to authenticated;
+grant select, insert, update, delete on public.industry to service_role;
+
+create trigger industry_timestamps
+  before insert or update on public.industry
+  for each row execute function public.set_timestamps();
+
+create trigger industry_user_tracking
+  before insert or update on public.industry
+  for each row execute function public.set_user_tracking();
+
+create policy industry_read on public.industry
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy industry_insert on public.industry
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy industry_update on public.industry
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy industry_delete on public.industry
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/84-location.sql =====
+-- Normalized places shared across an account. One row per distinct
+-- city/region/country, reused by deals and comps so a location is captured once
+-- rather than retyped and re-spelled. metro is an optional rollup label. Curation
+-- is gated on deals.manage; every member may read.
+
+create table if not exists public.location (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  city text,
+  region text,
+  country text,
+  metro text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, city, region, country)
+);
+
+alter table public.location enable row level security;
+
+create index ix_location_account on public.location (account_id);
+
+revoke all on public.location from authenticated, service_role;
+grant select, insert, update, delete on public.location to authenticated;
+grant select, insert, update, delete on public.location to service_role;
+
+create trigger location_timestamps
+  before insert or update on public.location
+  for each row execute function public.set_timestamps();
+
+create trigger location_user_tracking
+  before insert or update on public.location
+  for each row execute function public.set_user_tracking();
+
+create policy location_read on public.location
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy location_insert on public.location
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy location_update on public.location
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy location_delete on public.location
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/85-deal-star.sql =====
+-- A personal star: one user flagging one deal as a favorite. Stars are private to
+-- the user who sets them, so there is no shared or account-wide view of who
+-- starred what. account_id scopes the row to the deal's tenant so RLS can require
+-- both own-row ownership and account membership. A star is set or cleared, never
+-- edited, so the table is insert and delete only.
+
+create table if not exists public.deal_star (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, deal_id)
+);
+
+alter table public.deal_star enable row level security;
+
+create index ix_deal_star_deal on public.deal_star (deal_id);
+
+revoke all on public.deal_star from authenticated, service_role;
+grant select, insert, delete on public.deal_star to authenticated;
+grant select, insert, delete on public.deal_star to service_role;
+
+create policy deal_star_read on public.deal_star
+  for select to authenticated
+  using (
+    user_id = (select auth.uid())
+    and public.has_role_on_account(account_id)
+  );
+
+create policy deal_star_insert on public.deal_star
+  for insert to authenticated
+  with check (
+    user_id = (select auth.uid())
+    and public.has_role_on_account(account_id)
+  );
+
+create policy deal_star_delete on public.deal_star
+  for delete to authenticated
+  using (
+    user_id = (select auth.uid())
+    and public.has_role_on_account(account_id)
+  );
+
+-- ===== schemas/86-deal-financials.sql =====
+-- The adopted earnings figures for a deal: the single set of revenue/SDE/EBITDA
+-- the account has committed to for this deal, sourced from a calc version. One
+-- row per deal (1:1), written only by deal.financials_adopted through
+-- project_deal_financials (65-deal-event-projectors.sql); authenticated and
+-- service_role keep read only. source_calc_version_id references the calc version
+-- these figures were adopted from. Its foreign key to calc_version is declared at
+-- the end of 89-calc-version.sql, since schema files apply in filename order and
+-- calc_version does not yet exist at this file.
+
+create table if not exists public.deal_financials (
+  deal_id uuid primary key references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  adopted_revenue numeric,
+  adopted_sde numeric,
+  adopted_ebitda numeric,
+  source_calc_version_id uuid,
+  adopted_at timestamptz,
+  adopted_by uuid references auth.users
+);
+
+alter table public.deal_financials enable row level security;
+
+create index ix_deal_financials_account on public.deal_financials (account_id);
+
+-- Writes go through append_deal_event; the projector runs security definer as
+-- the table owner. authenticated and service_role keep read only.
+revoke all on public.deal_financials from authenticated, service_role;
+grant select on public.deal_financials to authenticated;
+grant select on public.deal_financials to service_role;
+
+create policy deal_financials_read on public.deal_financials
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy deal_financials_insert on public.deal_financials
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_financials_update on public.deal_financials
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_financials_delete on public.deal_financials
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/87-deal-profile.sql =====
+-- The descriptive profile of a deal's target business: industry, place, size and
+-- the owner's context. One row per deal (1:1), written only through the deal
+-- aggregate: project_deal (65-deal-event-projectors.sql) upserts it from
+-- deal.created and deal.updated alongside the deal row, so these fields travel on
+-- the same event as description and asking_price rather than a separate one. The
+-- quantitative figures (asking_price, revenue_ttm, sde_ttm, ebitda_ttm) stay on
+-- the deal table; this holds only the descriptive attributes. authenticated and
+-- service_role keep read only.
+
+create table if not exists public.deal_profile (
+  deal_id uuid primary key references public.deal (id) on delete cascade,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  year_established int,
+  industry_id uuid references public.industry (id) on delete set null,
+  location_id uuid references public.location (id) on delete set null,
+  location_raw text,
+  employee_band text,
+  website text,
+  owner_role text,
+  reason_for_sale text
+);
+
+alter table public.deal_profile enable row level security;
+
+create index ix_deal_profile_account on public.deal_profile (account_id);
+create index ix_deal_profile_industry on public.deal_profile (industry_id);
+create index ix_deal_profile_location on public.deal_profile (location_id);
+
+-- Writes go through append_deal_event; the projector runs security definer as
+-- the table owner. authenticated and service_role keep read only.
+revoke all on public.deal_profile from authenticated, service_role;
+grant select on public.deal_profile to authenticated;
+grant select on public.deal_profile to service_role;
+
+create policy deal_profile_read on public.deal_profile
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy deal_profile_insert on public.deal_profile
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_profile_update on public.deal_profile
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_profile_delete on public.deal_profile
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/88-lead.sql =====
+-- Marketing lead capture from the public OpenDealbook site. The contact form is
+-- served to anonymous, pre-auth visitors, so rows are written only by the
+-- service-role client from inside the contact server action; there is no insert
+-- grant to anon or authenticated, which keeps the form off any direct client
+-- insert path. Leads belong to the OpenDealbook vendor team, not to a tenant, so
+-- there is no account_id and the row is platform-level. A verified super admin
+-- may read it; no one updates or deletes it except the service role.
+
+create table if not exists public.lead (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  email text not null,
+  company text,
+  message text,
+  source text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.lead enable row level security;
+
+create index ix_lead_created_at on public.lead (created_at desc);
+create index ix_lead_email on public.lead (email);
+
+revoke all on public.lead from authenticated, service_role;
+grant select on public.lead to authenticated;
+grant insert on public.lead to service_role;
+
+create policy lead_read on public.lead
+  for select to authenticated
+  using (public.is_super_admin());
+
+-- ===== schemas/89-calc-version.sql =====
+-- A saved calculator scenario for a deal. Many versions per deal: each is a
+-- scratch what-if the account keeps alongside the others, one flagged primary.
+-- type selects which calculator shape the version holds (sde, deal, or working
+-- capital). outputs_snapshot captures the key computed outputs at save time so a
+-- version reads back without re-running the calculator. Conventional RLS; these
+-- are scratch scenarios, not event-sourced.
+
+create table if not exists public.calc_version (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  type text check (type in ('sde', 'deal', 'working_capital')),
+  name text,
+  notes text,
+  is_primary boolean not null default false,
+  outputs_snapshot jsonb not null default '{}'::jsonb,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.calc_version enable row level security;
+
+create index ix_calc_version_deal on public.calc_version (deal_id);
+create index ix_calc_version_deal_type on public.calc_version (deal_id, type);
+
+revoke all on public.calc_version from authenticated, service_role;
+grant select, insert, update, delete on public.calc_version to authenticated;
+grant select, insert, update, delete on public.calc_version to service_role;
+
+create trigger calc_version_timestamps
+  before insert or update on public.calc_version
+  for each row execute function public.set_timestamps();
+
+create trigger calc_version_user_tracking
+  before insert or update on public.calc_version
+  for each row execute function public.set_user_tracking();
+
+create policy calc_version_read on public.calc_version
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy calc_version_insert on public.calc_version
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy calc_version_update on public.calc_version
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy calc_version_delete on public.calc_version
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- The deferred link from deal_financials (86) back to the calc version a deal's
+-- adopted figures came from. Declared here, not inline in 86, because schema
+-- files apply in filename order and calc_version does not exist until this file.
+alter table public.deal_financials
+  add constraint deal_financials_source_calc_version_fk
+  foreign key (source_calc_version_id) references public.calc_version (id) on delete set null;
+
+-- ===== schemas/90-sde-period.sql =====
+-- A single earnings period inside an SDE calc version: a full year, a partial
+-- year, or a trailing-twelve-month window, carrying the weight it contributes to
+-- the blended figure. months is null or 12 for a full year; a partial year sets
+-- months between 1 and 11, matching the @odb/calculators partial-year ruling.
+
+create table if not exists public.sde_period (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  calc_version_id uuid not null references public.calc_version (id) on delete cascade,
+  label text,
+  weight numeric,
+  months int check (months is null or (months between 1 and 11)),
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.sde_period enable row level security;
+
+create index ix_sde_period_calc_version on public.sde_period (calc_version_id);
+
+revoke all on public.sde_period from authenticated, service_role;
+grant select, insert, update, delete on public.sde_period to authenticated;
+grant select, insert, update, delete on public.sde_period to service_role;
+
+create trigger sde_period_timestamps
+  before insert or update on public.sde_period
+  for each row execute function public.set_timestamps();
+
+create trigger sde_period_user_tracking
+  before insert or update on public.sde_period
+  for each row execute function public.set_user_tracking();
+
+create policy sde_period_read on public.sde_period
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy sde_period_insert on public.sde_period
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy sde_period_update on public.sde_period
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy sde_period_delete on public.sde_period
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/91-sde-line.sql =====
+-- One line item within an SDE period. line_code identifies a row from the fixed
+-- SDE catalog; custom_label names a row the user added outside the catalog.
+
+create table if not exists public.sde_line (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  period_id uuid not null references public.sde_period (id) on delete cascade,
+  line_code text,
+  custom_label text,
+  amount numeric,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.sde_line enable row level security;
+
+create index ix_sde_line_period on public.sde_line (period_id);
+
+revoke all on public.sde_line from authenticated, service_role;
+grant select, insert, update, delete on public.sde_line to authenticated;
+grant select, insert, update, delete on public.sde_line to service_role;
+
+create trigger sde_line_timestamps
+  before insert or update on public.sde_line
+  for each row execute function public.set_timestamps();
+
+create trigger sde_line_user_tracking
+  before insert or update on public.sde_line
+  for each row execute function public.set_user_tracking();
+
+create policy sde_line_read on public.sde_line
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy sde_line_insert on public.sde_line
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy sde_line_update on public.sde_line
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy sde_line_delete on public.sde_line
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/92-deal-calc-input.sql =====
+-- The input set for a Deal calc version, one row per version. inputs holds the
+-- acquisition, P&L, SDE, and growth fields the Deal calculator consumes.
+-- deal_box_id links the acquisition criteria this calc was framed against.
+-- imported_from_version_id records the SDE calc version a Deal calc pulled its
+-- earnings from, so later drift between the two stays visible. The unique
+-- constraint on calc_version_id is the index for lookups by version.
+
+create table if not exists public.deal_calc_input (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  calc_version_id uuid not null unique references public.calc_version (id) on delete cascade,
+  inputs jsonb not null default '{}'::jsonb,
+  deal_box_id uuid references public.deal_box (id),
+  imported_from_version_id uuid references public.calc_version (id) on delete set null,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.deal_calc_input enable row level security;
+
+revoke all on public.deal_calc_input from authenticated, service_role;
+grant select, insert, update, delete on public.deal_calc_input to authenticated;
+grant select, insert, update, delete on public.deal_calc_input to service_role;
+
+create trigger deal_calc_input_timestamps
+  before insert or update on public.deal_calc_input
+  for each row execute function public.set_timestamps();
+
+create trigger deal_calc_input_user_tracking
+  before insert or update on public.deal_calc_input
+  for each row execute function public.set_user_tracking();
+
+create policy deal_calc_input_read on public.deal_calc_input
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy deal_calc_input_insert on public.deal_calc_input
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_calc_input_update on public.deal_calc_input
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_calc_input_delete on public.deal_calc_input
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/93-funding-source.sql =====
+-- DB persistence of the funding-source shape shared with @odb/calculators: one
+-- row per source in a capital stack. The owner is polymorphic per spec (a calc
+-- version or, in Lane 3, an offer version). It is modeled here as a nullable
+-- calc_version_id foreign key rather than a generic owner_kind/owner_id pair, so
+-- the owner keeps real referential integrity and cascade behavior now.
+--
+-- LANE 3: add offer_version_id uuid references public.offer_version (id) on
+-- delete cascade, and a check that exactly one of (calc_version_id,
+-- offer_version_id) is non-null. Both owner kinds are then concrete columns.
+
+create table if not exists public.funding_source (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  calc_version_id uuid references public.calc_version (id) on delete cascade,
+  type text check (type in (
+    'sba_7a', 'sba_504', 'conventional', 'seller_financing', 'cash_equity',
+    'heloc', 'robs_401k', 'investor_equity', 'mezzanine', 'other'
+  )),
+  amount numeric,
+  pct numeric,
+  rate numeric,
+  term_years numeric,
+  guarantee_fee numeric,
+  standby_months int,
+  notes text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.funding_source enable row level security;
+
+create index ix_funding_source_calc_version on public.funding_source (calc_version_id);
+
+revoke all on public.funding_source from authenticated, service_role;
+grant select, insert, update, delete on public.funding_source to authenticated;
+grant select, insert, update, delete on public.funding_source to service_role;
+
+create trigger funding_source_timestamps
+  before insert or update on public.funding_source
+  for each row execute function public.set_timestamps();
+
+create trigger funding_source_user_tracking
+  before insert or update on public.funding_source
+  for each row execute function public.set_user_tracking();
+
+create policy funding_source_read on public.funding_source
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy funding_source_insert on public.funding_source
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy funding_source_update on public.funding_source
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy funding_source_delete on public.funding_source
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/94-deal-thesis.sql =====
+-- The buyer's internal thesis for a deal, one row per deal. Broker- and
+-- internal-facing narrative only; it never appears in the LOI. Field length
+-- limits live in the app-layer Zod schema, not here. The unique constraint on
+-- deal_id is the index for lookups by deal.
+
+create table if not exists public.deal_thesis (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null unique references public.deal (id) on delete cascade,
+  why_this_business text,
+  main_concerns text,
+  post_acquisition_plan text,
+  owner_involvement text,
+  additional_info text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.deal_thesis enable row level security;
+
+revoke all on public.deal_thesis from authenticated, service_role;
+grant select, insert, update, delete on public.deal_thesis to authenticated;
+grant select, insert, update, delete on public.deal_thesis to service_role;
+
+create trigger deal_thesis_timestamps
+  before insert or update on public.deal_thesis
+  for each row execute function public.set_timestamps();
+
+create trigger deal_thesis_user_tracking
+  before insert or update on public.deal_thesis
+  for each row execute function public.set_user_tracking();
+
+create policy deal_thesis_read on public.deal_thesis
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy deal_thesis_insert on public.deal_thesis
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_thesis_update on public.deal_thesis
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy deal_thesis_delete on public.deal_thesis
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/95-attachment.sql =====
+-- A file attached to a deal, task, calc version, or offer version. The owner is
+-- polymorphic across those four kinds, so it is modeled as an owner_kind tag plus
+-- a generic owner_id rather than four nullable foreign keys. offer_version is a
+-- Lane 3 owner kind and is already allowed here so Lane 3 adds no migration to
+-- this table. storage_path holds the object-store key, matching the data-room
+-- storage convention (dr_document, upload_item). An attachment is created and
+-- deleted, never edited, so the table carries created_at/created_by only and has
+-- no update path.
+
+create table if not exists public.attachment (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  owner_kind text check (owner_kind in ('deal', 'task', 'calc_version', 'offer_version')),
+  owner_id uuid not null,
+  storage_path text not null,
+  created_at timestamptz not null default now(),
+  created_by uuid references auth.users default auth.uid()
+);
+
+alter table public.attachment enable row level security;
+
+create index ix_attachment_owner on public.attachment (owner_kind, owner_id);
+
+revoke all on public.attachment from authenticated, service_role;
+grant select, insert, delete on public.attachment to authenticated;
+grant select, insert, delete on public.attachment to service_role;
+
+create policy attachment_read on public.attachment
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy attachment_insert on public.attachment
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy attachment_delete on public.attachment
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/96-offer.sql =====
+-- An offer on a deal: the head of the offer lifecycle saga. Status is folded
+-- from the offer.* events in the deal_event log; current_version_id points at
+-- the latest offer_version. Many offers per deal. Deal-scoped; managed with
+-- deals.manage. Written only through append_deal_event; project_offer
+-- (65-deal-event-projectors.sql) runs security definer as the table owner, so
+-- authenticated and service_role keep read only. current_version_id is a plain
+-- uuid pointer to offer_version (no FK), mirroring contract.current_version.
+
+create table if not exists public.offer (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid not null references public.deal (id) on delete cascade,
+  status text not null check (status in ('draft', 'submitted', 'countered', 'accepted', 'rejected', 'withdrawn', 'expired')),
+  current_version_id uuid,
+  submitted_at timestamptz,
+  responded_at timestamptz
+);
+
+alter table public.offer enable row level security;
+
+create index ix_offer_deal on public.offer (deal_id);
+create index ix_offer_account on public.offer (account_id);
+
+-- Writes go through append_deal_event; the projector runs security definer as
+-- the table owner. authenticated and service_role keep read only.
+revoke all on public.offer from authenticated, service_role;
+grant select on public.offer to authenticated;
+grant select on public.offer to service_role;
+
+create policy offer_read on public.offer
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(deal_id, 'deals.manage')
+  );
+
+create policy offer_insert on public.offer
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy offer_update on public.offer
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy offer_delete on public.offer
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- ===== schemas/97-offer-version.sql =====
+-- An immutable revision of an offer. number is unique within an offer. The
+-- projector only ever inserts these rows (offer.version_added), never updates
+-- them, so a submitted version is frozen. terms holds the versioned offer terms
+-- validated app-side by offerTermsSchema (funding, contingencies, and the rest
+-- live inside this jsonb, not in sibling tables). Deal-scoped through the parent
+-- offer's deal; managed with deals.manage. calc_version_id is a plain uuid for
+-- now; a later reconcile adds the foreign key to calc_version once that table
+-- exists, the same deferral deal_financials.source_calc_version_id uses.
+
+create table if not exists public.offer_version (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  offer_id uuid not null references public.offer (id) on delete cascade,
+  number int not null,
+  author_side text not null check (author_side in ('buyer', 'seller')),
+  purchase_price numeric not null,
+  real_estate_portion numeric,
+  target_close_date date,
+  offer_expires_at timestamptz,
+  exclusivity_days int,
+  diligence_days int,
+  terms jsonb not null,
+  calc_version_id uuid,
+  approved_by uuid references auth.users,
+  approved_at timestamptz,
+  unique (offer_id, number)
+);
+
+alter table public.offer_version enable row level security;
+
+create index ix_offer_version_offer on public.offer_version (offer_id);
+create index ix_offer_version_account on public.offer_version (account_id);
+
+-- Writes go through append_deal_event; the projector runs security definer as
+-- the table owner and only inserts. authenticated and service_role keep read
+-- only.
+revoke all on public.offer_version from authenticated, service_role;
+grant select on public.offer_version to authenticated;
+grant select on public.offer_version to service_role;
+
+create policy offer_version_read on public.offer_version
+  for select to authenticated
+  using (
+    public.has_role_on_account(account_id)
+    or public.has_deal_permission(
+      (select o.deal_id from public.offer o where o.id = offer_id),
+      'deals.manage'
+    )
+  );
+
+create policy offer_version_insert on public.offer_version
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy offer_version_update on public.offer_version
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy offer_version_delete on public.offer_version
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));

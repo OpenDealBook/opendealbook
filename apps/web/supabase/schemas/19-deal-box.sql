@@ -7,6 +7,8 @@ create table if not exists public.deal_box (
   version int not null,
   criteria_json jsonb not null default '{}'::jsonb,
   broker_summary text,
+  min_dscr numeric,
+  required_personal_cash_flow numeric,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,

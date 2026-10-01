@@ -18,6 +18,7 @@ export type Database = {
           id: string
           is_personal_account: boolean
           name: string
+          onboarded: boolean
           picture_url: string | null
           primary_owner_user_id: string
           public_data: Json
@@ -34,6 +35,7 @@ export type Database = {
           id?: string
           is_personal_account?: boolean
           name: string
+          onboarded?: boolean
           picture_url?: string | null
           primary_owner_user_id?: string
           public_data?: Json
@@ -50,6 +52,7 @@ export type Database = {
           id?: string
           is_personal_account?: boolean
           name?: string
+          onboarded?: boolean
           picture_url?: string | null
           primary_owner_user_id?: string
           public_data?: Json
@@ -494,6 +497,58 @@ export type Database = {
           },
         ]
       }
+      attachment: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          owner_id: string
+          owner_kind: string | null
+          storage_path: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id: string
+          owner_kind?: string | null
+          storage_path: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_id?: string
+          owner_kind?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       benchmark: {
         Row: {
           as_of: string | null
@@ -754,9 +809,84 @@ export type Database = {
           },
         ]
       }
+      calc_version: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          id: string
+          is_primary: boolean
+          name: string | null
+          notes: string | null
+          outputs_snapshot: Json
+          type: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          id?: string
+          is_primary?: boolean
+          name?: string | null
+          notes?: string | null
+          outputs_snapshot?: Json
+          type?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+          is_primary?: boolean
+          name?: string | null
+          notes?: string | null
+          outputs_snapshot?: Json
+          type?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calc_version_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calc_version_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calc_version_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calc_version_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_item: {
         Row: {
           account_id: string
+          answer: string | null
           artifact_id: string | null
           artifact_type: string | null
           category: string | null
@@ -767,7 +897,11 @@ export type Database = {
           due_at: string | null
           due_offset_days: number | null
           id: string
+          importance: string | null
+          kind: string | null
+          offer_term_key: string | null
           outcome: Database["public"]["Enums"]["checklist_outcome"] | null
+          owner_role: string | null
           owner_user_id: string | null
           priority: number
           received_at: string | null
@@ -783,6 +917,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          answer?: string | null
           artifact_id?: string | null
           artifact_type?: string | null
           category?: string | null
@@ -793,7 +928,11 @@ export type Database = {
           due_at?: string | null
           due_offset_days?: number | null
           id?: string
+          importance?: string | null
+          kind?: string | null
+          offer_term_key?: string | null
           outcome?: Database["public"]["Enums"]["checklist_outcome"] | null
+          owner_role?: string | null
           owner_user_id?: string | null
           priority?: number
           received_at?: string | null
@@ -809,6 +948,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          answer?: string | null
           artifact_id?: string | null
           artifact_type?: string | null
           category?: string | null
@@ -819,7 +959,11 @@ export type Database = {
           due_at?: string | null
           due_offset_days?: number | null
           id?: string
+          importance?: string | null
+          kind?: string | null
+          offer_term_key?: string | null
           outcome?: Database["public"]["Enums"]["checklist_outcome"] | null
+          owner_role?: string | null
           owner_user_id?: string | null
           priority?: number
           received_at?: string | null
@@ -878,6 +1022,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string
+          kind: string | null
           name: string
           updated_at: string | null
         }
@@ -887,6 +1032,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          kind?: string | null
           name: string
           updated_at?: string | null
         }
@@ -896,6 +1042,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string
+          kind?: string | null
           name?: string
           updated_at?: string | null
         }
@@ -929,6 +1076,9 @@ export type Database = {
           deal_killer: boolean
           due_offset_days: number | null
           id: string
+          importance: string | null
+          offer_term_key: string | null
+          owner_role: string | null
           priority: number
           sort_order: number
           template_id: string
@@ -939,6 +1089,9 @@ export type Database = {
           deal_killer?: boolean
           due_offset_days?: number | null
           id?: string
+          importance?: string | null
+          offer_term_key?: string | null
+          owner_role?: string | null
           priority?: number
           sort_order?: number
           template_id: string
@@ -949,6 +1102,9 @@ export type Database = {
           deal_killer?: boolean
           due_offset_days?: number | null
           id?: string
+          importance?: string | null
+          offer_term_key?: string | null
+          owner_role?: string | null
           priority?: number
           sort_order?: number
           template_id?: string
@@ -1905,6 +2061,7 @@ export type Database = {
       deal: {
         Row: {
           account_id: string
+          archived_at: string | null
           asking_price: number | null
           broker_contact_id: string | null
           capture_method: string | null
@@ -1916,23 +2073,32 @@ export type Database = {
           created_by_via: string | null
           deal_box_version: number | null
           description: string | null
+          discovered_at: string | null
           duplicate_of: string | null
+          earnings_basis: string
           ebitda_ttm: number | null
           firm_id: string | null
           id: string
+          listing_status: string
           notes: string | null
+          open_to_partnership: boolean
           outcome_reason: string | null
           owner_user_id: string | null
+          resolution: string | null
+          resolution_reason: string | null
           revenue_ttm: number | null
           sde_ttm: number | null
+          search_tsv: unknown
           source: Database["public"]["Enums"]["deal_source"]
           source_url: string | null
           stage: string
+          stage_changed_at: string | null
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
           account_id: string
+          archived_at?: string | null
           asking_price?: number | null
           broker_contact_id?: string | null
           capture_method?: string | null
@@ -1944,23 +2110,32 @@ export type Database = {
           created_by_via?: string | null
           deal_box_version?: number | null
           description?: string | null
+          discovered_at?: string | null
           duplicate_of?: string | null
+          earnings_basis?: string
           ebitda_ttm?: number | null
           firm_id?: string | null
           id?: string
+          listing_status?: string
           notes?: string | null
+          open_to_partnership?: boolean
           outcome_reason?: string | null
           owner_user_id?: string | null
+          resolution?: string | null
+          resolution_reason?: string | null
           revenue_ttm?: number | null
           sde_ttm?: number | null
+          search_tsv?: unknown
           source?: Database["public"]["Enums"]["deal_source"]
           source_url?: string | null
           stage?: string
+          stage_changed_at?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
           account_id?: string
+          archived_at?: string | null
           asking_price?: number | null
           broker_contact_id?: string | null
           capture_method?: string | null
@@ -1972,18 +2147,26 @@ export type Database = {
           created_by_via?: string | null
           deal_box_version?: number | null
           description?: string | null
+          discovered_at?: string | null
           duplicate_of?: string | null
+          earnings_basis?: string
           ebitda_ttm?: number | null
           firm_id?: string | null
           id?: string
+          listing_status?: string
           notes?: string | null
+          open_to_partnership?: boolean
           outcome_reason?: string | null
           owner_user_id?: string | null
+          resolution?: string | null
+          resolution_reason?: string | null
           revenue_ttm?: number | null
           sde_ttm?: number | null
+          search_tsv?: unknown
           source?: Database["public"]["Enums"]["deal_source"]
           source_url?: string | null
           stage?: string
+          stage_changed_at?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -2047,6 +2230,8 @@ export type Database = {
           created_by: string | null
           criteria_json: Json
           id: string
+          min_dscr: number | null
+          required_personal_cash_flow: number | null
           updated_at: string | null
           updated_by: string | null
           version: number
@@ -2058,6 +2243,8 @@ export type Database = {
           created_by?: string | null
           criteria_json?: Json
           id?: string
+          min_dscr?: number | null
+          required_personal_cash_flow?: number | null
           updated_at?: string | null
           updated_by?: string | null
           version: number
@@ -2069,6 +2256,8 @@ export type Database = {
           created_by?: string | null
           criteria_json?: Json
           id?: string
+          min_dscr?: number | null
+          required_personal_cash_flow?: number | null
           updated_at?: string | null
           updated_by?: string | null
           version?: number
@@ -2093,6 +2282,88 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_calc_input: {
+        Row: {
+          account_id: string
+          calc_version_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_box_id: string | null
+          id: string
+          imported_from_version_id: string | null
+          inputs: Json
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          calc_version_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_box_id?: string | null
+          id?: string
+          imported_from_version_id?: string | null
+          inputs?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          calc_version_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_box_id?: string | null
+          id?: string
+          imported_from_version_id?: string | null
+          inputs?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_calc_input_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_calc_input_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_calc_input_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_calc_input_calc_version_id_fkey"
+            columns: ["calc_version_id"]
+            isOneToOne: true
+            referencedRelation: "calc_version"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_calc_input_deal_box_id_fkey"
+            columns: ["deal_box_id"]
+            isOneToOne: false
+            referencedRelation: "deal_box"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_calc_input_imported_from_version_id_fkey"
+            columns: ["imported_from_version_id"]
+            isOneToOne: false
+            referencedRelation: "calc_version"
             referencedColumns: ["id"]
           },
         ]
@@ -2239,6 +2510,75 @@ export type Database = {
           },
         ]
       }
+      deal_financials: {
+        Row: {
+          account_id: string
+          adopted_at: string | null
+          adopted_by: string | null
+          adopted_ebitda: number | null
+          adopted_revenue: number | null
+          adopted_sde: number | null
+          deal_id: string
+          source_calc_version_id: string | null
+        }
+        Insert: {
+          account_id: string
+          adopted_at?: string | null
+          adopted_by?: string | null
+          adopted_ebitda?: number | null
+          adopted_revenue?: number | null
+          adopted_sde?: number | null
+          deal_id: string
+          source_calc_version_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          adopted_at?: string | null
+          adopted_by?: string | null
+          adopted_ebitda?: number | null
+          adopted_revenue?: number | null
+          adopted_sde?: number | null
+          deal_id?: string
+          source_calc_version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_financials_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_financials_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_financials_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_financials_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_financials_source_calc_version_fk"
+            columns: ["source_calc_version_id"]
+            isOneToOne: false
+            referencedRelation: "calc_version"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_participant: {
         Row: {
           created_at: string | null
@@ -2290,6 +2630,212 @@ export type Database = {
             foreignKeyName: "deal_participant_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_profile: {
+        Row: {
+          account_id: string
+          deal_id: string
+          employee_band: string | null
+          industry_id: string | null
+          location_id: string | null
+          location_raw: string | null
+          owner_role: string | null
+          reason_for_sale: string | null
+          website: string | null
+          year_established: number | null
+        }
+        Insert: {
+          account_id: string
+          deal_id: string
+          employee_band?: string | null
+          industry_id?: string | null
+          location_id?: string | null
+          location_raw?: string | null
+          owner_role?: string | null
+          reason_for_sale?: string | null
+          website?: string | null
+          year_established?: number | null
+        }
+        Update: {
+          account_id?: string
+          deal_id?: string
+          employee_band?: string | null
+          industry_id?: string | null
+          location_id?: string | null
+          location_raw?: string | null
+          owner_role?: string | null
+          reason_for_sale?: string | null
+          website?: string | null
+          year_established?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_profile_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_profile_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_profile_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_profile_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_profile_industry_id_fkey"
+            columns: ["industry_id"]
+            isOneToOne: false
+            referencedRelation: "industry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_profile_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "location"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_star: {
+        Row: {
+          account_id: string
+          created_at: string
+          deal_id: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          deal_id: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          deal_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_star_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_star_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_star_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_star_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_thesis: {
+        Row: {
+          account_id: string
+          additional_info: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          id: string
+          main_concerns: string | null
+          owner_involvement: string | null
+          post_acquisition_plan: string | null
+          updated_at: string | null
+          updated_by: string | null
+          why_this_business: string | null
+        }
+        Insert: {
+          account_id: string
+          additional_info?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          id?: string
+          main_concerns?: string | null
+          owner_involvement?: string | null
+          post_acquisition_plan?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          why_this_business?: string | null
+        }
+        Update: {
+          account_id?: string
+          additional_info?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+          main_concerns?: string | null
+          owner_involvement?: string | null
+          post_acquisition_plan?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          why_this_business?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_thesis_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_thesis_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_thesis_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_thesis_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
             referencedRelation: "deal"
             referencedColumns: ["id"]
           },
@@ -3048,6 +3594,89 @@ export type Database = {
           },
         ]
       }
+      funding_source: {
+        Row: {
+          account_id: string
+          amount: number | null
+          calc_version_id: string | null
+          created_at: string | null
+          created_by: string | null
+          guarantee_fee: number | null
+          id: string
+          notes: string | null
+          pct: number | null
+          rate: number | null
+          standby_months: number | null
+          term_years: number | null
+          type: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          amount?: number | null
+          calc_version_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          guarantee_fee?: number | null
+          id?: string
+          notes?: string | null
+          pct?: number | null
+          rate?: number | null
+          standby_months?: number | null
+          term_years?: number | null
+          type?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number | null
+          calc_version_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          guarantee_fee?: number | null
+          id?: string
+          notes?: string | null
+          pct?: number | null
+          rate?: number | null
+          standby_months?: number | null
+          term_years?: number | null
+          type?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funding_source_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_source_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_source_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funding_source_calc_version_id_fkey"
+            columns: ["calc_version_id"]
+            isOneToOne: false
+            referencedRelation: "calc_version"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_document: {
         Row: {
           account_id: string
@@ -3226,6 +3855,68 @@ export type Database = {
           },
         ]
       }
+      industry: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "industry_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "industry_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "industry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_connection: {
         Row: {
           account_id: string
@@ -3355,6 +4046,36 @@ export type Database = {
           },
         ]
       }
+      lead: {
+        Row: {
+          company: string | null
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          name: string | null
+          source: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          name?: string | null
+          source?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          name?: string | null
+          source?: string | null
+        }
+        Relationships: []
+      }
       llm_endpoint: {
         Row: {
           account_id: string
@@ -3412,6 +4133,67 @@ export type Database = {
           },
           {
             foreignKeyName: "llm_endpoint_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location: {
+        Row: {
+          account_id: string
+          city: string | null
+          country: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          metro: string | null
+          region: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          metro?: string | null
+          region?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          metro?: string | null
+          region?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_account_id_fkey"
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "user_accounts"
@@ -3916,6 +4698,148 @@ export type Database = {
           },
         ]
       }
+      offer: {
+        Row: {
+          account_id: string
+          current_version_id: string | null
+          deal_id: string
+          id: string
+          responded_at: string | null
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          account_id: string
+          current_version_id?: string | null
+          deal_id: string
+          id?: string
+          responded_at?: string | null
+          status: string
+          submitted_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          current_version_id?: string | null
+          deal_id?: string
+          id?: string
+          responded_at?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_version: {
+        Row: {
+          account_id: string
+          approved_at: string | null
+          approved_by: string | null
+          author_side: string
+          calc_version_id: string | null
+          diligence_days: number | null
+          exclusivity_days: number | null
+          id: string
+          number: number
+          offer_expires_at: string | null
+          offer_id: string
+          purchase_price: number
+          real_estate_portion: number | null
+          target_close_date: string | null
+          terms: Json
+        }
+        Insert: {
+          account_id: string
+          approved_at?: string | null
+          approved_by?: string | null
+          author_side: string
+          calc_version_id?: string | null
+          diligence_days?: number | null
+          exclusivity_days?: number | null
+          id?: string
+          number: number
+          offer_expires_at?: string | null
+          offer_id: string
+          purchase_price: number
+          real_estate_portion?: number | null
+          target_close_date?: string | null
+          terms: Json
+        }
+        Update: {
+          account_id?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          author_side?: string
+          calc_version_id?: string | null
+          diligence_days?: number | null
+          exclusivity_days?: number | null
+          id?: string
+          number?: number
+          offer_expires_at?: string | null
+          offer_id?: string
+          purchase_price?: number
+          real_estate_portion?: number | null
+          target_close_date?: string | null
+          terms?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_version_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_version_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_version_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_version_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offer"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_items: {
         Row: {
           created_at: string
@@ -4185,6 +5109,142 @@ export type Database = {
             columns: ["schedule_id"]
             isOneToOne: false
             referencedRelation: "diligence_schedule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sde_line: {
+        Row: {
+          account_id: string
+          amount: number | null
+          created_at: string | null
+          created_by: string | null
+          custom_label: string | null
+          id: string
+          line_code: string | null
+          period_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          amount?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_label?: string | null
+          id?: string
+          line_code?: string | null
+          period_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          custom_label?: string | null
+          id?: string
+          line_code?: string | null
+          period_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sde_line_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sde_line_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sde_line_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sde_line_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "sde_period"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sde_period: {
+        Row: {
+          account_id: string
+          calc_version_id: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          label: string | null
+          months: number | null
+          updated_at: string | null
+          updated_by: string | null
+          weight: number | null
+        }
+        Insert: {
+          account_id: string
+          calc_version_id: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          months?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+          weight?: number | null
+        }
+        Update: {
+          account_id?: string
+          calc_version_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          months?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sde_period_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sde_period_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sde_period_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sde_period_calc_version_id_fkey"
+            columns: ["calc_version_id"]
+            isOneToOne: false
+            referencedRelation: "calc_version"
             referencedColumns: ["id"]
           },
         ]
@@ -5248,6 +6308,7 @@ export type Database = {
           id: string
           is_personal_account: boolean
           name: string
+          onboarded: boolean
           picture_url: string | null
           primary_owner_user_id: string
           public_data: Json
@@ -5390,6 +6451,10 @@ export type Database = {
         Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
         Returns: undefined
       }
+      project_deal_financials: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
       project_deal_participant: {
         Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
         Returns: undefined
@@ -5403,6 +6468,10 @@ export type Database = {
         Returns: undefined
       }
       project_meeting_action_item: {
+        Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
+        Returns: undefined
+      }
+      project_offer: {
         Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
         Returns: undefined
       }

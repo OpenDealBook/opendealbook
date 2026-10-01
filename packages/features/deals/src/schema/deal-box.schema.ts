@@ -12,6 +12,8 @@ export const dealBoxSchema = z.object({
   account_id: z.uuid(),
   criteria_json: dealBoxCriteriaSchema,
   broker_summary: z.string().optional(),
+  min_dscr: z.number().optional(),
+  required_personal_cash_flow: z.number().optional(),
 });
 
 export type DealBoxCriteria = z.infer<typeof dealBoxCriteriaSchema>;
