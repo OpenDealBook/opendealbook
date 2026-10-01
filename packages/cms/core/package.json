@@ -21,7 +21,6 @@
   "dependencies": {
     "@markdoc/markdoc": "0.5.1",
     "@odb/cms-types": "workspace:*",
-    "@odb/keystatic": "workspace:*",
     "react": "catalog:"
   },
   "devDependencies": {
