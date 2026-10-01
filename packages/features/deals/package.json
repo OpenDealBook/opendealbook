@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "catalog:",
+    "@odb/calculators": "workspace:*",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/policies": "workspace:*",

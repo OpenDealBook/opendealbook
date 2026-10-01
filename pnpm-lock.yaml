@@ -608,6 +608,22 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/calculators:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@27.4.0)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/cms/core:
     dependencies:
       '@markdoc/markdoc':
@@ -616,9 +632,6 @@ importers:
       '@odb/cms-types':
         specifier: workspace:*
         version: link:../types
-      '@odb/keystatic':
-        specifier: workspace:*
-        version: link:../keystatic
       react:
         specifier: 'catalog:'
         version: 19.2.6
@@ -1047,6 +1060,9 @@ importers:
 
   packages/features/deals:
     dependencies:
+      '@odb/calculators':
+        specifier: workspace:*
+        version: link:../../calculators
       '@odb/events':
         specifier: workspace:*
         version: link:../../events

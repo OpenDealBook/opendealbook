@@ -5,3 +5,4 @@ export * from './deal.schema';
 export * from './checklist-item.schema';
 export * from './deal-participant.schema';
 export * from './approval.schema';
+export * from './offer.schema';
