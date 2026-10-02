@@ -1,7 +1,9 @@
 'use server';
 
+import { seedExampleDeals } from '@odb/deals/server';
 import { enhanceAction } from '@odb/next/actions';
 import { onboardingSubmissionSchema } from '@odb/onboarding/schema';
+import { getLogger } from '@odb/shared/logger';
 import type { Json } from '@odb/supabase';
 import {
   getSupabaseServerAdminClient,
@@ -105,6 +107,19 @@ export const completeOnboardingAction = enhanceAction(
       })
       .eq('id', account.id)
       .throwOnError();
+
+    try {
+      await seedExampleDeals({
+        accountId: workspaceAccountId,
+        userId: user.id,
+        client: admin,
+      });
+    } catch (error) {
+      getLogger().warn(
+        { err: error, accountId: workspaceAccountId },
+        'Failed to seed example deals during onboarding completion',
+      );
+    }
 
     return { redirectTo: enrollMfa ? '/mfa-setup' : '/home' };
   },

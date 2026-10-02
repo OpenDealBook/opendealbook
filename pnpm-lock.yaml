@@ -316,6 +316,9 @@ importers:
       '@odb/database-webhooks':
         specifier: workspace:*
         version: link:../../packages/database-webhooks
+      '@odb/deals':
+        specifier: workspace:*
+        version: link:../../packages/features/deals
       '@odb/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

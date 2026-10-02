@@ -31,6 +31,7 @@
     "@odb/cms": "workspace:*",
     "@odb/data-room": "workspace:*",
     "@odb/database-webhooks": "workspace:*",
+    "@odb/deals": "workspace:*",
     "@odb/i18n": "workspace:*",
     "@odb/keystatic": "workspace:*",
     "@odb/monitoring": "workspace:*",
