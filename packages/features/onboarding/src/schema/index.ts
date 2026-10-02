@@ -1,0 +1,16 @@
+export {
+  profileStepSchema,
+  workspaceStepSchema,
+  termsStepSchema,
+  dealBoxCriteriaSchema,
+  dealBoxStepSchema,
+  mfaStepSchema,
+  onboardingSubmissionSchema,
+  type ProfileStep,
+  type WorkspaceStep,
+  type TermsStep,
+  type DealBoxCriteria,
+  type DealBoxStep,
+  type MfaStep,
+  type OnboardingSubmission,
+} from './onboarding.schema';

@@ -331,6 +331,9 @@ importers:
       '@odb/notifications':
         specifier: workspace:*
         version: link:../../packages/features/notifications
+      '@odb/onboarding':
+        specifier: workspace:*
+        version: link:../../packages/features/onboarding
       '@odb/policies':
         specifier: workspace:*
         version: link:../../packages/policies

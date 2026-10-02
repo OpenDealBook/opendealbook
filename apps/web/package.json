@@ -36,6 +36,7 @@
     "@odb/monitoring": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/notifications": "workspace:*",
+    "@odb/onboarding": "workspace:*",
     "@odb/policies": "workspace:*",
     "@odb/seed": "workspace:*",
     "@odb/sentry": "workspace:*",
