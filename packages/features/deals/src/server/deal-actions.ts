@@ -12,9 +12,24 @@ import {
 import { updateChecklistItemStatusSchema } from '../schema/checklist-item.schema';
 import { dealBoxSchema } from '../schema/deal-box.schema';
 import { dealParticipantSchema } from '../schema/deal-participant.schema';
-import { dealSchema, updateDealStageSchema } from '../schema/deal.schema';
+import {
+  adoptDealFinancialsSchema,
+  dealIdSchema,
+  dealSchema,
+  setDealListingStatusSchema,
+  setDealResolutionSchema,
+  updateDealStageSchema,
+} from '../schema/deal.schema';
 import { firmSchema } from '../schema/firm.schema';
 import { fetchAccountStages } from '../shared';
+
+function definedFields(
+  fields: Record<string, string | number | undefined>,
+): Record<string, string | number> {
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined),
+  ) as Record<string, string | number>;
+}
 
 async function currentDealBoxVersion(
   client: ReturnType<typeof getSupabaseServerClient>,
@@ -48,6 +63,18 @@ export const createDeal = enhanceAction(
         description: data.description ?? null,
         source: data.source,
         stage: data.stage,
+        ...definedFields({
+          industry_id: data.industry_id,
+          location_id: data.location_id,
+          location_raw: data.location_raw,
+          employee_band: data.employee_band,
+          website: data.website,
+          owner_role: data.owner_role,
+          reason_for_sale: data.reason_for_sale,
+          year_established: data.year_established,
+          discovered_at: data.discovered_at,
+          capture_method: data.capture_method,
+        }),
       },
     });
 
@@ -271,4 +298,141 @@ export const decideApproval = enhanceAction(
     return data.id;
   },
   { auth: true, schema: decideApprovalSchema },
+);
+
+export const setDealResolution = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal',
+      aggregateId: data.deal_id,
+      eventType: 'deal.resolved',
+      payload: {
+        resolution: data.resolution,
+        resolution_reason: data.resolution_reason ?? 'closed',
+      },
+    });
+
+    return { success: true };
+  },
+  { auth: true, schema: setDealResolutionSchema },
+);
+
+export const archiveDeal = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal',
+      aggregateId: data.deal_id,
+      eventType: 'deal.archived',
+      payload: {},
+    });
+
+    return { success: true };
+  },
+  { auth: true, schema: dealIdSchema },
+);
+
+export const unarchiveDeal = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal',
+      aggregateId: data.deal_id,
+      eventType: 'deal.unarchived',
+      payload: {},
+    });
+
+    return { success: true };
+  },
+  { auth: true, schema: dealIdSchema },
+);
+
+export const setDealListingStatus = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal',
+      aggregateId: data.deal_id,
+      eventType: 'deal.listing_status_changed',
+      payload: { listing_status: data.listing_status },
+    });
+
+    return { success: true };
+  },
+  { auth: true, schema: setDealListingStatusSchema },
+);
+
+export const adoptDealFinancials = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal',
+      aggregateId: data.deal_id,
+      eventType: 'deal.financials_adopted',
+      payload: {
+        adopted_revenue: data.adopted_revenue ?? null,
+        adopted_sde: data.adopted_sde ?? null,
+        adopted_ebitda: data.adopted_ebitda ?? null,
+        source_calc_version_id: data.source_calc_version_id ?? null,
+      },
+    });
+
+    return { success: true };
+  },
+  { auth: true, schema: adoptDealFinancialsSchema },
+);
+
+export const starDeal = enhanceAction(
+  async (data, user) => {
+    const client = getSupabaseServerClient();
+
+    const { data: deal } = await client
+      .from('deal')
+      .select('account_id')
+      .eq('id', data.deal_id)
+      .single()
+      .throwOnError();
+
+    await client
+      .from('deal_star')
+      .upsert(
+        {
+          user_id: user.id,
+          deal_id: data.deal_id,
+          account_id: deal.account_id,
+        },
+        { onConflict: 'user_id,deal_id', ignoreDuplicates: true },
+      )
+      .throwOnError();
+
+    return { success: true };
+  },
+  { auth: true, schema: dealIdSchema },
+);
+
+export const unstarDeal = enhanceAction(
+  async (data, user) => {
+    const client = getSupabaseServerClient();
+
+    await client
+      .from('deal_star')
+      .delete()
+      .eq('deal_id', data.deal_id)
+      .eq('user_id', user.id)
+      .throwOnError();
+
+    return { success: true };
+  },
+  { auth: true, schema: dealIdSchema },
 );

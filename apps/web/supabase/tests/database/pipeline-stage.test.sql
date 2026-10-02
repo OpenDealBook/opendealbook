@@ -10,18 +10,18 @@ select public.create_team_account('PS Acct', tests.get_uid('ps_owner'), 'ps-acct
 -- ---- Default stages seeded at account creation ----
 select is(
   (select count(*)::int from public.pipeline_stage where account_id = tests.account_id('ps-acct')),
-  10,
-  'a new team account is seeded with the 10 default pipeline stages'
+  9,
+  'a new team account is seeded with the 9 default pipeline stages'
 );
 select results_eq(
   $$ select key from public.pipeline_stage where account_id = tests.account_id('ps-acct') order by sort_order $$,
-  $$ values ('sourced'),('qualifying'),('loi'),('diligence'),('hr_audit'),('apa'),('announcement'),('integration'),('closed_won'),('closed_lost') $$,
+  $$ values ('sourcing'),('pre_nda'),('nda_signed'),('loi_submitted'),('loi_accepted'),('pa_submitted'),('pa_accepted'),('announcement'),('integration') $$,
   'default stages are seeded in the specified order'
 );
 select is(
   (select count(*)::int from public.pipeline_stage where account_id = tests.account_id('ps-acct') and is_terminal),
-  2,
-  'closed_won and closed_lost are the two terminal stages'
+  0,
+  'no seeded stage is terminal'
 );
 
 -- A personal account created through the auth trigger is seeded too.
@@ -29,7 +29,7 @@ select is(
   (select count(*)::int from public.pipeline_stage ps
      join public.accounts a on a.id = ps.account_id
      where a.primary_owner_user_id = tests.get_uid('ps_member') and a.is_personal_account),
-  10,
+  9,
   'a new personal account is also seeded with the default pipeline stages'
 );
 
@@ -38,8 +38,8 @@ select tests.login_as('ps_owner');
 select lives_ok(
   $$ select public.append_deal_event('cccccccc-0000-0000-0000-0000000000f1', 'deal',
        'cccccccc-0000-0000-0000-0000000000f1', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ps-acct'), 'description', 'defaults to sourced')) $$,
-  'a deal defaults to the sourced stage which exists in the pipeline'
+       jsonb_build_object('account_id', tests.account_id('ps-acct'), 'description', 'defaults to sourcing')) $$,
+  'a deal defaults to the sourcing stage which exists in the pipeline'
 );
 select throws_ok(
   $$ select public.append_deal_event('cccccccc-0000-0000-0000-0000000000f2', 'deal',

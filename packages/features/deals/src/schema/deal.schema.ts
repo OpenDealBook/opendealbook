@@ -15,6 +15,16 @@ export const dealSchema = z
     source: dealSourceSchema.default('manual'),
     stage: z.string().default('sourcing'),
     notes: z.string().optional(),
+    industry_id: z.uuid().optional(),
+    location_id: z.uuid().optional(),
+    location_raw: z.string().optional(),
+    employee_band: z.string().optional(),
+    website: z.string().optional(),
+    owner_role: z.string().optional(),
+    reason_for_sale: z.string().optional(),
+    year_established: z.number().int().optional(),
+    discovered_at: z.string().optional(),
+    capture_method: z.string().optional(),
   })
   .refine((value) => Boolean(value.name) || Boolean(value.description), {
     message: 'Provide a firm name or a deal description',
@@ -43,3 +53,51 @@ export const updateDealStageSchema = z.object({
 });
 
 export type UpdateDealStagePayload = z.infer<typeof updateDealStageSchema>;
+
+export const dealIdSchema = z.object({
+  deal_id: z.uuid(),
+});
+
+export type DealIdPayload = z.infer<typeof dealIdSchema>;
+
+export const setDealResolutionSchema = z
+  .object({
+    deal_id: z.uuid(),
+    resolution: resolutionSchema,
+    resolution_reason: resolutionReasonSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      value.resolution !== 'lost' || value.resolution_reason !== undefined,
+    {
+      message: 'A reason is required when a deal is lost',
+      path: ['resolution_reason'],
+    },
+  );
+
+export type SetDealResolutionPayload = z.infer<typeof setDealResolutionSchema>;
+
+export const listingStatusSchema = z.enum(['active', 'pulled', 'sold']);
+
+export type ListingStatus = z.infer<typeof listingStatusSchema>;
+
+export const setDealListingStatusSchema = z.object({
+  deal_id: z.uuid(),
+  listing_status: listingStatusSchema,
+});
+
+export type SetDealListingStatusPayload = z.infer<
+  typeof setDealListingStatusSchema
+>;
+
+export const adoptDealFinancialsSchema = z.object({
+  deal_id: z.uuid(),
+  adopted_revenue: z.number().optional(),
+  adopted_sde: z.number().optional(),
+  adopted_ebitda: z.number().optional(),
+  source_calc_version_id: z.uuid().optional(),
+});
+
+export type AdoptDealFinancialsPayload = z.infer<
+  typeof adoptDealFinancialsSchema
+>;

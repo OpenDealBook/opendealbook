@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => {
     { deal_seq: 1, aggregate_seq: 1 },
   ]);
   const insertSpy = vi.fn();
+  const upsertSpy = vi.fn();
+  const deleteSpy = vi.fn();
   const rpcSpy = vi.fn(async () => ({ data: true, error: null }));
 
   let stages: Array<{ key: string; sort_order: number }> = [];
@@ -45,6 +47,14 @@ const mocks = vi.hoisted(() => {
       insertSpy(table, payload);
       return builder;
     };
+    builder.upsert = (payload: unknown, options: unknown) => {
+      upsertSpy(table, payload, options);
+      return builder;
+    };
+    builder.delete = () => {
+      deleteSpy(table);
+      return builder;
+    };
     builder.then = (resolve: (value: unknown) => void) =>
       resolve({ data: dataFor(table), error: null });
 
@@ -53,7 +63,16 @@ const mocks = vi.hoisted(() => {
 
   const from = vi.fn((table: string) => makeBuilder(table));
 
-  return { appendDealEvent, appendDealEvents, insertSpy, rpcSpy, from, setStages };
+  return {
+    appendDealEvent,
+    appendDealEvents,
+    insertSpy,
+    upsertSpy,
+    deleteSpy,
+    rpcSpy,
+    from,
+    setStages,
+  };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -69,11 +88,19 @@ vi.mock('@odb/events', () => ({
   appendDealEvents: mocks.appendDealEvents,
 }));
 
+import { setDealResolutionSchema } from '../schema/deal.schema';
 import {
   addDealParticipant,
+  adoptDealFinancials,
+  archiveDeal,
   createDeal,
   decideApproval,
   requestApproval,
+  setDealListingStatus,
+  setDealResolution,
+  starDeal,
+  unarchiveDeal,
+  unstarDeal,
   updateChecklistItemStatus,
   updateDealStage,
 } from './deal-actions';
@@ -90,6 +117,13 @@ const runRequestApproval = requestApproval as unknown as Action;
 const runDecideApproval = decideApproval as unknown as Action;
 const runUpdateChecklistItemStatus =
   updateChecklistItemStatus as unknown as Action;
+const runSetDealResolution = setDealResolution as unknown as Action;
+const runArchiveDeal = archiveDeal as unknown as Action;
+const runUnarchiveDeal = unarchiveDeal as unknown as Action;
+const runSetDealListingStatus = setDealListingStatus as unknown as Action;
+const runAdoptDealFinancials = adoptDealFinancials as unknown as Action;
+const runStarDeal = starDeal as unknown as Action;
+const runUnstarDeal = unstarDeal as unknown as Action;
 
 const seededStages = [
   { key: 'sourced', sort_order: 1 },
@@ -135,6 +169,209 @@ describe('createDeal', () => {
       },
     });
     expect(result).toBe(GENERATED_ID);
+  });
+
+  it('carries profile and capture fields into the deal.created payload when provided', async () => {
+    await runCreateDeal(
+      {
+        account_id: 'account-1',
+        description: 'Main Street CPA',
+        source: 'marketplace',
+        stage: 'sourced',
+        industry_id: 'industry-2',
+        location_id: 'location-3',
+        location_raw: 'Austin, TX',
+        employee_band: '10-24',
+        website: 'https://example.com',
+        owner_role: 'managing_partner',
+        reason_for_sale: 'retirement',
+        year_established: 1998,
+        discovered_at: '2026-01-01T00:00:00.000Z',
+        capture_method: 'extension',
+      },
+      { id: 'user-1' },
+    );
+
+    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      { payload: Record<string, unknown> },
+    ];
+
+    expect(input.payload).toMatchObject({
+      industry_id: 'industry-2',
+      location_id: 'location-3',
+      location_raw: 'Austin, TX',
+      employee_band: '10-24',
+      website: 'https://example.com',
+      owner_role: 'managing_partner',
+      reason_for_sale: 'retirement',
+      year_established: 1998,
+      discovered_at: '2026-01-01T00:00:00.000Z',
+      capture_method: 'extension',
+    });
+  });
+});
+
+describe('setDealResolution', () => {
+  it('rejects a lost resolution with no reason', () => {
+    const result = setDealResolutionSchema.safeParse({
+      deal_id: '11111111-1111-4111-8111-111111111111',
+      resolution: 'lost',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a lost resolution with a reason', () => {
+    const result = setDealResolutionSchema.safeParse({
+      deal_id: '11111111-1111-4111-8111-111111111111',
+      resolution: 'lost',
+      resolution_reason: 'offer_not_accepted',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('appends deal.resolved with the resolution and reason', async () => {
+    await runSetDealResolution(
+      {
+        deal_id: 'deal-1',
+        resolution: 'lost',
+        resolution_reason: 'deal_did_not_close',
+      },
+      { id: 'user-1' },
+    );
+
+    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.resolved',
+      payload: {
+        resolution: 'lost',
+        resolution_reason: 'deal_did_not_close',
+      },
+    });
+  });
+
+  it('defaults a won resolution reason to closed', async () => {
+    await runSetDealResolution(
+      { deal_id: 'deal-1', resolution: 'won' },
+      { id: 'user-1' },
+    );
+
+    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      { payload: Record<string, unknown> },
+    ];
+
+    expect(input.payload).toEqual({
+      resolution: 'won',
+      resolution_reason: 'closed',
+    });
+  });
+});
+
+describe('archiveDeal', () => {
+  it('appends a deal.archived event', async () => {
+    await runArchiveDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+
+    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.archived',
+      payload: {},
+    });
+  });
+});
+
+describe('unarchiveDeal', () => {
+  it('appends a deal.unarchived event', async () => {
+    await runUnarchiveDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+
+    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.unarchived',
+      payload: {},
+    });
+  });
+});
+
+describe('setDealListingStatus', () => {
+  it('appends a deal.listing_status_changed event with the status', async () => {
+    await runSetDealListingStatus(
+      { deal_id: 'deal-1', listing_status: 'sold' },
+      { id: 'user-1' },
+    );
+
+    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.listing_status_changed',
+      payload: { listing_status: 'sold' },
+    });
+  });
+});
+
+describe('adoptDealFinancials', () => {
+  it('appends a deal.financials_adopted event with the adopted figures', async () => {
+    await runAdoptDealFinancials(
+      {
+        deal_id: 'deal-1',
+        adopted_revenue: 1000000,
+        adopted_sde: 250000,
+        adopted_ebitda: 300000,
+        source_calc_version_id: 'calc-9',
+      },
+      { id: 'user-1' },
+    );
+
+    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.financials_adopted',
+      payload: {
+        adopted_revenue: 1000000,
+        adopted_sde: 250000,
+        adopted_ebitda: 300000,
+        source_calc_version_id: 'calc-9',
+      },
+    });
+  });
+});
+
+describe('starDeal', () => {
+  it('inserts a deal_star row scoped to the current user and the deal account', async () => {
+    await runStarDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+
+    const [table, payload, options] = mocks.upsertSpy.mock.calls.at(
+      -1,
+    ) as unknown as [
+      string,
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+
+    expect(table).toBe('deal_star');
+    expect(payload).toEqual({
+      user_id: 'user-1',
+      deal_id: 'deal-1',
+      account_id: 'account-1',
+    });
+    expect(options).toMatchObject({ ignoreDuplicates: true });
+  });
+});
+
+describe('unstarDeal', () => {
+  it('deletes the deal_star row', async () => {
+    await runUnstarDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+
+    expect(mocks.deleteSpy).toHaveBeenCalledWith('deal_star');
   });
 });
 
