@@ -1,6 +1,11 @@
-import { sdeMargin, sdeMultiple } from '@odb/calculators';
-import { fetchAccountStages } from '@odb/deals';
-import type { Tables } from '@odb/supabase';
+import Link from 'next/link';
+
+import {
+  type DealListGroup,
+  type DealListItem,
+  type FacetCount,
+  listDealsFaceted,
+} from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import {
@@ -12,8 +17,33 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
-type DealRow = Tables<'deal'> & {
-  deal_financials: Pick<Tables<'deal_financials'>, 'adopted_sde'> | null;
+import { DealRowActions } from './deal-row-actions';
+import { DealsFilters, type FilterOption } from './deals-filters';
+import {
+  type RawSearchParams,
+  hasActiveFilters,
+  parseDealParams,
+} from './deals-search-params';
+
+const COLUMN_COUNT = 10;
+
+const GROUP_ORDER: { group: DealListGroup; label: string }[] = [
+  { group: 'actively_pursuing', label: 'Actively pursuing' },
+  { group: 'early_funnel', label: 'Early funnel' },
+  { group: 'closed_off_track', label: 'Closed / off track' },
+  { group: 'archived', label: 'Archived' },
+];
+
+const RESOLUTION_LABELS: Record<string, string> = {
+  open: 'Open',
+  won: 'Won',
+  lost: 'Lost',
+};
+
+const LISTING_STATUS_LABELS: Record<string, string> = {
+  active: 'Active',
+  pulled: 'Pulled',
+  sold: 'Sold',
 };
 
 const currency = new Intl.NumberFormat('en-US', {
@@ -26,97 +56,237 @@ function formatCurrency(value: number | null): string {
   return value === null ? 'Not disclosed' : currency.format(value);
 }
 
-function dealTitle(description: string | null): string {
-  if (description === null) {
+function dealTitle(title: string | null): string {
+  if (title === null) {
     return 'Untitled deal';
   }
-  return description.replace(/^Example:\s*/, '');
+  return title.replace(/^Example:\s*/, '');
 }
 
 function resolutionLabel(
   resolution: string | null,
   reason: string | null,
-): string | null {
+): string {
   if (resolution === null) {
-    return null;
+    return '';
   }
   const outcome = resolution === 'won' ? 'Won' : 'Lost';
   return reason === null ? outcome : `${outcome} (${reason.replace(/_/g, ' ')})`;
 }
 
-export async function DealsList({ accountId }: { accountId: string }) {
+function options(
+  facet: FacetCount[],
+  label: (value: string) => string,
+): FilterOption[] {
+  return facet
+    .map((entry) => ({
+      value: entry.value,
+      label: label(entry.value),
+      count: entry.count,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function nameMap(
+  items: DealListItem[],
+  id: (item: DealListItem) => string | null,
+  name: (item: DealListItem) => string | null,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const item of items) {
+    const key = id(item);
+    const value = name(item);
+    if (key !== null && value !== null) {
+      map.set(key, value);
+    }
+  }
+  return map;
+}
+
+function nextPageHref(
+  params: RawSearchParams,
+  cursor: string,
+): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (raw !== undefined && key !== 'cursor') {
+      query.set(key, raw);
+    }
+  }
+  query.set('cursor', cursor);
+  return `?${query.toString()}`;
+}
+
+export async function DealsList({
+  accountId,
+  searchParams,
+}: {
+  accountId: string;
+  searchParams: RawSearchParams;
+}) {
   const client = getSupabaseServerClient();
+  const { filters, sort, cursor } = parseDealParams(searchParams);
 
-  const [dealsResult, stages] = await Promise.all([
-    client
-      .from('deal')
-      .select('*, deal_financials(adopted_sde)')
-      .eq('account_id', accountId)
-      .order('updated_at', { ascending: false }),
-    fetchAccountStages(client, accountId),
-  ]);
+  const result = await listDealsFaceted(client, {
+    accountId,
+    filters,
+    sort,
+    cursor,
+  });
 
-  if (dealsResult.error) {
-    throw dealsResult.error;
-  }
+  const stageLabels = nameMap(
+    result.items,
+    (item) => item.stage,
+    (item) => item.stageLabel,
+  );
+  const industryNames = nameMap(
+    result.items,
+    (item) => item.industryId,
+    (item) => item.industryName,
+  );
+  const locationNames = nameMap(
+    result.items,
+    (item) => item.locationId,
+    (item) => item.locationName,
+  );
 
-  const stageLabels = new Map(stages.map((stage) => [stage.key, stage.label]));
-  const rows = (dealsResult.data ?? []) as DealRow[];
-
-  if (rows.length === 0) {
-    return <p className={'text-muted-foreground text-sm'}>No deals yet</p>;
-  }
+  const grouped = GROUP_ORDER.map((section) => ({
+    ...section,
+    items: result.items.filter((item) => item.group === section.group),
+  })).filter((section) => section.items.length > 0);
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Title</TableHead>
-          <TableHead>Stage</TableHead>
-          <TableHead>Resolution</TableHead>
-          <TableHead>Asking price</TableHead>
-          <TableHead>Revenue</TableHead>
-          <TableHead>SDE</TableHead>
-          <TableHead>Multiple</TableHead>
-          <TableHead>Margin</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((deal) => {
-          const sde = deal.deal_financials?.adopted_sde ?? deal.sde_ttm;
-          const stageLabel = stageLabels.get(deal.stage) ?? deal.stage;
-          const resolution = resolutionLabel(
-            deal.resolution,
-            deal.resolution_reason,
-          );
-          const multiple = sdeMultiple(deal.asking_price, sde);
-          const margin = sdeMargin(sde, deal.revenue_ttm);
+    <div className={'flex flex-col gap-6 lg:flex-row'}>
+      <DealsFilters
+        filters={filters}
+        sort={sort}
+        stageOptions={options(
+          result.facetCounts.stage,
+          (value) => stageLabels.get(value) ?? value,
+        )}
+        resolutionOptions={options(
+          result.facetCounts.resolution,
+          (value) => RESOLUTION_LABELS[value] ?? value,
+        )}
+        listingStatusOptions={options(
+          result.facetCounts.listingStatus,
+          (value) => LISTING_STATUS_LABELS[value] ?? value,
+        )}
+        industryOptions={options(
+          result.facetCounts.industry,
+          (value) => industryNames.get(value) ?? value,
+        )}
+        locationOptions={options(
+          result.facetCounts.location,
+          (value) => locationNames.get(value) ?? value,
+        )}
+        starredCount={result.facetCounts.starred}
+        archivedCount={result.facetCounts.archived}
+      />
 
-          return (
-            <TableRow key={deal.id}>
-              <TableCell className={'flex items-center gap-2'}>
-                {dealTitle(deal.description)}
-                {deal.capture_method === 'example' ? (
-                  <Badge variant={'secondary'}>Example</Badge>
-                ) : null}
-              </TableCell>
-              <TableCell>{stageLabel}</TableCell>
-              <TableCell>{resolution ?? stageLabel}</TableCell>
-              <TableCell>{formatCurrency(deal.asking_price)}</TableCell>
-              <TableCell>{formatCurrency(deal.revenue_ttm)}</TableCell>
-              <TableCell>{formatCurrency(sde)}</TableCell>
-              <TableCell>
-                {multiple === null ? 'Not disclosed' : `${multiple.toFixed(1)}x`}
-              </TableCell>
-              <TableCell>
-                {margin === null ? null : (
-                  <Badge variant={'outline'}>{Math.round(margin * 100)}%</Badge>
-                )}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+      <div className={'min-w-0 flex-1'}>
+        {result.items.length === 0 ? (
+          <p className={'text-muted-foreground text-sm'}>
+            {hasActiveFilters(searchParams)
+              ? 'No deals match'
+              : 'No deals yet'}
+          </p>
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Stage</TableHead>
+                  <TableHead>Resolution</TableHead>
+                  <TableHead>Asking price</TableHead>
+                  <TableHead>Revenue</TableHead>
+                  <TableHead>SDE</TableHead>
+                  <TableHead>Multiple</TableHead>
+                  <TableHead>Margin</TableHead>
+                  <TableHead>Days in stage</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {grouped.map((section) => (
+                  <GroupSection
+                    key={section.group}
+                    label={section.label}
+                    items={section.items}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+
+            {result.nextCursor !== null ? (
+              <div className={'pt-4'}>
+                <Link
+                  href={nextPageHref(searchParams, result.nextCursor)}
+                  className={'text-sm underline'}
+                >
+                  Next page
+                </Link>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GroupSection({
+  label,
+  items,
+}: {
+  label: string;
+  items: DealListItem[];
+}) {
+  return (
+    <>
+      <TableRow>
+        <TableCell
+          colSpan={COLUMN_COUNT}
+          className={'text-muted-foreground bg-muted/50 text-xs font-medium'}
+        >
+          {label} ({items.length})
+        </TableCell>
+      </TableRow>
+      {items.map((deal) => (
+        <TableRow key={deal.id}>
+          <TableCell className={'flex items-center gap-2'}>
+            {dealTitle(deal.title)}
+            {deal.captureMethod === 'example' ? (
+              <Badge variant={'secondary'}>Example</Badge>
+            ) : null}
+          </TableCell>
+          <TableCell>{deal.stageLabel ?? deal.stage}</TableCell>
+          <TableCell>
+            {resolutionLabel(deal.resolution, deal.resolutionReason)}
+          </TableCell>
+          <TableCell>{formatCurrency(deal.askingPrice)}</TableCell>
+          <TableCell>{formatCurrency(deal.revenue)}</TableCell>
+          <TableCell>{formatCurrency(deal.sde)}</TableCell>
+          <TableCell>
+            {deal.multiple === null ? 'Not disclosed' : `${deal.multiple.toFixed(1)}x`}
+          </TableCell>
+          <TableCell>
+            {deal.margin === null ? null : (
+              <Badge variant={'outline'}>{Math.round(deal.margin * 100)}%</Badge>
+            )}
+          </TableCell>
+          <TableCell>{deal.daysInStage ?? ''}</TableCell>
+          <TableCell>
+            <DealRowActions
+              dealId={deal.id}
+              starred={deal.starred}
+              archived={deal.archivedAt !== null}
+            />
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
   );
 }

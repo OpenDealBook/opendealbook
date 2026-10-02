@@ -6,8 +6,10 @@ import { DealsList } from '../../_components/deals-list';
 
 export default async function UserDealsPage(props: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await props.params;
+  const searchParams = await props.searchParams;
 
   const client = getSupabaseServerClient();
 
@@ -22,7 +24,7 @@ export default async function UserDealsPage(props: {
   return (
     <main className={'flex flex-col gap-6 p-8'}>
       <h1 className={'text-2xl font-semibold'}>Deals</h1>
-      <DealsList accountId={user.id} />
+      <DealsList accountId={user.id} searchParams={searchParams} />
     </main>
   );
 }
