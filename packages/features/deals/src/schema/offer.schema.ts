@@ -142,6 +142,25 @@ export const offerVersionSchema = z.object({
   approved_at: z.iso.datetime().optional(),
 });
 
+export const offerIdSchema = z.object({
+  offer_id: z.uuid(),
+});
+
+export const createOfferSchema = z.object({
+  deal_id: z.uuid(),
+  first_version: offerVersionSchema,
+});
+
+export const addOfferVersionSchema = z.object({
+  offer_id: z.uuid(),
+  author_side: offerAuthorSideSchema,
+  version: offerVersionSchema,
+});
+
+export type OfferIdPayload = z.infer<typeof offerIdSchema>;
+export type CreateOfferPayload = z.infer<typeof createOfferSchema>;
+export type AddOfferVersionPayload = z.infer<typeof addOfferVersionSchema>;
+
 export type InventoryTreatment = z.infer<typeof inventoryTreatmentSchema>;
 export type WorkingCapitalMechanism = z.infer<
   typeof workingCapitalMechanismSchema

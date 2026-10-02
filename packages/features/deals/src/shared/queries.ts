@@ -120,6 +120,47 @@ export async function fetchChecklistItems(
   return data;
 }
 
+export interface DealOffer {
+  offer: Tables<'offer'>;
+  versions: Tables<'offer_version'>[];
+  currentVersion: Tables<'offer_version'> | null;
+}
+
+// Diff adjacent entries of `versions` with diffOfferTerms from the offer schema.
+export async function fetchDealOffer(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<DealOffer | null> {
+  const { data: offer, error: offerError } = await client
+    .from('offer')
+    .select('*')
+    .eq('deal_id', deal_id)
+    .maybeSingle();
+
+  if (offerError) {
+    throw offerError;
+  }
+
+  if (!offer) {
+    return null;
+  }
+
+  const { data: versions, error: versionsError } = await client
+    .from('offer_version')
+    .select('*')
+    .eq('offer_id', offer.id)
+    .order('number', { ascending: true });
+
+  if (versionsError) {
+    throw versionsError;
+  }
+
+  const currentVersion =
+    versions.find((version) => version.id === offer.current_version_id) ?? null;
+
+  return { offer, versions, currentVersion };
+}
+
 export async function fetchDealParticipants(
   client: Client,
   dealId: string,
@@ -134,4 +175,67 @@ export async function fetchDealParticipants(
   }
 
   return data;
+}
+
+export async function fetchDealCalcVersions(
+  client: Client,
+  params: { deal_id: string },
+): Promise<Tables<'calc_version'>[]> {
+  const { data, error } = await client
+    .from('calc_version')
+    .select('*')
+    .eq('deal_id', params.deal_id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function fetchCalcVersion(
+  client: Client,
+  params: { calc_version_id: string },
+) {
+  const [version, periods, input, funding] = await Promise.all([
+    client
+      .from('calc_version')
+      .select('*')
+      .eq('id', params.calc_version_id)
+      .single(),
+    client
+      .from('sde_period')
+      .select('*, sde_line(*)')
+      .eq('calc_version_id', params.calc_version_id),
+    client
+      .from('deal_calc_input')
+      .select('*')
+      .eq('calc_version_id', params.calc_version_id)
+      .maybeSingle(),
+    client
+      .from('funding_source')
+      .select('*')
+      .eq('calc_version_id', params.calc_version_id),
+  ]);
+
+  if (version.error) {
+    throw version.error;
+  }
+  if (periods.error) {
+    throw periods.error;
+  }
+  if (input.error) {
+    throw input.error;
+  }
+  if (funding.error) {
+    throw funding.error;
+  }
+
+  return {
+    version: version.data,
+    periods: periods.data,
+    input: input.data,
+    funding_sources: funding.data,
+  };
 }
