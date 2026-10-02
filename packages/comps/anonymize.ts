@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const INDUSTRY_SHORT_NAMES: Record<string, string> = {
   '541211': 'CPA Firm',
   '541213': 'Tax Practice',
@@ -58,6 +60,136 @@ export function businessAgeBand(years: number): string {
 
 export function coarsenGeography(cbsa: string | null): string {
   return cbsa ?? 'rural';
+}
+
+export function naics3(naics: string): string {
+  return naics.slice(0, 3);
+}
+
+export function fiscalQuarter(isoDate: string): string {
+  const year = isoDate.slice(0, 4);
+  const month = Number(isoDate.slice(5, 7));
+  return `${year}-Q${Math.ceil(month / 3)}`;
+}
+
+export function poolFingerprint(parts: {
+  region: string | null;
+  naics: string | null;
+  quarter: string;
+}): string {
+  const material = [parts.region ?? '', parts.naics ?? '', parts.quarter].join('|');
+  return createHash('sha256').update(material).digest('hex');
+}
+
+export type ActivityConfidence = 'listed' | 'screened' | 'verified';
+
+export interface DealActivityRecord {
+  region: string | null;
+  naics: string | null;
+  industryShort: string | null;
+  createdAt: string;
+  confidence: ActivityConfidence;
+  askingPrice: number | null;
+  loiPrice: number | null;
+  furthestStage: string;
+  outcome: string | null;
+  outcomeReason: string | null;
+  lossReason: string | null;
+}
+
+export interface AnonymizedActivity {
+  region: string | null;
+  naics3: string | null;
+  industryShort: string | null;
+  createdQuarter: string;
+  confidence: ActivityConfidence;
+  askingPriceBanded: number | null;
+  loiPriceBanded: number | null;
+  furthestStage: string;
+  outcome: string | null;
+  outcomeReason: string | null;
+  lossReason: string | null;
+}
+
+export function anonymizeDealActivity(record: DealActivityRecord): AnonymizedActivity {
+  return {
+    region: record.region,
+    naics3: record.naics === null ? null : naics3(record.naics),
+    industryShort: record.industryShort,
+    createdQuarter: fiscalQuarter(record.createdAt),
+    confidence: record.confidence,
+    askingPriceBanded: record.askingPrice === null ? null : roundMoney(record.askingPrice),
+    loiPriceBanded: record.loiPrice === null ? null : roundMoney(record.loiPrice),
+    furthestStage: record.furthestStage,
+    outcome: record.outcome,
+    outcomeReason: record.outcomeReason,
+    lossReason: record.lossReason,
+  };
+}
+
+export interface ClosePoolRecord {
+  region: string | null;
+  naics: string | null;
+  industryShort: string | null;
+  closeDate: string;
+  salePrice: number;
+  revenue: number;
+  sde: number;
+  outcome: string | null;
+}
+
+export interface AnonymizedClosePool {
+  region: string | null;
+  naics3: string | null;
+  industryShort: string | null;
+  closeQuarter: string;
+  salePriceBanded: number;
+  revenueBanded: number;
+  sdeBanded: number;
+  sdeMultiple: number;
+  outcome: string | null;
+}
+
+export function anonymizeCloseComp(record: ClosePoolRecord): AnonymizedClosePool {
+  const salePriceBanded = roundMoney(record.salePrice);
+  const sdeBanded = roundMoney(record.sde);
+  return {
+    region: record.region,
+    naics3: record.naics === null ? null : naics3(record.naics),
+    industryShort: record.industryShort,
+    closeQuarter: fiscalQuarter(record.closeDate),
+    salePriceBanded,
+    revenueBanded: roundMoney(record.revenue),
+    sdeBanded,
+    sdeMultiple: salePriceBanded / sdeBanded,
+    outcome: record.outcome,
+  };
+}
+
+export interface CompPoolEligibilityInput {
+  optedIn: boolean;
+  outcomeReason: string | null;
+  closeDate: string;
+  asOf: string;
+}
+
+function quartersBetween(from: string, to: string): number {
+  const fromMonths = Number(from.slice(0, 4)) * 12 + (Number(from.slice(5, 7)) - 1);
+  const toMonths = Number(to.slice(0, 4)) * 12 + (Number(to.slice(5, 7)) - 1);
+  return (toMonths - fromMonths) / 3;
+}
+
+export function compPoolEligible(input: CompPoolEligibilityInput): boolean {
+  if (!input.optedIn) {
+    return false;
+  }
+  if (
+    input.outcomeReason === 'lost_to_other_buyer' &&
+    quartersBetween(input.closeDate, input.asOf) < 2
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export interface ClosedDealRecord {

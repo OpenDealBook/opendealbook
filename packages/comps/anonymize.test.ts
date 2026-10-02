@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   anonymizeClosedDeal,
+  anonymizeCloseComp,
+  anonymizeDealActivity,
   businessAgeBand,
   coarsenGeography,
+  compPoolEligible,
   employeeBand,
+  fiscalQuarter,
   generatePseudonym,
   industryShortName,
+  naics3,
+  poolFingerprint,
   roundMoney,
   roundPercentTo5,
   roundServiceMix,
+  type DealActivityRecord,
 } from './anonymize';
 
 describe('roundMoney', () => {
@@ -169,5 +176,138 @@ describe('anonymizeClosedDeal', () => {
     };
     expect(anonymizeClosedDeal(record, 7)).toEqual(anonymizeClosedDeal(record, 7));
     expect(anonymizeClosedDeal(record, 7).geography).toBe('rural');
+  });
+});
+
+describe('naics3', () => {
+  it('keeps the first three digits of a NAICS code', () => {
+    expect(naics3('541211')).toBe('541');
+    expect(naics3('561')).toBe('561');
+  });
+});
+
+describe('fiscalQuarter', () => {
+  it('maps a close date to a calendar quarter label', () => {
+    expect(fiscalQuarter('2025-01-15')).toBe('2025-Q1');
+    expect(fiscalQuarter('2025-03-31')).toBe('2025-Q1');
+    expect(fiscalQuarter('2025-04-01')).toBe('2025-Q2');
+    expect(fiscalQuarter('2025-09-30')).toBe('2025-Q3');
+    expect(fiscalQuarter('2025-12-31')).toBe('2025-Q4');
+  });
+});
+
+describe('poolFingerprint', () => {
+  it('is deterministic for the same anonymized identity', () => {
+    const parts = { region: 'TX', naics: '541', quarter: '2025-Q4' };
+    expect(poolFingerprint(parts)).toBe(poolFingerprint(parts));
+  });
+
+  it('differs when the identity differs', () => {
+    expect(poolFingerprint({ region: 'TX', naics: '541', quarter: '2025-Q4' })).not.toBe(
+      poolFingerprint({ region: 'CA', naics: '541', quarter: '2025-Q4' }),
+    );
+  });
+});
+
+describe('anonymizeDealActivity', () => {
+  const base: DealActivityRecord = {
+    region: 'Austin',
+    naics: '541211',
+    industryShort: 'CPA Firm',
+    createdAt: '2025-11-30',
+    confidence: 'screened',
+    askingPrice: 994_000,
+    loiPrice: 1_025_000,
+    furthestStage: 'loi',
+    outcome: null,
+    outcomeReason: null,
+    lossReason: null,
+  };
+
+  it('bands prices, derives the quarter and naics3, and passes through the lifecycle fields', () => {
+    expect(anonymizeDealActivity(base)).toEqual({
+      region: 'Austin',
+      naics3: '541',
+      industryShort: 'CPA Firm',
+      createdQuarter: '2025-Q4',
+      confidence: 'screened',
+      askingPriceBanded: 990_000,
+      loiPriceBanded: 1_050_000,
+      furthestStage: 'loi',
+      outcome: null,
+      outcomeReason: null,
+      lossReason: null,
+    });
+  });
+
+  it('carries null prices and a null naics through as null', () => {
+    const result = anonymizeDealActivity({
+      ...base,
+      naics: null,
+      askingPrice: null,
+      loiPrice: null,
+    });
+    expect(result.naics3).toBeNull();
+    expect(result.askingPriceBanded).toBeNull();
+    expect(result.loiPriceBanded).toBeNull();
+  });
+});
+
+describe('anonymizeCloseComp', () => {
+  it('bands the close figures and recomputes the sde multiple from the banded values', () => {
+    const result = anonymizeCloseComp({
+      region: 'Dallas',
+      naics: '541213',
+      industryShort: 'Tax Practice',
+      closeDate: '2025-11-30',
+      salePrice: 1_020_000,
+      revenue: 505_000,
+      sde: 210_000,
+      outcome: 'won',
+    });
+    expect(result).toEqual({
+      region: 'Dallas',
+      naics3: '541',
+      industryShort: 'Tax Practice',
+      closeQuarter: '2025-Q4',
+      salePriceBanded: 1_000_000,
+      revenueBanded: 510_000,
+      sdeBanded: 210_000,
+      sdeMultiple: 1_000_000 / 210_000,
+      outcome: 'won',
+    });
+  });
+});
+
+describe('compPoolEligible', () => {
+  it('excludes an account that has not opted in', () => {
+    expect(
+      compPoolEligible({ optedIn: false, outcomeReason: null, closeDate: '2025-01-01', asOf: '2026-01-01' }),
+    ).toBe(false);
+  });
+
+  it('holds a lost_to_other_buyer close for two quarters, then releases it', () => {
+    expect(
+      compPoolEligible({
+        optedIn: true,
+        outcomeReason: 'lost_to_other_buyer',
+        closeDate: '2025-10-01',
+        asOf: '2025-12-01',
+      }),
+    ).toBe(false);
+    expect(
+      compPoolEligible({
+        optedIn: true,
+        outcomeReason: 'lost_to_other_buyer',
+        closeDate: '2025-04-01',
+        asOf: '2025-10-01',
+      }),
+    ).toBe(true);
+  });
+
+  it('admits an opted-in close with no hold reason', () => {
+    expect(
+      compPoolEligible({ optedIn: true, outcomeReason: 'closed', closeDate: '2025-10-01', asOf: '2025-10-15' }),
+    ).toBe(true);
   });
 });

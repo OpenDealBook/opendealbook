@@ -18,6 +18,11 @@ export {
 export { writeCloseCompWorkflow } from './workflows/writeCloseComp';
 export { outreachDispatch } from './workflows/outreachDispatch';
 export {
+  compEventRelay,
+  type CompEventRelayInput,
+} from './workflows/compEventRelay';
+export { ensureCompEventRelay } from './schedules/compEventRelay';
+export {
   SBA_REFRESH_SCHEDULE_ID,
   ensureSbaRefreshSchedule,
   triggerSbaRefresh,
@@ -29,4 +34,6 @@ export {
 export {
   OUTREACH_DISPATCH_SCHEDULE_ID,
   OUTREACH_DISPATCH_WORKFLOW_TYPE,
+  COMP_EVENT_RELAY_WORKFLOW_ID,
+  COMP_EVENT_RELAY_WORKFLOW_TYPE,
 } from './ids';

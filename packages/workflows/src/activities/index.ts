@@ -10,6 +10,10 @@ export {
   refreshSbaProgram,
 } from '../comps/sbaLoans';
 export { writeCloseComp } from '../comps/writeCloseComp';
+export { fetchDealEventsSince } from '../comps/relay';
+export { recordDealActivity } from '../comps/recordDealActivity';
+export { detectDuplicates } from '../comps/detectDuplicates';
+export { anonymizeClose } from '../comps/anonymizeClose';
 export {
   fetchDueOutreachAccounts,
   dispatchAccountOutreach,

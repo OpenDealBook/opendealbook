@@ -1,15 +1,40 @@
 export {
   anonymizeClosedDeal,
+  anonymizeCloseComp,
+  anonymizeDealActivity,
   businessAgeBand,
   coarsenGeography,
+  compPoolEligible,
   employeeBand,
+  fiscalQuarter,
   generatePseudonym,
   industryShortName,
+  naics3,
+  poolFingerprint,
   roundMoney,
   roundPercentTo5,
   roundServiceMix,
 } from './anonymize';
-export type { AnonymizedComp, ClosedDealRecord, PseudonymParts } from './anonymize';
+export type {
+  ActivityConfidence,
+  AnonymizedActivity,
+  AnonymizedClosePool,
+  AnonymizedComp,
+  ClosedDealRecord,
+  ClosePoolRecord,
+  CompPoolEligibilityInput,
+  DealActivityRecord,
+  PseudonymParts,
+} from './anonymize';
+export { classifyDuplicates } from './dedupe';
+export type {
+  DedupeAutoFlag,
+  DedupeCandidate,
+  DedupeDecision,
+  DedupeSubject,
+} from './dedupe';
+export { planRelayDispatch, routeRelayEvent } from './relay';
+export type { CompConsumer, RelayEvent, RelayPlan, RelayStep } from './relay';
 export { loadColumnMap, mapRow, parseField } from './vendors/column-map';
 export type { ColumnMap, ColumnSpec, ParsedValue, ParserKind } from './vendors/column-map';
 export {
