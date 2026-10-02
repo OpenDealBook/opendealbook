@@ -8,7 +8,6 @@ import {
 } from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
-import { Button } from '@odb/ui/button';
 import {
   Table,
   TableBody,
@@ -22,14 +21,13 @@ import { DealCard } from './deal-card';
 import { DealRowActions } from './deal-row-actions';
 import { DealsFilters, type FilterOption } from './deals-filters';
 import {
-  DEAL_PARAM,
-  type DealView,
   type RawSearchParams,
   hasActiveFilters,
   parseDealParams,
 } from './deals-search-params';
+import { DealsViewToggle } from './deals-view-toggle';
 
-const COLUMN_COUNT = 10;
+const COLUMN_COUNT = 11;
 
 const GROUP_ORDER: { group: DealListGroup; label: string }[] = [
   { group: 'actively_pursuing', label: 'Actively pursuing' },
@@ -122,18 +120,6 @@ function nextPageHref(
   return `?${query.toString()}`;
 }
 
-function viewHref(params: RawSearchParams, view: DealView): string {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    const raw = Array.isArray(value) ? value[0] : value;
-    if (raw !== undefined && key !== DEAL_PARAM.cursor && key !== DEAL_PARAM.view) {
-      query.set(key, raw);
-    }
-  }
-  query.set(DEAL_PARAM.view, view);
-  return `?${query.toString()}`;
-}
-
 export async function DealsList({
   accountId,
   searchParams,
@@ -204,22 +190,7 @@ export async function DealsList({
       />
 
       <div className={'flex min-w-0 flex-1 flex-col gap-4'}>
-        <div className={'flex items-center justify-end gap-1'}>
-          <Button
-            asChild
-            size={'sm'}
-            variant={view === 'cards' ? 'default' : 'outline'}
-          >
-            <Link href={viewHref(searchParams, 'cards')}>Cards</Link>
-          </Button>
-          <Button
-            asChild
-            size={'sm'}
-            variant={view === 'table' ? 'default' : 'outline'}
-          >
-            <Link href={viewHref(searchParams, 'table')}>Table</Link>
-          </Button>
-        </div>
+        <DealsViewToggle view={view} />
 
         {result.items.length === 0 ? (
           <p className={'text-muted-foreground text-sm'}>
@@ -237,6 +208,7 @@ export async function DealsList({
                     <TableHead>Stage</TableHead>
                     <TableHead>Resolution</TableHead>
                     <TableHead>Asking price</TableHead>
+                    <TableHead>Your offer</TableHead>
                     <TableHead>Revenue</TableHead>
                     <TableHead>SDE</TableHead>
                     <TableHead>Multiple</TableHead>
@@ -332,6 +304,7 @@ function GroupSection({
             {resolutionLabel(deal.resolution, deal.resolutionReason)}
           </TableCell>
           <TableCell>{formatCurrency(deal.askingPrice)}</TableCell>
+          <TableCell>{formatCurrency(deal.yourOffer)}</TableCell>
           <TableCell>{formatCurrency(deal.revenue)}</TableCell>
           <TableCell>{formatCurrency(deal.sde)}</TableCell>
           <TableCell>

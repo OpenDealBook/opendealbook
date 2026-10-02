@@ -102,6 +102,9 @@ export function DealCard({
           <Metric label={'Ask'} value={money(deal.askingPrice)} />
           <Metric label={'Revenue'} value={money(deal.revenue)} />
           <Metric label={'SDE'} value={money(deal.sde)} />
+          {deal.yourOffer !== null ? (
+            <Metric label={'Your offer'} value={money(deal.yourOffer)} />
+          ) : null}
         </div>
 
         {deal.multiple !== null || deal.margin !== null ? (

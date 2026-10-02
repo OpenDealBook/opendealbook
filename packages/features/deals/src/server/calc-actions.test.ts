@@ -210,6 +210,12 @@ describe('saveSdeCalc', () => {
     >;
     expect(periods).toHaveLength(3);
     expect(periods[2]?.annualized_sde).toBe(678_364);
+
+    const adopt = snapshotPayload.outputs_snapshot.adopt as Record<
+      string,
+      unknown
+    >;
+    expect(adopt.ebitda).toBe(678_364);
   });
 
   it('rejects periods whose weights do not sum to one', async () => {
@@ -270,6 +276,9 @@ describe('saveDealCalc', () => {
     expect(snapshot.sde).toBe(163_000);
     expect(round2(snapshot.dscr as number)).toBe(1.43);
     expect(snapshot.net_cash_flow).toBeCloseTo(59_721, 0);
+
+    const adopt = snapshot.adopt as Record<string, unknown>;
+    expect(adopt.ebitda).toBe(163_000);
   });
 });
 
@@ -394,5 +403,27 @@ describe('adoptCalcVersion', () => {
         source_calc_version_id: 'calc_version-1',
       },
     });
+  });
+
+  it('forwards a snapshot EBITDA as adopted_ebitda', async () => {
+    mocks.setResponses({
+      calc_version: calcVersionRow({
+        outputs_snapshot: {
+          type: 'deal',
+          adopt: { revenue: 920_000, sde: 507_676, ebitda: 245_000 },
+        },
+      }),
+    });
+
+    await (adoptCalcVersion as unknown as Action)(
+      { deal_id: 'deal-1', calc_version_id: 'calc_version-1' },
+      user,
+    );
+
+    const [, payload] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      { payload: { adopted_ebitda: number } },
+    ];
+    expect(payload.payload.adopted_ebitda).toBe(245_000);
   });
 });

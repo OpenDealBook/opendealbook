@@ -47,6 +47,12 @@ export function sdeFromPl(pl: ProfitAndLoss): number {
   );
 }
 
+export function ebitda(pl: ProfitAndLoss): number {
+  return (
+    netIncome(pl) + pl.depreciation_amortization + pl.interest + pl.taxes
+  );
+}
+
 export function amortizeMonthlyPayment(
   principal: number,
   annualRate: number,

@@ -5,6 +5,7 @@ import {
   fetchAccountStages,
   fetchChecklistItems,
   fetchDealOffer,
+  fetchDealThesis,
 } from '@odb/deals';
 import type { Tables } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -15,6 +16,7 @@ import { CalculatorsSection } from './calculators-section';
 import { ChecklistSection } from './checklist-section';
 import { DealHeaderActions } from './deal-detail-actions';
 import { OffersSection } from './offers-section';
+import { ThesisSection } from './thesis-section';
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -67,7 +69,7 @@ export async function DealDetail({
     data: { user },
   } = await client.auth.getUser();
 
-  const [dealResult, profileResult, financialsResult, eventsResult, checklist, offer, stages] =
+  const [dealResult, profileResult, financialsResult, eventsResult, checklist, offer, stages, thesis] =
     await Promise.all([
       client
         .from('deal')
@@ -94,6 +96,7 @@ export async function DealDetail({
       fetchChecklistItems(client, dealId),
       fetchDealOffer(client, { deal_id: dealId }),
       fetchAccountStages(client, accountId),
+      fetchDealThesis(client, { deal_id: dealId }),
     ]);
 
   const deal = dealResult.data;
@@ -261,6 +264,8 @@ export async function DealDetail({
           </dl>
         </CardContent>
       </Card>
+
+      <ThesisSection deal_id={deal.id} thesis={thesis} />
 
       <ChecklistSection items={checklist} />
 

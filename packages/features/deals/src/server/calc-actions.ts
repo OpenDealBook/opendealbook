@@ -7,12 +7,14 @@ import {
   type PrimaryAddbacks,
   type ProfitAndLoss,
   type SdePeriod,
+  annualizeSde,
   cashOnCash,
   dealBoxGap,
   debtServiceYear1,
   deriveBuyerEquity,
   dscr,
   dscrSensitivity,
+  ebitda,
   netCashFlow,
   netIncome,
   paybackYears,
@@ -253,6 +255,19 @@ export const saveSdeCalc = enhanceAction(
     }
 
     const weighted = weightedSde(sdePeriods);
+    const recent = sdePeriods[sdePeriods.length - 1]!;
+    const recentEbitda = annualizeSde(
+      ebitda({
+        sales: recent.sales,
+        cogs: recent.cogs,
+        opex: recent.opex,
+        depreciation_amortization: recent.primary.depreciation_amortization,
+        taxes: recent.primary.taxes,
+        interest: recent.primary.interest,
+        owner_benefits: 0,
+      }),
+      recent.months,
+    );
 
     const snapshot = {
       type: 'sde',
@@ -267,7 +282,7 @@ export const saveSdeCalc = enhanceAction(
         annualized_sde: recast.annualized_sde,
         margin: recast.margin,
       })),
-      adopt: { revenue: null, sde: weighted, ebitda: null },
+      adopt: { revenue: null, sde: weighted, ebitda: recentEbitda },
     };
 
     await writeSnapshot(client, data.calc_version_id, snapshot as unknown as Json);
@@ -366,7 +381,7 @@ export const saveDealCalc = enhanceAction(
         options,
         data.inputs.reference_line,
       ),
-      adopt: { revenue: pl.sales, sde, ebitda: null },
+      adopt: { revenue: pl.sales, sde, ebitda: ebitda(pl) },
     };
 
     await writeSnapshot(client, data.calc_version_id, snapshot as unknown as Json);

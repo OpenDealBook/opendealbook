@@ -7,6 +7,7 @@ import {
   deriveBuyerEquity,
   dscr,
   dscrSensitivity,
+  ebitda,
   netCashFlow,
   netIncome,
   paybackYears,
@@ -34,6 +35,26 @@ describe('SDE from the P&L', () => {
 
     expect(netIncome(pl)).toBe(200_000);
     expect(sdeFromPl(pl)).toBe(363_000);
+  });
+});
+
+describe('EBITDA from the P&L', () => {
+  const pl: ProfitAndLoss = {
+    sales: 1_000_000,
+    cogs: 500_000,
+    opex: 300_000,
+    depreciation_amortization: 20_000,
+    taxes: 15_000,
+    interest: 10_000,
+    owner_benefits: 118_000,
+  };
+
+  it('adds depreciation, interest, and taxes back onto net income', () => {
+    expect(ebitda(pl)).toBe(245_000);
+  });
+
+  it('excludes owner compensation, so it trails SDE by the owner addback', () => {
+    expect(sdeFromPl(pl) - ebitda(pl)).toBe(pl.owner_benefits);
   });
 });
 

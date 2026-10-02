@@ -59,6 +59,7 @@ export interface DealListItem {
   resolutionReason: string | null;
   listingStatus: string;
   askingPrice: number | null;
+  yourOffer: number | null;
   revenue: number | null;
   sde: number | null;
   multiple: number | null;
@@ -138,6 +139,10 @@ export interface DealFacetedRow {
     adopted_sde: number | null;
   } | null;
   deal_star: { user_id: string }[];
+  offer: {
+    current_version_id: string | null;
+    offer_version: { id: string; purchase_price: number }[];
+  }[];
 }
 
 export interface ListDealsFacetedParams {
@@ -160,7 +165,7 @@ const MAX_LIMIT = 100;
 const EARLY_FUNNEL_STAGES = new Set(['sourcing', 'pre_nda']);
 
 const DEAL_FACETED_SELECT =
-  'id, description, stage, resolution, resolution_reason, listing_status, asking_price, revenue_ttm, sde_ttm, owner_user_id, archived_at, stage_changed_at, created_at, updated_at, capture_method, pipeline_stage(key, label, sort_order), deal_profile(industry_id, location_id, industry(name), location(name)), deal_financials(adopted_revenue, adopted_sde), deal_star(user_id)';
+  'id, description, stage, resolution, resolution_reason, listing_status, asking_price, revenue_ttm, sde_ttm, owner_user_id, archived_at, stage_changed_at, created_at, updated_at, capture_method, pipeline_stage(key, label, sort_order), deal_profile(industry_id, location_id, industry(name), location(name)), deal_financials(adopted_revenue, adopted_sde), deal_star(user_id), offer(current_version_id, offer_version(id, purchase_price))';
 
 function resolutionBucket(resolution: string | null): DealResolution {
   if (resolution === null) {
@@ -182,6 +187,16 @@ function groupOf(resolution: string | null, stage: string, archivedAt: string | 
   return 'actively_pursuing';
 }
 
+function currentOfferPrice(offers: DealFacetedRow['offer']): number | null {
+  for (const offer of offers) {
+    const current = offer.offer_version.find((version) => version.id === offer.current_version_id);
+    if (current !== undefined) {
+      return current.purchase_price;
+    }
+  }
+  return null;
+}
+
 export function mapDealRow(
   row: DealFacetedRow,
   currentUserId: string | null,
@@ -189,6 +204,7 @@ export function mapDealRow(
 ): DealListItem {
   const revenue = row.deal_financials?.adopted_revenue ?? row.revenue_ttm;
   const sde = row.deal_financials?.adopted_sde ?? row.sde_ttm;
+  const yourOffer = currentOfferPrice(row.offer);
 
   return {
     id: row.id,
@@ -200,6 +216,7 @@ export function mapDealRow(
     resolutionReason: row.resolution_reason,
     listingStatus: row.listing_status,
     askingPrice: row.asking_price,
+    yourOffer,
     revenue,
     sde,
     multiple: sdeMultiple(row.asking_price, sde),

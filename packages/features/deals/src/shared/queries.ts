@@ -103,6 +103,23 @@ export async function fetchDealBox(
   return data;
 }
 
+export async function fetchDealThesis(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<Tables<'deal_thesis'> | null> {
+  const { data, error } = await client
+    .from('deal_thesis')
+    .select('*')
+    .eq('deal_id', deal_id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function fetchChecklistItems(
   client: Client,
   dealId: string,

@@ -36,6 +36,7 @@ function makeRow(overrides: Partial<DealFacetedRow> = {}): DealFacetedRow {
     },
     deal_financials: null,
     deal_star: [],
+    offer: [],
     ...overrides,
   };
 }
@@ -73,6 +74,27 @@ describe('mapDealRow', () => {
     expect(item.stageLabel).toBe('Sourcing');
     expect(item.industryName).toBe('Accounting');
     expect(item.locationName).toBe('Austin');
+  });
+
+  it('reads yourOffer from the offer current version purchase price', () => {
+    const withOffer = mapDealRow(
+      makeRow({
+        offer: [
+          {
+            current_version_id: 'ver-2',
+            offer_version: [
+              { id: 'ver-1', purchase_price: 900_000 },
+              { id: 'ver-2', purchase_price: 1_100_000 },
+            ],
+          },
+        ],
+      }),
+      USER,
+      NOW,
+    );
+
+    expect(withOffer.yourOffer).toBe(1_100_000);
+    expect(mapDealRow(makeRow(), USER, NOW).yourOffer).toBeNull();
   });
 
   it('marks starred from the current user star rows', () => {
