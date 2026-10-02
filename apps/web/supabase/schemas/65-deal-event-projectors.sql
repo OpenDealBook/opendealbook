@@ -27,7 +27,7 @@ begin
       (ev.payload ->> 'ebitda_ttm')::numeric,
       ev.payload ->> 'notes',
       coalesce((ev.payload ->> 'source')::public.deal_source, 'manual'),
-      coalesce(ev.payload ->> 'stage', 'sourced'),
+      coalesce(ev.payload ->> 'stage', 'sourcing'),
       (ev.payload ->> 'broker_contact_id')::uuid,
       (ev.payload ->> 'deal_box_version')::int,
       ev.payload ->> 'capture_method',
