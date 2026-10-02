@@ -121,9 +121,11 @@ function nextPageHref(
 export async function DealsList({
   accountId,
   searchParams,
+  detailBasePath,
 }: {
   accountId: string;
   searchParams: RawSearchParams;
+  detailBasePath: string;
 }) {
   const client = getSupabaseServerClient();
   const { filters, sort, cursor } = parseDealParams(searchParams);
@@ -215,6 +217,7 @@ export async function DealsList({
                     key={section.group}
                     label={section.label}
                     items={section.items}
+                    detailBasePath={detailBasePath}
                   />
                 ))}
               </TableBody>
@@ -240,9 +243,11 @@ export async function DealsList({
 function GroupSection({
   label,
   items,
+  detailBasePath,
 }: {
   label: string;
   items: DealListItem[];
+  detailBasePath: string;
 }) {
   return (
     <>
@@ -257,7 +262,9 @@ function GroupSection({
       {items.map((deal) => (
         <TableRow key={deal.id}>
           <TableCell className={'flex items-center gap-2'}>
-            {dealTitle(deal.title)}
+            <Link href={`${detailBasePath}/${deal.id}`} className={'hover:underline'}>
+              {dealTitle(deal.title)}
+            </Link>
             {deal.captureMethod === 'example' ? (
               <Badge variant={'secondary'}>Example</Badge>
             ) : null}

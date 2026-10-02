@@ -17,7 +17,11 @@ export default async function TeamDealsPage({
   return (
     <main className={'flex flex-col gap-6 p-8'}>
       <h1 className={'text-2xl font-semibold'}>Deals</h1>
-      <DealsList accountId={team.id} searchParams={resolvedSearchParams} />
+      <DealsList
+        accountId={team.id}
+        searchParams={resolvedSearchParams}
+        detailBasePath={`/home/${account}/deals`}
+      />
     </main>
   );
 }

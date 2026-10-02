@@ -1,0 +1,401 @@
+import { notFound } from 'next/navigation';
+
+import { sdeMargin, sdeMultiple } from '@odb/calculators';
+import {
+  fetchAccountStages,
+  fetchChecklistItems,
+  fetchDealOffer,
+} from '@odb/deals';
+import type { Tables } from '@odb/supabase';
+import { getSupabaseServerClient } from '@odb/supabase/server';
+import { Badge } from '@odb/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@odb/ui/table';
+
+import { CalculatorsSection } from './calculators-section';
+import { DealHeaderActions } from './deal-detail-actions';
+import { OffersSection } from './offers-section';
+
+const CHECKLIST_KIND_LABELS: Record<string, string> = {
+  offer: 'Offer',
+  diligence: 'Diligence',
+  closing: 'Closing',
+  post_close: 'Post close',
+  other: 'Other',
+};
+
+const currency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
+
+function money(value: number | null): string {
+  return value === null ? 'Not disclosed' : currency.format(value);
+}
+
+function dateOrNotSet(value: string | null): string {
+  return value === null ? 'Not set' : new Date(value).toLocaleDateString('en-US');
+}
+
+function textOrNotSet(value: string | number | null): string {
+  return value === null ? 'Not set' : String(value);
+}
+
+function resolutionText(
+  resolution: string | null,
+  reason: string | null,
+): string {
+  if (resolution === null) {
+    return 'Open';
+  }
+  const outcome = resolution === 'won' ? 'Won' : 'Lost';
+  return reason === null ? outcome : `${outcome} (${reason.replace(/_/g, ' ')})`;
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={'flex flex-col gap-0.5'}>
+      <dt className={'text-muted-foreground text-xs uppercase'}>{label}</dt>
+      <dd className={'text-sm'}>{value}</dd>
+    </div>
+  );
+}
+
+export async function DealDetail({
+  accountId,
+  dealId,
+}: {
+  accountId: string;
+  dealId: string;
+}) {
+  const client = getSupabaseServerClient();
+
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+
+  const [dealResult, profileResult, financialsResult, eventsResult, checklist, offer, stages] =
+    await Promise.all([
+      client
+        .from('deal')
+        .select('*, deal_star(user_id)')
+        .eq('id', dealId)
+        .eq('account_id', accountId)
+        .maybeSingle(),
+      client
+        .from('deal_profile')
+        .select('*, industry(name), location(city, region)')
+        .eq('deal_id', dealId)
+        .maybeSingle(),
+      client
+        .from('deal_financials')
+        .select('*')
+        .eq('deal_id', dealId)
+        .maybeSingle(),
+      client
+        .from('deal_event')
+        .select('*')
+        .eq('deal_id', dealId)
+        .eq('aggregate_type', 'deal')
+        .order('deal_seq', { ascending: true }),
+      fetchChecklistItems(client, dealId),
+      fetchDealOffer(client, { deal_id: dealId }),
+      fetchAccountStages(client, accountId),
+    ]);
+
+  const deal = dealResult.data;
+
+  if (!deal) {
+    notFound();
+  }
+
+  const profile = profileResult.data;
+  const financials = financialsResult.data;
+  const events = eventsResult.data ?? [];
+
+  const stageLabel = new Map(stages.map((stage) => [stage.key, stage.label]));
+  const stageName = (key: string) => stageLabel.get(key) ?? key;
+
+  const starred = deal.deal_star.some((star) => star.user_id === user?.id);
+
+  const title = (deal.description ?? 'Untitled deal').replace(/^Example:\s*/, '');
+  const asking = deal.asking_price;
+  const revenue = financials?.adopted_revenue ?? deal.revenue_ttm;
+  const sde = financials?.adopted_sde ?? deal.sde_ttm;
+  const multiple = sdeMultiple(asking, sde);
+  const margin = sdeMargin(sde, revenue);
+
+  const timeline = buildTimeline(events, stageName);
+
+  const acceptedVersion =
+    offer?.versions.find((version) => version.approved_at !== null) ?? null;
+
+  const checklistGroups = groupChecklist(checklist);
+
+  const locationParts = [profile?.location?.city, profile?.location?.region].filter(
+    (part): part is string => Boolean(part),
+  );
+  const locationName =
+    locationParts.length > 0
+      ? locationParts.join(', ')
+      : profile?.location_raw ?? null;
+
+  return (
+    <div className={'flex flex-col gap-6'}>
+      <Card>
+        <CardHeader>
+          <CardTitle className={'flex flex-wrap items-center gap-2 text-xl'}>
+            {title}
+            {deal.capture_method === 'example' ? (
+              <Badge variant={'secondary'}>Example</Badge>
+            ) : null}
+            <Badge variant={'outline'}>{stageName(deal.stage)}</Badge>
+            <Badge variant={'outline'}>
+              {resolutionText(deal.resolution, deal.resolution_reason)}
+            </Badge>
+            <Badge variant={'outline'}>{deal.listing_status}</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className={'flex flex-col gap-6'}>
+          <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-5'}>
+            <Field label={'Asking'} value={money(asking)} />
+            <Field label={'Revenue'} value={money(revenue)} />
+            <Field label={'SDE'} value={money(sde)} />
+            <Field
+              label={'Multiple'}
+              value={multiple === null ? 'Not disclosed' : `${multiple.toFixed(1)}x`}
+            />
+            <Field
+              label={'Margin'}
+              value={
+                margin === null ? 'Not disclosed' : `${Math.round(margin * 100)}%`
+              }
+            />
+          </dl>
+          <DealHeaderActions
+            dealId={deal.id}
+            stage={deal.stage}
+            stages={stages.map((stage) => ({ key: stage.key, label: stage.label }))}
+            listingStatus={deal.listing_status}
+            archived={deal.archived_at !== null}
+            starred={starred}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-3'}>
+            <Field label={'Industry'} value={textOrNotSet(profile?.industry?.name ?? null)} />
+            <Field label={'Location'} value={textOrNotSet(locationName)} />
+            <Field
+              label={'Year established'}
+              value={textOrNotSet(profile?.year_established ?? null)}
+            />
+            <Field label={'Employees'} value={textOrNotSet(profile?.employee_band ?? null)} />
+            <Field label={'Website'} value={textOrNotSet(profile?.website ?? null)} />
+            <Field label={'Owner role'} value={textOrNotSet(profile?.owner_role ?? null)} />
+            <Field
+              label={'Reason for sale'}
+              value={textOrNotSet(profile?.reason_for_sale ?? null)}
+            />
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Adopted financials</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {financials === null ? (
+            <p className={'text-muted-foreground text-sm'}>
+              No financials adopted yet
+            </p>
+          ) : (
+            <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-3'}>
+              <Field label={'Revenue'} value={money(financials.adopted_revenue)} />
+              <Field label={'SDE'} value={money(financials.adopted_sde)} />
+              <Field label={'EBITDA'} value={money(financials.adopted_ebitda)} />
+              <Field label={'Adopted at'} value={dateOrNotSet(financials.adopted_at)} />
+              <Field
+                label={'Source calc version'}
+                value={textOrNotSet(financials.source_calc_version_id)}
+              />
+            </dl>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Stage history and key dates</CardTitle>
+        </CardHeader>
+        <CardContent className={'flex flex-col gap-6'}>
+          <div className={'flex flex-col gap-2'}>
+            {timeline.length === 0 ? (
+              <p className={'text-muted-foreground text-sm'}>No events yet</p>
+            ) : (
+              timeline.map((entry) => (
+                <div
+                  key={entry.id}
+                  className={'flex flex-wrap items-baseline gap-x-2 text-sm'}
+                >
+                  <span>{entry.label}</span>
+                  <span className={'text-muted-foreground text-xs'}>
+                    {dateOrNotSet(entry.at)} · {entry.actor}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-3'}>
+            <Field label={'Discovered'} value={dateOrNotSet(deal.discovered_at)} />
+            <Field label={'Stage changed'} value={dateOrNotSet(deal.stage_changed_at)} />
+            <Field
+              label={'Offer accepted'}
+              value={dateOrNotSet(acceptedVersion?.approved_at ?? null)}
+            />
+            <Field
+              label={'Target close'}
+              value={dateOrNotSet(acceptedVersion?.target_close_date ?? null)}
+            />
+            <Field
+              label={'Offer expires'}
+              value={dateOrNotSet(acceptedVersion?.offer_expires_at ?? null)}
+            />
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Checklists</CardTitle>
+        </CardHeader>
+        <CardContent className={'flex flex-col gap-6'}>
+          {checklistGroups.length === 0 ? (
+            <p className={'text-muted-foreground text-sm'}>No checklist items</p>
+          ) : (
+            checklistGroups.map((group) => (
+              <div key={group.key} className={'flex flex-col gap-2'}>
+                <h3 className={'text-sm font-medium'}>
+                  {CHECKLIST_KIND_LABELS[group.key] ?? group.key}
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Importance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {group.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.title}</TableCell>
+                        <TableCell>{item.status.replace(/_/g, ' ')}</TableCell>
+                        <TableCell>{textOrNotSet(item.owner_role)}</TableCell>
+                        <TableCell>{textOrNotSet(item.importance)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <OffersSection dealId={deal.id} accountId={accountId} />
+      <CalculatorsSection dealId={deal.id} accountId={accountId} />
+    </div>
+  );
+}
+
+interface TimelineEntry {
+  id: string;
+  label: string;
+  at: string;
+  actor: string;
+}
+
+function buildTimeline(
+  events: Tables<'deal_event'>[],
+  stageName: (key: string) => string,
+): TimelineEntry[] {
+  const entries: TimelineEntry[] = [];
+  let lastStage: string | null = null;
+
+  for (const event of events) {
+    const payload = (event.payload ?? {}) as Record<string, unknown>;
+    const stage = typeof payload.stage === 'string' ? payload.stage : null;
+
+    if (event.event_type === 'deal.created') {
+      lastStage = stage;
+      entries.push({
+        id: event.id,
+        label: stage === null ? 'Created' : `Created in ${stageName(stage)}`,
+        at: event.created_at,
+        actor: event.actor_kind,
+      });
+    } else if (event.event_type === 'deal.stage_changed') {
+      const from = lastStage;
+      lastStage = stage;
+      entries.push({
+        id: event.id,
+        label: `${from === null ? 'Unknown' : stageName(from)} -> ${
+          stage === null ? 'Unknown' : stageName(stage)
+        }`,
+        at: event.created_at,
+        actor: event.actor_kind,
+      });
+    } else if (event.event_type === 'deal.resolved') {
+      const resolution =
+        typeof payload.resolution === 'string' ? payload.resolution : 'closed';
+      const reason =
+        typeof payload.resolution_reason === 'string'
+          ? payload.resolution_reason
+          : null;
+      entries.push({
+        id: event.id,
+        label: `Resolved ${resolution}${
+          reason === null ? '' : ` (${reason.replace(/_/g, ' ')})`
+        }`,
+        at: event.created_at,
+        actor: event.actor_kind,
+      });
+    }
+  }
+
+  return entries;
+}
+
+interface ChecklistGroup {
+  key: string;
+  items: Tables<'checklist_item'>[];
+}
+
+function groupChecklist(items: Tables<'checklist_item'>[]): ChecklistGroup[] {
+  const byKey = new Map<string, Tables<'checklist_item'>[]>();
+
+  for (const item of items) {
+    const key = item.kind ?? item.category ?? 'other';
+    const bucket = byKey.get(key) ?? [];
+    bucket.push(item);
+    byKey.set(key, bucket);
+  }
+
+  return [...byKey].map(([key, groupItems]) => ({ key, items: groupItems }));
+}

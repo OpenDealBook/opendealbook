@@ -24,7 +24,11 @@ export default async function UserDealsPage(props: {
   return (
     <main className={'flex flex-col gap-6 p-8'}>
       <h1 className={'text-2xl font-semibold'}>Deals</h1>
-      <DealsList accountId={user.id} searchParams={searchParams} />
+      <DealsList
+        accountId={user.id}
+        searchParams={searchParams}
+        detailBasePath={'/home/deals'}
+      />
     </main>
   );
 }
