@@ -4201,6 +4201,73 @@ export type Database = {
           },
         ]
       }
+      mailbox_connection: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          email_address: string
+          id: string
+          nango_connection_id: string
+          provider: string
+          provider_config_key: string
+          status: string
+          updated_at: string | null
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          email_address: string
+          id?: string
+          nango_connection_id: string
+          provider: string
+          provider_config_key: string
+          status: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          email_address?: string
+          id?: string
+          nango_connection_id?: string
+          provider?: string
+          provider_config_key?: string
+          status?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mailbox_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailbox_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mailbox_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting: {
         Row: {
           account_id: string
@@ -4942,6 +5009,377 @@ export type Database = {
             columns: ["billing_customer_id"]
             isOneToOne: false
             referencedRelation: "billing_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_enrollment: {
+        Row: {
+          account_id: string
+          contact_id: string | null
+          created_at: string | null
+          created_by: string | null
+          current_step: number
+          firm_id: string | null
+          id: string
+          next_send_at: string
+          sent_count: number
+          sequence_id: string
+          status: string
+          target_email: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_step?: number
+          firm_id?: string | null
+          id?: string
+          next_send_at?: string
+          sent_count?: number
+          sequence_id: string
+          status?: string
+          target_email: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          contact_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          current_step?: number
+          firm_id?: string | null
+          id?: string
+          next_send_at?: string
+          sent_count?: number
+          sequence_id?: string
+          status?: string
+          target_email?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_enrollment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrollment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrollment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrollment_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrollment_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "firm"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_enrollment_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_sequence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_message: {
+        Row: {
+          body: string
+          enrollment_id: string
+          error: string | null
+          id: string
+          provider_message_id: string | null
+          sent_at: string | null
+          status: string
+          step_id: number
+          subject: string
+          to_email: string
+        }
+        Insert: {
+          body: string
+          enrollment_id: string
+          error?: string | null
+          id?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status: string
+          step_id: number
+          subject: string
+          to_email: string
+        }
+        Update: {
+          body?: string
+          enrollment_id?: string
+          error?: string | null
+          id?: string
+          provider_message_id?: string | null
+          sent_at?: string | null
+          status?: string
+          step_id?: number
+          subject?: string
+          to_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_message_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_enrollment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_sequence: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          enabled: boolean
+          id: string
+          is_default: boolean
+          name: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          is_default?: boolean
+          name: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_sequence_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_sequence_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_sequence_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_setting: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          daily_cap: number
+          max_touches: number
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          daily_cap: number
+          max_touches?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          daily_cap?: number
+          max_touches?: number
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_setting_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_setting_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_setting_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_step: {
+        Row: {
+          account_id: string
+          body: string
+          created_at: string | null
+          created_by: string | null
+          delay_days: number
+          id: string
+          ordinal: number
+          sequence_id: string
+          subject: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          body: string
+          created_at?: string | null
+          created_by?: string | null
+          delay_days?: number
+          id?: string
+          ordinal: number
+          sequence_id: string
+          subject: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          body?: string
+          created_at?: string | null
+          created_by?: string | null
+          delay_days?: number
+          id?: string
+          ordinal?: number
+          sequence_id?: string
+          subject?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_step_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_step_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_step_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_step_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "outreach_sequence"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outreach_suppression: {
+        Row: {
+          account_id: string
+          created_at: string
+          email: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          email: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outreach_suppression_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_suppression_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_suppression_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
             referencedColumns: ["id"]
           },
         ]
