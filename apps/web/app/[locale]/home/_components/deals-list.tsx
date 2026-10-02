@@ -8,6 +8,7 @@ import {
 } from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
 import {
   Table,
   TableBody,
@@ -17,9 +18,12 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
+import { DealCard } from './deal-card';
 import { DealRowActions } from './deal-row-actions';
 import { DealsFilters, type FilterOption } from './deals-filters';
 import {
+  DEAL_PARAM,
+  type DealView,
   type RawSearchParams,
   hasActiveFilters,
   parseDealParams,
@@ -118,6 +122,18 @@ function nextPageHref(
   return `?${query.toString()}`;
 }
 
+function viewHref(params: RawSearchParams, view: DealView): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (raw !== undefined && key !== DEAL_PARAM.cursor && key !== DEAL_PARAM.view) {
+      query.set(key, raw);
+    }
+  }
+  query.set(DEAL_PARAM.view, view);
+  return `?${query.toString()}`;
+}
+
 export async function DealsList({
   accountId,
   searchParams,
@@ -128,7 +144,7 @@ export async function DealsList({
   detailBasePath: string;
 }) {
   const client = getSupabaseServerClient();
-  const { filters, sort, cursor } = parseDealParams(searchParams);
+  const { filters, sort, cursor, view } = parseDealParams(searchParams);
 
   const result = await listDealsFaceted(client, {
     accountId,
@@ -187,7 +203,24 @@ export async function DealsList({
         archivedCount={result.facetCounts.archived}
       />
 
-      <div className={'min-w-0 flex-1'}>
+      <div className={'flex min-w-0 flex-1 flex-col gap-4'}>
+        <div className={'flex items-center justify-end gap-1'}>
+          <Button
+            asChild
+            size={'sm'}
+            variant={view === 'cards' ? 'default' : 'outline'}
+          >
+            <Link href={viewHref(searchParams, 'cards')}>Cards</Link>
+          </Button>
+          <Button
+            asChild
+            size={'sm'}
+            variant={view === 'table' ? 'default' : 'outline'}
+          >
+            <Link href={viewHref(searchParams, 'table')}>Table</Link>
+          </Button>
+        </div>
+
         {result.items.length === 0 ? (
           <p className={'text-muted-foreground text-sm'}>
             {hasActiveFilters(searchParams)
@@ -196,32 +229,57 @@ export async function DealsList({
           </p>
         ) : (
           <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Resolution</TableHead>
-                  <TableHead>Asking price</TableHead>
-                  <TableHead>Revenue</TableHead>
-                  <TableHead>SDE</TableHead>
-                  <TableHead>Multiple</TableHead>
-                  <TableHead>Margin</TableHead>
-                  <TableHead>Days in stage</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            {view === 'table' ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Resolution</TableHead>
+                    <TableHead>Asking price</TableHead>
+                    <TableHead>Revenue</TableHead>
+                    <TableHead>SDE</TableHead>
+                    <TableHead>Multiple</TableHead>
+                    <TableHead>Margin</TableHead>
+                    <TableHead>Days in stage</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grouped.map((section) => (
+                    <GroupSection
+                      key={section.group}
+                      label={section.label}
+                      items={section.items}
+                      detailBasePath={detailBasePath}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className={'flex flex-col gap-6'}>
                 {grouped.map((section) => (
-                  <GroupSection
-                    key={section.group}
-                    label={section.label}
-                    items={section.items}
-                    detailBasePath={detailBasePath}
-                  />
+                  <section key={section.group} className={'flex flex-col gap-3'}>
+                    <h2 className={'text-muted-foreground text-xs font-medium'}>
+                      {section.label} ({section.items.length})
+                    </h2>
+                    <div
+                      className={
+                        'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3'
+                      }
+                    >
+                      {section.items.map((deal) => (
+                        <DealCard
+                          key={deal.id}
+                          deal={deal}
+                          detailBasePath={detailBasePath}
+                        />
+                      ))}
+                    </div>
+                  </section>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            )}
 
             {result.nextCursor !== null ? (
               <div className={'pt-4'}>

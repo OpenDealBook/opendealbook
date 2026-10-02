@@ -25,14 +25,18 @@ export const DEAL_PARAM = {
   archived: 'archived',
   sort: 'sort',
   cursor: 'cursor',
+  view: 'view',
 } as const;
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
+
+export type DealView = 'cards' | 'table';
 
 export interface ParsedDealParams {
   filters: DealListFilters;
   sort: DealSort;
   cursor?: string;
+  view: DealView;
 }
 
 const SORTS: DealSort[] = [
@@ -81,6 +85,10 @@ function parseSort(value: string | string[] | undefined): DealSort {
     : 'updated';
 }
 
+function parseView(value: string | string[] | undefined): DealView {
+  return first(value) === 'table' ? 'table' : 'cards';
+}
+
 export function parseDealParams(params: RawSearchParams): ParsedDealParams {
   const filters: DealListFilters = {
     q: first(params[DEAL_PARAM.q]),
@@ -110,11 +118,16 @@ export function parseDealParams(params: RawSearchParams): ParsedDealParams {
     filters,
     sort: parseSort(params[DEAL_PARAM.sort]),
     cursor: first(params[DEAL_PARAM.cursor]),
+    view: parseView(params[DEAL_PARAM.view]),
   };
 }
 
 export function hasActiveFilters(params: RawSearchParams): boolean {
-  const ignored = new Set<string>([DEAL_PARAM.sort, DEAL_PARAM.cursor]);
+  const ignored = new Set<string>([
+    DEAL_PARAM.sort,
+    DEAL_PARAM.cursor,
+    DEAL_PARAM.view,
+  ]);
   return Object.entries(params).some(
     ([key, value]) => !ignored.has(key) && first(value) !== undefined,
   );

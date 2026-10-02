@@ -10,26 +10,11 @@ import type { Tables } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@odb/ui/table';
 
 import { CalculatorsSection } from './calculators-section';
+import { ChecklistSection } from './checklist-section';
 import { DealHeaderActions } from './deal-detail-actions';
 import { OffersSection } from './offers-section';
-
-const CHECKLIST_KIND_LABELS: Record<string, string> = {
-  offer: 'Offer',
-  diligence: 'Diligence',
-  closing: 'Closing',
-  post_close: 'Post close',
-  other: 'Other',
-};
 
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -137,8 +122,6 @@ export async function DealDetail({
 
   const acceptedVersion =
     offer?.versions.find((version) => version.approved_at !== null) ?? null;
-
-  const checklistGroups = groupChecklist(checklist);
 
   const locationParts = [profile?.location?.city, profile?.location?.region].filter(
     (part): part is string => Boolean(part),
@@ -279,44 +262,7 @@ export async function DealDetail({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Checklists</CardTitle>
-        </CardHeader>
-        <CardContent className={'flex flex-col gap-6'}>
-          {checklistGroups.length === 0 ? (
-            <p className={'text-muted-foreground text-sm'}>No checklist items</p>
-          ) : (
-            checklistGroups.map((group) => (
-              <div key={group.key} className={'flex flex-col gap-2'}>
-                <h3 className={'text-sm font-medium'}>
-                  {CHECKLIST_KIND_LABELS[group.key] ?? group.key}
-                </h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Importance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {group.items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.title}</TableCell>
-                        <TableCell>{item.status.replace(/_/g, ' ')}</TableCell>
-                        <TableCell>{textOrNotSet(item.owner_role)}</TableCell>
-                        <TableCell>{textOrNotSet(item.importance)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+      <ChecklistSection items={checklist} />
 
       <OffersSection dealId={deal.id} accountId={accountId} />
       <CalculatorsSection dealId={deal.id} accountId={accountId} />
@@ -380,22 +326,4 @@ function buildTimeline(
   }
 
   return entries;
-}
-
-interface ChecklistGroup {
-  key: string;
-  items: Tables<'checklist_item'>[];
-}
-
-function groupChecklist(items: Tables<'checklist_item'>[]): ChecklistGroup[] {
-  const byKey = new Map<string, Tables<'checklist_item'>[]>();
-
-  for (const item of items) {
-    const key = item.kind ?? item.category ?? 'other';
-    const bucket = byKey.get(key) ?? [];
-    bucket.push(item);
-    byKey.set(key, bucket);
-  }
-
-  return [...byKey].map(([key, groupItems]) => ({ key, items: groupItems }));
 }
