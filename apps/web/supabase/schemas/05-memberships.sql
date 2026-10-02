@@ -61,6 +61,13 @@ create or replace function public.has_role_on_account(account_id uuid, account_r
       and m.account_id = has_role_on_account.account_id
       and (has_role_on_account.account_role is null
            or m.account_role = has_role_on_account.account_role)
+  )
+  -- The primary owner holds every role on their own account, even with no
+  -- membership row (personal accounts have none).
+  or exists (
+    select 1 from public.accounts a
+    where a.id = has_role_on_account.account_id
+      and a.primary_owner_user_id = (select auth.uid())
   );
 $$;
 

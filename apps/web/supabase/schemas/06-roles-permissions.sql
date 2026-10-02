@@ -30,6 +30,13 @@ create or replace function public.has_permission(user_id uuid, account_id uuid, 
     where m.user_id = has_permission.user_id
       and m.account_id = has_permission.account_id
       and rp.permission = has_permission.permission_name
+  )
+  -- The primary owner holds every permission on their own account, even with no
+  -- membership row (personal accounts have none).
+  or exists (
+    select 1 from public.accounts a
+    where a.id = has_permission.account_id
+      and a.primary_owner_user_id = has_permission.user_id
   );
 $$;
 
