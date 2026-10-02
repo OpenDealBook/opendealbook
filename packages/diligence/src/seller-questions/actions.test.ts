@@ -207,9 +207,10 @@ describe('answerSellerQuestion', () => {
       recipientUserId: 'buyer-1',
     });
 
-    expect(mocks.inSpy).toHaveBeenCalledWith('contract', 'status', [
-      'signed',
-      'executed',
-    ]);
+    expect(mocks.eqSpy).toHaveBeenCalledWith(
+      'contract',
+      'contract_version.is_signed',
+      true,
+    );
   });
 });
