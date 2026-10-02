@@ -5,10 +5,17 @@ import Link from 'next/link';
 import { Button } from '@odb/ui/button';
 
 const navLinks = [
+  { href: '/customers', label: 'Customers' },
+  { href: '/security', label: 'Security' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/blog', label: 'Blog' },
   { href: '/faq', label: 'FAQ' },
   { href: '/contact', label: 'Contact' },
+];
+
+const productLinks = [
+  { href: '/solutions/corporate-development', label: 'Corporate development' },
+  { href: '/self-hosting', label: 'Self-hosting' },
 ];
 
 const legalLinks = [
@@ -56,7 +63,16 @@ export function MarketingShell({ children }: { children: ReactNode }) {
           }
         >
           <span>© {new Date().getFullYear()} Open Deal Book</span>
-          <div className={'flex gap-4'}>
+          <div className={'flex flex-wrap gap-4'}>
+            {productLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={'hover:text-foreground'}
+              >
+                {link.label}
+              </Link>
+            ))}
             {legalLinks.map((link) => (
               <Link
                 key={link.href}
