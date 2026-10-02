@@ -307,6 +307,9 @@ importers:
       '@odb/billing-gateway':
         specifier: workspace:*
         version: link:../../packages/billing/gateway
+      '@odb/calculators':
+        specifier: workspace:*
+        version: link:../../packages/calculators
       '@odb/cms':
         specifier: workspace:*
         version: link:../../packages/cms/core
