@@ -1,4 +1,4 @@
-import type { Mailer, MailerConfig, MailerSendResult } from '@odb/mailers';
+import type { Mailer, MailerConfig, MailerSendResult } from '@odb/mailer-types';
 
 export function createMailer(): Mailer {
   return new NodemailerMailer();

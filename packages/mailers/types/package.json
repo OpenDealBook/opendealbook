@@ -1,5 +1,5 @@
 {
-  "name": "@odb/mailers",
+  "name": "@odb/mailer-types",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,10 +19,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@odb/mailer-types": "workspace:*",
-    "@odb/nodemailer": "workspace:*",
-    "@odb/resend": "workspace:*",
-    "@odb/shared": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

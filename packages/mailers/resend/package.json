@@ -18,7 +18,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@odb/mailers": "workspace:*",
+    "@odb/mailer-types": "workspace:*",
     "resend": "catalog:"
   },
   "devDependencies": {
