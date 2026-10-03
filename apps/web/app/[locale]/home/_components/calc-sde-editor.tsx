@@ -130,6 +130,7 @@ export function CalcSdeEditor(props: {
                   <TextField
                     value={period.label}
                     placeholder={'Period label'}
+                    aria-label={`Label, period ${index + 1}`}
                     onChange={(value) => update(index, { label: value })}
                   />
                 </TableCell>
@@ -142,6 +143,7 @@ export function CalcSdeEditor(props: {
                   <NumberField
                     value={period.weight}
                     placeholder={'0.0'}
+                    aria-label={`Weight, period ${index + 1}`}
                     onChange={(value) => update(index, { weight: value })}
                   />
                 </TableCell>
@@ -154,6 +156,7 @@ export function CalcSdeEditor(props: {
                   <NumberField
                     value={period.months}
                     placeholder={'Full year'}
+                    aria-label={`Partial year months, period ${index + 1}`}
                     onChange={(value) => update(index, { months: value })}
                   />
                 </TableCell>
@@ -278,6 +281,7 @@ function GroupRows(props: {
               <NumberField
                 value={period.amounts[code] ?? ''}
                 placeholder={'0'}
+                aria-label={`${SDE_LINE_LABELS[code]}, period ${index + 1}`}
                 onChange={(value) => props.onAmount(index, code, value)}
               />
             </TableCell>
@@ -319,6 +323,7 @@ function CustomLines(props: {
           <TextField
             value={row.label}
             placeholder={'Label'}
+            aria-label={`${props.label}, label ${rowIndex + 1}`}
             onChange={(value) =>
               props.onChange({
                 custom: custom.map((item, i) =>
@@ -330,6 +335,7 @@ function CustomLines(props: {
           <NumberField
             value={row.amount}
             placeholder={'0'}
+            aria-label={`${props.label}, amount ${rowIndex + 1}`}
             onChange={(value) =>
               props.onChange({
                 custom: custom.map((item, i) =>

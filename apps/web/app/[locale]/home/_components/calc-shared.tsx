@@ -364,6 +364,7 @@ export function NumberField(props: {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  'aria-label'?: string;
 }) {
   return (
     <Input
@@ -371,6 +372,7 @@ export function NumberField(props: {
       value={props.value}
       placeholder={props.placeholder}
       className={props.className}
+      aria-label={props['aria-label']}
       onChange={(event) => props.onChange(event.target.value)}
     />
   );
@@ -381,6 +383,7 @@ export function TextField(props: {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  'aria-label'?: string;
 }) {
   return (
     <Input
@@ -388,6 +391,7 @@ export function TextField(props: {
       value={props.value}
       placeholder={props.placeholder}
       className={props.className}
+      aria-label={props['aria-label']}
       onChange={(event) => props.onChange(event.target.value)}
     />
   );

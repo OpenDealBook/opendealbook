@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useId, useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
@@ -210,10 +210,14 @@ function NumberField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
   return (
     <div className={'flex flex-col gap-1'}>
-      <Label className={'text-xs'}>{label}</Label>
+      <Label htmlFor={id} className={'text-xs'}>
+        {label}
+      </Label>
       <Input
+        id={id}
         type={'number'}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -231,10 +235,17 @@ function TextField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const id = useId();
   return (
     <div className={'flex flex-col gap-1'}>
-      <Label className={'text-xs'}>{label}</Label>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+      <Label htmlFor={id} className={'text-xs'}>
+        {label}
+      </Label>
+      <Input
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </div>
   );
 }
@@ -261,6 +272,10 @@ function OfferEditorDialog({
   const [state, setState] = useState<EditorState>(emptyState);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const inventoryLabelId = useId();
+  const targetCloseId = useId();
+  const offerExpiresId = useId();
+  const trainingId = useId();
 
   function set<K extends keyof EditorState>(key: K, value: EditorState[K]) {
     setState((previous) => ({ ...previous, [key]: value }));
@@ -362,12 +377,14 @@ function OfferEditorDialog({
                 onChange={(value) => set('real_estate_portion', value)}
               />
               <div className={'flex flex-col gap-1'}>
-                <Label className={'text-xs'}>Inventory treatment</Label>
+                <Label id={inventoryLabelId} className={'text-xs'}>
+                  Inventory treatment
+                </Label>
                 <Select
                   value={state.inventory_treatment}
                   onValueChange={(value) => set('inventory_treatment', value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-labelledby={inventoryLabelId}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -423,7 +440,9 @@ function OfferEditorDialog({
                       value={row.type}
                       onValueChange={(value) => setFunding(index, 'type', value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger
+                        aria-label={`Financing source ${index + 1} type`}
+                      >
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -439,6 +458,7 @@ function OfferEditorDialog({
                     <Label className={'text-xs'}>Amount</Label>
                     <Input
                       type={'number'}
+                      aria-label={`Financing source ${index + 1} amount`}
                       value={row.amount}
                       onChange={(event) =>
                         setFunding(index, 'amount', event.target.value)
@@ -449,6 +469,7 @@ function OfferEditorDialog({
                     <Label className={'text-xs'}>Rate (whole %)</Label>
                     <Input
                       type={'number'}
+                      aria-label={`Financing source ${index + 1} rate`}
                       value={row.rate}
                       onChange={(event) =>
                         setFunding(index, 'rate', event.target.value)
@@ -459,6 +480,7 @@ function OfferEditorDialog({
                     <Label className={'text-xs'}>Term yrs</Label>
                     <Input
                       type={'number'}
+                      aria-label={`Financing source ${index + 1} term years`}
                       value={row.term_years}
                       onChange={(event) =>
                         setFunding(index, 'term_years', event.target.value)
@@ -470,6 +492,7 @@ function OfferEditorDialog({
                       <Label className={'text-xs'}>Standby mo</Label>
                       <Input
                         type={'number'}
+                        aria-label={`Financing source ${index + 1} standby months`}
                         value={row.standby_months}
                         onChange={(event) =>
                           setFunding(index, 'standby_months', event.target.value)
@@ -513,8 +536,11 @@ function OfferEditorDialog({
                 onChange={(value) => set('diligence_days', value)}
               />
               <div className={'flex flex-col gap-1'}>
-                <Label className={'text-xs'}>Target close date</Label>
+                <Label htmlFor={targetCloseId} className={'text-xs'}>
+                  Target close date
+                </Label>
                 <Input
+                  id={targetCloseId}
                   type={'date'}
                   value={state.target_close_date}
                   onChange={(event) =>
@@ -523,8 +549,11 @@ function OfferEditorDialog({
                 />
               </div>
               <div className={'flex flex-col gap-1'}>
-                <Label className={'text-xs'}>Offer expires at</Label>
+                <Label htmlFor={offerExpiresId} className={'text-xs'}>
+                  Offer expires at
+                </Label>
                 <Input
+                  id={offerExpiresId}
                   type={'datetime-local'}
                   value={state.offer_expires_at}
                   onChange={(event) =>
@@ -571,8 +600,11 @@ function OfferEditorDialog({
                 onChange={(value) => set('non_compete_scope', value)}
               />
               <div className={'flex flex-col gap-1'}>
-                <Label className={'text-xs'}>Training period</Label>
+                <Label htmlFor={trainingId} className={'text-xs'}>
+                  Training period
+                </Label>
                 <Input
+                  id={trainingId}
                   value={state.training_length}
                   onChange={(event) =>
                     set('training_length', event.target.value)
