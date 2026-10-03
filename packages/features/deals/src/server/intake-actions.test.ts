@@ -23,9 +23,16 @@ const mocks = vi.hoisted(() => {
     return builder;
   }
 
+  const pdfText = 'EXTRACTED PDF LISTING TEXT';
+  const extractText = vi.fn(async () => ({ totalPages: 1, text: pdfText }));
+  const getDocumentProxy = vi.fn(async () => ({ numPages: 1 }));
+
   return {
     appendDealEvent,
     generateStructured,
+    extractText,
+    getDocumentProxy,
+    pdfText,
     from: vi.fn((table: string) => makeBuilder(table)),
   };
 });
@@ -47,7 +54,16 @@ vi.mock('@odb/ai/server', () => ({
   generateStructured: mocks.generateStructured,
 }));
 
-import { createDealFromIntake, rerunDealIntake } from './intake-actions';
+vi.mock('unpdf', () => ({
+  extractText: mocks.extractText,
+  getDocumentProxy: mocks.getDocumentProxy,
+}));
+
+import {
+  createDealFromIntake,
+  createDealFromIntakePdf,
+  rerunDealIntake,
+} from './intake-actions';
 
 type Action = (
   data: Record<string, unknown>,
@@ -55,6 +71,7 @@ type Action = (
 ) => Promise<unknown>;
 
 const runCreate = createDealFromIntake as unknown as Action;
+const runCreatePdf = createDealFromIntakePdf as unknown as Action;
 const runRerun = rerunDealIntake as unknown as Action;
 
 const FIXTURE = {
@@ -112,6 +129,34 @@ describe('createDealFromIntake', () => {
       industry: 'HVAC services',
       business_model: 'Recurring service contracts',
     });
+    expect(result).toBe(GENERATED_ID);
+  });
+});
+
+describe('createDealFromIntakePdf', () => {
+  it('extracts text from the PDF and feeds it to the intake extractor', async () => {
+    const pdf = Buffer.from('%PDF-1.4 binary listing').toString('base64');
+
+    const result = await runCreatePdf(
+      { account_id: 'account-1', pdf },
+      { id: 'user-1' },
+    );
+
+    expect(mocks.extractText).toHaveBeenCalledTimes(1);
+    expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
+
+    const [, input] = mocks.generateStructured.mock.calls.at(-1) as unknown as [
+      unknown,
+      { prompt: string },
+    ];
+    expect(input.prompt).toContain(mocks.pdfText);
+
+    const [, event] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      { eventType: string; payload: Record<string, unknown> },
+    ];
+    expect(event.eventType).toBe('deal.created');
+    expect(event.payload).toMatchObject({ account_id: 'account-1' });
     expect(result).toBe(GENERATED_ID);
   });
 });

@@ -1,10 +1,13 @@
 'use server';
 
+import { extractText, getDocumentProxy } from 'unpdf';
+
 import { appendDealEvent } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
+  createDealFromIntakePdfSchema,
   createDealFromIntakeSchema,
   rerunDealIntakeSchema,
 } from '../schema/deal-intake.schema';
@@ -23,6 +26,24 @@ export const createDealFromIntake = enhanceAction(
     return createDealCore(client, dealFromIntakeDraft(data.account_id, draft), user.id);
   },
   { auth: true, schema: createDealFromIntakeSchema },
+);
+
+async function pdfToText(base64: string): Promise<string> {
+  const pdf = await getDocumentProxy(Uint8Array.from(Buffer.from(base64, 'base64')));
+  const { text } = await extractText(pdf, { mergePages: true });
+
+  return text;
+}
+
+export const createDealFromIntakePdf = enhanceAction(
+  async (data, user) => {
+    const client = getSupabaseServerClient();
+    const text = await pdfToText(data.pdf);
+    const draft = await extractDealIntake(client, data.account_id, text);
+
+    return createDealCore(client, dealFromIntakeDraft(data.account_id, draft), user.id);
+  },
+  { auth: true, schema: createDealFromIntakePdfSchema },
 );
 
 export const rerunDealIntake = enhanceAction(

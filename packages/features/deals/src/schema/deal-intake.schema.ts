@@ -24,6 +24,15 @@ export type CreateDealFromIntakePayload = z.infer<
   typeof createDealFromIntakeSchema
 >;
 
+export const createDealFromIntakePdfSchema = z.object({
+  account_id: z.uuid(),
+  pdf: z.string().min(1),
+});
+
+export type CreateDealFromIntakePdfPayload = z.infer<
+  typeof createDealFromIntakePdfSchema
+>;
+
 export const rerunDealIntakeSchema = z.object({
   deal_id: z.uuid(),
   text: z.string().min(1),

@@ -4,7 +4,11 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { createDeal, createDealFromIntake } from '@odb/deals/server';
+import {
+  createDeal,
+  createDealFromIntake,
+  createDealFromIntakePdf,
+} from '@odb/deals/server';
 import { type DealSource, dealSourceSchema } from '@odb/deals/schema';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent } from '@odb/ui/card';
@@ -33,6 +37,13 @@ function toText(value: string): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
+async function fileToBase64(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 export function NewDealForm({
   accountId,
   detailBasePath,
@@ -59,6 +70,7 @@ export function NewDealForm({
   const [reasonForSale, setReasonForSale] = useState('');
   const [yearEstablished, setYearEstablished] = useState('');
   const [intakeText, setIntakeText] = useState('');
+  const [intakePdf, setIntakePdf] = useState<File | null>(null);
 
   // STUB: pasting a listing URL only seeds source + source_url; CaptureListing
   // extraction (fetching the listing and prefilling fields) is deferred.
@@ -119,6 +131,27 @@ export function NewDealForm({
     });
   }
 
+  function onExtractPdfAndCreate() {
+    if (intakePdf === null) return;
+
+    setError(null);
+
+    startTransition(async () => {
+      try {
+        const dealId = await createDealFromIntakePdf({
+          account_id: accountId,
+          pdf: await fileToBase64(intakePdf),
+        });
+
+        router.push(`${detailBasePath}/${dealId}`);
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : 'Could not extract the deal',
+        );
+      }
+    });
+  }
+
   return (
     <form onSubmit={onSubmit} className={'flex max-w-2xl flex-col gap-6'}>
       <Card>
@@ -138,9 +171,21 @@ export function NewDealForm({
           >
             {pending ? 'Extracting...' : 'Extract and create'}
           </Button>
-          <p className={'text-muted-foreground text-xs'}>
-            PDF upload is not wired up yet; paste the listing text for now.
-          </p>
+          <Label htmlFor={'intake-pdf'}>Or upload a listing PDF</Label>
+          <Input
+            id={'intake-pdf'}
+            type={'file'}
+            accept={'.pdf'}
+            onChange={(event) => setIntakePdf(event.target.files?.[0] ?? null)}
+          />
+          <Button
+            type={'button'}
+            variant={'outline'}
+            disabled={pending || intakePdf === null}
+            onClick={onExtractPdfAndCreate}
+          >
+            {pending ? 'Extracting...' : 'Extract PDF and create'}
+          </Button>
         </CardContent>
       </Card>
 

@@ -33,6 +33,7 @@
     "@odb/policies": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",
+    "unpdf": "1.8.1",
     "zod": "catalog:"
   },
   "devDependencies": {
