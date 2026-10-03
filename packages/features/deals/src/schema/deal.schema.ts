@@ -17,6 +17,8 @@ export const dealSchema = z
     stage: z.string().default('sourcing'),
     notes: z.string().optional(),
     industry_id: z.uuid().optional(),
+    industry: z.string().optional(),
+    business_model: z.string().optional(),
     location_id: z.uuid().optional(),
     location_raw: z.string().optional(),
     employee_band: z.string().optional(),

@@ -73,6 +73,8 @@ export async function createDealCore(
         sde_ttm: data.sde_ttm,
         ebitda_ttm: data.ebitda_ttm,
         industry_id: data.industry_id,
+        industry: data.industry,
+        business_model: data.business_model,
         location_id: data.location_id,
         location_raw: data.location_raw,
         employee_band: data.employee_band,

@@ -109,9 +109,9 @@ describe('createDealFromIntake', () => {
       employee_band: '25-50',
       location_raw: 'Austin, TX',
       reason_for_sale: 'retirement',
+      industry: 'HVAC services',
+      business_model: 'Recurring service contracts',
     });
-    expect(input.payload).not.toHaveProperty('business_model');
-    expect(input.payload).not.toHaveProperty('industry');
     expect(result).toBe(GENERATED_ID);
   });
 });
@@ -147,6 +147,8 @@ describe('rerunDealIntake', () => {
       employee_band: '25-50',
       location_raw: 'Austin, TX',
       reason_for_sale: 'retirement',
+      industry: 'HVAC services',
+      business_model: 'Recurring service contracts',
     });
   });
 });

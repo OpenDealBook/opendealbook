@@ -4663,11 +4663,13 @@ begin
       capture_method = excluded.capture_method,
       source_url = excluded.source_url,
       updated_by = excluded.updated_by;
-    insert into public.deal_profile (deal_id, account_id, year_established, industry_id, location_id, location_raw, employee_band, website, owner_role, reason_for_sale)
+    insert into public.deal_profile (deal_id, account_id, year_established, industry_id, industry, business_model, location_id, location_raw, employee_band, website, owner_role, reason_for_sale)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'year_established')::int,
       (ev.payload ->> 'industry_id')::uuid,
+      ev.payload ->> 'industry',
+      ev.payload ->> 'business_model',
       (ev.payload ->> 'location_id')::uuid,
       ev.payload ->> 'location_raw',
       ev.payload ->> 'employee_band',
@@ -4678,6 +4680,8 @@ begin
     on conflict (deal_id) do update set
       year_established = excluded.year_established,
       industry_id = excluded.industry_id,
+      industry = excluded.industry,
+      business_model = excluded.business_model,
       location_id = excluded.location_id,
       location_raw = excluded.location_raw,
       employee_band = excluded.employee_band,
@@ -4698,6 +4702,8 @@ begin
     update public.deal_profile set
       year_established = coalesce((ev.payload ->> 'year_established')::int, year_established),
       industry_id = coalesce((ev.payload ->> 'industry_id')::uuid, industry_id),
+      industry = coalesce(ev.payload ->> 'industry', industry),
+      business_model = coalesce(ev.payload ->> 'business_model', business_model),
       location_id = coalesce((ev.payload ->> 'location_id')::uuid, location_id),
       location_raw = coalesce(ev.payload ->> 'location_raw', location_raw),
       employee_band = coalesce(ev.payload ->> 'employee_band', employee_band),
@@ -6427,6 +6433,8 @@ create table if not exists public.deal_profile (
   account_id uuid not null references public.accounts (id) on delete cascade,
   year_established int,
   industry_id uuid references public.industry (id) on delete set null,
+  industry text,
+  business_model text,
   location_id uuid references public.location (id) on delete set null,
   location_raw text,
   employee_band text,

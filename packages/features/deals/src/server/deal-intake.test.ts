@@ -104,6 +104,8 @@ describe('dealFromIntakeDraft', () => {
       sde_ttm: 900000,
       employee_band: '25-50',
       reason_for_sale: 'retirement',
+      industry: 'HVAC services',
+      business_model: 'Recurring service contracts',
     });
     expect(payload).not.toHaveProperty('ebitda_ttm');
     expect(payload).not.toHaveProperty('location_raw');
@@ -127,6 +129,8 @@ describe('dealUpdateFromIntakeDraft', () => {
       ebitda_ttm: 750000,
       location_raw: 'Austin, TX',
       employee_band: '25-50',
+      industry: 'HVAC services',
+      business_model: 'Recurring service contracts',
     });
     expect(payload).not.toHaveProperty('sde_ttm');
     expect(payload).not.toHaveProperty('reason_for_sale');

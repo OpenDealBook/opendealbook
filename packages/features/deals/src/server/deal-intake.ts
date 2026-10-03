@@ -64,6 +64,8 @@ function profileAndFinancials(
     location_raw: draft.location,
     employee_band: draft.employees,
     reason_for_sale: draft.reason_for_sale,
+    industry: draft.industry,
+    business_model: draft.business_model,
   });
 }
 

@@ -2641,8 +2641,10 @@ export type Database = {
       deal_profile: {
         Row: {
           account_id: string
+          business_model: string | null
           deal_id: string
           employee_band: string | null
+          industry: string | null
           industry_id: string | null
           location_id: string | null
           location_raw: string | null
@@ -2653,8 +2655,10 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          business_model?: string | null
           deal_id: string
           employee_band?: string | null
+          industry?: string | null
           industry_id?: string | null
           location_id?: string | null
           location_raw?: string | null
@@ -2665,8 +2669,10 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          business_model?: string | null
           deal_id?: string
           employee_band?: string | null
+          industry?: string | null
           industry_id?: string | null
           location_id?: string | null
           location_raw?: string | null

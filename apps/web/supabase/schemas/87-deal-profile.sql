@@ -12,6 +12,8 @@ create table if not exists public.deal_profile (
   account_id uuid not null references public.accounts (id) on delete cascade,
   year_established int,
   industry_id uuid references public.industry (id) on delete set null,
+  industry text,
+  business_model text,
   location_id uuid references public.location (id) on delete set null,
   location_raw text,
   employee_band text,
