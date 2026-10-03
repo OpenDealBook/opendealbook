@@ -322,6 +322,9 @@ importers:
       '@odb/deals':
         specifier: workspace:*
         version: link:../../packages/features/deals
+      '@odb/diligence':
+        specifier: workspace:*
+        version: link:../../packages/diligence
       '@odb/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

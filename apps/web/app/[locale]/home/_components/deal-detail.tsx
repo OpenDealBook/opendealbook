@@ -7,6 +7,7 @@ import {
   fetchDealOffer,
   fetchDealThesis,
 } from '@odb/deals';
+import { isLoiSigned, listSellerQuestions } from '@odb/diligence/server';
 import type { Tables } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
@@ -17,6 +18,7 @@ import { ChecklistSection } from './checklist-section';
 import { CompsSection } from './comps-section';
 import { DealHeaderActions } from './deal-detail-actions';
 import { OffersSection } from './offers-section';
+import { SellerQuestionsSection } from './seller-questions-section';
 import { ThesisSection } from './thesis-section';
 
 const currency = new Intl.NumberFormat('en-US', {
@@ -70,7 +72,18 @@ export async function DealDetail({
     data: { user },
   } = await client.auth.getUser();
 
-  const [dealResult, profileResult, financialsResult, eventsResult, checklist, offer, stages, thesis] =
+  const [
+    dealResult,
+    profileResult,
+    financialsResult,
+    eventsResult,
+    checklist,
+    offer,
+    stages,
+    thesis,
+    sellerQuestions,
+    loiSigned,
+  ] =
     await Promise.all([
       client
         .from('deal')
@@ -98,6 +111,8 @@ export async function DealDetail({
       fetchDealOffer(client, { deal_id: dealId }),
       fetchAccountStages(client, accountId),
       fetchDealThesis(client, { deal_id: dealId }),
+      listSellerQuestions(client, dealId),
+      isLoiSigned(client, dealId),
     ]);
 
   const deal = dealResult.data;
@@ -267,6 +282,12 @@ export async function DealDetail({
       </Card>
 
       <ThesisSection deal_id={deal.id} thesis={thesis} />
+
+      <SellerQuestionsSection
+        dealId={deal.id}
+        questions={sellerQuestions ?? []}
+        loiSigned={loiSigned}
+      />
 
       <ChecklistSection items={checklist} />
 

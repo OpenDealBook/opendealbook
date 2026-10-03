@@ -140,6 +140,8 @@ export const upsertDealBox = enhanceAction(
         version: (previous ?? 0) + 1,
         criteria_json: data.criteria_json,
         broker_summary: data.broker_summary ?? null,
+        min_dscr: data.min_dscr ?? null,
+        required_personal_cash_flow: data.required_personal_cash_flow ?? null,
         updated_by: user.id,
       })
       .select('*')

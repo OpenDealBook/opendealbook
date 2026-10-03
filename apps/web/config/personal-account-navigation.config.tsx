@@ -9,6 +9,11 @@ export interface NavigationItem {
 export const personalAccountNavigationConfig: NavigationItem[] = [
   { label: 'common.home', path: pathsConfig.app.home, icon: 'home' },
   { label: 'common.deals', path: '/home/deals', icon: 'briefcase' },
+  {
+    label: 'common.underwriting',
+    path: '/home/underwriting',
+    icon: 'calculator',
+  },
   { label: 'account.settings', path: '/home/settings', icon: 'settings' },
   { label: 'billing.title', path: '/home/billing', icon: 'credit-card' },
 ];

@@ -103,6 +103,7 @@ import {
   unstarDeal,
   updateChecklistItemStatus,
   updateDealStage,
+  upsertDealBox,
 } from './deal-actions';
 
 type Action = (
@@ -124,6 +125,7 @@ const runSetDealListingStatus = setDealListingStatus as unknown as Action;
 const runAdoptDealFinancials = adoptDealFinancials as unknown as Action;
 const runStarDeal = starDeal as unknown as Action;
 const runUnstarDeal = unstarDeal as unknown as Action;
+const runUpsertDealBox = upsertDealBox as unknown as Action;
 
 const seededStages = [
   { key: 'sourced', sort_order: 1 },
@@ -341,6 +343,32 @@ describe('adoptDealFinancials', () => {
         adopted_ebitda: 300000,
         source_calc_version_id: 'calc-9',
       },
+    });
+  });
+});
+
+describe('upsertDealBox', () => {
+  it('persists min_dscr and required_personal_cash_flow alongside the criteria', async () => {
+    await runUpsertDealBox(
+      {
+        account_id: 'account-1',
+        criteria_json: { min_revenue: 500000 },
+        min_dscr: 2.25,
+        required_personal_cash_flow: 180000,
+      },
+      { id: 'user-1' },
+    );
+
+    const [table, payload] = mocks.insertSpy.mock.calls.at(-1) as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+
+    expect(table).toBe('deal_box');
+    expect(payload).toMatchObject({
+      criteria_json: { min_revenue: 500000 },
+      min_dscr: 2.25,
+      required_personal_cash_flow: 180000,
     });
   });
 });
