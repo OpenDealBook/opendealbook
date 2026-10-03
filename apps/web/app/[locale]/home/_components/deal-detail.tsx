@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 
 import { CalculatorsSection } from './calculators-section';
 import { ChecklistSection } from './checklist-section';
+import { CompsSection } from './comps-section';
 import { DealHeaderActions } from './deal-detail-actions';
 import { OffersSection } from './offers-section';
 import { ThesisSection } from './thesis-section';
@@ -271,6 +272,7 @@ export async function DealDetail({
 
       <OffersSection dealId={deal.id} accountId={accountId} />
       <CalculatorsSection dealId={deal.id} accountId={accountId} />
+      <CompsSection dealId={deal.id} accountId={accountId} />
     </div>
   );
 }
