@@ -2442,10 +2442,11 @@ create or replace function public.seed_default_pipeline_stages(p_account_id uuid
     (p_account_id, 'nda_signed', 'NDA Signed', 3, false),
     (p_account_id, 'loi_submitted', 'LOI Submitted', 4, false),
     (p_account_id, 'loi_accepted', 'LOI Accepted', 5, false),
-    (p_account_id, 'pa_submitted', 'PA Submitted', 6, false),
-    (p_account_id, 'pa_accepted', 'PA Accepted', 7, false),
-    (p_account_id, 'announcement', 'Announcement', 8, false),
-    (p_account_id, 'integration', 'Integration', 9, false);
+    (p_account_id, 'due_diligence', 'Due Diligence', 6, false),
+    (p_account_id, 'pa_submitted', 'PA Submitted', 7, false),
+    (p_account_id, 'pa_accepted', 'PA Accepted', 8, false),
+    (p_account_id, 'announcement', 'Announcement', 9, false),
+    (p_account_id, 'integration', 'Integration', 10, false);
 $$;
 
 grant execute on function public.seed_default_pipeline_stages(uuid) to service_role;
@@ -4740,6 +4741,11 @@ begin
   elsif ev.event_type = 'deal.duplicate_cleared' then
     update public.deal set
       duplicate_of = null,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.earnings_basis_changed' then
+    update public.deal set
+      earnings_basis = ev.payload ->> 'earnings_basis',
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   else

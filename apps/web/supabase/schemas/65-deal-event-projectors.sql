@@ -137,6 +137,11 @@ begin
       duplicate_of = null,
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.earnings_basis_changed' then
+    update public.deal set
+      earnings_basis = ev.payload ->> 'earnings_basis',
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
   else
     raise exception 'unknown deal event %', ev.event_type;
   end if;
