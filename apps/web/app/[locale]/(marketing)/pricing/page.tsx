@@ -23,6 +23,7 @@ import {
 import { StructuredData } from '~/components/structured-data';
 import { pageMetadata } from '~/config/seo';
 
+import { PricingAnalytics } from './pricing-analytics';
 import {
   featureRows,
   pricingOfferSchema,
@@ -93,6 +94,7 @@ export default async function PricingPage({
   return (
     <section className={'mx-auto w-full max-w-6xl px-6 py-16'}>
       <StructuredData data={pricingOfferSchema()} />
+      <PricingAnalytics />
 
       <div className={'flex flex-col items-center gap-3 text-center'}>
         <h1 className={'text-4xl font-bold'}>

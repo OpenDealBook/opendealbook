@@ -331,6 +331,9 @@ importers:
       '@odb/keystatic':
         specifier: workspace:*
         version: link:../../packages/cms/keystatic
+      '@odb/mailers':
+        specifier: workspace:*
+        version: link:../../packages/mailers/core
       '@odb/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring/core
@@ -343,6 +346,9 @@ importers:
       '@odb/onboarding':
         specifier: workspace:*
         version: link:../../packages/features/onboarding
+      '@odb/outreach-app':
+        specifier: workspace:*
+        version: link:../../packages/features/outreach
       '@odb/policies':
         specifier: workspace:*
         version: link:../../packages/policies

@@ -6,6 +6,7 @@ export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
   return [
     { label: 'common.home', path: prefix, icon: 'home' },
     { label: 'common.deals', path: `${prefix}/deals`, icon: 'briefcase' },
+    { label: 'common.outreach', path: `${prefix}/outreach`, icon: 'send' },
     {
       label: 'common.underwriting',
       path: `${prefix}/underwriting`,
