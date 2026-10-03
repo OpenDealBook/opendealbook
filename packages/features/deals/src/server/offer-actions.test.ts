@@ -279,7 +279,7 @@ describe('submitOffer', () => {
 });
 
 describe('acceptOffer', () => {
-  it('accepts, moves the deal to loi_accepted, and creates the loi contract', async () => {
+  it('records the offer as accepted without advancing the stage or creating a contract', async () => {
     mocks.setOffer({
       deal_id: 'deal-1',
       status: 'submitted',
@@ -288,36 +288,20 @@ describe('acceptOffer', () => {
 
     await runAcceptOffer({ offer_id: 'offer-1' }, user);
 
-    const [, dealId, events] = mocks.appendDealEvents.mock.calls.at(
-      -1,
-    ) as unknown as [unknown, string, Array<Record<string, unknown>>];
+    expect(mocks.appendDealEvents).not.toHaveBeenCalled();
 
-    expect(dealId).toBe('deal-1');
-    expect(events).toEqual([
-      {
-        aggregateType: 'offer',
-        aggregateId: 'offer-1',
-        eventType: 'offer.accepted',
-        payload: {},
-      },
-      {
-        aggregateType: 'deal',
-        aggregateId: 'deal-1',
-        eventType: 'deal.stage_changed',
-        payload: { stage: 'loi_accepted' },
-      },
-      {
-        aggregateType: 'contract',
-        aggregateId: uuid(1),
-        eventType: 'contract.created',
-        payload: {
-          type: 'loi',
-          status: 'draft',
-          current_version: 0,
-          source_offer_version_id: 'ver-7',
-        },
-      },
-    ]);
+    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      Record<string, unknown>,
+    ];
+
+    expect(input).toEqual({
+      dealId: 'deal-1',
+      aggregateType: 'offer',
+      aggregateId: 'offer-1',
+      eventType: 'offer.accepted',
+      payload: {},
+    });
   });
 
   it('rejects accepting an already accepted offer', async () => {

@@ -295,7 +295,7 @@ export async function DealDetail({
         loiSigned={loiSigned}
       />
 
-      <ChecklistSection items={checklist} />
+      <ChecklistSection items={checklist} dealId={dealId} accountId={accountId} />
 
       <OffersSection dealId={deal.id} accountId={accountId} />
       <CalculatorsSection dealId={deal.id} accountId={accountId} />

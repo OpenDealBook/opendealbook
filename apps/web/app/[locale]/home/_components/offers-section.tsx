@@ -1,5 +1,6 @@
 import {
   type OfferTerms,
+  dealBoxScreenPasses,
   diffOfferTerms,
   fetchDealOffer,
 } from '@odb/deals';
@@ -101,6 +102,9 @@ export async function OffersSection({ dealId }: { dealId: string; accountId: str
         );
 
   const submitted = offer.offer.submitted_at !== null;
+  const loiGatePassed =
+    offer.offer.status === 'accepted' &&
+    (await dealBoxScreenPasses(client, dealId));
   const isCurrent = (version: Tables<'offer_version'>) =>
     version.id === offer.offer.current_version_id;
 
@@ -120,6 +124,7 @@ export async function OffersSection({ dealId }: { dealId: string; accountId: str
           status={offer.offer.status}
           dealId={dealId}
           nextNumber={maxNumber + 1}
+          loiGatePassed={loiGatePassed}
         />
 
         <Table>

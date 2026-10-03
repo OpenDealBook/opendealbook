@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { appendDealEvent } from '@odb/events';
 import type { Database, Tables } from '@odb/supabase';
 
 import type { ContractStorage } from '../storage';
@@ -138,6 +139,50 @@ export async function handleDocumensoWebhook(
   if (error) {
     throw error;
   }
+
+  const dealId = await signedLoiDealId(
+    deps.client,
+    payload.payload.externalId,
+  );
+
+  if (dealId === null) {
+    return;
+  }
+
+  await appendDealEvent(deps.client, {
+    dealId,
+    aggregateType: 'deal',
+    aggregateId: dealId,
+    eventType: 'deal.stage_changed',
+    payload: { stage: 'loi_accepted' },
+  });
+}
+
+async function signedLoiDealId(
+  client: SupabaseClient<Database>,
+  contractVersionId: string,
+): Promise<string | null> {
+  const { data: version, error } = await client
+    .from('contract_version')
+    .select('contract_id')
+    .eq('id', contractVersionId)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  const { data: contract, error: contractError } = await client
+    .from('contract')
+    .select('type, deal_id')
+    .eq('id', version.contract_id)
+    .single();
+
+  if (contractError) {
+    throw contractError;
+  }
+
+  return contract.type === 'loi' ? contract.deal_id : null;
 }
 
 async function loadVersion(

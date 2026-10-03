@@ -1,10 +1,14 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { updateChecklistItemStatus } from '@odb/deals/server';
+import {
+  addChecklistItem,
+  applyChecklistTemplate,
+  updateChecklistItemStatus,
+} from '@odb/deals/server';
 import {
   type ChecklistOutcome,
   type ChecklistStatus,
@@ -12,7 +16,10 @@ import {
   checklistStatusSchema,
 } from '@odb/deals/schema';
 import type { Tables } from '@odb/supabase';
+import { useSupabase } from '@odb/supabase/hooks';
+import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { Input } from '@odb/ui/input';
 import {
   Select,
   SelectContent,
@@ -45,7 +52,15 @@ function textOrNotSet(value: string | number | null): string {
   return value === null ? 'Not set' : String(value);
 }
 
-export function ChecklistSection({ items }: { items: Tables<'checklist_item'>[] }) {
+export function ChecklistSection({
+  items,
+  dealId,
+  accountId,
+}: {
+  items: Tables<'checklist_item'>[];
+  dealId?: string;
+  accountId?: string;
+}) {
   const groups = groupChecklist(items);
 
   return (
@@ -54,6 +69,9 @@ export function ChecklistSection({ items }: { items: Tables<'checklist_item'>[] 
         <CardTitle>Checklists</CardTitle>
       </CardHeader>
       <CardContent className={'flex flex-col gap-6'}>
+        {dealId && accountId ? (
+          <ChecklistControls dealId={dealId} accountId={accountId} />
+        ) : null}
         {groups.length === 0 ? (
           <p className={'text-muted-foreground text-sm'}>No checklist items</p>
         ) : (
@@ -83,6 +101,96 @@ export function ChecklistSection({ items }: { items: Tables<'checklist_item'>[] 
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ChecklistControls({
+  dealId,
+  accountId,
+}: {
+  dealId: string;
+  accountId: string;
+}) {
+  const client = useSupabase();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [templates, setTemplates] = useState<{ id: string; name: string }[]>(
+    [],
+  );
+  const [templateId, setTemplateId] = useState<string | undefined>(undefined);
+  const [title, setTitle] = useState('');
+
+  useEffect(() => {
+    client
+      .from('checklist_template')
+      .select('id, name')
+      .eq('account_id', accountId)
+      .order('name', { ascending: true })
+      .then(({ data }) => setTemplates(data ?? []));
+  }, [client, accountId]);
+
+  function run(action: () => Promise<unknown>) {
+    startTransition(async () => {
+      await action();
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className={'flex flex-wrap items-end gap-6'}>
+      <div className={'flex items-end gap-2'}>
+        <Select value={templateId} onValueChange={setTemplateId}>
+          <SelectTrigger className={'w-56'} disabled={pending}>
+            <SelectValue placeholder={'Select a template'} />
+          </SelectTrigger>
+          <SelectContent>
+            {templates.map((template) => (
+              <SelectItem key={template.id} value={template.id}>
+                {template.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant={'outline'}
+          disabled={pending || templateId === undefined}
+          onClick={() =>
+            run(() =>
+              applyChecklistTemplate({
+                deal_id: dealId,
+                template_id: templateId as string,
+              }),
+            )
+          }
+        >
+          Apply template
+        </Button>
+      </div>
+      <form
+        className={'flex items-end gap-2'}
+        onSubmit={(event) => {
+          event.preventDefault();
+          run(async () => {
+            await addChecklistItem({ deal_id: dealId, title: title.trim() });
+            setTitle('');
+          });
+        }}
+      >
+        <Input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder={'New item title'}
+          className={'w-56'}
+        />
+        <Button
+          type={'submit'}
+          variant={'outline'}
+          disabled={pending || title.trim() === ''}
+        >
+          Add item
+        </Button>
+      </form>
+    </div>
   );
 }
 

@@ -103,6 +103,62 @@ export async function fetchDealBox(
   return data;
 }
 
+export async function dealBoxScreenPasses(
+  client: Client,
+  dealId: string,
+): Promise<boolean> {
+  const { data: financials, error } = await client
+    .from('deal_financials')
+    .select('account_id, source_calc_version_id')
+    .eq('deal_id', dealId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!financials) {
+    return false;
+  }
+
+  const box = await fetchDealBox(client, financials.account_id);
+
+  if (
+    box === null ||
+    (box.min_dscr === null && box.required_personal_cash_flow === null)
+  ) {
+    return true;
+  }
+
+  const { data: calc, error: calcError } = await client
+    .from('calc_version')
+    .select('outputs_snapshot')
+    .eq('id', financials.source_calc_version_id as string)
+    .single();
+
+  if (calcError) {
+    throw calcError;
+  }
+
+  const snapshot = calc.outputs_snapshot as {
+    dscr?: number;
+    net_cash_flow?: number;
+  };
+
+  if (box.min_dscr !== null && (snapshot.dscr ?? 0) < box.min_dscr) {
+    return false;
+  }
+
+  if (
+    box.required_personal_cash_flow !== null &&
+    (snapshot.net_cash_flow ?? 0) < box.required_personal_cash_flow
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export async function fetchDealThesis(
   client: Client,
   { deal_id }: { deal_id: string },

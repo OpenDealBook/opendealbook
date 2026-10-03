@@ -18,6 +18,7 @@ import {
   createOffer,
   acceptOffer,
   expireOffer,
+  generateLoi,
   rejectOffer,
   submitOffer,
   withdrawOffer,
@@ -626,28 +627,25 @@ export function CreateOfferButton({ dealId }: { dealId: string }) {
   );
 }
 
-const TERMINAL_OFFER_STATUSES = [
-  'accepted',
-  'rejected',
-  'withdrawn',
-  'expired',
-];
+const CLOSED_OFFER_STATUSES = ['rejected', 'withdrawn', 'expired'];
 
 export function OfferLifecycleActions({
   offerId,
   status,
   dealId,
   nextNumber,
+  loiGatePassed,
 }: {
   offerId: string;
   status: string;
   dealId: string;
   nextNumber: number;
+  loiGatePassed: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  if (TERMINAL_OFFER_STATUSES.includes(status)) {
+  if (CLOSED_OFFER_STATUSES.includes(status)) {
     return null;
   }
 
@@ -656,6 +654,20 @@ export function OfferLifecycleActions({
       await action();
       router.refresh();
     });
+  }
+
+  if (status === 'accepted') {
+    return (
+      <div className={'flex flex-wrap items-center gap-2'}>
+        <Button
+          size={'sm'}
+          disabled={pending || !loiGatePassed}
+          onClick={() => run(() => generateLoi({ offer_id: offerId }))}
+        >
+          Generate LOI
+        </Button>
+      </div>
+    );
   }
 
   return (

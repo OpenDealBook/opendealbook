@@ -94,19 +94,55 @@ describe('createDocumensoClient', () => {
   });
 });
 
-describe('handleDocumensoWebhook', () => {
-  it('marks the version signed and stores the content hash on completion', async () => {
-    const updates: unknown[] = [];
-    const builder = {
+function webhookClient(contract: { type: string; deal_id: string } | null) {
+  const updates: unknown[] = [];
+  const rpcCalls: { fn: string; args: Record<string, unknown> }[] = [];
+
+  function versionTable() {
+    const chain = {
       update: (row: unknown) => {
         updates.push(row);
-        return builder;
+        return chain;
       },
-      eq: vi.fn(async () => ({ error: null })),
+      select: () => chain,
+      eq: () => chain,
+      single: async () => ({
+        data: { contract_id: 'contract-1' },
+        error: null,
+      }),
+      then: (resolve: (value: unknown) => void) => resolve({ error: null }),
     };
-    const client = {
-      from: vi.fn(() => builder),
-    } as unknown as SupabaseClient<Database>;
+    return chain;
+  }
+
+  function contractTable() {
+    const chain = {
+      select: () => chain,
+      eq: () => chain,
+      single: async () => ({ data: contract, error: null }),
+    };
+    return chain;
+  }
+
+  const from = vi.fn((table: string) =>
+    table === 'contract' ? contractTable() : versionTable(),
+  );
+  const rpc = vi.fn(async (fn: string, args: Record<string, unknown>) => {
+    rpcCalls.push({ fn, args });
+    return { data: null, error: null };
+  });
+
+  const client = { from, rpc } as unknown as SupabaseClient<Database>;
+
+  return { client, from, updates, rpcCalls };
+}
+
+describe('handleDocumensoWebhook', () => {
+  it('marks the version signed and stores the content hash on completion', async () => {
+    const { client, updates } = webhookClient({
+      type: 'apa',
+      deal_id: 'deal-1',
+    });
 
     await handleDocumensoWebhook(
       {
@@ -122,9 +158,50 @@ describe('handleDocumensoWebhook', () => {
     });
   });
 
+  it('advances the deal to loi_accepted when a signed LOI completes', async () => {
+    const { client, rpcCalls } = webhookClient({
+      type: 'loi',
+      deal_id: 'deal-1',
+    });
+
+    await handleDocumensoWebhook(
+      {
+        event: 'document.completed',
+        payload: { externalId: 'ver-2', documentHash: 'sha256:abc' },
+      },
+      { client },
+    );
+
+    expect(rpcCalls).toContainEqual({
+      fn: 'append_deal_event',
+      args: expect.objectContaining({
+        p_deal_id: 'deal-1',
+        p_aggregate_type: 'deal',
+        p_event_type: 'deal.stage_changed',
+        p_payload: { stage: 'loi_accepted' },
+      }),
+    });
+  });
+
+  it('does not advance the stage for a non-LOI contract', async () => {
+    const { client, rpcCalls } = webhookClient({
+      type: 'apa',
+      deal_id: 'deal-1',
+    });
+
+    await handleDocumensoWebhook(
+      {
+        event: 'document.completed',
+        payload: { externalId: 'ver-2', documentHash: 'sha256:abc' },
+      },
+      { client },
+    );
+
+    expect(rpcCalls).toHaveLength(0);
+  });
+
   it('ignores events that are not a completed signature', async () => {
-    const from = vi.fn();
-    const client = { from } as unknown as SupabaseClient<Database>;
+    const { client, from } = webhookClient(null);
 
     await handleDocumensoWebhook(
       {

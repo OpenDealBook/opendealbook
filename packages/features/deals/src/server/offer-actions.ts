@@ -181,33 +181,13 @@ export const acceptOffer = enhanceAction(
     const offer = await loadOffer(client, data.offer_id);
     assertOfferOpen(offer.status);
 
-    const contractId = crypto.randomUUID();
-
-    await appendDealEvents(client, offer.deal_id, [
-      {
-        aggregateType: 'offer',
-        aggregateId: data.offer_id,
-        eventType: 'offer.accepted',
-        payload: {},
-      },
-      {
-        aggregateType: 'deal',
-        aggregateId: offer.deal_id,
-        eventType: 'deal.stage_changed',
-        payload: { stage: 'loi_accepted' },
-      },
-      {
-        aggregateType: 'contract',
-        aggregateId: contractId,
-        eventType: 'contract.created',
-        payload: {
-          type: 'loi',
-          status: 'draft',
-          current_version: 0,
-          source_offer_version_id: offer.current_version_id,
-        },
-      },
-    ]);
+    await appendDealEvent(client, {
+      dealId: offer.deal_id,
+      aggregateType: 'offer',
+      aggregateId: data.offer_id,
+      eventType: 'offer.accepted',
+      payload: {},
+    });
 
     return { success: true };
   },

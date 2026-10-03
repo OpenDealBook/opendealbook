@@ -119,19 +119,13 @@ describe('createOffer + submit (integration)', () => {
 });
 
 describe('acceptOffer (integration)', () => {
-  it('advances the deal to loi_accepted and creates a contract row', async () => {
+  it('records the offer as accepted without advancing the stage or creating a contract', async () => {
     const dealId = await newDeal('Accept flow deal');
 
     const offerId = (await (createOffer as unknown as Action)(
       { deal_id: dealId, first_version: firstVersion(900_000) },
       actor,
     )) as string;
-
-    const { data: created } = await account.admin
-      .from('offer')
-      .select('current_version_id')
-      .eq('id', offerId)
-      .single();
 
     await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
     await (acceptOffer as unknown as Action)({ offer_id: offerId }, actor);
@@ -151,20 +145,14 @@ describe('acceptOffer (integration)', () => {
       .eq('id', dealId)
       .single();
 
-    expect(deal?.stage).toBe('loi_accepted');
+    expect(deal?.stage).toBe('loi_submitted');
 
     const { data: contracts } = await account.admin
       .from('contract')
-      .select('deal_id, type, status, source_offer_version_id')
+      .select('deal_id')
       .eq('deal_id', dealId);
 
-    expect(contracts).toHaveLength(1);
-    expect(contracts?.[0]).toMatchObject({
-      deal_id: dealId,
-      type: 'loi',
-      status: 'draft',
-      source_offer_version_id: created?.current_version_id,
-    });
+    expect(contracts).toHaveLength(0);
   });
 });
 
