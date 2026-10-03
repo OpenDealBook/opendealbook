@@ -1,11 +1,11 @@
 name: build-image
 
 # Builds the single multi-target image (web + Temporal worker) and pushes it to
-# ghcr.io/bearbinary/opendealbook.
+# ghcr.io/opendealbook/opendealbook.
 #
 # Auth: the default GITHUB_TOKEN is used with `packages: write`. It can push to
 # ghcr.io packages owned by the repository's org/user. If the ghcr package lives
-# under a different owner (bearbinary) than this repository, replace the login
+# under a different owner (opendealbook) than this repository, replace the login
 # password with a Personal Access Token (classic, scope `write:packages`) stored
 # as the secret GHCR_PAT, and set REGISTRY_USER to that PAT's account.
 
@@ -20,7 +20,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: bearbinary/opendealbook
+  IMAGE_NAME: opendealbook/opendealbook
 
 jobs:
   build:
