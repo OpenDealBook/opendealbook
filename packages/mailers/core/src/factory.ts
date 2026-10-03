@@ -18,5 +18,7 @@ export async function getMailer(): Promise<Mailer> {
 }
 
 function loadProvider(provider: MailerProvider) {
-  return import(`@odb/${provider}`);
+  return provider === 'nodemailer'
+    ? import('@odb/nodemailer')
+    : import('@odb/resend');
 }

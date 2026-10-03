@@ -2,6 +2,7 @@ import type { BillingWebhookEvent } from '@odb/billing-gateway';
 import { getLogger } from '@odb/shared/logger';
 import { createStripeWebhookHandler } from '@odb/stripe';
 import { getSupabaseServerAdminClient } from '@odb/supabase/server';
+import { stopTrialDrip } from '@odb/workflows/client';
 
 type AdminClient = ReturnType<typeof getSupabaseServerAdminClient>;
 
@@ -36,6 +37,11 @@ export async function persistBillingEvent(
     case 'subscription.created':
     case 'subscription.updated':
       await upsertSubscription(client, event.subscription);
+
+      if (activeStatuses.has(event.subscription.status)) {
+        await stopTrialDripForAccount(client, event.subscription.accountId);
+      }
+
       return;
 
     case 'subscription.deleted':
@@ -83,6 +89,23 @@ async function upsertSubscription(
     trial_ends_at: subscription.trialEndsAt ?? undefined,
     trial_starts_at: subscription.trialStartsAt ?? undefined,
   });
+}
+
+async function stopTrialDripForAccount(
+  client: AdminClient,
+  accountId: string,
+): Promise<void> {
+  const { data } = await client
+    .from('accounts')
+    .select('primary_owner_user_id')
+    .eq('id', accountId)
+    .single();
+
+  try {
+    await stopTrialDrip(data!.primary_owner_user_id);
+  } catch (error) {
+    getLogger().warn({ error, accountId }, 'Failed to stop trial drip');
+  }
 }
 
 async function cancelSubscription(

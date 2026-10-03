@@ -23,6 +23,7 @@
     "@odb/shared": "workspace:*",
     "@odb/stripe": "workspace:*",
     "@odb/supabase": "workspace:*",
+    "@odb/workflows": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

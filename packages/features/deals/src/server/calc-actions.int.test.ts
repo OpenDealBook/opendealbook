@@ -111,7 +111,7 @@ describe('saveSdeCalc (integration)', () => {
 
     expect(periods).toHaveLength(3);
 
-    const periodIds = (periods ?? []).map((period) => period.id);
+    const periodIds = (periods ?? []).map((period: { id: string }) => period.id);
 
     const { data: lines } = await account.admin
       .from('sde_line')

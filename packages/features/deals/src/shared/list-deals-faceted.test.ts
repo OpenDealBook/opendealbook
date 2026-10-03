@@ -32,7 +32,7 @@ function makeRow(overrides: Partial<DealFacetedRow> = {}): DealFacetedRow {
       industry_id: 'ind-1',
       location_id: 'loc-1',
       industry: { name: 'Accounting' },
-      location: { name: 'Austin' },
+      location: { city: 'Austin', region: null },
     },
     deal_financials: null,
     deal_star: [],

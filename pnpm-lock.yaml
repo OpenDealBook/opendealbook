@@ -376,6 +376,9 @@ importers:
       '@odb/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@odb/workflows':
+        specifier: workspace:*
+        version: link:../../packages/workflows
       '@opentelemetry/exporter-logs-otlp-proto':
         specifier: 0.214.0
         version: 0.214.0(@opentelemetry/api@1.9.1)
@@ -823,6 +826,9 @@ importers:
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
+      '@odb/workflows':
+        specifier: workspace:*
+        version: link:../workflows
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1106,6 +1112,9 @@ importers:
       '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
@@ -1364,6 +1373,12 @@ importers:
 
   packages/mailers/core:
     dependencies:
+      '@odb/nodemailer':
+        specifier: workspace:*
+        version: link:../nodemailer
+      '@odb/resend':
+        specifier: workspace:*
+        version: link:../resend
       '@odb/shared':
         specifier: workspace:*
         version: link:../../shared

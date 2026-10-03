@@ -51,6 +51,7 @@
     "@odb/team-accounts": "workspace:*",
     "@odb/templates": "workspace:*",
     "@odb/ui": "workspace:*",
+    "@odb/workflows": "workspace:*",
     "next": "catalog:",
     "next-intl": "catalog:",
     "next-themes": "catalog:",

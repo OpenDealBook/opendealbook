@@ -1,6 +1,6 @@
 'use server';
 
-import { seedExampleDeals } from '@odb/deals/server';
+import { seedExampleDeals } from '@odb/deals/server/seed-example-deals';
 import { enhanceAction } from '@odb/next/actions';
 import { onboardingSubmissionSchema } from '@odb/onboarding/schema';
 import { getLogger } from '@odb/shared/logger';

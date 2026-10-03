@@ -132,7 +132,7 @@ export interface DealFacetedRow {
     industry_id: string | null;
     location_id: string | null;
     industry: { name: string } | null;
-    location: { name: string } | null;
+    location: { city: string | null; region: string | null } | null;
   } | null;
   deal_financials: {
     adopted_revenue: number | null;
@@ -165,7 +165,7 @@ const MAX_LIMIT = 100;
 const EARLY_FUNNEL_STAGES = new Set(['sourcing', 'pre_nda']);
 
 const DEAL_FACETED_SELECT =
-  'id, description, stage, resolution, resolution_reason, listing_status, asking_price, revenue_ttm, sde_ttm, owner_user_id, archived_at, stage_changed_at, created_at, updated_at, capture_method, pipeline_stage(key, label, sort_order), deal_profile(industry_id, location_id, industry(name), location(name)), deal_financials(adopted_revenue, adopted_sde), deal_star(user_id), offer(current_version_id, offer_version(id, purchase_price))';
+  'id, description, stage, resolution, resolution_reason, listing_status, asking_price, revenue_ttm, sde_ttm, owner_user_id, archived_at, stage_changed_at, created_at, updated_at, capture_method, pipeline_stage(key, label, sort_order), deal_profile(industry_id, location_id, industry(name), location(city, region)), deal_financials(adopted_revenue, adopted_sde), deal_star(user_id), offer(current_version_id, offer_version(id, purchase_price))';
 
 function resolutionBucket(resolution: string | null): DealResolution {
   if (resolution === null) {
@@ -197,6 +197,14 @@ function currentOfferPrice(offers: DealFacetedRow['offer']): number | null {
   return null;
 }
 
+function locationLabel(location: { city: string | null; region: string | null } | null): string | null {
+  if (location === null) {
+    return null;
+  }
+  const parts = [location.city, location.region].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
 export function mapDealRow(
   row: DealFacetedRow,
   currentUserId: string | null,
@@ -224,7 +232,7 @@ export function mapDealRow(
     industryId: row.deal_profile?.industry_id ?? null,
     industryName: row.deal_profile?.industry?.name ?? null,
     locationId: row.deal_profile?.location_id ?? null,
-    locationName: row.deal_profile?.location?.name ?? null,
+    locationName: locationLabel(row.deal_profile?.location ?? null),
     ownerUserId: row.owner_user_id,
     starred: row.deal_star.some((star) => star.user_id === currentUserId),
     group: groupOf(row.resolution, row.stage, row.archived_at),

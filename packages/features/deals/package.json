@@ -13,6 +13,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server/index.ts",
+    "./server/seed-example-deals": "./src/server/seed-example-deals.ts",
     "./hooks": "./src/hooks/index.ts",
     "./schema": "./src/schema/index.ts",
     "./shared": "./src/shared/index.ts"
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "@types/react": "catalog:",
     "vitest": "catalog:"
   },

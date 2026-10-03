@@ -19,6 +19,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@odb/nodemailer": "workspace:*",
+    "@odb/resend": "workspace:*",
     "@odb/shared": "workspace:*",
     "zod": "catalog:"
   },
