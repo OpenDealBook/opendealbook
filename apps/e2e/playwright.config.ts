@@ -17,7 +17,7 @@ export default defineConfig({
     baseURL,
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
-    navigationTimeout: 15 * 1000,
+    navigationTimeout: 60 * 1000,
   },
   projects: [
     {
@@ -25,16 +25,16 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // Uncomment to let Playwright boot the web app itself. Leave it off when you
-  // already run `pnpm --filter web dev` in another terminal against a local
-  // Supabase stack; reuseExistingServer keeps that running server in place.
-  //
-  // webServer: {
-  //   command: 'pnpm --filter web dev',
-  //   url: baseURL,
-  //   reuseExistingServer: !process.env.CI,
-  //   timeout: 120 * 1000,
-  //   stdout: 'pipe',
-  //   stderr: 'pipe',
-  // },
+  // Playwright boots the web app itself against the local Supabase stack, so a
+  // run owns the full server lifecycle. reuseExistingServer keeps an already
+  // running `pnpm --filter web dev` in place; the dev server compiles routes on
+  // first hit, so the readiness timeout is generous.
+  webServer: {
+    command: 'pnpm --filter web dev',
+    url: baseURL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180 * 1000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  },
 });
