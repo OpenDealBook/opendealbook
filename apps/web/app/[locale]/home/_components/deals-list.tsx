@@ -8,6 +8,7 @@ import {
 } from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
 import {
   Table,
   TableBody,
@@ -190,7 +191,12 @@ export async function DealsList({
       />
 
       <div className={'flex min-w-0 flex-1 flex-col gap-4'}>
-        <DealsViewToggle view={view} />
+        <div className={'flex items-center justify-between'}>
+          <DealsViewToggle view={view} />
+          <Button asChild size={'sm'}>
+            <Link href={`${detailBasePath}/new`}>New deal</Link>
+          </Button>
+        </div>
 
         {result.items.length === 0 ? (
           <p className={'text-muted-foreground text-sm'}>
