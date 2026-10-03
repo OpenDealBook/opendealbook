@@ -21,6 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@odb/integrations": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/outreach": "workspace:*",
     "@odb/supabase": "workspace:*",

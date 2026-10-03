@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { createDeal } from '@odb/deals/server';
+import { createDeal, createDealFromIntake } from '@odb/deals/server';
 import { type DealSource, dealSourceSchema } from '@odb/deals/schema';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent } from '@odb/ui/card';
@@ -58,6 +58,7 @@ export function NewDealForm({
   const [ownerRole, setOwnerRole] = useState('');
   const [reasonForSale, setReasonForSale] = useState('');
   const [yearEstablished, setYearEstablished] = useState('');
+  const [intakeText, setIntakeText] = useState('');
 
   // STUB: pasting a listing URL only seeds source + source_url; CaptureListing
   // extraction (fetching the listing and prefilling fields) is deferred.
@@ -77,6 +78,7 @@ export function NewDealForm({
           account_id: accountId,
           description,
           source,
+          source_url: toText(sourceUrl),
           stage,
           asking_price: toNumber(askingPrice),
           revenue_ttm: toNumber(revenueTtm),
@@ -98,8 +100,50 @@ export function NewDealForm({
     });
   }
 
+  function onExtractAndCreate() {
+    setError(null);
+
+    startTransition(async () => {
+      try {
+        const dealId = await createDealFromIntake({
+          account_id: accountId,
+          text: intakeText,
+        });
+
+        router.push(`${detailBasePath}/${dealId}`);
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : 'Could not extract the deal',
+        );
+      }
+    });
+  }
+
   return (
     <form onSubmit={onSubmit} className={'flex max-w-2xl flex-col gap-6'}>
+      <Card>
+        <CardContent className={'flex flex-col gap-2 pt-6'}>
+          <Label htmlFor={'intake-text'}>Create with AI from pasted text</Label>
+          <Textarea
+            id={'intake-text'}
+            value={intakeText}
+            placeholder={'Paste a listing or CIM memo; AI extracts the deal and opens it for review'}
+            onChange={(event) => setIntakeText(event.target.value)}
+          />
+          <Button
+            type={'button'}
+            variant={'outline'}
+            disabled={pending || intakeText.trim() === ''}
+            onClick={onExtractAndCreate}
+          >
+            {pending ? 'Extracting...' : 'Extract and create'}
+          </Button>
+          <p className={'text-muted-foreground text-xs'}>
+            PDF upload is not wired up yet; paste the listing text for now.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className={'flex flex-col gap-2 pt-6'}>
           <Label htmlFor={'listing-url'}>Paste listing URL</Label>

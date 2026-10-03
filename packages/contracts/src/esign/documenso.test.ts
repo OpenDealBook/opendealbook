@@ -183,7 +183,7 @@ describe('handleDocumensoWebhook', () => {
     });
   });
 
-  it('does not advance the stage for a non-LOI contract', async () => {
+  it('advances the deal to pa_accepted when a signed APA completes', async () => {
     const { client, rpcCalls } = webhookClient({
       type: 'apa',
       deal_id: 'deal-1',
@@ -197,7 +197,15 @@ describe('handleDocumensoWebhook', () => {
       { client },
     );
 
-    expect(rpcCalls).toHaveLength(0);
+    expect(rpcCalls).toContainEqual({
+      fn: 'append_deal_event',
+      args: expect.objectContaining({
+        p_deal_id: 'deal-1',
+        p_aggregate_type: 'deal',
+        p_event_type: 'deal.stage_changed',
+        p_payload: { stage: 'pa_accepted' },
+      }),
+    });
   });
 
   it('ignores events that are not a completed signature', async () => {

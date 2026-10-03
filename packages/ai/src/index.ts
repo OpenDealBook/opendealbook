@@ -3,3 +3,4 @@ export type {
   DealQuestionInput,
   DealQuestionResult,
 } from './generate';
+export type { StructuredGenerateInput } from './structured';

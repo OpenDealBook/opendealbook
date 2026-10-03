@@ -4,7 +4,12 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { connectMailbox } from '@odb/outreach-app/server';
+import Nango from '@nangohq/frontend';
+
+import {
+  connectMailbox,
+  createMailboxConnectSession,
+} from '@odb/outreach-app/server';
 import { Button } from '@odb/ui/button';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
@@ -18,18 +23,12 @@ import {
 
 type Provider = 'gmail' | 'microsoft';
 
-// STUB: the real path opens a Nango connect session with the @nangohq/frontend
-// SDK, then calls connectMailbox with the connection id it returns. That SDK is
-// not installed in the workspace, so this form takes the Nango connection id,
-// provider config key, and mailbox address by hand instead.
 export function MailboxConnectForm({ accountId }: { accountId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const [provider, setProvider] = useState<Provider>('gmail');
-  const [nangoConnectionId, setNangoConnectionId] = useState('');
-  const [providerConfigKey, setProviderConfigKey] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -38,23 +37,34 @@ export function MailboxConnectForm({ accountId }: { accountId: string }) {
 
     startTransition(async () => {
       try {
-        await connectMailbox({
+        const sessionToken = await createMailboxConnectSession({
           accountId,
           provider,
-          nangoConnectionId,
-          providerConfigKey,
-          emailAddress,
-          status: 'active',
         });
-        setNangoConnectionId('');
-        setProviderConfigKey('');
-        setEmailAddress('');
-        router.refresh();
+
+        new Nango({ connectSessionToken: sessionToken }).openConnectUI({
+          onEvent: async (connectEvent) => {
+            if (connectEvent.type !== 'connect') {
+              return;
+            }
+
+            await connectMailbox({
+              accountId,
+              provider,
+              nangoConnectionId: connectEvent.payload.connectionId,
+              providerConfigKey: connectEvent.payload.providerConfigKey,
+              emailAddress,
+              status: 'active',
+            });
+
+            router.refresh();
+          },
+        });
       } catch (cause) {
         setError(
           cause instanceof Error
             ? cause.message
-            : 'Could not connect the mailbox',
+            : 'Could not start the mailbox connection',
         );
       }
     });
@@ -87,30 +97,6 @@ export function MailboxConnectForm({ accountId }: { accountId: string }) {
           value={emailAddress}
           onChange={(event) => setEmailAddress(event.target.value)}
         />
-      </div>
-
-      <div className={'flex flex-col gap-2'}>
-        <Label htmlFor={'mailbox-connection-id'}>Nango connection id</Label>
-        <Input
-          id={'mailbox-connection-id'}
-          required
-          value={nangoConnectionId}
-          onChange={(event) => setNangoConnectionId(event.target.value)}
-        />
-      </div>
-
-      <div className={'flex flex-col gap-2'}>
-        <Label htmlFor={'mailbox-config-key'}>Provider config key</Label>
-        <Input
-          id={'mailbox-config-key'}
-          required
-          value={providerConfigKey}
-          onChange={(event) => setProviderConfigKey(event.target.value)}
-        />
-        <p className={'text-muted-foreground text-xs'}>
-          TODO: replace this paste form with the Nango frontend connect session;
-          that is the real OAuth path.
-        </p>
       </div>
 
       {error !== null ? (

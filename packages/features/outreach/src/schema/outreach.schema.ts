@@ -9,6 +9,11 @@ export const connectMailboxSchema = z.object({
   status: z.string().default('active'),
 });
 
+export const createMailboxConnectSessionSchema = z.object({
+  accountId: z.uuid(),
+  provider: z.enum(['gmail', 'microsoft']),
+});
+
 export const seedDefaultSequencesSchema = z.object({
   accountId: z.uuid(),
 });

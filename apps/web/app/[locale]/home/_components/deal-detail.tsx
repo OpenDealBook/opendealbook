@@ -17,6 +17,7 @@ import { CalculatorsSection } from './calculators-section';
 import { ChecklistSection } from './checklist-section';
 import { CompsSection } from './comps-section';
 import { DealHeaderActions } from './deal-detail-actions';
+import { DealIntakeRerun } from './deal-intake-rerun';
 import { EarningsBasisToggle } from './earnings-basis-toggle';
 import { OffersSection } from './offers-section';
 import { SellerQuestionsSection } from './seller-questions-section';
@@ -188,6 +189,7 @@ export async function DealDetail({
             />
           </dl>
           <EarningsBasisToggle dealId={deal.id} basis={basis} />
+          <DealIntakeRerun dealId={deal.id} />
           <DealHeaderActions
             dealId={deal.id}
             stage={deal.stage}

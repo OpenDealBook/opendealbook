@@ -175,6 +175,28 @@ describe('createDeal', () => {
     expect(result).toBe(GENERATED_ID);
   });
 
+  it('carries source_url into the deal.created payload when provided', async () => {
+    await runCreateDeal(
+      {
+        account_id: 'account-1',
+        description: 'Main Street CPA',
+        source: 'marketplace',
+        stage: 'sourced',
+        source_url: 'https://listings.example.com/main-street-cpa',
+      },
+      { id: 'user-1' },
+    );
+
+    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      { payload: Record<string, unknown> },
+    ];
+
+    expect(input.payload.source_url).toBe(
+      'https://listings.example.com/main-street-cpa',
+    );
+  });
+
   it('carries profile and capture fields into the deal.created payload when provided', async () => {
     await runCreateDeal(
       {

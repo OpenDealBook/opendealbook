@@ -140,28 +140,33 @@ export async function handleDocumensoWebhook(
     throw error;
   }
 
-  const dealId = await signedLoiDealId(
+  const signed = await signedContractStage(
     deps.client,
     payload.payload.externalId,
   );
 
-  if (dealId === null) {
+  if (signed === null) {
     return;
   }
 
   await appendDealEvent(deps.client, {
-    dealId,
+    dealId: signed.dealId,
     aggregateType: 'deal',
-    aggregateId: dealId,
+    aggregateId: signed.dealId,
     eventType: 'deal.stage_changed',
-    payload: { stage: 'loi_accepted' },
+    payload: { stage: signed.stage },
   });
 }
 
-async function signedLoiDealId(
+const SIGNED_STAGE: Record<string, string> = {
+  loi: 'loi_accepted',
+  apa: 'pa_accepted',
+};
+
+async function signedContractStage(
   client: SupabaseClient<Database>,
   contractVersionId: string,
-): Promise<string | null> {
+): Promise<{ dealId: string; stage: string } | null> {
   const { data: version, error } = await client
     .from('contract_version')
     .select('contract_id')
@@ -182,7 +187,9 @@ async function signedLoiDealId(
     throw contractError;
   }
 
-  return contract.type === 'loi' ? contract.deal_id : null;
+  const stage = SIGNED_STAGE[contract.type];
+
+  return stage === undefined ? null : { dealId: contract.deal_id, stage };
 }
 
 async function loadVersion(

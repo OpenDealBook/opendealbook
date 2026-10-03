@@ -2,6 +2,7 @@ export * from './enums';
 export * from './deal-box.schema';
 export * from './firm.schema';
 export * from './deal.schema';
+export * from './deal-intake.schema';
 export * from './checklist-item.schema';
 export * from './deal-participant.schema';
 export * from './approval.schema';

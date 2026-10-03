@@ -57,3 +57,15 @@ update public.accounts
 set onboarded = true
 where primary_owner_user_id = '11111111-1111-1111-1111-111111111111'
   and is_personal_account;
+
+-- Placeholder LOI and APA templates so the contract-generation pipeline has a
+-- document_template to render from. The language is deliberately minimal and
+-- clearly marked placeholder; the pipeline stays dark until real template
+-- content and Documenso config land, since docx_path points at a file that is
+-- not uploaded yet.
+insert into public.document_template (account_id, name, type, docx_path, version)
+select id, 'PLACEHOLDER LOI - replace with real language', 'loi', 'placeholder/loi.docx', 1
+from public.accounts where slug = 'tuckin-hq'
+union all
+select id, 'PLACEHOLDER APA - replace with real language', 'apa', 'placeholder/apa.docx', 1
+from public.accounts where slug = 'tuckin-hq';

@@ -6,3 +6,5 @@ export type {
   DealQuestionInput,
   DealQuestionResult,
 } from './generate';
+export { generateStructured } from './structured';
+export type { StructuredGenerateInput } from './structured';

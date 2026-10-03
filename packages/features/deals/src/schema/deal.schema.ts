@@ -13,6 +13,7 @@ export const dealSchema = z
     sde_ttm: z.number().optional(),
     ebitda_ttm: z.number().optional(),
     source: dealSourceSchema.default('manual'),
+    source_url: z.string().optional(),
     stage: z.string().default('sourcing'),
     notes: z.string().optional(),
     industry_id: z.uuid().optional(),

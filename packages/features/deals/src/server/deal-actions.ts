@@ -14,6 +14,7 @@ import { dealBoxSchema } from '../schema/deal-box.schema';
 import { dealParticipantSchema } from '../schema/deal-participant.schema';
 import {
   adoptDealFinancialsSchema,
+  type DealPayload,
   dealIdSchema,
   dealSchema,
   setDealListingStatusSchema,
@@ -47,40 +48,50 @@ async function currentDealBoxVersion(
   return data?.version ?? null;
 }
 
+export async function createDealCore(
+  client: ReturnType<typeof getSupabaseServerClient>,
+  data: DealPayload,
+  userId: string,
+): Promise<string> {
+  const dealId = crypto.randomUUID();
+
+  await appendDealEvent(client, {
+    dealId,
+    aggregateType: 'deal',
+    aggregateId: dealId,
+    eventType: 'deal.created',
+    payload: {
+      account_id: data.account_id,
+      owner_user_id: userId,
+      firm_id: data.firm_id ?? null,
+      description: data.description ?? null,
+      source: data.source,
+      stage: data.stage,
+      ...definedFields({
+        asking_price: data.asking_price,
+        revenue_ttm: data.revenue_ttm,
+        sde_ttm: data.sde_ttm,
+        ebitda_ttm: data.ebitda_ttm,
+        industry_id: data.industry_id,
+        location_id: data.location_id,
+        location_raw: data.location_raw,
+        employee_band: data.employee_band,
+        website: data.website,
+        owner_role: data.owner_role,
+        reason_for_sale: data.reason_for_sale,
+        year_established: data.year_established,
+        discovered_at: data.discovered_at,
+        capture_method: data.capture_method,
+        source_url: data.source_url,
+      }),
+    },
+  });
+
+  return dealId;
+}
+
 export const createDeal = enhanceAction(
-  async (data, user) => {
-    const client = getSupabaseServerClient();
-    const dealId = crypto.randomUUID();
-
-    await appendDealEvent(client, {
-      dealId,
-      aggregateType: 'deal',
-      aggregateId: dealId,
-      eventType: 'deal.created',
-      payload: {
-        account_id: data.account_id,
-        owner_user_id: user.id,
-        firm_id: data.firm_id ?? null,
-        description: data.description ?? null,
-        source: data.source,
-        stage: data.stage,
-        ...definedFields({
-          industry_id: data.industry_id,
-          location_id: data.location_id,
-          location_raw: data.location_raw,
-          employee_band: data.employee_band,
-          website: data.website,
-          owner_role: data.owner_role,
-          reason_for_sale: data.reason_for_sale,
-          year_established: data.year_established,
-          discovered_at: data.discovered_at,
-          capture_method: data.capture_method,
-        }),
-      },
-    });
-
-    return dealId;
-  },
+  async (data, user) => createDealCore(getSupabaseServerClient(), data, user.id),
   { auth: true, schema: dealSchema },
 );
 

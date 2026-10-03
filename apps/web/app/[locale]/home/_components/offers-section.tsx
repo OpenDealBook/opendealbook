@@ -101,10 +101,17 @@ export async function OffersSection({ dealId }: { dealId: string; accountId: str
           currentVersion.terms as unknown as OfferTerms,
         );
 
+  const { data: deal } = await client
+    .from('deal')
+    .select('stage')
+    .eq('id', dealId)
+    .single();
+
   const submitted = offer.offer.submitted_at !== null;
   const loiGatePassed =
     offer.offer.status === 'accepted' &&
     (await dealBoxScreenPasses(client, dealId));
+  const loiAccepted = deal?.stage === 'loi_accepted';
   const isCurrent = (version: Tables<'offer_version'>) =>
     version.id === offer.offer.current_version_id;
 
@@ -125,6 +132,7 @@ export async function OffersSection({ dealId }: { dealId: string; accountId: str
           dealId={dealId}
           nextNumber={maxNumber + 1}
           loiGatePassed={loiGatePassed}
+          loiAccepted={loiAccepted}
         />
 
         <Table>

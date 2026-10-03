@@ -18,6 +18,7 @@ import {
   createOffer,
   acceptOffer,
   expireOffer,
+  generateApa,
   generateLoi,
   rejectOffer,
   submitOffer,
@@ -635,12 +636,14 @@ export function OfferLifecycleActions({
   dealId,
   nextNumber,
   loiGatePassed,
+  loiAccepted,
 }: {
   offerId: string;
   status: string;
   dealId: string;
   nextNumber: number;
   loiGatePassed: boolean;
+  loiAccepted: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -666,6 +669,15 @@ export function OfferLifecycleActions({
         >
           Generate LOI
         </Button>
+        {loiAccepted ? (
+          <Button
+            size={'sm'}
+            disabled={pending}
+            onClick={() => run(() => generateApa({ offer_id: offerId }))}
+          >
+            Generate APA
+          </Button>
+        ) : null}
       </div>
     );
   }

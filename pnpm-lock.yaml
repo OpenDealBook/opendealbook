@@ -283,6 +283,9 @@ importers:
       '@keystatic/next':
         specifier: 5.0.4
         version: 5.0.4(@keystatic/core@0.5.50(@react-spectrum/provider@3.11.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@8.1.1))(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@nangohq/frontend':
+        specifier: 0.71.10
+        version: 0.71.10(supports-color@8.1.1)
       '@odb/accounts':
         specifier: workspace:*
         version: link:../../packages/features/accounts
@@ -313,6 +316,9 @@ importers:
       '@odb/cms':
         specifier: workspace:*
         version: link:../../packages/cms/core
+      '@odb/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@odb/data-room':
         specifier: workspace:*
         version: link:../../packages/data-room
@@ -1084,9 +1090,15 @@ importers:
 
   packages/features/deals:
     dependencies:
+      '@odb/ai':
+        specifier: workspace:*
+        version: link:../../ai
       '@odb/calculators':
         specifier: workspace:*
         version: link:../../calculators
+      '@odb/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
       '@odb/events':
         specifier: workspace:*
         version: link:../../events
@@ -1099,6 +1111,9 @@ importers:
       '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
+      '@odb/templates':
+        specifier: workspace:*
+        version: link:../../templates
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
@@ -1239,6 +1254,9 @@ importers:
 
   packages/features/outreach:
     dependencies:
+      '@odb/integrations':
+        specifier: workspace:*
+        version: link:../../integrations
       '@odb/next':
         specifier: workspace:*
         version: link:../../next
@@ -2932,6 +2950,9 @@ packages:
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
+
+  '@nangohq/frontend@0.71.10':
+    resolution: {integrity: sha512-p68zGIYEh67Gn97Jh5BvqY9tt85KZ300GEu0Qn8B5UbQpI+XtzPhUvtBZ97N/Ef6uPRpsqqtG+vT3i4i4wKuZg==}
 
   '@nangohq/node@0.71.10':
     resolution: {integrity: sha512-qt1OiGMQtuvqiuLFkWOORbYaO0obBaLSN9RgFQQXw4yTuFYYcVEteDiOVYViSeBNX1M7jFcOgvmpMXpnrEmRjA==}
@@ -10471,6 +10492,13 @@ snapshots:
       zod: 4.4.3
       zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
+      - supports-color
+
+  '@nangohq/frontend@0.71.10(supports-color@8.1.1)':
+    dependencies:
+      '@nangohq/types': 0.71.10(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
+    transitivePeerDependencies:
+      - debug
       - supports-color
 
   '@nangohq/node@0.71.10(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)':

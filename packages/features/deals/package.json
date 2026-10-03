@@ -25,11 +25,14 @@
   },
   "dependencies": {
     "@tanstack/react-query": "catalog:",
+    "@odb/ai": "workspace:*",
     "@odb/calculators": "workspace:*",
+    "@odb/contracts": "workspace:*",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/policies": "workspace:*",
     "@odb/supabase": "workspace:*",
+    "@odb/templates": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

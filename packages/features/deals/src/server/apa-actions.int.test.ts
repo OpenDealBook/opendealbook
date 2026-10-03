@@ -43,8 +43,8 @@ vi.mock('@odb/templates/server', () => ({
           account_id: input.accountId,
           deal_id: input.dealId,
           values_json: input.fieldValues as never,
-          docx_path: 'mock/loi.docx',
-          pdf_path: 'mock/loi.pdf',
+          docx_path: 'mock/apa.docx',
+          pdf_path: 'mock/apa.pdf',
           created_by: holder.userId,
         })
         .select('*')
@@ -69,8 +69,8 @@ import {
   createCalcVersion,
   saveDealCalc,
 } from './calc-actions';
-import { createDeal } from './deal-actions';
-import { generateLoi } from './loi-actions';
+import { generateApa } from './apa-actions';
+import { createDeal, updateDealStage } from './deal-actions';
 import { acceptOffer, createOffer, submitOffer } from './offer-actions';
 
 type Action = (
@@ -108,10 +108,7 @@ function firstVersion(price: number) {
     number: 1,
     author_side: 'buyer',
     purchase_price: price,
-    terms: {
-      schema_version: 1,
-      purchase_price: price,
-    },
+    terms: { schema_version: 1, purchase_price: price },
   };
 }
 
@@ -152,14 +149,14 @@ async function adoptFinancials(dealId: string): Promise<void> {
   );
 }
 
-async function seedLoiTemplate(): Promise<void> {
+async function seedApaTemplate(): Promise<void> {
   await account.admin
     .from('document_template')
     .insert({
       account_id: account.accountId,
-      name: 'Placeholder LOI',
-      type: 'loi',
-      docx_path: 'mock/loi.docx',
+      name: 'Placeholder APA',
+      type: 'apa',
+      docx_path: 'mock/apa.docx',
       version: 1,
     })
     .throwOnError();
@@ -170,18 +167,22 @@ beforeAll(async () => {
   holder.client = account.user;
   holder.userId = account.userId;
   actor = { id: account.userId };
-  await seedLoiTemplate();
+  await seedApaTemplate();
 });
 
 afterAll(async () => {
   await account.cleanup();
 });
 
-describe('generateLoi (integration)', () => {
-  it('renders the loi, creates a signed-ready contract version, and sends it for signature while the deal stays at loi_submitted', async () => {
-    const dealId = await newDeal('Generate LOI deal');
-    const offerId = await acceptedOffer(dealId, 900_000);
+describe('generateApa (integration)', () => {
+  it('renders the apa, sends it for signature, and advances the deal to pa_submitted once the loi is accepted', async () => {
+    const dealId = await newDeal('Generate APA deal');
+    const offerId = await acceptedOffer(dealId, 1_200_000);
     await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
 
     const { data: accepted } = await account.admin
       .from('offer')
@@ -189,34 +190,21 @@ describe('generateLoi (integration)', () => {
       .eq('id', offerId)
       .single();
 
-    await (generateLoi as unknown as Action)({ offer_id: offerId }, actor);
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
 
     const { data: contracts } = await account.admin
       .from('contract')
-      .select('id, deal_id, type, status, source_offer_version_id')
+      .select('id, type, status, source_offer_version_id')
       .eq('deal_id', dealId);
 
     expect(contracts).toHaveLength(1);
     expect(contracts?.[0]).toMatchObject({
-      deal_id: dealId,
-      type: 'loi',
+      type: 'apa',
       status: 'draft',
       source_offer_version_id: accepted?.current_version_id,
     });
 
     const contractId = contracts?.[0]?.id as string;
-
-    const { data: documents } = await account.admin
-      .from('generated_document')
-      .select('deal_id, contract_id, values_json')
-      .eq('deal_id', dealId);
-
-    expect(documents).toHaveLength(1);
-    expect(documents?.[0]?.contract_id).toBe(contractId);
-    expect(
-      (documents?.[0]?.values_json as { purchase_price?: number })
-        ?.purchase_price,
-    ).toBe(900_000);
 
     const { data: versions } = await account.admin
       .from('contract_version')
@@ -228,7 +216,7 @@ describe('generateLoi (integration)', () => {
       version: 1,
       source: 'generated',
       party: 'buyer',
-      pdf_path: 'mock/loi.pdf',
+      pdf_path: 'mock/apa.pdf',
     });
 
     expect(esign.sendForSignature).toHaveBeenCalledWith(
@@ -242,29 +230,15 @@ describe('generateLoi (integration)', () => {
       .eq('id', dealId)
       .single();
 
-    expect(deal?.stage).toBe('loi_submitted');
+    expect(deal?.stage).toBe('pa_submitted');
   });
 
-  it('rejects when the deal has no adopted financials (deal box screen fails)', async () => {
-    const dealId = await newDeal('Unscreened deal');
-    const offerId = await acceptedOffer(dealId, 800_000);
+  it('rejects when the deal has not reached loi_accepted', async () => {
+    const dealId = await newDeal('Premature APA deal');
+    const offerId = await acceptedOffer(dealId, 950_000);
 
     await expect(
-      (generateLoi as unknown as Action)({ offer_id: offerId }, actor),
-    ).rejects.toThrow('deal box screen');
-  });
-
-  it('rejects when the offer is not accepted', async () => {
-    const dealId = await newDeal('Unaccepted deal');
-    const offerId = (await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(700_000) },
-      actor,
-    )) as string;
-    await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
-    await adoptFinancials(dealId);
-
-    await expect(
-      (generateLoi as unknown as Action)({ offer_id: offerId }, actor),
-    ).rejects.toThrow('not accepted');
+      (generateApa as unknown as Action)({ offer_id: offerId }, actor),
+    ).rejects.toThrow('loi_accepted');
   });
 });
