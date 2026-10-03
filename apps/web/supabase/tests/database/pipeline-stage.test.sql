@@ -10,12 +10,12 @@ select public.create_team_account('PS Acct', tests.get_uid('ps_owner'), 'ps-acct
 -- ---- Default stages seeded at account creation ----
 select is(
   (select count(*)::int from public.pipeline_stage where account_id = tests.account_id('ps-acct')),
-  9,
-  'a new team account is seeded with the 9 default pipeline stages'
+  10,
+  'a new team account is seeded with the 10 default pipeline stages'
 );
 select results_eq(
   $$ select key from public.pipeline_stage where account_id = tests.account_id('ps-acct') order by sort_order $$,
-  $$ values ('sourcing'),('pre_nda'),('nda_signed'),('loi_submitted'),('loi_accepted'),('pa_submitted'),('pa_accepted'),('announcement'),('integration') $$,
+  $$ values ('sourcing'),('pre_nda'),('nda_signed'),('loi_submitted'),('loi_accepted'),('due_diligence'),('pa_submitted'),('pa_accepted'),('announcement'),('integration') $$,
   'default stages are seeded in the specified order'
 );
 select is(
@@ -29,7 +29,7 @@ select is(
   (select count(*)::int from public.pipeline_stage ps
      join public.accounts a on a.id = ps.account_id
      where a.primary_owner_user_id = tests.get_uid('ps_member') and a.is_personal_account),
-  9,
+  10,
   'a new personal account is also seeded with the default pipeline stages'
 );
 
