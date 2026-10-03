@@ -10,6 +10,11 @@ create table if not exists public.contract (
   type text not null check (type in ('loi', 'apa')),
   status text,
   current_version int,
+  -- The offer_version this contract was generated from, pinned at contract.created
+  -- so the LOI/APA keeps its link back to the accepted offer. A plain uuid, like
+  -- deal_financials.source_calc_version_id: the offer_version is written in the same
+  -- event batch, so no foreign key is enforced here.
+  source_offer_version_id uuid,
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
   updated_at timestamptz

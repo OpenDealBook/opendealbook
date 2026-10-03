@@ -1,17 +1,13 @@
 -- DB persistence of the funding-source shape shared with @odb/calculators: one
--- row per source in a capital stack. The owner is polymorphic per spec (a calc
--- version or, in Lane 3, an offer version). It is modeled here as a nullable
--- calc_version_id foreign key rather than a generic owner_kind/owner_id pair, so
--- the owner keeps real referential integrity and cascade behavior now.
---
--- LANE 3: add offer_version_id uuid references public.offer_version (id) on
--- delete cascade, and a check that exactly one of (calc_version_id,
--- offer_version_id) is non-null. Both owner kinds are then concrete columns.
+-- row per source in a capital stack. The owner is always a calc version, so
+-- calc_version_id is a required foreign key with real referential integrity and
+-- cascade behavior; offers carry their funding in the offer terms jsonb rather
+-- than as funding_source rows.
 
 create table if not exists public.funding_source (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
-  calc_version_id uuid references public.calc_version (id) on delete cascade,
+  calc_version_id uuid not null references public.calc_version (id) on delete cascade,
   type text check (type in (
     'sba_7a', 'sba_504', 'conventional', 'seller_financing', 'cash_equity',
     'heloc', 'robs_401k', 'investor_equity', 'mezzanine', 'other'

@@ -1872,6 +1872,7 @@ export type Database = {
           current_version: number | null
           deal_id: string
           id: string
+          source_offer_version_id: string | null
           status: string | null
           type: string
           updated_at: string | null
@@ -1883,6 +1884,7 @@ export type Database = {
           current_version?: number | null
           deal_id: string
           id?: string
+          source_offer_version_id?: string | null
           status?: string | null
           type: string
           updated_at?: string | null
@@ -1894,6 +1896,7 @@ export type Database = {
           current_version?: number | null
           deal_id?: string
           id?: string
+          source_offer_version_id?: string | null
           status?: string | null
           type?: string
           updated_at?: string | null
@@ -3598,7 +3601,7 @@ export type Database = {
         Row: {
           account_id: string
           amount: number | null
-          calc_version_id: string | null
+          calc_version_id: string
           created_at: string | null
           created_by: string | null
           guarantee_fee: number | null
@@ -3615,7 +3618,7 @@ export type Database = {
         Insert: {
           account_id: string
           amount?: number | null
-          calc_version_id?: string | null
+          calc_version_id: string
           created_at?: string | null
           created_by?: string | null
           guarantee_fee?: number | null
@@ -3632,7 +3635,7 @@ export type Database = {
         Update: {
           account_id?: string
           amount?: number | null
-          calc_version_id?: string | null
+          calc_version_id?: string
           created_at?: string | null
           created_by?: string | null
           guarantee_fee?: number | null

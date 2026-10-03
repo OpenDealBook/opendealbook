@@ -25,6 +25,8 @@ alter table public.deal_profile enable row level security;
 create index ix_deal_profile_account on public.deal_profile (account_id);
 create index ix_deal_profile_industry on public.deal_profile (industry_id);
 create index ix_deal_profile_location on public.deal_profile (location_id);
+create index ix_deal_profile_account_industry on public.deal_profile (account_id, industry_id);
+create index ix_deal_profile_account_location on public.deal_profile (account_id, location_id);
 
 -- Writes go through append_deal_event; the projector runs security definer as
 -- the table owner. authenticated and service_role keep read only.

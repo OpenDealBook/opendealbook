@@ -52,11 +52,8 @@ create index ix_deal_owner on public.deal (owner_user_id);
 
 -- List and search indexes for the deals list. The list query is always
 -- account-scoped, so the range indexes lead with account_id to stay useful
--- under the account filter. pg_trgm backs the title (description) prefix and
--- fuzzy match; it is enabled here because the index below needs gin_trgm_ops,
--- but it belongs with the other extensions in 00-privileges.sql (see report).
-create extension if not exists pg_trgm with schema extensions;
-
+-- under the account filter. pg_trgm (created in 00-privileges.sql) backs the
+-- title (description) prefix and fuzzy match through gin_trgm_ops.
 create index ix_deal_search_tsv on public.deal using gin (search_tsv);
 create index ix_deal_description_trgm on public.deal using gin (description extensions.gin_trgm_ops);
 create index ix_deal_account_archived_stage_updated on public.deal (account_id, archived_at, stage, updated_at desc);

@@ -63,11 +63,11 @@ create or replace function public.set_user_tracking()
   set search_path = '' as $$
 begin
   if tg_op = 'INSERT' then
-    new.created_by := auth.uid();
-    new.updated_by := auth.uid();
+    new.created_by := coalesce(auth.uid(), new.created_by);
+    new.updated_by := coalesce(auth.uid(), new.updated_by);
   else
     new.created_by := old.created_by;
-    new.updated_by := auth.uid();
+    new.updated_by := coalesce(auth.uid(), new.updated_by);
   end if;
   return new;
 end;

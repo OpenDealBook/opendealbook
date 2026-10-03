@@ -396,12 +396,13 @@ create or replace function public.project_contract(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'contract.created' then
-    insert into public.contract (id, deal_id, account_id, type, status, current_version, created_by)
+    insert into public.contract (id, deal_id, account_id, type, status, current_version, source_offer_version_id, created_by)
     values (
       ev.aggregate_id, ev.deal_id, ev.account_id,
       ev.payload ->> 'type',
       ev.payload ->> 'status',
       (ev.payload ->> 'current_version')::int,
+      (ev.payload ->> 'source_offer_version_id')::uuid,
       ev.actor_ref
     )
     on conflict (id) do update set

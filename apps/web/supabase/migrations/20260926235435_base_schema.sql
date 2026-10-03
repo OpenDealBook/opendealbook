@@ -12,6 +12,7 @@ create schema if not exists tuckin;
 
 create extension if not exists pgcrypto with schema extensions;
 create extension if not exists unaccent with schema extensions;
+create extension if not exists pg_trgm with schema extensions;
 
 alter default privileges revoke execute on functions from public;
 
@@ -135,11 +136,11 @@ create or replace function public.set_user_tracking()
   set search_path = '' as $$
 begin
   if tg_op = 'INSERT' then
-    new.created_by := auth.uid();
-    new.updated_by := auth.uid();
+    new.created_by := coalesce(auth.uid(), new.created_by);
+    new.updated_by := coalesce(auth.uid(), new.updated_by);
   else
     new.created_by := old.created_by;
-    new.updated_by := auth.uid();
+    new.updated_by := coalesce(auth.uid(), new.updated_by);
   end if;
   return new;
 end;
@@ -1931,11 +1932,8 @@ create index ix_deal_owner on public.deal (owner_user_id);
 
 -- List and search indexes for the deals list. The list query is always
 -- account-scoped, so the range indexes lead with account_id to stay useful
--- under the account filter. pg_trgm backs the title (description) prefix and
--- fuzzy match; it is enabled here because the index below needs gin_trgm_ops,
--- but it belongs with the other extensions in 00-privileges.sql (see report).
-create extension if not exists pg_trgm with schema extensions;
-
+-- under the account filter. pg_trgm (created in 00-privileges.sql) backs the
+-- title (description) prefix and fuzzy match through gin_trgm_ops.
 create index ix_deal_search_tsv on public.deal using gin (search_tsv);
 create index ix_deal_description_trgm on public.deal using gin (description extensions.gin_trgm_ops);
 create index ix_deal_account_archived_stage_updated on public.deal (account_id, archived_at, stage, updated_at desc);
@@ -3533,6 +3531,11 @@ create table if not exists public.contract (
   type text not null check (type in ('loi', 'apa')),
   status text,
   current_version int,
+  -- The offer_version this contract was generated from, pinned at contract.created
+  -- so the LOI/APA keeps its link back to the accepted offer. A plain uuid, like
+  -- deal_financials.source_calc_version_id: the offer_version is written in the same
+  -- event batch, so no foreign key is enforced here.
+  source_offer_version_id uuid,
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
   updated_at timestamptz
@@ -4998,12 +5001,13 @@ create or replace function public.project_contract(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'contract.created' then
-    insert into public.contract (id, deal_id, account_id, type, status, current_version, created_by)
+    insert into public.contract (id, deal_id, account_id, type, status, current_version, source_offer_version_id, created_by)
     values (
       ev.aggregate_id, ev.deal_id, ev.account_id,
       ev.payload ->> 'type',
       ev.payload ->> 'status',
       (ev.payload ->> 'current_version')::int,
+      (ev.payload ->> 'source_offer_version_id')::uuid,
       ev.actor_ref
     )
     on conflict (id) do update set
@@ -6430,6 +6434,8 @@ alter table public.deal_profile enable row level security;
 create index ix_deal_profile_account on public.deal_profile (account_id);
 create index ix_deal_profile_industry on public.deal_profile (industry_id);
 create index ix_deal_profile_location on public.deal_profile (location_id);
+create index ix_deal_profile_account_industry on public.deal_profile (account_id, industry_id);
+create index ix_deal_profile_account_location on public.deal_profile (account_id, location_id);
 
 -- Writes go through append_deal_event; the projector runs security definer as
 -- the table owner. authenticated and service_role keep read only.
@@ -6709,19 +6715,15 @@ create policy deal_calc_input_delete on public.deal_calc_input
 
 -- ===== schemas/93-funding-source.sql =====
 -- DB persistence of the funding-source shape shared with @odb/calculators: one
--- row per source in a capital stack. The owner is polymorphic per spec (a calc
--- version or, in Lane 3, an offer version). It is modeled here as a nullable
--- calc_version_id foreign key rather than a generic owner_kind/owner_id pair, so
--- the owner keeps real referential integrity and cascade behavior now.
---
--- LANE 3: add offer_version_id uuid references public.offer_version (id) on
--- delete cascade, and a check that exactly one of (calc_version_id,
--- offer_version_id) is non-null. Both owner kinds are then concrete columns.
+-- row per source in a capital stack. The owner is always a calc version, so
+-- calc_version_id is a required foreign key with real referential integrity and
+-- cascade behavior; offers carry their funding in the offer terms jsonb rather
+-- than as funding_source rows.
 
 create table if not exists public.funding_source (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
-  calc_version_id uuid references public.calc_version (id) on delete cascade,
+  calc_version_id uuid not null references public.calc_version (id) on delete cascade,
   type text check (type in (
     'sba_7a', 'sba_504', 'conventional', 'seller_financing', 'cash_equity',
     'heloc', 'robs_401k', 'investor_equity', 'mezzanine', 'other'
