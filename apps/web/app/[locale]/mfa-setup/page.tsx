@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import { MultiFactorAuthSection } from '@odb/accounts/mfa';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export default async function MfaSetupPage() {
   const supabase = getSupabaseServerClient();
 

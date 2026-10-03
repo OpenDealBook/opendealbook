@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomeLayout({
   children,
 }: {

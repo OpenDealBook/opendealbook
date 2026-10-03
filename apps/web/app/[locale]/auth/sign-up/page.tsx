@@ -17,6 +17,8 @@ import { SignUpRedirect } from './_components/sign-up-redirect';
 
 const emailRedirectTo = `${appConfig.url}${pathsConfig.auth.callback}`;
 
+export const dynamic = 'force-dynamic';
+
 export default function SignUpPage() {
   return (
     <main className={'flex min-h-screen items-center justify-center p-8'}>

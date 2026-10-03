@@ -14,6 +14,8 @@ import pathsConfig from '~/config/paths.config';
 
 import { SignInMfa } from './_components/sign-in-mfa';
 
+export const dynamic = 'force-dynamic';
+
 export default function SignInPage() {
   return (
     <main className={'flex min-h-screen items-center justify-center p-8'}>

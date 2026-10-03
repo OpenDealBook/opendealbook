@@ -12,6 +12,8 @@ import pathsConfig from '~/config/paths.config';
 
 const redirectTo = `${appConfig.url}${pathsConfig.auth.updatePassword}`;
 
+export const dynamic = 'force-dynamic';
+
 export default function PasswordResetPage() {
   return (
     <main className={'flex min-h-screen items-center justify-center p-8'}>

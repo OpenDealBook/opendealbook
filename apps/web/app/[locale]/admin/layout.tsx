@@ -5,6 +5,8 @@ import { notFound, redirect } from 'next/navigation';
 import { adminGuard } from '@odb/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminLayout({
   children,
 }: {
