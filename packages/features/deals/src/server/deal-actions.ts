@@ -18,6 +18,7 @@ import {
   dealSchema,
   setDealListingStatusSchema,
   setDealResolutionSchema,
+  setEarningsBasisSchema,
   updateDealStageSchema,
 } from '../schema/deal.schema';
 import { firmSchema } from '../schema/firm.schema';
@@ -371,6 +372,32 @@ export const setDealListingStatus = enhanceAction(
     return { success: true };
   },
   { auth: true, schema: setDealListingStatusSchema },
+);
+
+export const setEarningsBasis = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    const { data: allowed } = await client.rpc('has_deal_permission', {
+      deal_id: data.deal_id,
+      permission: 'deals.manage',
+    });
+
+    if (!allowed) {
+      throw new Error('Not permitted to manage this deal');
+    }
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'deal',
+      aggregateId: data.deal_id,
+      eventType: 'deal.earnings_basis_changed',
+      payload: { earnings_basis: data.earnings_basis },
+    });
+
+    return { success: true };
+  },
+  { auth: true, schema: setEarningsBasisSchema },
 );
 
 export const adoptDealFinancials = enhanceAction(

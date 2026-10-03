@@ -98,6 +98,7 @@ import {
   requestApproval,
   setDealListingStatus,
   setDealResolution,
+  setEarningsBasis,
   starDeal,
   unarchiveDeal,
   unstarDeal,
@@ -122,6 +123,7 @@ const runSetDealResolution = setDealResolution as unknown as Action;
 const runArchiveDeal = archiveDeal as unknown as Action;
 const runUnarchiveDeal = unarchiveDeal as unknown as Action;
 const runSetDealListingStatus = setDealListingStatus as unknown as Action;
+const runSetEarningsBasis = setEarningsBasis as unknown as Action;
 const runAdoptDealFinancials = adoptDealFinancials as unknown as Action;
 const runStarDeal = starDeal as unknown as Action;
 const runUnstarDeal = unstarDeal as unknown as Action;
@@ -316,6 +318,36 @@ describe('setDealListingStatus', () => {
       eventType: 'deal.listing_status_changed',
       payload: { listing_status: 'sold' },
     });
+  });
+});
+
+describe('setEarningsBasis', () => {
+  it('appends a deal.earnings_basis_changed event with the basis', async () => {
+    await runSetEarningsBasis(
+      { deal_id: 'deal-1', earnings_basis: 'ebitda' },
+      { id: 'user-1' },
+    );
+
+    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.earnings_basis_changed',
+      payload: { earnings_basis: 'ebitda' },
+    });
+  });
+
+  it('rejects when the caller lacks deals.manage', async () => {
+    mocks.rpcSpy.mockResolvedValueOnce({ data: false, error: null });
+
+    await expect(
+      runSetEarningsBasis(
+        { deal_id: 'deal-1', earnings_basis: 'ebitda' },
+        { id: 'user-1' },
+      ),
+    ).rejects.toThrow();
+
+    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
   });
 });
 

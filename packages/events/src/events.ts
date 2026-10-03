@@ -31,6 +31,7 @@ export type EventType =
   | 'deal.unarchived'
   | 'deal.listing_status_changed'
   | 'deal.financials_adopted'
+  | 'deal.earnings_basis_changed'
   | 'deal_box.set'
   | 'checklist_item.added'
   | 'checklist_item.removed'

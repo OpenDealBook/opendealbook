@@ -43,6 +43,34 @@ export function sdeMargin(
   return ratio(sde, revenue);
 }
 
+export type EarningsBasis = 'sde' | 'ebitda';
+
+function earningsValue(
+  basis: EarningsBasis,
+  sde: number | null,
+  ebitda: number | null,
+): number | null {
+  return basis === 'ebitda' ? ebitda : sde;
+}
+
+export function earningsMultiple(
+  basis: EarningsBasis,
+  asking: number | null,
+  sde: number | null,
+  ebitda: number | null,
+): number | null {
+  return ratio(asking, earningsValue(basis, sde, ebitda));
+}
+
+export function earningsMargin(
+  basis: EarningsBasis,
+  revenue: number | null,
+  sde: number | null,
+  ebitda: number | null,
+): number | null {
+  return ratio(earningsValue(basis, sde, ebitda), revenue);
+}
+
 export function multipleOnOffer(
   offer: number | null,
   sde: number | null,

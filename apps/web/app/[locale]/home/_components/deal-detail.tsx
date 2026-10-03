@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 
-import { sdeMargin, sdeMultiple } from '@odb/calculators';
+import { earningsMargin, earningsMultiple } from '@odb/calculators';
 import {
   fetchAccountStages,
   fetchChecklistItems,
@@ -17,6 +17,7 @@ import { CalculatorsSection } from './calculators-section';
 import { ChecklistSection } from './checklist-section';
 import { CompsSection } from './comps-section';
 import { DealHeaderActions } from './deal-detail-actions';
+import { EarningsBasisToggle } from './earnings-basis-toggle';
 import { OffersSection } from './offers-section';
 import { SellerQuestionsSection } from './seller-questions-section';
 import { ThesisSection } from './thesis-section';
@@ -134,8 +135,12 @@ export async function DealDetail({
   const asking = deal.asking_price;
   const revenue = financials?.adopted_revenue ?? deal.revenue_ttm;
   const sde = financials?.adopted_sde ?? deal.sde_ttm;
-  const multiple = sdeMultiple(asking, sde);
-  const margin = sdeMargin(sde, revenue);
+  const ebitda = financials?.adopted_ebitda ?? deal.ebitda_ttm;
+  const basis = deal.earnings_basis === 'ebitda' ? 'ebitda' : 'sde';
+  const earnings = basis === 'ebitda' ? ebitda : sde;
+  const earningsLabel = basis === 'ebitda' ? 'EBITDA' : 'SDE';
+  const multiple = earningsMultiple(basis, asking, sde, ebitda);
+  const margin = earningsMargin(basis, revenue, sde, ebitda);
 
   const timeline = buildTimeline(events, stageName);
 
@@ -170,18 +175,19 @@ export async function DealDetail({
           <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-5'}>
             <Field label={'Asking'} value={money(asking)} />
             <Field label={'Revenue'} value={money(revenue)} />
-            <Field label={'SDE'} value={money(sde)} />
+            <Field label={earningsLabel} value={money(earnings)} />
             <Field
-              label={'Multiple'}
+              label={`${earningsLabel} multiple`}
               value={multiple === null ? 'Not disclosed' : `${multiple.toFixed(1)}x`}
             />
             <Field
-              label={'Margin'}
+              label={`${earningsLabel} margin`}
               value={
                 margin === null ? 'Not disclosed' : `${Math.round(margin * 100)}%`
               }
             />
           </dl>
+          <EarningsBasisToggle dealId={deal.id} basis={basis} />
           <DealHeaderActions
             dealId={deal.id}
             stage={deal.stage}

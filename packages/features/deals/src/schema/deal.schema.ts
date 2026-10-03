@@ -90,6 +90,17 @@ export type SetDealListingStatusPayload = z.infer<
   typeof setDealListingStatusSchema
 >;
 
+export const earningsBasisSchema = z.enum(['sde', 'ebitda']);
+
+export type EarningsBasis = z.infer<typeof earningsBasisSchema>;
+
+export const setEarningsBasisSchema = z.object({
+  deal_id: z.uuid(),
+  earnings_basis: earningsBasisSchema,
+});
+
+export type SetEarningsBasisPayload = z.infer<typeof setEarningsBasisSchema>;
+
 export const adoptDealFinancialsSchema = z.object({
   deal_id: z.uuid(),
   adopted_revenue: z.number().optional(),
