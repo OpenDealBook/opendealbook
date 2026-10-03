@@ -1,5 +1,5 @@
 {
-  "name": "@odb/workflows",
+  "name": "@odb/outreach-app",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./activities": "./src/activities/index.ts"
+    "./server": "./src/server/index.ts",
+    "./schema": "./src/schema/index.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -21,25 +21,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@temporalio/activity": "catalog:",
-    "@temporalio/client": "catalog:",
-    "@temporalio/common": "catalog:",
-    "@temporalio/workflow": "catalog:",
-    "@odb/comps": "workspace:*",
-    "@odb/email-templates": "workspace:*",
-    "@odb/mailbox": "workspace:*",
-    "@odb/mailers": "workspace:*",
-    "@odb/notifications": "workspace:*",
+    "@odb/next": "workspace:*",
     "@odb/outreach": "workspace:*",
     "@odb/supabase": "workspace:*",
-    "@odb/verification": "workspace:*",
-    "papaparse": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "@types/papaparse": "catalog:",
     "vitest": "catalog:"
   }
 }

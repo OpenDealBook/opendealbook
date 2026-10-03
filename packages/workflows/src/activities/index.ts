@@ -18,6 +18,10 @@ export {
   fetchDueOutreachAccounts,
   dispatchAccountOutreach,
 } from '../outreach/dispatch';
+export {
+  sendTrialDripEmail,
+  checkTrialDripEligibility,
+} from '../trialDrip/activities';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import { chunkMarkdown } from '../documentIngestion/chunk';

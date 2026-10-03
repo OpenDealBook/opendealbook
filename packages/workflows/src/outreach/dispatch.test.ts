@@ -87,13 +87,19 @@ const commonSingles = {
     state: 'TX',
     website: 'firm.com',
   },
+  outreach_step: {
+    subject: 'RE: {{ firm.name }}',
+    body: 'Hi {{ recipient.name }}, about {{ dealBox.industries }}.',
+  },
 };
+
+const SEQUENCE_ID = '11111111-1111-4111-8111-111111111111';
 
 function enrollment(id: string, targetEmail: string) {
   return {
     id,
     account_id: 'acct-1',
-    sequence_id: 'cold-deal-box-match',
+    sequence_id: SEQUENCE_ID,
     firm_id: `firm-${id}`,
     contact_id: `contact-${id}`,
     target_email: targetEmail,
@@ -148,6 +154,40 @@ describe('dispatchAccountOutreach throttle', () => {
 
     expect(result.sent).toBe(0);
     expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+  });
+});
+
+describe('dispatchAccountOutreach sequence resolution', () => {
+  it('renders the subject and body from the DB outreach_step keyed by the enrollment sequence uuid', async () => {
+    const { client, captures } = makeClient({
+      singles: {
+        ...commonSingles,
+        outreach_setting: { daily_cap: 10, max_touches: 1 },
+        outreach_step: {
+          subject: 'RE: {{ firm.name }}',
+          body: 'Reaching out about {{ firm.name }}.',
+        },
+      },
+      tables: {
+        outreach_enrollment: [enrollment('e1', 'a@firm.com')],
+        outreach_message: [],
+        outreach_suppression: [],
+      },
+    });
+    state.client = client;
+    state.sendAs = vi.fn(async () => ({ providerMessageId: 'pm' }));
+
+    const result = await dispatchAccountOutreach({ accountId: 'acct-1' });
+
+    expect(result.sent).toBe(1);
+    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock
+      .calls[0]![1] as { subject: string; text: string };
+    expect(sendArgs.subject).toBe('RE: Firm LLC');
+    expect(sendArgs.text).toBe('Reaching out about Firm LLC.');
+
+    const logged = captures.inserts.outreach_message![0]!;
+    expect(logged.subject).toBe('RE: Firm LLC');
+    expect(logged.step_id).toBe(1);
   });
 });
 

@@ -1,6 +1,12 @@
 import { Client, Connection } from '@temporalio/client';
 
-import { dealWorkflowId, TASK_QUEUE } from './ids';
+import {
+  dealWorkflowId,
+  TASK_QUEUE,
+  TRIAL_DRIP_WORKFLOW_TYPE,
+  trialDripWorkflowId,
+} from './ids';
+import type { TrialDripInput } from './workflows/trialDrip';
 
 export { dealWorkflowId, TASK_QUEUE } from './ids';
 
@@ -42,4 +48,22 @@ export async function signalDeal(
   const handle = client.workflow.getHandle(dealWorkflowId(dealId));
 
   await handle.signal(signal, payload);
+}
+
+export async function startTrialDrip(input: TrialDripInput) {
+  const client = await getTemporalClient();
+
+  return client.workflow.start(TRIAL_DRIP_WORKFLOW_TYPE, {
+    taskQueue: TASK_QUEUE,
+    workflowId: trialDripWorkflowId(input.userId),
+    workflowIdConflictPolicy: 'USE_EXISTING',
+    args: [input],
+  });
+}
+
+export async function stopTrialDrip(userId: string): Promise<void> {
+  const client = await getTemporalClient();
+  const handle = client.workflow.getHandle(trialDripWorkflowId(userId));
+
+  await handle.signal('stopTrialDrip');
 }

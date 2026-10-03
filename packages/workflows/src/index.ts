@@ -11,6 +11,11 @@ export {
   type BrokerCatchUpInput,
 } from './workflows/brokerCatchUp';
 export {
+  trialDrip,
+  stopTrialDrip,
+  type TrialDripInput,
+} from './workflows/trialDrip';
+export {
   refreshSbaLoans,
   type RefreshSbaLoansInput,
   type RefreshSbaLoansResult,
@@ -36,4 +41,6 @@ export {
   OUTREACH_DISPATCH_WORKFLOW_TYPE,
   COMP_EVENT_RELAY_WORKFLOW_ID,
   COMP_EVENT_RELAY_WORKFLOW_TYPE,
+  TRIAL_DRIP_WORKFLOW_TYPE,
+  trialDripWorkflowId,
 } from './ids';

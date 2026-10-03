@@ -1,15 +1,8 @@
 import { sendAs, type MailboxConnection } from '@odb/mailbox';
-import {
-  DEFAULT_OUTREACH_SEQUENCES,
-  renderTemplate,
-  type MergeContext,
-} from '@odb/outreach';
+import { renderTemplate, type MergeContext } from '@odb/outreach';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-// PINNED CONTRACT: reconcile against generated types in Wave 2. The outreach
-// tables do not yet exist in the generated Database types, so their reads and
-// writes go through this untyped handle and the row shapes are declared here.
-type PinnedClient = { from(table: string): any };
+type OutreachClient = ReturnType<typeof getSupabaseServerAdminClient>;
 
 interface OutreachSettingRow {
   daily_cap: number;
@@ -66,9 +59,9 @@ function startOfUtcDayIso(): string {
 }
 
 export async function fetchDueOutreachAccounts(): Promise<string[]> {
-  const pinned = getSupabaseServerAdminClient() as unknown as PinnedClient;
+  const client = getSupabaseServerAdminClient();
 
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('outreach_enrollment')
     .select('account_id')
     .eq('status', 'queued')
@@ -94,13 +87,12 @@ export async function dispatchAccountOutreach(
   input: DispatchAccountOutreachInput,
 ): Promise<DispatchAccountOutreachResult> {
   const client = getSupabaseServerAdminClient();
-  const pinned = client as unknown as PinnedClient;
   const now = new Date().toISOString();
 
-  const setting = await loadSetting(pinned, input.accountId);
+  const setting = await loadSetting(client, input.accountId);
 
-  const accountEnrollmentIds = await loadAccountEnrollmentIds(pinned, input.accountId);
-  const messages = await loadAccountMessages(pinned, accountEnrollmentIds);
+  const accountEnrollmentIds = await loadAccountEnrollmentIds(client, input.accountId);
+  const messages = await loadAccountMessages(client, accountEnrollmentIds);
 
   const dayStart = startOfUtcDayIso();
   const sentToday = messages.filter(
@@ -115,19 +107,19 @@ export async function dispatchAccountOutreach(
     return { sent: 0 };
   }
 
-  const connection = await loadActiveConnection(pinned, input.accountId);
+  const connection = await loadActiveConnection(client, input.accountId);
   if (connection === null) {
     return { sent: 0 };
   }
 
-  const suppressed = await loadSuppressedEmails(pinned, input.accountId);
+  const suppressed = await loadSuppressedEmails(client, input.accountId);
 
   const touches = new Map<string, number>();
   for (const message of messages) {
     touches.set(message.to_email, (touches.get(message.to_email) ?? 0) + 1);
   }
 
-  const due = await loadDueEnrollments(pinned, input.accountId, now);
+  const due = await loadDueEnrollments(client, input.accountId, now);
   const eligible = due
     .filter((enrollment) => !suppressed.has(enrollment.target_email))
     .filter(
@@ -143,7 +135,6 @@ export async function dispatchAccountOutreach(
   for (const enrollment of eligible) {
     const delivered = await deliverOutreach({
       client,
-      pinned,
       accountId: input.accountId,
       connection,
       enrollment,
@@ -164,22 +155,16 @@ export async function dispatchAccountOutreach(
 }
 
 async function deliverOutreach(args: {
-  client: ReturnType<typeof getSupabaseServerAdminClient>;
-  pinned: PinnedClient;
+  client: OutreachClient;
   accountId: string;
   connection: MailboxConnection;
   enrollment: OutreachEnrollmentRow;
   criteria: DealBoxCriteria;
   sender: { name: string; company: string; email: string };
 }): Promise<boolean> {
-  const { client, pinned, accountId, connection, enrollment, criteria, sender } = args;
+  const { client, accountId, connection, enrollment, criteria, sender } = args;
 
-  const sequence = DEFAULT_OUTREACH_SEQUENCES.find(
-    (candidate) => candidate.key === enrollment.sequence_id,
-  )!;
-  const step = sequence.steps.find(
-    (candidate) => candidate.ordinal === enrollment.current_step,
-  )!;
+  const step = await loadStep(client, enrollment.sequence_id, enrollment.current_step);
 
   const recipient = await loadContact(client, enrollment.contact_id);
   const firm = await loadFirm(client, enrollment.firm_id);
@@ -204,7 +189,7 @@ async function deliverOutreach(args: {
       replyTo: connection.emailAddress,
     });
 
-    await pinned.from('outreach_message').insert({
+    await client.from('outreach_message').insert({
       enrollment_id: enrollment.id,
       step_id: enrollment.current_step,
       to_email: enrollment.target_email,
@@ -215,7 +200,7 @@ async function deliverOutreach(args: {
       sent_at: new Date().toISOString(),
     });
 
-    await pinned
+    await client
       .from('outreach_enrollment')
       .update({ status: 'sent', sent_count: enrollment.sent_count + 1 })
       .eq('id', enrollment.id);
@@ -230,7 +215,7 @@ async function deliverOutreach(args: {
 
     return true;
   } catch (error) {
-    await pinned.from('outreach_message').insert({
+    await client.from('outreach_message').insert({
       enrollment_id: enrollment.id,
       step_id: enrollment.current_step,
       to_email: enrollment.target_email,
@@ -241,7 +226,7 @@ async function deliverOutreach(args: {
       error: error instanceof Error ? error.message : String(error),
     });
 
-    await pinned
+    await client
       .from('outreach_enrollment')
       .update({ status: 'failed' })
       .eq('id', enrollment.id);
@@ -284,10 +269,10 @@ function buildMergeContext(args: {
 }
 
 async function loadSetting(
-  pinned: PinnedClient,
+  client: OutreachClient,
   accountId: string,
 ): Promise<OutreachSettingRow> {
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('outreach_setting')
     .select('daily_cap, max_touches')
     .eq('account_id', accountId)
@@ -300,11 +285,30 @@ async function loadSetting(
   return data as OutreachSettingRow;
 }
 
+async function loadStep(
+  client: OutreachClient,
+  sequenceId: string,
+  ordinal: number,
+): Promise<{ subject: string; body: string }> {
+  const { data, error } = await client
+    .from('outreach_step')
+    .select('subject, body')
+    .eq('sequence_id', sequenceId)
+    .eq('ordinal', ordinal)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as { subject: string; body: string };
+}
+
 async function loadAccountEnrollmentIds(
-  pinned: PinnedClient,
+  client: OutreachClient,
   accountId: string,
 ): Promise<string[]> {
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('outreach_enrollment')
     .select('id')
     .eq('account_id', accountId);
@@ -317,10 +321,10 @@ async function loadAccountEnrollmentIds(
 }
 
 async function loadAccountMessages(
-  pinned: PinnedClient,
+  client: OutreachClient,
   enrollmentIds: string[],
 ): Promise<OutreachMessageRow[]> {
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('outreach_message')
     .select('to_email, status, sent_at')
     .in('enrollment_id', enrollmentIds);
@@ -333,10 +337,10 @@ async function loadAccountMessages(
 }
 
 async function loadActiveConnection(
-  pinned: PinnedClient,
+  client: OutreachClient,
   accountId: string,
 ): Promise<MailboxConnection | null> {
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('mailbox_connection')
     .select('provider, nango_connection_id, provider_config_key, email_address, status')
     .eq('account_id', accountId)
@@ -360,10 +364,10 @@ async function loadActiveConnection(
 }
 
 async function loadSuppressedEmails(
-  pinned: PinnedClient,
+  client: OutreachClient,
   accountId: string,
 ): Promise<Set<string>> {
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('outreach_suppression')
     .select('email')
     .eq('account_id', accountId);
@@ -376,11 +380,11 @@ async function loadSuppressedEmails(
 }
 
 async function loadDueEnrollments(
-  pinned: PinnedClient,
+  client: OutreachClient,
   accountId: string,
   now: string,
 ): Promise<OutreachEnrollmentRow[]> {
-  const { data, error } = await pinned
+  const { data, error } = await client
     .from('outreach_enrollment')
     .select('id, sequence_id, firm_id, contact_id, target_email, current_step, sent_count')
     .eq('account_id', accountId)
