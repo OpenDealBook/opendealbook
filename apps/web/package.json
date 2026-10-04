@@ -29,6 +29,7 @@
     "@odb/auth": "workspace:*",
     "@odb/billing": "workspace:*",
     "@odb/billing-gateway": "workspace:*",
+    "@odb/buyer-profile": "workspace:*",
     "@odb/calculators": "workspace:*",
     "@odb/cms": "workspace:*",
     "@odb/contracts": "workspace:*",

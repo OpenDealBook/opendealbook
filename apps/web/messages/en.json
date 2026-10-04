@@ -27,7 +27,8 @@
     "settings": "Settings",
     "profile": "Profile",
     "apiKeys": "API keys",
-    "templates": "Templates"
+    "templates": "Templates",
+    "buyerProfile": "Buyer profile"
   },
   "billing": {
     "title": "Billing",

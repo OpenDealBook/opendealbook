@@ -23,6 +23,11 @@ export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
       path: `${prefix}/settings/templates`,
       icon: 'file-text',
     },
+    {
+      label: 'account.buyerProfile',
+      path: `${prefix}/settings/buyer-profile`,
+      icon: 'user',
+    },
     { label: 'billing.title', path: `${prefix}/billing`, icon: 'credit-card' },
   ];
 }
