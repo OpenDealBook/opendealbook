@@ -1,5 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import ExcelJS from 'exceljs';
+
 import bizcomps from './vendors/bizcomps-v1.json';
 import dealstats from './vendors/dealstats-v1.json';
 import peercomps from './vendors/peercomps-v1.json';
@@ -160,6 +162,42 @@ export function parseCsv(text: string): Record<string, string>[] {
   });
 }
 
+function cellText(value: ExcelJS.CellValue): string {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+async function parseXlsx(base64: string): Promise<Record<string, string>[]> {
+  if (base64 === '') {
+    throw new Error('XLSX file is empty');
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  const data = Buffer.from(base64, 'base64') as unknown as Parameters<
+    typeof workbook.xlsx.load
+  >[0];
+  await workbook.xlsx.load(data);
+
+  const sheet = workbook.worksheets[0];
+  const header: string[] = [];
+  sheet?.getRow(1).eachCell((cell, column) => {
+    header[column] = cellText(cell.value);
+  });
+  if (header.length === 0) {
+    throw new Error('XLSX file has no header row');
+  }
+
+  const records: Record<string, string>[] = [];
+  for (let rowNumber = 2; rowNumber <= sheet!.rowCount; rowNumber += 1) {
+    const row = sheet!.getRow(rowNumber);
+    const record: Record<string, string> = {};
+    header.forEach((key, column) => {
+      record[key] = cellText(row.getCell(column).value);
+    });
+    records.push(record);
+  }
+  return records;
+}
+
 function asString(value: ParsedValue | undefined): string | null {
   return typeof value === 'string' ? value : null;
 }
@@ -206,12 +244,6 @@ export async function importComps(
   input: ImportCompsInput,
   deps: ImportCompsDeps,
 ): Promise<ImportCompsResult> {
-  if (input.format === 'xlsx') {
-    throw new Error(
-      'XLSX vendor imports are not supported yet; export the vendor file as CSV',
-    );
-  }
-
   const license = await deps.findActiveLicense(input.accountId, input.vendor);
   if (!license) {
     throw new Error(
@@ -220,9 +252,9 @@ export async function importComps(
   }
 
   const config = VENDOR_CONFIG[input.vendor];
-  const rows = parseCsv(input.content).map((record) =>
-    toProprietaryCompRow(config, input, record),
-  );
+  const records =
+    input.format === 'xlsx' ? await parseXlsx(input.content) : parseCsv(input.content);
+  const rows = records.map((record) => toProprietaryCompRow(config, input, record));
 
   const storagePath = `${input.accountId}/${input.vendor}/${randomUUID()}-${input.filename}`;
   await deps.storeRawFile(storagePath, input.content);

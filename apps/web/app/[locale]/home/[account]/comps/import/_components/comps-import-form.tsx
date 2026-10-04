@@ -27,6 +27,15 @@ interface CompsImportFormProps {
   accountId: string;
 }
 
+function readBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function CompsImportForm({ accountId }: CompsImportFormProps) {
   const [vendor, setVendor] = useState<VendorKey>('dealstats');
   const [file, setFile] = useState<File | null>(null);
@@ -46,7 +55,8 @@ export function CompsImportForm({ accountId }: CompsImportFormProps) {
 
     startTransition(async () => {
       try {
-        const content = await file.text();
+        const content =
+          format === 'csv' ? await file.text() : await readBase64(file);
         const imported = await importCompsAction({
           accountId,
           vendor,
@@ -87,11 +97,11 @@ export function CompsImportForm({ accountId }: CompsImportFormProps) {
         </div>
 
         <div className={'flex flex-col gap-2'}>
-          <Label htmlFor={'file'}>Export file (CSV)</Label>
+          <Label htmlFor={'file'}>Export file (CSV or XLSX)</Label>
           <input
             id={'file'}
             type={'file'}
-            accept={'.csv'}
+            accept={'.csv,.xlsx'}
             className={'text-sm'}
             onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           />

@@ -1,3 +1,4 @@
+import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -7,6 +8,19 @@ import {
   type ImportCompsDeps,
   type ProprietaryCompRow,
 } from './import';
+
+async function workbookBase64(rows: string[][]): Promise<string> {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Export');
+  rows.forEach((cells) => sheet.addRow(cells));
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer).toString('base64');
+}
+
+const DEALSTATS_XLSX_ROWS = [
+  ['Business Description', 'NAICS', 'Sale Date', 'Asking Price', 'MVIC Price', 'Net Sales', 'SDE', 'EBITDA', 'Company Location (state/country)'],
+  ['Bookkeeping firm', '541211', '3/15/2024', '$1,200,000', '$1,100,000', '$900,000', '$400,000', '$350,000', 'NV'],
+];
 
 const DEALSTATS_CSV = [
   'Business Description,NAICS,Sale Date,Asking Price,MVIC Price,Net Sales,SDE,EBITDA,Company Location (state/country)',
@@ -192,7 +206,46 @@ describe('importComps', () => {
     expect(calls.imports).toHaveLength(0);
   });
 
-  it('surfaces the XLSX parse gap instead of silently dropping the file', async () => {
+  it('maps a DealStats xlsx export through the same column-map path as csv', async () => {
+    const { deps, calls } = makeDeps();
+    const content = await workbookBase64(DEALSTATS_XLSX_ROWS);
+
+    const result = await importComps(
+      {
+        accountId: 'acc-1',
+        vendor: 'dealstats',
+        filename: 'export.xlsx',
+        format: 'xlsx',
+        content,
+        createdBy: 'user-1',
+      },
+      deps,
+    );
+
+    expect(result).toEqual({ importId: 'imp-1', licenseId: 'lic-1', rowCount: 1 });
+
+    expect(calls.upserts[0]![0]).toMatchObject({
+      account_id: 'acc-1',
+      data_class: 'proprietary',
+      source: 'dealstats',
+      source_label: 'DealStats',
+      confidence: 'high',
+      naics_code: '541211',
+      industry: 'Bookkeeping firm',
+      state: 'NV',
+      close_date: '2024-03-15',
+      asking_price: 1_200_000,
+      sale_price: 1_100_000,
+      revenue: 900_000,
+      sde: 400_000,
+      ebitda: 350_000,
+    });
+
+    expect(calls.stored[0]!.body).toBe(content);
+    expect(calls.imports[0]).toMatchObject({ filename: 'export.xlsx', row_count: 1 });
+  });
+
+  it('surfaces an empty xlsx file as a clear error rather than crashing', async () => {
     const { deps } = makeDeps();
 
     await expect(
@@ -208,6 +261,25 @@ describe('importComps', () => {
         deps,
       ),
     ).rejects.toThrow(/xlsx/i);
+  });
+
+  it('surfaces an xlsx workbook with no header row as a clear error', async () => {
+    const { deps } = makeDeps();
+    const content = await workbookBase64([]);
+
+    await expect(
+      importComps(
+        {
+          accountId: 'acc-1',
+          vendor: 'dealstats',
+          filename: 'empty.xlsx',
+          format: 'xlsx',
+          content,
+          createdBy: 'user-1',
+        },
+        deps,
+      ),
+    ).rejects.toThrow(/header/i);
   });
 
   it('keys the upsert idempotently per account so a tenant never collides with another', async () => {
