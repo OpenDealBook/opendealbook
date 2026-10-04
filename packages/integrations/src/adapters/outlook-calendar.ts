@@ -11,6 +11,14 @@ export function createOutlookCalendarAdapter(
     proxy,
     listEvents: (params) => proxy({ endpoint: '/v1.0/me/events', params }),
     createEvent: (event: CalendarEvent) =>
-      proxy({ method: 'POST', endpoint: '/v1.0/me/events', data: event }),
+      proxy({
+        method: 'POST',
+        endpoint: '/v1.0/me/events',
+        data: {
+          subject: event.title,
+          start: { dateTime: event.start, timeZone: 'UTC' },
+          end: { dateTime: event.end, timeZone: 'UTC' },
+        },
+      }),
   };
 }

@@ -15,7 +15,11 @@ export function createGoogleCalendarAdapter(
       proxy({
         method: 'POST',
         endpoint: '/calendar/v3/calendars/primary/events',
-        data: event,
+        data: {
+          summary: event.title,
+          start: { dateTime: event.start },
+          end: { dateTime: event.end },
+        },
       }),
   };
 }

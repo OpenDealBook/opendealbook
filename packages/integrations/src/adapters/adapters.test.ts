@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createGmailAdapter } from './gmail';
 import { createGoogleCalendarAdapter } from './google-calendar';
+import { createOutlookCalendarAdapter } from './outlook-calendar';
 import { createSendgridAdapter } from './sendgrid';
 import type { AdapterConfig } from './types';
 
@@ -38,7 +39,7 @@ describe('adapters', () => {
     );
   });
 
-  it('google-calendar createEvent posts the event through the proxy', async () => {
+  it('google-calendar createEvent posts the Google Calendar event schema', async () => {
     await createGoogleCalendarAdapter(config()).createEvent({
       title: 'Sync',
       start: '2026-01-01T10:00:00Z',
@@ -49,6 +50,31 @@ describe('adapters', () => {
       expect.objectContaining({
         method: 'POST',
         endpoint: '/calendar/v3/calendars/primary/events',
+        data: {
+          summary: 'Sync',
+          start: { dateTime: '2026-01-01T10:00:00Z' },
+          end: { dateTime: '2026-01-01T11:00:00Z' },
+        },
+      }),
+    );
+  });
+
+  it('outlook-calendar createEvent posts the Microsoft Graph event schema', async () => {
+    await createOutlookCalendarAdapter(config()).createEvent({
+      title: 'Sync',
+      start: '2026-01-01T10:00:00Z',
+      end: '2026-01-01T11:00:00Z',
+    });
+
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        endpoint: '/v1.0/me/events',
+        data: {
+          subject: 'Sync',
+          start: { dateTime: '2026-01-01T10:00:00Z', timeZone: 'UTC' },
+          end: { dateTime: '2026-01-01T11:00:00Z', timeZone: 'UTC' },
+        },
       }),
     );
   });
