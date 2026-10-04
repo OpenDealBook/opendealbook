@@ -80,6 +80,19 @@ const seedArgs = {
   userId: '00000000-0000-0000-0000-0000000000aa',
 };
 
+const VALID_PIPELINE_STAGE_KEYS = [
+  'sourcing',
+  'pre_nda',
+  'nda_signed',
+  'loi_submitted',
+  'loi_accepted',
+  'due_diligence',
+  'pa_submitted',
+  'pa_accepted',
+  'announcement',
+  'integration',
+];
+
 describe('seedSampleDeals', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -177,7 +190,7 @@ describe('seedSampleDeals', () => {
       batch.events.some(
         (event) =>
           event.eventType === 'deal.created' &&
-          event.payload.stage === 'closed_won',
+          event.payload.stage === 'integration',
       ),
     );
     expect(closedWonBatch?.events[0]?.eventType).toBe('deal.created');
@@ -199,6 +212,20 @@ describe('seedSampleDeals', () => {
     expect(statusChanged?.payload.status).toBe('reviewed');
     expect(statusChanged?.payload.outcome).toBe('accepted');
     expect(statusChanged?.aggregateId).toBe(firstChecklistItem?.aggregateId);
+  });
+
+  it('seeds every deal at a stage the default pipeline contains', async () => {
+    await seedSampleDeals(seedArgs);
+
+    const createdStages = eventBatches()
+      .flatMap((batch) => batch.events)
+      .filter((event) => event.eventType === 'deal.created')
+      .map((event) => event.payload.stage);
+
+    expect(createdStages).toHaveLength(4);
+    for (const stage of createdStages) {
+      expect(VALID_PIPELINE_STAGE_KEYS).toContain(stage);
+    }
   });
 
   it('short-circuits a second run when sample data already exists', async () => {

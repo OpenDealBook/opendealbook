@@ -18,14 +18,14 @@ test('fresh signup onboards as a team and lands in the team workspace', async ({
   const teamName = `Harbor Capital ${Date.now()}`;
   const slug = await completeTeamOnboarding(page, teamName);
 
-  // Onboarding lands on the personal /home; open the new team workspace. The
-  // team "Home" index (/home/<slug>) currently crashes with "Something went
-  // wrong" (see report: it calls the ensureTrialSampleData server action during
-  // render), so the team context is asserted on the members workspace page,
-  // which renders the same workspace layout with the team name in the sidebar.
-  await page.goto(`/home/${slug}/members`);
+  // Onboarding lands on the personal /home; open the team "Home" index
+  // (/home/<slug>), which seeds trial sample deals during render. Hitting the
+  // index directly exercises that seed path and asserts it renders the team
+  // name instead of the "Something went wrong" error boundary.
+  await page.goto(`/home/${slug}`);
   await expect(page).toHaveURL(new RegExp(`/home/${slug}(/|$)`));
   await expect(page.getByText(teamName).first()).toBeVisible();
+  await expect(page.getByText('Something went wrong')).toHaveCount(0);
 
   const team = await accountBySlug(request, slug);
   expect(team.is_personal_account).toBe(false);

@@ -5,10 +5,10 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 export const SAMPLE_TAG = '[Example]';
 
-const STAGE_SOURCED = 'sourced';
-const STAGE_LOI = 'loi';
-const STAGE_DILIGENCE = 'diligence';
-const STAGE_CLOSED_WON = 'closed_won';
+const STAGE_SOURCED = 'sourcing';
+const STAGE_LOI = 'loi_submitted';
+const STAGE_DILIGENCE = 'due_diligence';
+const STAGE_CLOSED_WON = 'integration';
 
 type SeedInput = {
   accountId: string;
