@@ -63,6 +63,7 @@ import {
   createDealFromIntake,
   createDealFromIntakePdf,
   rerunDealIntake,
+  rerunDealIntakePdf,
 } from './intake-actions';
 
 type Action = (
@@ -73,6 +74,7 @@ type Action = (
 const runCreate = createDealFromIntake as unknown as Action;
 const runCreatePdf = createDealFromIntakePdf as unknown as Action;
 const runRerun = rerunDealIntake as unknown as Action;
+const runRerunPdf = rerunDealIntakePdf as unknown as Action;
 
 const FIXTURE = {
   revenue: 4200000,
@@ -194,6 +196,36 @@ describe('rerunDealIntake', () => {
       reason_for_sale: 'retirement',
       industry: 'HVAC services',
       business_model: 'Recurring service contracts',
+    });
+  });
+});
+
+describe('rerunDealIntakePdf', () => {
+  it('extracts text from the PDF and appends a deal.updated event', async () => {
+    const pdf = Buffer.from('%PDF-1.4 binary updated listing').toString(
+      'base64',
+    );
+
+    await runRerunPdf({ deal_id: 'deal-1', pdf }, { id: 'user-1' });
+
+    expect(mocks.extractText).toHaveBeenCalledTimes(1);
+    expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
+
+    const [, prompt] = mocks.generateStructured.mock.calls.at(-1) as unknown as [
+      unknown,
+      { prompt: string },
+    ];
+    expect(prompt.prompt).toContain(mocks.pdfText);
+
+    const [, event] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
+      unknown,
+      { dealId: string; eventType: string; payload: Record<string, unknown> },
+    ];
+    expect(event.dealId).toBe('deal-1');
+    expect(event.eventType).toBe('deal.updated');
+    expect(event.payload).toMatchObject({
+      asking_price: 3500000,
+      revenue_ttm: 4200000,
     });
   });
 });

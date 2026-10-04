@@ -9,6 +9,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 import {
   createDealFromIntakePdfSchema,
   createDealFromIntakeSchema,
+  rerunDealIntakePdfSchema,
   rerunDealIntakeSchema,
 } from '../schema/deal-intake.schema';
 import { createDealCore } from './deal-actions';
@@ -46,28 +47,42 @@ export const createDealFromIntakePdf = enhanceAction(
   { auth: true, schema: createDealFromIntakePdfSchema },
 );
 
+async function rerunFromText(
+  client: ReturnType<typeof getSupabaseServerClient>,
+  dealId: string,
+  text: string,
+) {
+  const { data: deal } = await client
+    .from('deal')
+    .select('account_id')
+    .eq('id', dealId)
+    .single()
+    .throwOnError();
+
+  const draft = await extractDealIntake(client, deal.account_id, text);
+
+  await appendDealEvent(client, {
+    dealId,
+    aggregateType: 'deal',
+    aggregateId: dealId,
+    eventType: 'deal.updated',
+    payload: dealUpdateFromIntakeDraft(draft),
+  });
+
+  return { success: true };
+}
+
 export const rerunDealIntake = enhanceAction(
+  async (data) => rerunFromText(getSupabaseServerClient(), data.deal_id, data.text),
+  { auth: true, schema: rerunDealIntakeSchema },
+);
+
+export const rerunDealIntakePdf = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
+    const text = await pdfToText(data.pdf);
 
-    const { data: deal } = await client
-      .from('deal')
-      .select('account_id')
-      .eq('id', data.deal_id)
-      .single()
-      .throwOnError();
-
-    const draft = await extractDealIntake(client, deal.account_id, data.text);
-
-    await appendDealEvent(client, {
-      dealId: data.deal_id,
-      aggregateType: 'deal',
-      aggregateId: data.deal_id,
-      eventType: 'deal.updated',
-      payload: dealUpdateFromIntakeDraft(draft),
-    });
-
-    return { success: true };
+    return rerunFromText(client, data.deal_id, text);
   },
-  { auth: true, schema: rerunDealIntakeSchema },
+  { auth: true, schema: rerunDealIntakePdfSchema },
 );

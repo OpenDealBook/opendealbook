@@ -39,3 +39,12 @@ export const rerunDealIntakeSchema = z.object({
 });
 
 export type RerunDealIntakePayload = z.infer<typeof rerunDealIntakeSchema>;
+
+export const rerunDealIntakePdfSchema = z.object({
+  deal_id: z.uuid(),
+  pdf: z.string().min(1),
+});
+
+export type RerunDealIntakePdfPayload = z.infer<
+  typeof rerunDealIntakePdfSchema
+>;
