@@ -52,21 +52,6 @@ const PRIMARY_CODES: ReadonlySet<keyof PrimaryAddbacks> = new Set([
   'owner_payroll_taxes',
 ]);
 
-const SCALAR_MINOR_CODES: ReadonlySet<keyof MinorAddbacks> = new Set([
-  'non_working_family_salaries',
-  'other_owner_salary_adjustments',
-  'other_owner_payroll_taxes',
-  'owner_auto_insurance_repairs',
-  'donations',
-  'fmv_rent_adjustment',
-  'owner_insurance_premiums',
-  'non_business_professional_services',
-  'travel',
-  'telephone',
-  'maintenance_capex',
-  'one_time_charges_or_income',
-]);
-
 function emptyPrimary(): PrimaryAddbacks {
   return {
     depreciation_amortization: 0,

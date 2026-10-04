@@ -42,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@odb/ui/select';
-import { Textarea } from '@odb/ui/textarea';
 
 const INVENTORY_UNSET = 'none';
 

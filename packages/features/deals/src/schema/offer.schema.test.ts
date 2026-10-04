@@ -57,7 +57,7 @@ describe('offerTermsSchema', () => {
   });
 
   it('requires purchase_price', () => {
-    const { purchase_price, ...withoutPrice } = fullTerms;
+    const { purchase_price: _purchase_price, ...withoutPrice } = fullTerms;
     expect(offerTermsSchema.safeParse(withoutPrice).success).toBe(false);
   });
 

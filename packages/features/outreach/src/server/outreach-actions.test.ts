@@ -80,11 +80,6 @@ import {
   updateSequence,
 } from './outreach-actions';
 
-type Action = (
-  data: Record<string, unknown>,
-  user: { id: string },
-) => Promise<unknown>;
-
 const run = <T = unknown>(action: unknown) =>
   action as unknown as (
     data: Record<string, unknown>,

@@ -1,5 +1,5 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { Card, CardContent } from '@odb/ui/card';
 import {
   Table,
   TableBody,

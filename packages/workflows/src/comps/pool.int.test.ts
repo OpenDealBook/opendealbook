@@ -215,7 +215,7 @@ describe('detectDuplicates (integration)', () => {
       .eq('event_type', 'deal.duplicate_flagged');
 
     expect(events).toHaveLength(1);
-    expect(events![0].payload).toMatchObject({ duplicate_of: original });
+    expect(events![0]!.payload).toMatchObject({ duplicate_of: original });
   });
 
   it('records a description match as a duplicate_candidate', async () => {
@@ -238,7 +238,7 @@ describe('detectDuplicates (integration)', () => {
       candidate_deal_id: first,
       signal: 'description',
     });
-    expect(Number(candidates![0].score)).toBeCloseTo(0.5, 5);
+    expect(Number(candidates![0]!.score)).toBeCloseTo(0.5, 5);
   });
 });
 

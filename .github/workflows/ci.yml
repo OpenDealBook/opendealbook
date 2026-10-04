@@ -1,0 +1,42 @@
+name: ci
+
+# Runs the fast gate (typecheck, lint, unit tests) on every push to main and
+# every PR targeting main, so regressions are caught before the image build.
+#
+# The e2e suite, package *.int.test.ts integration tests, and the pgTAP database
+# tests are intentionally excluded here: they need a live Supabase instance plus
+# running services. Turbo's default `test` script already skips *.int.test.ts,
+# and e2e is filtered out below. Wiring those into CI behind a Supabase service
+# is a future enhancement.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck, lint, and test
+        run: pnpm turbo run typecheck lint test --filter='!e2e'
