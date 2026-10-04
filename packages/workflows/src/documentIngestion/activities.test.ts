@@ -4,6 +4,7 @@ import {
   completeEmbeddingJob,
   createEmbeddingJob,
   embedDocumentChunks,
+  extractDocumentMarkdown,
   failEmbeddingJob,
   markEmbeddingJobRunning,
 } from '../activities';
@@ -11,8 +12,14 @@ import { EMBEDDING_DIMENSIONS } from './embeddings';
 
 const state = vi.hoisted(() => ({ client: null as unknown }));
 
+const doclingState = vi.hoisted(() => ({ extractMarkdown: vi.fn() }));
+
 vi.mock('@odb/supabase/admin', () => ({
   getSupabaseServerAdminClient: () => state.client,
+}));
+
+vi.mock('./docling', () => ({
+  extractMarkdown: doclingState.extractMarkdown,
 }));
 
 interface FakeConfig {
@@ -242,5 +249,88 @@ describe('embedDocumentChunks', () => {
       embedDocumentChunks({ ...chunkScope, markdown: 'short' }),
     ).rejects.toThrow(/1024/);
     expect(capture.inserts.document_chunk).toBeUndefined();
+  });
+
+  it('no-ops without writing embeddings when the tenant llm key env is absent', async () => {
+    delete process.env.TENANT_LLM_KEY;
+    const { client, capture } = makeClient({
+      rows: {
+        llm_endpoint: {
+          model: 'text-embedding-3-small',
+          base_url: 'http://llm.test',
+          api_key_secret_ref: 'TENANT_LLM_KEY',
+        },
+      },
+    });
+    state.client = client;
+    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
+
+    const result = await embedDocumentChunks({
+      ...chunkScope,
+      markdown: '# Only\n\nOne short chunk.',
+    });
+
+    expect(result).toEqual({ chunkCount: 0, model: '' });
+    expect(capture.inserts.document_chunk).toBeUndefined();
+  });
+});
+
+function makeExtractClient() {
+  return {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({
+            data: { storage_path: 'deals/doc1.pdf' },
+            error: null,
+          }),
+        }),
+      }),
+    }),
+    storage: {
+      from: () => ({
+        createSignedUrl: async () => ({
+          data: { signedUrl: 'https://signed.example/doc1' },
+          error: null,
+        }),
+      }),
+    },
+  };
+}
+
+describe('extractDocumentMarkdown', () => {
+  beforeEach(() => {
+    doclingState.extractMarkdown.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.DOCLING_URL;
+    delete process.env.DOCLING_API_KEY;
+  });
+
+  it('returns an empty markdown result and does not call docling when the endpoint is not configured', async () => {
+    delete process.env.DOCLING_URL;
+    delete process.env.DOCLING_API_KEY;
+    state.client = makeExtractClient();
+
+    const result = await extractDocumentMarkdown({ drDocumentId: 'doc1' });
+
+    expect(result).toEqual({ markdown: '' });
+    expect(doclingState.extractMarkdown).not.toHaveBeenCalled();
+  });
+
+  it('extracts markdown through docling when the endpoint is configured', async () => {
+    process.env.DOCLING_URL = 'http://docling.test';
+    process.env.DOCLING_API_KEY = 'dk';
+    doclingState.extractMarkdown.mockResolvedValue('# Extracted');
+    state.client = makeExtractClient();
+
+    const result = await extractDocumentMarkdown({ drDocumentId: 'doc1' });
+
+    expect(result).toEqual({ markdown: '# Extracted' });
+    expect(doclingState.extractMarkdown).toHaveBeenCalledWith(
+      { baseUrl: 'http://docling.test', apiKey: 'dk' },
+      'https://signed.example/doc1',
+    );
   });
 });

@@ -323,6 +323,15 @@ export interface ExtractDocumentInput {
 export async function extractDocumentMarkdown(
   input: ExtractDocumentInput,
 ): Promise<{ markdown: string }> {
+  const docling = resolveDoclingConfig();
+
+  if (!docling) {
+    console.warn(
+      '[workflows] document extraction unavailable: docling endpoint is not configured (DOCLING_URL / DOCLING_API_KEY)',
+    );
+    return { markdown: '' };
+  }
+
   const client = getSupabaseServerAdminClient();
 
   const { data: document, error } = await client
@@ -343,10 +352,7 @@ export async function extractDocumentMarkdown(
     throw signError;
   }
 
-  const markdown = await extractMarkdown(
-    { baseUrl: process.env.DOCLING_URL!, apiKey: process.env.DOCLING_API_KEY! },
-    signed.signedUrl,
-  );
+  const markdown = await extractMarkdown(docling, signed.signedUrl);
 
   return { markdown };
 }
@@ -371,16 +377,23 @@ export async function embedDocumentChunks(
     .limit(1)
     .single();
 
-  if (error) {
-    throw error;
+  const apiKey = endpoint?.api_key_secret_ref
+    ? process.env[endpoint.api_key_secret_ref]
+    : undefined;
+
+  if (error || !endpoint?.base_url || !apiKey) {
+    console.warn(
+      `[workflows] embedding ingestion unavailable: no usable llm_endpoint for account ${input.accountId}`,
+    );
+    return { chunkCount: 0, model: '' };
   }
 
   const chunks = chunkMarkdown(input.markdown);
   const vectors = await embedTexts(
     {
-      baseUrl: endpoint.base_url!,
+      baseUrl: endpoint.base_url,
       model: endpoint.model,
-      apiKey: process.env[endpoint.api_key_secret_ref!]!,
+      apiKey,
     },
     chunks,
   );
