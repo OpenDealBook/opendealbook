@@ -1,3 +1,9 @@
+import type {
+  BuyerProfileContact,
+  BuyerProfileExpertise,
+  BuyerProfileFinancing,
+  BuyerProfileSensitive,
+} from '@odb/buyer-profile/server';
 import { loadBuyerProfile } from '@odb/buyer-profile/server';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Button } from '@odb/ui/button';
@@ -18,6 +24,13 @@ export default async function BuyerProfilePage({
   const client = getSupabaseServerClient();
   const profile = await loadBuyerProfile(client, team.id);
 
+  const expertise = profile?.expertise_json as BuyerProfileExpertise | null;
+  const financing = profile?.financing_json as BuyerProfileFinancing | null;
+  const contact = profile?.contact_json as BuyerProfileContact | null;
+  const interested = profile?.interested_json as string[] | null;
+  const notInterested = profile?.not_interested_json as string[] | null;
+  const sensitive = profile?.sensitive_json as BuyerProfileSensitive | null;
+
   const initial = {
     display_name: profile?.display_name ?? '',
     headline: profile?.headline ?? '',
@@ -26,6 +39,21 @@ export default async function BuyerProfilePage({
     motivation: profile?.motivation ?? '',
     target_statement: profile?.target_statement ?? '',
     value_proposition: profile?.value_proposition ?? '',
+    expertise_areas: expertise?.areas ?? [],
+    financing: financing ?? {
+      cash_available: '',
+      max_purchase_price: '',
+      sba_prequalified: false,
+    },
+    contact: contact ?? { email: '', phone: '', website: '' },
+    interested: interested ?? [],
+    not_interested: notInterested ?? [],
+    include_sensitive: profile?.include_sensitive ?? false,
+    sensitive: sensitive ?? {
+      credit_score: '',
+      pre_approval: '',
+      phone: '',
+    },
   };
 
   return (

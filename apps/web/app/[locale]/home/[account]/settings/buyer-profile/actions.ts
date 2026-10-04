@@ -15,6 +15,31 @@ const saveSchema = z.object({
   motivation: z.string().nullable(),
   target_statement: z.string().nullable(),
   value_proposition: z.string().nullable(),
+  expertise_json: z.object({ areas: z.array(z.string()) }).nullable(),
+  financing_json: z
+    .object({
+      cash_available: z.string(),
+      max_purchase_price: z.string(),
+      sba_prequalified: z.boolean(),
+    })
+    .nullable(),
+  contact_json: z
+    .object({
+      email: z.string(),
+      phone: z.string(),
+      website: z.string(),
+    })
+    .nullable(),
+  interested_json: z.array(z.string()).nullable(),
+  not_interested_json: z.array(z.string()).nullable(),
+  include_sensitive: z.boolean(),
+  sensitive_json: z
+    .object({
+      credit_score: z.string(),
+      pre_approval: z.string(),
+      phone: z.string(),
+    })
+    .nullable(),
 });
 
 export const saveBuyerProfileAction = enhanceAction(

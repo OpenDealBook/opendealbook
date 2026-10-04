@@ -16,6 +16,21 @@ function draft(overrides: Partial<BuyerProfileDraft> = {}): BuyerProfileDraft {
     motivation: 'Long term stewardship.',
     target_statement: 'Firms with 300k to 1M revenue.',
     value_proposition: 'Continuity for staff and clients.',
+    expertise_json: { areas: ['tax', 'audit'] },
+    financing_json: {
+      cash_available: '500k',
+      max_purchase_price: '2M',
+      sba_prequalified: true,
+    },
+    contact_json: {
+      email: 'jordan@example.com',
+      phone: '',
+      website: 'https://example.com',
+    },
+    interested_json: ['retiring owners'],
+    not_interested_json: ['distressed'],
+    include_sensitive: false,
+    sensitive_json: null,
     ...overrides,
   };
 }
@@ -57,5 +72,75 @@ describe('saveBuyerProfile', () => {
       version: 4,
       ...draft({ headline: 'Updated' }),
     });
+  });
+
+  it('persists the structured jsonb fields', async () => {
+    const { client, insert } = makeClient(null);
+
+    await saveBuyerProfile(client, 'account-1', draft());
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertise_json: { areas: ['tax', 'audit'] },
+        financing_json: {
+          cash_available: '500k',
+          max_purchase_price: '2M',
+          sba_prequalified: true,
+        },
+        contact_json: {
+          email: 'jordan@example.com',
+          phone: '',
+          website: 'https://example.com',
+        },
+        interested_json: ['retiring owners'],
+        not_interested_json: ['distressed'],
+      }),
+    );
+  });
+
+  it('stores sensitive_json when include_sensitive is true', async () => {
+    const { client, insert } = makeClient(null);
+    const sensitive = {
+      credit_score: '780',
+      pre_approval: 'SBA 7(a) to 2.5M',
+      phone: '555-0100',
+    };
+
+    await saveBuyerProfile(
+      client,
+      'account-1',
+      draft({ include_sensitive: true, sensitive_json: sensitive }),
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include_sensitive: true,
+        sensitive_json: sensitive,
+      }),
+    );
+  });
+
+  it('drops sensitive_json when include_sensitive is false', async () => {
+    const { client, insert } = makeClient(null);
+
+    await saveBuyerProfile(
+      client,
+      'account-1',
+      draft({
+        include_sensitive: false,
+        sensitive_json: {
+          credit_score: '780',
+          pre_approval: 'SBA 7(a) to 2.5M',
+          phone: '555-0100',
+        },
+      }),
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include_sensitive: false,
+        sensitive_json: null,
+      }),
+    );
   });
 });
