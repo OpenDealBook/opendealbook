@@ -20,6 +20,7 @@ import { DealHeaderActions } from './deal-detail-actions';
 import { DealIntakeRerun } from './deal-intake-rerun';
 import { EarningsBasisToggle } from './earnings-basis-toggle';
 import { OffersSection } from './offers-section';
+import { ScreeningSection } from './screening-section';
 import { SellerQuestionsSection } from './seller-questions-section';
 import { ThesisSection } from './thesis-section';
 
@@ -298,6 +299,8 @@ export async function DealDetail({
       />
 
       <ChecklistSection items={checklist} dealId={dealId} accountId={accountId} />
+
+      <ScreeningSection dealId={deal.id} />
 
       <OffersSection dealId={deal.id} accountId={accountId} />
       <CalculatorsSection dealId={deal.id} accountId={accountId} />

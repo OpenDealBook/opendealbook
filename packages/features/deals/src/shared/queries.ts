@@ -103,10 +103,50 @@ export async function fetchDealBox(
   return data;
 }
 
-export async function dealBoxScreenPasses(
+export interface DealBoxScreenBreakdown {
+  dscr: number;
+  minDscr: number | null;
+  dscrPass: boolean | null;
+  netCashFlow: number;
+  requiredPersonalCashFlow: number | null;
+  cashFlowPass: boolean | null;
+  pass: boolean;
+}
+
+export type DealBoxScreen =
+  | { status: 'no_financials' }
+  | { status: 'no_criteria' }
+  | ({ status: 'screened' } & DealBoxScreenBreakdown);
+
+export function evaluateDealBoxScreen(input: {
+  dscr: number | null;
+  netCashFlow: number | null;
+  minDscr: number | null;
+  requiredPersonalCashFlow: number | null;
+}): DealBoxScreenBreakdown {
+  const dscr = input.dscr ?? 0;
+  const netCashFlow = input.netCashFlow ?? 0;
+  const dscrPass = input.minDscr === null ? null : dscr >= input.minDscr;
+  const cashFlowPass =
+    input.requiredPersonalCashFlow === null
+      ? null
+      : netCashFlow >= input.requiredPersonalCashFlow;
+
+  return {
+    dscr,
+    minDscr: input.minDscr,
+    dscrPass,
+    netCashFlow,
+    requiredPersonalCashFlow: input.requiredPersonalCashFlow,
+    cashFlowPass,
+    pass: dscrPass !== false && cashFlowPass !== false,
+  };
+}
+
+export async function dealBoxScreen(
   client: Client,
   dealId: string,
-): Promise<boolean> {
+): Promise<DealBoxScreen> {
   const { data: financials, error } = await client
     .from('deal_financials')
     .select('account_id, source_calc_version_id')
@@ -118,7 +158,7 @@ export async function dealBoxScreenPasses(
   }
 
   if (!financials) {
-    return false;
+    return { status: 'no_financials' };
   }
 
   const box = await fetchDealBox(client, financials.account_id);
@@ -127,7 +167,7 @@ export async function dealBoxScreenPasses(
     box === null ||
     (box.min_dscr === null && box.required_personal_cash_flow === null)
   ) {
-    return true;
+    return { status: 'no_criteria' };
   }
 
   const { data: calc, error: calcError } = await client
@@ -145,18 +185,27 @@ export async function dealBoxScreenPasses(
     net_cash_flow?: number;
   };
 
-  if (box.min_dscr !== null && (snapshot.dscr ?? 0) < box.min_dscr) {
-    return false;
-  }
+  return {
+    status: 'screened',
+    ...evaluateDealBoxScreen({
+      dscr: snapshot.dscr ?? null,
+      netCashFlow: snapshot.net_cash_flow ?? null,
+      minDscr: box.min_dscr,
+      requiredPersonalCashFlow: box.required_personal_cash_flow,
+    }),
+  };
+}
 
-  if (
-    box.required_personal_cash_flow !== null &&
-    (snapshot.net_cash_flow ?? 0) < box.required_personal_cash_flow
-  ) {
-    return false;
-  }
+export async function dealBoxScreenPasses(
+  client: Client,
+  dealId: string,
+): Promise<boolean> {
+  const screen = await dealBoxScreen(client, dealId);
 
-  return true;
+  return (
+    screen.status === 'no_criteria' ||
+    (screen.status === 'screened' && screen.pass)
+  );
 }
 
 export async function fetchDealThesis(
