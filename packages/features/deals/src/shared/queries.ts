@@ -225,6 +225,67 @@ export async function fetchDealThesis(
   return data;
 }
 
+type AssignedChecklistItem = Tables<'checklist_item'> & {
+  deal: { id: string; description: string | null } | null;
+};
+
+export interface AssignedChecklistGroup {
+  deal: { id: string; description: string | null };
+  items: AssignedChecklistItem[];
+}
+
+export interface MyTodos {
+  assigned: AssignedChecklistGroup[];
+  personal: Tables<'personal_todo'>[];
+}
+
+export async function fetchMyTodos(
+  client: Client,
+  userId: string,
+): Promise<MyTodos> {
+  const [assignedResult, personalResult] = await Promise.all([
+    client
+      .from('checklist_item')
+      .select('*, deal:deal_id(id, description)')
+      .eq('owner_user_id', userId)
+      .order('due_at', { ascending: true }),
+    client
+      .from('personal_todo')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true }),
+  ]);
+
+  if (assignedResult.error) {
+    throw assignedResult.error;
+  }
+
+  if (personalResult.error) {
+    throw personalResult.error;
+  }
+
+  const groups = new Map<string, AssignedChecklistGroup>();
+
+  for (const item of assignedResult.data as unknown as AssignedChecklistItem[]) {
+    const existing = groups.get(item.deal_id);
+
+    if (existing) {
+      existing.items.push(item);
+      continue;
+    }
+
+    groups.set(item.deal_id, {
+      deal: { id: item.deal_id, description: item.deal?.description ?? null },
+      items: [item],
+    });
+  }
+
+  return {
+    assigned: [...groups.values()],
+    personal: personalResult.data,
+  };
+}
+
 export async function fetchChecklistItems(
   client: Client,
   dealId: string,
