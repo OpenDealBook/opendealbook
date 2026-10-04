@@ -1,5 +1,5 @@
 -- Account-scoped deal pipeline stages. Every account owns its own ordered set,
--- seeded from the default 9-stage pipeline at account creation. Renaming,
+-- seeded from the default 10-stage pipeline at account creation. Renaming,
 -- reordering, and adding stages are plain updates and inserts; deal.stage is
 -- validated against this table. Terminality is no longer a stage: a deal keeps
 -- its stage and carries resolution separately (see deal.resolution), so every
