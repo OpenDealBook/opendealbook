@@ -54,6 +54,7 @@ import {
   completeMeetingActionItem,
   createMeetingSeries,
   scheduleMeeting,
+  updateMeeting,
   updateMeetingSeries,
 } from './meeting-actions';
 
@@ -65,6 +66,7 @@ type Action = (
 const runCreateMeetingSeries = createMeetingSeries as unknown as Action;
 const runUpdateMeetingSeries = updateMeetingSeries as unknown as Action;
 const runScheduleMeeting = scheduleMeeting as unknown as Action;
+const runUpdateMeeting = updateMeeting as unknown as Action;
 const runAddMeetingActionItem = addMeetingActionItem as unknown as Action;
 const runCompleteMeetingActionItem =
   completeMeetingActionItem as unknown as Action;
@@ -169,6 +171,36 @@ describe('scheduleMeeting', () => {
     );
 
     expect(lastAppend().payload).toMatchObject({ status: 'held' });
+  });
+});
+
+describe('updateMeeting', () => {
+  it('appends meeting.updated carrying the changed fields against the meeting', async () => {
+    const result = await runUpdateMeeting(
+      {
+        id: 'meeting-1',
+        deal_id: 'deal-1',
+        status: 'held',
+        decisions: 'Proceed to LOI',
+      },
+      user,
+    );
+
+    const append = lastAppend();
+
+    expect(append.eventType).toBe('meeting.updated');
+    expect(append.aggregateType).toBe('meeting');
+    expect(append.aggregateId).toBe('meeting-1');
+    expect(append.dealId).toBe('deal-1');
+    expect(append.payload).toMatchObject({
+      status: 'held',
+      decisions: 'Proceed to LOI',
+    });
+    expect(result).toBe('meeting-1');
+    expect(mocks.updateSpy).not.toHaveBeenCalledWith(
+      'meeting',
+      expect.anything(),
+    );
   });
 });
 

@@ -9,7 +9,10 @@ import {
   completeMeetingActionItemSchema,
   meetingActionItemSchema,
 } from '../schema/meeting-action-item.schema';
-import { scheduleMeetingSchema } from '../schema/meeting.schema';
+import {
+  scheduleMeetingSchema,
+  updateMeetingSchema,
+} from '../schema/meeting.schema';
 import {
   meetingSeriesSchema,
   updateMeetingSeriesSchema,
@@ -89,6 +92,28 @@ export const scheduleMeeting = enhanceAction(
     return id;
   },
   { auth: true, schema: scheduleMeetingSchema },
+);
+
+export const updateMeeting = enhanceAction(
+  async (data) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: data.deal_id,
+      aggregateType: 'meeting',
+      aggregateId: data.id,
+      eventType: 'meeting.updated',
+      payload: {
+        status: data.status ?? null,
+        scheduled_at: data.scheduled_at ?? null,
+        notes: data.notes ?? null,
+        decisions: data.decisions ?? null,
+      },
+    });
+
+    return data.id;
+  },
+  { auth: true, schema: updateMeetingSchema },
 );
 
 export const addMeetingActionItem = enhanceAction(
