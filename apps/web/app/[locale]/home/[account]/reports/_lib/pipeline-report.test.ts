@@ -70,11 +70,19 @@ describe('buildPipelineReport', () => {
 
     expect(report.funnel.map((step) => step.reached)).toEqual([5, 4, 3, 1]);
     expect(report.funnel.map((step) => step.advanced)).toEqual([4, 3, 1, 0]);
-    expect(report.funnel.map((step) => step.dropped)).toEqual([1, 1, 2, 1]);
+    expect(report.funnel.map((step) => step.dropped)).toEqual([1, 1, 2, 0]);
     expect(report.funnel[0]!.conversion).toBe(0.8);
     expect(report.funnel[1]!.conversion).toBe(0.75);
     expect(report.funnel[2]!.conversion).toBeCloseTo(1 / 3);
-    expect(report.funnel[3]!.conversion).toBe(0);
+  });
+
+  it('treats the terminal stage as completion, not fall-off', () => {
+    const report = buildPipelineReport(baseInput());
+    const terminal = report.funnel[report.funnel.length - 1]!;
+
+    expect(terminal.key).toBe('offer');
+    expect(terminal.dropped).toBe(0);
+    expect(terminal.conversion).toBeNull();
   });
 
   it('summarizes resolutions with a win rate', () => {

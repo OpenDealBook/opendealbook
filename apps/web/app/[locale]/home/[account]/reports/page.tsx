@@ -93,8 +93,9 @@ export default async function TeamReportsPage({
               <div className={'flex justify-between text-sm'}>
                 <span>{step.label}</span>
                 <span className={'text-muted-foreground'}>
-                  {step.reached} reached, {step.dropped} dropped,{' '}
-                  {Math.round(step.conversion * 100)}% advanced
+                  {step.conversion === null
+                    ? `${step.reached} reached`
+                    : `${step.reached} reached, ${step.dropped} dropped, ${Math.round(step.conversion * 100)}% advanced`}
                 </span>
               </div>
               <div className={'bg-muted h-2 rounded'}>

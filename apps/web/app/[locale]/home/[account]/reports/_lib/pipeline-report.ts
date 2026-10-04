@@ -26,7 +26,7 @@ export interface FunnelStep {
   reached: number;
   advanced: number;
   dropped: number;
-  conversion: number;
+  conversion: number | null;
 }
 
 export interface ResolutionSummary {
@@ -94,7 +94,17 @@ export function buildPipelineReport(input: PipelineReportInput): PipelineReport 
   const funnel = input.stages.map((stage, index) => {
     const reached = reachedCount(input.reach, stage.key);
     const next = input.stages[index + 1];
-    const advanced = next === undefined ? 0 : reachedCount(input.reach, next.key);
+    if (next === undefined) {
+      return {
+        key: stage.key,
+        label: stage.label,
+        reached,
+        advanced: 0,
+        dropped: 0,
+        conversion: null,
+      };
+    }
+    const advanced = reachedCount(input.reach, next.key);
     return {
       key: stage.key,
       label: stage.label,
