@@ -5376,6 +5376,10 @@ begin
       scheduled_at = coalesce((ev.payload ->> 'scheduled_at')::timestamptz, scheduled_at),
       notes = coalesce(ev.payload ->> 'notes', notes),
       decisions = coalesce(ev.payload ->> 'decisions', decisions),
+      recording_path = coalesce(ev.payload ->> 'recording_path', recording_path),
+      transcript_path = coalesce(ev.payload ->> 'transcript_path', transcript_path),
+      transcript_text = coalesce(ev.payload ->> 'transcript_text', transcript_text),
+      summary = coalesce(ev.payload ->> 'summary', summary),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
   else

@@ -90,7 +90,7 @@ describe('poseSellerQuestion (integration)', () => {
     });
 
     expect(harness.triggerNotification).toHaveBeenCalledTimes(1);
-    expect(harness.triggerNotification.mock.calls[0]?.[1]).toMatchObject({
+    expect((harness.triggerNotification.mock.calls[0] as unknown[])?.[1]).toMatchObject({
       eventType: 'seller_question.posed',
     });
   });
@@ -146,7 +146,7 @@ describe('answerSellerQuestion signed-LOI gate (integration)', () => {
     expect(resolved?.answered_at).not.toBeNull();
 
     expect(harness.triggerNotification).toHaveBeenCalledTimes(1);
-    expect(harness.triggerNotification.mock.calls[0]?.[1]).toMatchObject({
+    expect((harness.triggerNotification.mock.calls[0] as unknown[])?.[1]).toMatchObject({
       eventType: 'seller_question.answered',
     });
   });

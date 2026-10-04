@@ -903,6 +903,9 @@ importers:
       '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
@@ -1185,9 +1188,15 @@ importers:
 
   packages/features/meetings:
     dependencies:
+      '@odb/ai':
+        specifier: workspace:*
+        version: link:../../ai
       '@odb/events':
         specifier: workspace:*
         version: link:../../events
+      '@odb/integrations':
+        specifier: workspace:*
+        version: link:../../integrations
       '@odb/next':
         specifier: workspace:*
         version: link:../../next
@@ -1964,6 +1973,9 @@ importers:
       '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
