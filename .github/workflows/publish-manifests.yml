@@ -1,0 +1,59 @@
+name: publish-manifests
+
+# Renders the opendealbook Helm chart and publishes the deployable manifests as
+# an OCI artifact to ghcr.io/<repo>/manifests, tagged by commit SHA plus a moving
+# :latest. This mirrors the k8-infra manifest-publish pattern (ORAS v1.2.0,
+# artifact-type application/vnd.kubernetes.manifest.v1+yaml) so these manifests
+# are published and consumed the same way as the talos/truenas provider manifests.
+#
+# The container image is published separately by build-image.yml; this is the
+# deploy side. github.repository carries a capital letter, so it is lowercased
+# into REPO_LC because GHCR rejects uppercase in a reference path.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch: {}
+
+concurrency:
+  group: publish-manifests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+
+      - name: Install ORAS
+        run: |
+          curl -fsSL "https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz" | tar -xz
+          install -m 0755 oras /usr/local/bin/oras
+
+      - name: Lowercase repository
+        run: echo "REPO_LC=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Render chart manifests
+        run: helm template opendealbook charts/opendealbook > manifests.yaml
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Publish OCI artifact
+        run: |
+          oras push "ghcr.io/${REPO_LC}/manifests:${{ github.sha }},latest" manifests.yaml \
+            --artifact-type application/vnd.kubernetes.manifest.v1+yaml
+
+      - name: Summary
+        run: |
+          echo "Published: ghcr.io/${REPO_LC}/manifests:${{ github.sha }} (and :latest)" >> "$GITHUB_STEP_SUMMARY"
