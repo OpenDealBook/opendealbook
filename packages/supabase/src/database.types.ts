@@ -883,6 +883,70 @@ export type Database = {
           },
         ]
       }
+      calendar_connection: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          id: string
+          nango_connection_id: string
+          provider: string
+          provider_config_key: string
+          updated_at: string | null
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          nango_connection_id: string
+          provider: string
+          provider_config_key: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          nango_connection_id?: string
+          provider?: string
+          provider_config_key?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_connection_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_item: {
         Row: {
           account_id: string
@@ -4287,10 +4351,14 @@ export type Database = {
           decisions: string | null
           id: string
           notes: string | null
+          recording_path: string | null
           recording_url: string | null
           scheduled_at: string | null
           series_id: string | null
           status: Database["public"]["Enums"]["meeting_status"] | null
+          summary: string | null
+          transcript_path: string | null
+          transcript_text: string | null
           type: string
           updated_at: string | null
           updated_by: string | null
@@ -4305,10 +4373,14 @@ export type Database = {
           decisions?: string | null
           id?: string
           notes?: string | null
+          recording_path?: string | null
           recording_url?: string | null
           scheduled_at?: string | null
           series_id?: string | null
           status?: Database["public"]["Enums"]["meeting_status"] | null
+          summary?: string | null
+          transcript_path?: string | null
+          transcript_text?: string | null
           type: string
           updated_at?: string | null
           updated_by?: string | null
@@ -4323,10 +4395,14 @@ export type Database = {
           decisions?: string | null
           id?: string
           notes?: string | null
+          recording_path?: string | null
           recording_url?: string | null
           scheduled_at?: string | null
           series_id?: string | null
           status?: Database["public"]["Enums"]["meeting_status"] | null
+          summary?: string | null
+          transcript_path?: string | null
+          transcript_text?: string | null
           type?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -5389,6 +5465,74 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      personal_todo: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_id: string | null
+          done: boolean
+          id: string
+          title: string
+          updated_at: string | null
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          done?: boolean
+          id?: string
+          title: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          done?: boolean
+          id?: string
+          title?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_todo_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_todo_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_todo_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_todo_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
             referencedColumns: ["id"]
           },
         ]

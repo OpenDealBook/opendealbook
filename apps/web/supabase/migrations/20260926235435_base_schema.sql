@@ -2067,6 +2067,58 @@ create trigger deal_search_tsv
   before insert or update on public.deal
   for each row execute function public.deal_search_tsv();
 
+-- ===== schemas/22a-personal-todo.sql =====
+-- A member's private to-do, optionally pinned to a deal. Owner-scoped: a row is
+-- visible and writable only by the user who owns it, and only within an account
+-- they belong to. deal_id is nullable so a todo can be account-wide or attached
+-- to a specific deal; the (user_id, deal_id) index serves the per-deal list.
+
+create table if not exists public.personal_todo (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  deal_id uuid references public.deal (id) on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users,
+  title text not null,
+  done boolean not null default false,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.personal_todo enable row level security;
+
+create index ix_personal_todo_user_deal on public.personal_todo (user_id, deal_id);
+
+revoke all on public.personal_todo from authenticated, service_role;
+grant select, insert, update, delete on public.personal_todo to authenticated;
+grant select, insert, update, delete on public.personal_todo to service_role;
+
+create trigger personal_todo_timestamps
+  before insert or update on public.personal_todo
+  for each row execute function public.set_timestamps();
+
+create trigger personal_todo_user_tracking
+  before insert or update on public.personal_todo
+  for each row execute function public.set_user_tracking();
+
+create policy personal_todo_read on public.personal_todo
+  for select to authenticated
+  using (user_id = (select auth.uid()) and public.has_role_on_account(account_id));
+
+create policy personal_todo_insert on public.personal_todo
+  for insert to authenticated
+  with check (user_id = (select auth.uid()) and public.has_role_on_account(account_id));
+
+create policy personal_todo_update on public.personal_todo
+  for update to authenticated
+  using (user_id = (select auth.uid()) and public.has_role_on_account(account_id))
+  with check (user_id = (select auth.uid()) and public.has_role_on_account(account_id));
+
+create policy personal_todo_delete on public.personal_todo
+  for delete to authenticated
+  using (user_id = (select auth.uid()) and public.has_role_on_account(account_id));
+
 -- ===== schemas/23-deal-participant.sql =====
 -- Per-deal access grants for internal and external parties. A grant scoped
 -- narrower than the whole deal names the scoped object in scope_id.
@@ -2604,6 +2656,57 @@ create policy integration_connection_update on public.integration_connection
 create policy integration_connection_delete on public.integration_connection
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+
+-- ===== schemas/32a-calendar-connection.sql =====
+-- A participant's calendar, brokered through Nango, modeled on
+-- mailbox_connection. Unlike the mailbox (one sending account per tenant), a
+-- calendar connection is per-user per-account per-provider: each participant
+-- links their own Google or Microsoft calendar, so the natural key is
+-- (account_id, user_id, provider). Created and refreshed by the service role
+-- from the Nango callback; manageable by members with deals.manage. RLS mirrors
+-- mailbox_connection: any account member reads, deals.manage writes.
+
+create table if not exists public.calendar_connection (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  user_id uuid not null references auth.users,
+  provider text not null check (provider in ('google', 'microsoft')),
+  nango_connection_id text not null,
+  provider_config_key text not null,
+  email text,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  unique (account_id, user_id, provider)
+);
+
+alter table public.calendar_connection enable row level security;
+
+revoke all on public.calendar_connection from authenticated, service_role;
+grant select, insert, update on public.calendar_connection to authenticated;
+grant select, insert, update on public.calendar_connection to service_role;
+
+create trigger calendar_connection_timestamps
+  before insert or update on public.calendar_connection
+  for each row execute function public.set_timestamps();
+
+create trigger calendar_connection_user_tracking
+  before insert or update on public.calendar_connection
+  for each row execute function public.set_user_tracking();
+
+create policy calendar_connection_read on public.calendar_connection
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy calendar_connection_insert on public.calendar_connection
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+create policy calendar_connection_update on public.calendar_connection
+  for update to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
 -- ===== schemas/33-data-source.sql =====
 -- Account-scoped deal sourcing inputs. A data_source describes where inbound
@@ -3883,6 +3986,10 @@ create table if not exists public.meeting (
   decisions text,
   recording_url text,
   video_url text,
+  recording_path text,
+  transcript_path text,
+  transcript_text text,
+  summary text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -4636,6 +4743,98 @@ create policy data_room_objects_delete on storage.objects
   using (
     bucket_id = 'data-room'
     and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+-- ===== schemas/61b-feature-storage-buckets.sql =====
+-- Private storage buckets for three features.
+--
+-- `meeting-recordings` backs the post-meeting upload (recording + transcript).
+-- Objects are keyed as `deal/<dealId>/<uuid>-<name>`, so the second path
+-- segment is the deal id and access is deal-scoped through has_deal_permission,
+-- matching the data-room bucket in 61a.
+--
+-- `vendor-imports` holds the raw comp vendor export files. These are proprietary
+-- to the tenant that licensed them, so objects are keyed under the account
+-- prefix `<accountId>/...` and access is account-path-scoped, matching the
+-- contract pipeline buckets in 101.
+--
+-- `buyer-profile` holds buyer-profile photos, also keyed `<accountId>/...` and
+-- account-path-scoped.
+--
+-- service_role bypasses RLS and is left unrestricted.
+--
+-- This file is numbered to sort (and therefore compile) after 24-deal-access.sql,
+-- which defines has_deal_permission; the meeting-recordings policies depend on it.
+
+insert into storage.buckets (id, name, public)
+values
+  ('meeting-recordings', 'meeting-recordings', false),
+  ('vendor-imports', 'vendor-imports', false),
+  ('buyer-profile', 'buyer-profile', false)
+on conflict (id) do nothing;
+
+create policy meeting_recordings_objects_read on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'meeting-recordings'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy meeting_recordings_objects_insert on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'meeting-recordings'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy meeting_recordings_objects_update on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'meeting-recordings'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  )
+  with check (
+    bucket_id = 'meeting-recordings'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy meeting_recordings_objects_delete on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'meeting-recordings'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy account_scoped_objects_read on storage.objects
+  for select to authenticated
+  using (
+    bucket_id in ('vendor-imports', 'buyer-profile')
+    and public.has_role_on_account(((storage.foldername(name))[1])::uuid)
+  );
+
+create policy account_scoped_objects_insert on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id in ('vendor-imports', 'buyer-profile')
+    and public.has_role_on_account(((storage.foldername(name))[1])::uuid)
+  );
+
+create policy account_scoped_objects_update on storage.objects
+  for update to authenticated
+  using (
+    bucket_id in ('vendor-imports', 'buyer-profile')
+    and public.has_role_on_account(((storage.foldername(name))[1])::uuid)
+  )
+  with check (
+    bucket_id in ('vendor-imports', 'buyer-profile')
+    and public.has_role_on_account(((storage.foldername(name))[1])::uuid)
+  );
+
+create policy account_scoped_objects_delete on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id in ('vendor-imports', 'buyer-profile')
+    and public.has_role_on_account(((storage.foldername(name))[1])::uuid)
   );
 
 -- ===== schemas/62-notification-preference.sql =====
