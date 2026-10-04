@@ -11,6 +11,10 @@ export {
 } from '../comps/sbaLoans';
 export { writeCloseComp } from '../comps/writeCloseComp';
 export { fetchDealEventsSince } from '../comps/relay';
+export {
+  fetchDealNotificationEvents,
+  notifyDealEvent,
+} from '../notifications/relay';
 export { recordDealActivity } from '../comps/recordDealActivity';
 export { detectDuplicates } from '../comps/detectDuplicates';
 export { anonymizeClose } from '../comps/anonymizeClose';

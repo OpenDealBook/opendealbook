@@ -13,6 +13,7 @@
   "exports": {
     "./actions": "./src/server/dismiss-notification.ts",
     "./server": "./src/server/novu/index.ts",
+    "./relay": "./src/server/relay/deal-events.ts",
     "./components": "./src/components/index.ts",
     "./hooks": "./src/hooks/index.ts"
   },

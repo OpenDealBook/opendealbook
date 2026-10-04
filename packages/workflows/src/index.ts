@@ -28,6 +28,11 @@ export {
 } from './workflows/compEventRelay';
 export { ensureCompEventRelay } from './schedules/compEventRelay';
 export {
+  dealEventNotificationRelay,
+  type DealEventNotificationRelayInput,
+} from './workflows/dealEventNotificationRelay';
+export { ensureDealEventNotificationRelay } from './schedules/dealEventNotificationRelay';
+export {
   SBA_REFRESH_SCHEDULE_ID,
   ensureSbaRefreshSchedule,
   triggerSbaRefresh,
@@ -41,6 +46,8 @@ export {
   OUTREACH_DISPATCH_WORKFLOW_TYPE,
   COMP_EVENT_RELAY_WORKFLOW_ID,
   COMP_EVENT_RELAY_WORKFLOW_TYPE,
+  DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID,
+  DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_TYPE,
   TRIAL_DRIP_WORKFLOW_TYPE,
   trialDripWorkflowId,
 } from './ids';
