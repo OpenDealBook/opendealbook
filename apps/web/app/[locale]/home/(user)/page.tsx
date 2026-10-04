@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@odb/ui/card';
 
-import { ensureTrialSampleData } from '../_lib/trial-actions';
+import { ensureTrialSampleData } from '../_lib/ensure-trial-sample-data';
 
 export default async function UserHomePage(props: {
   params: Promise<{ locale: string }>;
@@ -26,7 +26,7 @@ export default async function UserHomePage(props: {
     redirect('/auth/sign-in');
   }
 
-  await ensureTrialSampleData({ accountId: user.id });
+  await ensureTrialSampleData(client, { accountId: user.id, userId: user.id });
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>

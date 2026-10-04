@@ -1,4 +1,6 @@
-import { ensureTrialSampleData } from '../_lib/trial-actions';
+import { getSupabaseServerClient } from '@odb/supabase/server';
+
+import { ensureTrialSampleData } from '../_lib/ensure-trial-sample-data';
 import { loadTeamWorkspace } from './layout';
 
 interface TeamHomePageProps {
@@ -7,9 +9,12 @@ interface TeamHomePageProps {
 
 export default async function TeamHomePage({ params }: TeamHomePageProps) {
   const { account } = await params;
-  const { team } = await loadTeamWorkspace(account);
+  const { team, user } = await loadTeamWorkspace(account);
 
-  await ensureTrialSampleData({ accountId: team.id });
+  await ensureTrialSampleData(getSupabaseServerClient(), {
+    accountId: team.id,
+    userId: user.id,
+  });
 
   return (
     <main className={'p-8'}>
