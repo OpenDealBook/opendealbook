@@ -316,6 +316,9 @@ importers:
       '@odb/calculators':
         specifier: workspace:*
         version: link:../../packages/calculators
+      '@odb/close':
+        specifier: workspace:*
+        version: link:../../packages/features/close
       '@odb/cms':
         specifier: workspace:*
         version: link:../../packages/cms/core
@@ -334,6 +337,9 @@ importers:
       '@odb/diligence':
         specifier: workspace:*
         version: link:../../packages/diligence
+      '@odb/hr-audit':
+        specifier: workspace:*
+        version: link:../../packages/features/hr-audit
       '@odb/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -385,6 +391,9 @@ importers:
       '@odb/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@odb/workbooks':
+        specifier: workspace:*
+        version: link:../../packages/workbooks
       '@odb/workflows':
         specifier: workspace:*
         version: link:../../packages/workflows
