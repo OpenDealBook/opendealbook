@@ -5891,6 +5891,74 @@ export type Database = {
           },
         ]
       }
+      seller_question_note: {
+        Row: {
+          account_id: string
+          author_user_id: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          id: string
+          note: string
+          seller_question_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          author_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          id?: string
+          note: string
+          seller_question_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          author_user_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+          note?: string
+          seller_question_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_question_note_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_question_note_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_question_note_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_question_note_seller_question_id_fkey"
+            columns: ["seller_question_id"]
+            isOneToOne: false
+            referencedRelation: "seller_question"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_items: {
         Row: {
           created_at: string

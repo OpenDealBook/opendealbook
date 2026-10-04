@@ -310,6 +310,9 @@ importers:
       '@odb/billing-gateway':
         specifier: workspace:*
         version: link:../../packages/billing/gateway
+      '@odb/buyer-profile':
+        specifier: workspace:*
+        version: link:../../packages/features/buyer-profile
       '@odb/calculators':
         specifier: workspace:*
         version: link:../../packages/calculators

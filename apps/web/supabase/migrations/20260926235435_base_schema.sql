@@ -3608,12 +3608,85 @@ create policy seller_question_insert on public.seller_question
   for insert to authenticated
   with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
 
+-- Buyer-account members with checklists.manage edit questions; a seller
+-- participant on the deal may also write, so they can fill in answer.
 create policy seller_question_update on public.seller_question
+  for update to authenticated
+  using (
+    public.has_permission((select auth.uid()), account_id, 'checklists.manage')
+    or exists (
+      select 1 from public.deal_participant p
+      where p.deal_id = seller_question.deal_id
+        and p.user_id = (select auth.uid())
+        and p.party = 'seller'
+        and (p.expires_at is null or p.expires_at > now())
+    )
+  )
+  with check (
+    public.has_permission((select auth.uid()), account_id, 'checklists.manage')
+    or exists (
+      select 1 from public.deal_participant p
+      where p.deal_id = seller_question.deal_id
+        and p.user_id = (select auth.uid())
+        and p.party = 'seller'
+        and (p.expires_at is null or p.expires_at > now())
+    )
+  );
+
+create policy seller_question_delete on public.seller_question
+  for delete to authenticated
+  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+-- ===== schemas/49a-seller-question-note.sql =====
+-- Buyer-private notes on a seller question. These are internal to the buyer
+-- account: access is gated on buyer-account membership only, never on
+-- has_deal_permission, so a seller deal_participant (who is not a member of the
+-- buyer account) can never read or write them. Numbered to sort after
+-- 49-seller-question.sql, whose seller_question table it references.
+
+create table if not exists public.seller_question_note (
+  id uuid primary key default gen_random_uuid(),
+  seller_question_id uuid not null references public.seller_question (id) on delete cascade,
+  deal_id uuid not null,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  note text not null,
+  author_user_id uuid references auth.users default auth.uid(),
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users
+);
+
+alter table public.seller_question_note enable row level security;
+
+create index ix_seller_question_note_question on public.seller_question_note (seller_question_id);
+
+revoke all on public.seller_question_note from authenticated, service_role;
+grant select, insert, update, delete on public.seller_question_note to authenticated;
+grant select, insert, update, delete on public.seller_question_note to service_role;
+
+create trigger seller_question_note_timestamps
+  before insert or update on public.seller_question_note
+  for each row execute function public.set_timestamps();
+
+create trigger seller_question_note_user_tracking
+  before insert or update on public.seller_question_note
+  for each row execute function public.set_user_tracking();
+
+create policy seller_question_note_read on public.seller_question_note
+  for select to authenticated
+  using (public.has_role_on_account(account_id));
+
+create policy seller_question_note_insert on public.seller_question_note
+  for insert to authenticated
+  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+
+create policy seller_question_note_update on public.seller_question_note
   for update to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
   with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
 
-create policy seller_question_delete on public.seller_question
+create policy seller_question_note_delete on public.seller_question_note
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
 
@@ -4516,6 +4589,53 @@ create policy upload_item_delete on public.upload_item
       where b.id = batch_id
         and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
     )
+  );
+
+-- ===== schemas/61a-data-room-storage.sql =====
+-- Private storage bucket backing the data-room browse/upload UI. Objects are
+-- keyed as `deal/<dealId>/<uuid>-<name>` (see packages/data-room/src/storage.ts),
+-- so the second path segment is the deal id and access is deal-scoped through
+-- has_deal_permission, matching the dr_document and upload_batch tables. The
+-- data-room feature gates on 'deals.manage'. service_role bypasses RLS and is
+-- left unrestricted.
+--
+-- This file is numbered to sort (and therefore compile) after 24-deal-access.sql,
+-- which defines has_deal_permission; the storage policies below depend on it.
+
+insert into storage.buckets (id, name, public)
+values ('data-room', 'data-room', false)
+on conflict (id) do nothing;
+
+create policy data_room_objects_read on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'data-room'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy data_room_objects_insert on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'data-room'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy data_room_objects_update on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'data-room'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  )
+  with check (
+    bucket_id = 'data-room'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
+  );
+
+create policy data_room_objects_delete on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'data-room'
+    and public.has_deal_permission(((storage.foldername(name))[2])::uuid, 'deals.manage')
   );
 
 -- ===== schemas/62-notification-preference.sql =====

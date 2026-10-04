@@ -39,10 +39,30 @@ create policy seller_question_insert on public.seller_question
   for insert to authenticated
   with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
 
+-- Buyer-account members with checklists.manage edit questions; a seller
+-- participant on the deal may also write, so they can fill in answer.
 create policy seller_question_update on public.seller_question
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+  using (
+    public.has_permission((select auth.uid()), account_id, 'checklists.manage')
+    or exists (
+      select 1 from public.deal_participant p
+      where p.deal_id = seller_question.deal_id
+        and p.user_id = (select auth.uid())
+        and p.party = 'seller'
+        and (p.expires_at is null or p.expires_at > now())
+    )
+  )
+  with check (
+    public.has_permission((select auth.uid()), account_id, 'checklists.manage')
+    or exists (
+      select 1 from public.deal_participant p
+      where p.deal_id = seller_question.deal_id
+        and p.user_id = (select auth.uid())
+        and p.party = 'seller'
+        and (p.expires_at is null or p.expires_at > now())
+    )
+  );
 
 create policy seller_question_delete on public.seller_question
   for delete to authenticated
