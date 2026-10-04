@@ -2435,6 +2435,182 @@ export type Database = {
           },
         ]
       }
+      deal_discovery: {
+        Row: {
+          account_id: string
+          call_date: string | null
+          clean_books: boolean | null
+          counterparty_type:
+            | Database["public"]["Enums"]["discovery_counterparty_type"]
+            | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          differentiation: string | null
+          discovery_notes: string | null
+          documented_processes: boolean | null
+          employee_count: number | null
+          estimated_margin: number | null
+          expansion_notes: string | null
+          financing_notes: string | null
+          firm_timeline: boolean | null
+          gaps_if_owner_leaves: string | null
+          has_management_team: boolean | null
+          id: string
+          largest_customer_pct: number | null
+          main_lead_source: string | null
+          most_sensitive_issue: string | null
+          open_to_seller_financing:
+            | Database["public"]["Enums"]["discovery_financing_stance"]
+            | null
+          owner_dependency:
+            | Database["public"]["Enums"]["discovery_owner_dependency"]
+            | null
+          owner_hours_per_week: number | null
+          reason_for_selling:
+            | Database["public"]["Enums"]["discovery_reason_for_selling"]
+            | null
+          recurring_revenue_pct: number | null
+          revenue_trend:
+            | Database["public"]["Enums"]["discovery_revenue_trend"]
+            | null
+          target_sale_date: string | null
+          transition_months: number | null
+          updated_at: string | null
+          updated_by: string | null
+          what_matters_most:
+            | Database["public"]["Enums"]["discovery_priority"][]
+            | null
+          willing_to_train: boolean | null
+          years_in_operation: number | null
+        }
+        Insert: {
+          account_id: string
+          call_date?: string | null
+          clean_books?: boolean | null
+          counterparty_type?:
+            | Database["public"]["Enums"]["discovery_counterparty_type"]
+            | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          differentiation?: string | null
+          discovery_notes?: string | null
+          documented_processes?: boolean | null
+          employee_count?: number | null
+          estimated_margin?: number | null
+          expansion_notes?: string | null
+          financing_notes?: string | null
+          firm_timeline?: boolean | null
+          gaps_if_owner_leaves?: string | null
+          has_management_team?: boolean | null
+          id?: string
+          largest_customer_pct?: number | null
+          main_lead_source?: string | null
+          most_sensitive_issue?: string | null
+          open_to_seller_financing?:
+            | Database["public"]["Enums"]["discovery_financing_stance"]
+            | null
+          owner_dependency?:
+            | Database["public"]["Enums"]["discovery_owner_dependency"]
+            | null
+          owner_hours_per_week?: number | null
+          reason_for_selling?:
+            | Database["public"]["Enums"]["discovery_reason_for_selling"]
+            | null
+          recurring_revenue_pct?: number | null
+          revenue_trend?:
+            | Database["public"]["Enums"]["discovery_revenue_trend"]
+            | null
+          target_sale_date?: string | null
+          transition_months?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+          what_matters_most?:
+            | Database["public"]["Enums"]["discovery_priority"][]
+            | null
+          willing_to_train?: boolean | null
+          years_in_operation?: number | null
+        }
+        Update: {
+          account_id?: string
+          call_date?: string | null
+          clean_books?: boolean | null
+          counterparty_type?:
+            | Database["public"]["Enums"]["discovery_counterparty_type"]
+            | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          differentiation?: string | null
+          discovery_notes?: string | null
+          documented_processes?: boolean | null
+          employee_count?: number | null
+          estimated_margin?: number | null
+          expansion_notes?: string | null
+          financing_notes?: string | null
+          firm_timeline?: boolean | null
+          gaps_if_owner_leaves?: string | null
+          has_management_team?: boolean | null
+          id?: string
+          largest_customer_pct?: number | null
+          main_lead_source?: string | null
+          most_sensitive_issue?: string | null
+          open_to_seller_financing?:
+            | Database["public"]["Enums"]["discovery_financing_stance"]
+            | null
+          owner_dependency?:
+            | Database["public"]["Enums"]["discovery_owner_dependency"]
+            | null
+          owner_hours_per_week?: number | null
+          reason_for_selling?:
+            | Database["public"]["Enums"]["discovery_reason_for_selling"]
+            | null
+          recurring_revenue_pct?: number | null
+          revenue_trend?:
+            | Database["public"]["Enums"]["discovery_revenue_trend"]
+            | null
+          target_sale_date?: string | null
+          transition_months?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+          what_matters_most?:
+            | Database["public"]["Enums"]["discovery_priority"][]
+            | null
+          willing_to_train?: boolean | null
+          years_in_operation?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_discovery_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_discovery_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_discovery_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_discovery_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_event: {
         Row: {
           account_id: string
@@ -7360,6 +7536,25 @@ export type Database = {
       comp_data_class: "external" | "proprietary" | "internal"
       comp_license_status: "active" | "expired" | "revoked"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
+      discovery_counterparty_type: "owner" | "broker"
+      discovery_financing_stance: "yes" | "no" | "unsure"
+      discovery_owner_dependency: "low" | "medium" | "high"
+      discovery_priority:
+        | "price"
+        | "speed"
+        | "legacy"
+        | "employees"
+        | "brand"
+        | "reputation"
+      discovery_reason_for_selling:
+        | "retirement"
+        | "burnout"
+        | "new_venture"
+        | "health"
+        | "partnership_dissolution"
+        | "financial"
+        | "other"
+      discovery_revenue_trend: "up" | "down" | "flat"
       embedding_job_status: "queued" | "running" | "done" | "failed"
       event_actor_kind: "user" | "service" | "api_key" | "system"
       meeting_status: "scheduled" | "held" | "skipped" | "cancelled"
@@ -7548,6 +7743,27 @@ export const Constants = {
       comp_data_class: ["external", "proprietary", "internal"],
       comp_license_status: ["active", "expired", "revoked"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
+      discovery_counterparty_type: ["owner", "broker"],
+      discovery_financing_stance: ["yes", "no", "unsure"],
+      discovery_owner_dependency: ["low", "medium", "high"],
+      discovery_priority: [
+        "price",
+        "speed",
+        "legacy",
+        "employees",
+        "brand",
+        "reputation",
+      ],
+      discovery_reason_for_selling: [
+        "retirement",
+        "burnout",
+        "new_venture",
+        "health",
+        "partnership_dissolution",
+        "financial",
+        "other",
+      ],
+      discovery_revenue_trend: ["up", "down", "flat"],
       embedding_job_status: ["queued", "running", "done", "failed"],
       event_actor_kind: ["user", "service", "api_key", "system"],
       meeting_status: ["scheduled", "held", "skipped", "cancelled"],

@@ -225,6 +225,23 @@ export async function fetchDealThesis(
   return data;
 }
 
+export async function fetchDealDiscovery(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<Tables<'deal_discovery'> | null> {
+  const { data, error } = await client
+    .from('deal_discovery')
+    .select('*')
+    .eq('deal_id', deal_id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 type AssignedChecklistItem = Tables<'checklist_item'> & {
   deal: { id: string; description: string | null } | null;
 };
