@@ -135,6 +135,70 @@ describe('saveBuyerProfile', () => {
     );
   });
 
+  it('coalesces all-empty structured sections to null', async () => {
+    const { client, insert } = makeClient(null);
+
+    await saveBuyerProfile(
+      client,
+      'account-1',
+      draft({
+        expertise_json: { areas: [] },
+        financing_json: {
+          cash_available: '',
+          max_purchase_price: '',
+          sba_prequalified: false,
+        },
+        contact_json: { email: '', phone: '', website: '' },
+        interested_json: [],
+        not_interested_json: [],
+      }),
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertise_json: null,
+        financing_json: null,
+        contact_json: null,
+        interested_json: null,
+        not_interested_json: null,
+      }),
+    );
+  });
+
+  it('keeps structured sections that carry any value', async () => {
+    const { client, insert } = makeClient(null);
+
+    await saveBuyerProfile(
+      client,
+      'account-1',
+      draft({
+        expertise_json: { areas: ['tax'] },
+        financing_json: {
+          cash_available: '',
+          max_purchase_price: '',
+          sba_prequalified: true,
+        },
+        contact_json: { email: '', phone: '', website: 'https://example.com' },
+        interested_json: ['retiring owners'],
+        not_interested_json: [],
+      }),
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expertise_json: { areas: ['tax'] },
+        financing_json: {
+          cash_available: '',
+          max_purchase_price: '',
+          sba_prequalified: true,
+        },
+        contact_json: { email: '', phone: '', website: 'https://example.com' },
+        interested_json: ['retiring owners'],
+        not_interested_json: null,
+      }),
+    );
+  });
+
   it('drops sensitive_json when include_sensitive is false', async () => {
     const { client, insert } = makeClient(null);
 

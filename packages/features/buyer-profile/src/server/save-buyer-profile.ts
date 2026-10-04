@@ -44,6 +44,10 @@ export type BuyerProfileDraft = {
   sensitive_json: BuyerProfileSensitive | null;
 };
 
+function hasValue(section: Record<string, unknown> | null): boolean {
+  return section != null && Object.values(section).some(Boolean);
+}
+
 export async function saveBuyerProfile(
   client: Client,
   accountId: string,
@@ -56,6 +60,13 @@ export async function saveBuyerProfile(
     account_id: accountId,
     version,
     ...draft,
+    expertise_json: draft.expertise_json?.areas.length ? draft.expertise_json : null,
+    financing_json: hasValue(draft.financing_json) ? draft.financing_json : null,
+    contact_json: hasValue(draft.contact_json) ? draft.contact_json : null,
+    interested_json: draft.interested_json?.length ? draft.interested_json : null,
+    not_interested_json: draft.not_interested_json?.length
+      ? draft.not_interested_json
+      : null,
     sensitive_json: draft.include_sensitive ? draft.sensitive_json : null,
   });
 
