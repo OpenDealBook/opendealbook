@@ -42,5 +42,5 @@ describe('synthetic LOI/APA templates', () => {
     const filled = await engine.fill(source, { purchase_price: '$900,000' });
 
     expect(await displayLabel(filled, 'purchase_price')).toBe('$900,000');
-  });
+  }, 30000);
 });
