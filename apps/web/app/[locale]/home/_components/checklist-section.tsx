@@ -77,9 +77,9 @@ export function ChecklistSection({
         ) : (
           groups.map((group) => (
             <div key={group.key} className={'flex flex-col gap-2'}>
-              <h3 className={'text-sm font-medium'}>
+              <h4 className={'text-sm font-medium'}>
                 {CHECKLIST_KIND_LABELS[group.key] ?? group.key}
-              </h3>
+              </h4>
               <Table>
                 <TableHeader>
                   <TableRow>

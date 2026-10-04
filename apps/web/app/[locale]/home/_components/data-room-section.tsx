@@ -54,7 +54,7 @@ export async function DataRoomSection({ dealId }: { dealId: string }) {
         ) : (
           groups.map((group) => (
             <div key={group.folderId} className={'flex flex-col gap-2'}>
-              <h3 className={'text-sm font-medium'}>{group.path}</h3>
+              <h4 className={'text-sm font-medium'}>{group.path}</h4>
               {group.documents.length === 0 ? (
                 <p className={'text-muted-foreground text-sm'}>No documents</p>
               ) : (

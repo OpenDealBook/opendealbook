@@ -176,9 +176,9 @@ export async function OffersSection({ dealId }: { dealId: string; accountId: str
         </Table>
 
         <div className={'flex flex-col gap-2'}>
-          <h3 className={'text-sm font-medium'}>
+          <h4 className={'text-sm font-medium'}>
             Diff from previous version
-          </h3>
+          </h4>
           {currentVersion === null || previousVersion === null ? (
             <p className={'text-muted-foreground text-sm'}>
               No previous version to compare

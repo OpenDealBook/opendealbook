@@ -150,7 +150,7 @@ export function SellerQuestionsSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Seller Questions</CardTitle>
+        <CardTitle>Seller questions</CardTitle>
       </CardHeader>
       <CardContent className={'flex flex-col gap-6'}>
         <div className={'flex flex-col gap-1.5'}>

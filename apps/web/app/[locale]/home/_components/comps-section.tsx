@@ -192,7 +192,7 @@ export async function CompsSection(props: { dealId: string; accountId: string })
       </CardHeader>
       <CardContent className={'flex flex-col gap-6'}>
         <div className={'flex flex-col gap-2'}>
-          <h3 className={'text-sm font-medium'}>Relevant comps</h3>
+          <h4 className={'text-sm font-medium'}>Relevant comps</h4>
           {comps.length === 0 ? (
             <p className={'text-muted-foreground text-sm'}>No comparable transactions yet</p>
           ) : (
@@ -228,7 +228,7 @@ export async function CompsSection(props: { dealId: string; accountId: string })
         </div>
 
         <div className={'flex flex-col gap-2'}>
-          <h3 className={'text-sm font-medium'}>Benchmarks</h3>
+          <h4 className={'text-sm font-medium'}>Benchmarks</h4>
           {benchmarks.length === 0 ? (
             <p className={'text-muted-foreground text-sm'}>No benchmarks for this vertical</p>
           ) : (
@@ -260,7 +260,7 @@ export async function CompsSection(props: { dealId: string; accountId: string })
         </div>
 
         <div className={'flex flex-col gap-2'}>
-          <h3 className={'text-sm font-medium'}>What to expect</h3>
+          <h4 className={'text-sm font-medium'}>What to expect</h4>
           {!poolReady ? (
             <p className={'text-muted-foreground text-sm'}>Not enough data yet</p>
           ) : (
