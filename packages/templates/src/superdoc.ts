@@ -7,8 +7,10 @@ export interface DocxTemplateEngine {
 
 // Single SuperDoc contact point; every other module depends only on
 // DocxTemplateEngine. @harbour-enterprises/superdoc exposes a headless Editor for
-// loading, field annotation, and DOCX export. PDF rendering lives outside this
-// engine; see convertDocxToPdf.
+// loading, field annotation, and DOCX export. The annotations flag is what turns
+// a template's sdt merge fields into fillable field-annotation nodes on import;
+// without it scan and fill see none. PDF rendering lives outside this engine; see
+// convertDocxToPdf.
 export function createSuperdocEngine(): DocxTemplateEngine {
   return {
     async scanPlaceholders(docx) {
@@ -39,6 +41,7 @@ async function loadHeadless(docx: Uint8Array) {
     await import('@harbour-enterprises/superdoc');
   const editor: Editor = await EditorClass.open(Buffer.from(docx), {
     isHeadless: true,
+    annotations: true,
   });
 
   return { editor, helpers: fieldAnnotationHelpers };
