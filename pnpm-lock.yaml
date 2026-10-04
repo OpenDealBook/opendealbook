@@ -1644,6 +1644,9 @@ importers:
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
+      '@odb/templates':
+        specifier: workspace:*
+        version: link:../templates
     devDependencies:
       '@odb/tsconfig':
         specifier: workspace:*

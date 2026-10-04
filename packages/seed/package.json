@@ -21,7 +21,8 @@
   "dependencies": {
     "@odb/data-room": "workspace:*",
     "@odb/events": "workspace:*",
-    "@odb/supabase": "workspace:*"
+    "@odb/supabase": "workspace:*",
+    "@odb/templates": "workspace:*"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
