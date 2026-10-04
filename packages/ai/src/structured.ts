@@ -6,33 +6,25 @@ type Client = SupabaseClient<Database>;
 
 const TEMPERATURE = 0;
 
-export interface StructuredGenerateInput<T> {
-  accountId: string;
-  system: string;
-  prompt: string;
-  parse: (raw: unknown) => T;
+export interface ResolvedLlmEndpoint {
+  id: string;
+  chatModel: string;
+  baseUrl: string;
+  apiKey: string;
 }
 
-export async function generateStructured<T>(
+export async function resolveLlmEndpoint(
   client: Client,
-  { accountId, system, prompt, parse }: StructuredGenerateInput<T>,
-): Promise<T> {
+  accountId: string,
+): Promise<ResolvedLlmEndpoint | null> {
   const { data: endpoint, error } = await client
     .from('llm_endpoint')
     .select('id, chat_model, base_url, api_key_secret_ref')
     .eq('account_id', accountId)
     .single();
 
-  if (error || !endpoint) {
-    throw new Error(`no llm_endpoint configured for account ${accountId}`);
-  }
-
-  if (!endpoint.chat_model) {
-    throw new Error(`llm_endpoint ${endpoint.id} has no chat_model`);
-  }
-
-  if (!endpoint.base_url) {
-    throw new Error(`llm_endpoint ${endpoint.id} has no base_url`);
+  if (error || !endpoint || !endpoint.chat_model || !endpoint.base_url) {
+    return null;
   }
 
   const apiKey = endpoint.api_key_secret_ref
@@ -40,19 +32,30 @@ export async function generateStructured<T>(
     : undefined;
 
   if (!apiKey) {
-    throw new Error(
-      `llm_endpoint ${endpoint.id} api key is not present in the environment`,
-    );
+    return null;
   }
 
-  const response = await fetch(`${endpoint.base_url}/chat/completions`, {
+  return {
+    id: endpoint.id,
+    chatModel: endpoint.chat_model,
+    baseUrl: endpoint.base_url,
+    apiKey,
+  };
+}
+
+export async function callStructuredChat(
+  endpoint: ResolvedLlmEndpoint,
+  system: string,
+  prompt: string,
+): Promise<string> {
+  const response = await fetch(`${endpoint.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
+      authorization: `Bearer ${endpoint.apiKey}`,
     },
     body: JSON.stringify({
-      model: endpoint.chat_model,
+      model: endpoint.chatModel,
       temperature: TEMPERATURE,
       response_format: { type: 'json_object' },
       messages: [
@@ -66,5 +69,27 @@ export async function generateStructured<T>(
     choices: { message: { content: string } }[];
   };
 
-  return parse(JSON.parse(payload.choices[0]!.message.content));
+  return payload.choices[0]!.message.content;
+}
+
+export interface StructuredGenerateInput<T> {
+  accountId: string;
+  system: string;
+  prompt: string;
+  parse: (raw: unknown) => T;
+}
+
+export async function generateStructured<T>(
+  client: Client,
+  { accountId, system, prompt, parse }: StructuredGenerateInput<T>,
+): Promise<T> {
+  const endpoint = await resolveLlmEndpoint(client, accountId);
+
+  if (!endpoint) {
+    throw new Error(`no llm_endpoint configured for account ${accountId}`);
+  }
+
+  const content = await callStructuredChat(endpoint, system, prompt);
+
+  return parse(JSON.parse(content));
 }

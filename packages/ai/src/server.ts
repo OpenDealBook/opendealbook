@@ -1,5 +1,10 @@
 import 'server-only';
 
+export { extractStructuredFromDocument } from './extract';
+export type {
+  DocumentExtractionInput,
+  DocumentExtractionResult,
+} from './extract';
 export { answerDealQuestion } from './generate';
 export type {
   Citation,
