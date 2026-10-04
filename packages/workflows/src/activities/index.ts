@@ -29,6 +29,7 @@ export {
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
 import { chunkMarkdown } from '../documentIngestion/chunk';
+import type { DoclingConfig } from '../documentIngestion/docling';
 import { extractMarkdown } from '../documentIngestion/docling';
 import { embedTexts } from '../documentIngestion/embeddings';
 import { buildDocumentExtractionChecks } from '../documentIngestion/verificationGather';
@@ -239,6 +240,17 @@ export async function recordWorkbookRun(
 const SIGNED_URL_TTL_SECONDS = 3600;
 const DATA_ROOM_BUCKET = 'data-room';
 
+function resolveDoclingConfig(): DoclingConfig | null {
+  const baseUrl = process.env.DOCLING_URL;
+  const apiKey = process.env.DOCLING_API_KEY;
+
+  if (!baseUrl || !apiKey) {
+    return null;
+  }
+
+  return { baseUrl, apiKey };
+}
+
 export interface CreateEmbeddingJobInput {
   drDocumentId: string;
 }
@@ -434,10 +446,7 @@ export async function runDealVerification(
   const runnableChecks = await buildDocumentExtractionChecks({
     client,
     dealId: input.dealId,
-    docling: {
-      baseUrl: process.env.DOCLING_URL!,
-      apiKey: process.env.DOCLING_API_KEY!,
-    },
+    docling: resolveDoclingConfig(),
   });
 
   await runVerification({

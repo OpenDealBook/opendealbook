@@ -62,13 +62,24 @@ interface SideResult {
 export interface DocumentExtractionGatherDeps {
   client: Client;
   dealId: string;
-  docling: DoclingConfig;
+  docling: DoclingConfig | null;
+}
+
+function unavailable(reason: string): RunnableCheck<unknown>[] {
+  console.warn(`[workflows] document extraction unavailable: ${reason}`);
+  return [];
 }
 
 export async function buildDocumentExtractionChecks(
   deps: DocumentExtractionGatherDeps,
 ): Promise<RunnableCheck<unknown>[]> {
   const { client, dealId, docling } = deps;
+
+  if (!docling) {
+    return unavailable(
+      'docling endpoint is not configured (DOCLING_URL / DOCLING_API_KEY)',
+    );
+  }
 
   const { data: deal, error: dealError } = await client
     .from('deal')
@@ -89,14 +100,23 @@ export async function buildDocumentExtractionChecks(
     .limit(1)
     .single();
 
-  if (endpointError) {
-    throw endpointError;
+  const apiKey = endpointRow?.api_key_secret_ref
+    ? process.env[endpointRow.api_key_secret_ref]
+    : undefined;
+
+  if (
+    endpointError ||
+    !endpointRow?.base_url ||
+    !endpointRow.chat_model ||
+    !apiKey
+  ) {
+    return unavailable(`no usable llm_endpoint for account ${accountId}`);
   }
 
   const endpoint: ExtractionEndpoint = {
-    baseUrl: endpointRow.base_url!,
-    chatModel: endpointRow.chat_model!,
-    apiKey: process.env[endpointRow.api_key_secret_ref!]!,
+    baseUrl: endpointRow.base_url,
+    chatModel: endpointRow.chat_model,
+    apiKey,
   };
 
   const documents = await loadDealDocuments(client, dealId);

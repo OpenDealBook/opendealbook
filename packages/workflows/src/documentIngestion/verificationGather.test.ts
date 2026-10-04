@@ -194,6 +194,41 @@ describe('buildDocumentExtractionChecks', () => {
     expect(findings[0]).toMatchObject({ severity: 'error', status: 'missing' });
   });
 
+  it('is a logged no-op (no checks) when the docling endpoint is not configured', async () => {
+    const { client } = makeClient({
+      documents: [
+        { id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2', checklist_item_id: 'c1' },
+      ],
+    });
+
+    const checks = await buildDocumentExtractionChecks({
+      client: client as never,
+      dealId: 'deal1',
+      docling: null,
+    });
+
+    expect(checks).toEqual([]);
+    expect(collaborators.extractMarkdown).not.toHaveBeenCalled();
+  });
+
+  it('is a logged no-op when the tenant llm endpoint api key is absent from the environment', async () => {
+    delete process.env.TENANT_LLM_KEY;
+    const { client } = makeClient({
+      documents: [
+        { id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2', checklist_item_id: 'c1' },
+      ],
+    });
+
+    const checks = await buildDocumentExtractionChecks({
+      client: client as never,
+      dealId: 'deal1',
+      docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
+    });
+
+    expect(checks).toEqual([]);
+    expect(collaborators.extractMarkdown).not.toHaveBeenCalled();
+  });
+
   it('runs end-to-end through runVerification and persists the missing-document finding', async () => {
     const { client, capture } = makeClient({
       documents: [
