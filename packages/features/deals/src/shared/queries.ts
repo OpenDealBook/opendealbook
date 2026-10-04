@@ -242,6 +242,22 @@ export async function fetchDealDiscovery(
   return data;
 }
 
+export async function fetchDealValueMarkers(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<Tables<'deal_value_marker'>[]> {
+  const { data, error } = await client
+    .from('deal_value_marker')
+    .select('*')
+    .eq('deal_id', deal_id);
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 type AssignedChecklistItem = Tables<'checklist_item'> & {
   deal: { id: string; description: string | null } | null;
 };

@@ -3090,6 +3090,77 @@ export type Database = {
           },
         ]
       }
+      deal_value_marker: {
+        Row: {
+          account_id: string
+          category: Database["public"]["Enums"]["value_marker_category"]
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          id: string
+          notes: string | null
+          question_key: string
+          rating: Database["public"]["Enums"]["value_marker_rating"] | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          category: Database["public"]["Enums"]["value_marker_category"]
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          id?: string
+          notes?: string | null
+          question_key: string
+          rating?: Database["public"]["Enums"]["value_marker_rating"] | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          category?: Database["public"]["Enums"]["value_marker_category"]
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          id?: string
+          notes?: string | null
+          question_key?: string
+          rating?: Database["public"]["Enums"]["value_marker_rating"] | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_value_marker_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_value_marker_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_value_marker_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_value_marker_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diligence_schedule: {
         Row: {
           account_id: string
@@ -7582,6 +7653,18 @@ export type Database = {
         | "imported"
         | "failed"
       upload_item_status: "pending" | "imported" | "failed"
+      value_marker_category:
+        | "financial_viability"
+        | "diversification"
+        | "employee_risk"
+        | "cashflow_quality"
+        | "competitive_advantage"
+        | "customer_satisfaction"
+        | "recurring_revenue"
+        | "owner_dependency"
+        | "upside_potential"
+        | "process_maturity"
+      value_marker_rating: "looks_good" | "somewhat_risky" | "not_good"
       verification_finding_status: "open" | "resolved" | "dismissed"
       verification_run_status: "queued" | "running" | "done" | "failed"
       verification_severity: "info" | "warning" | "error"
@@ -7793,6 +7876,19 @@ export const Constants = {
         "failed",
       ],
       upload_item_status: ["pending", "imported", "failed"],
+      value_marker_category: [
+        "financial_viability",
+        "diversification",
+        "employee_risk",
+        "cashflow_quality",
+        "competitive_advantage",
+        "customer_satisfaction",
+        "recurring_revenue",
+        "owner_dependency",
+        "upside_potential",
+        "process_maturity",
+      ],
+      value_marker_rating: ["looks_good", "somewhat_risky", "not_good"],
       verification_finding_status: ["open", "resolved", "dismissed"],
       verification_run_status: ["queued", "running", "done", "failed"],
       verification_severity: ["info", "warning", "error"],
