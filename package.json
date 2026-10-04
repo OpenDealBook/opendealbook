@@ -12,7 +12,8 @@
     "format:fix": "oxfmt",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "db:reset": "pnpm --filter web exec supabase db reset && pnpm --filter @odb/seed run seed:template-fixtures"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",

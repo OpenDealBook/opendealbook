@@ -16,7 +16,8 @@
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:template-fixtures": "node --import tsx src/upload-fixtures-cli.ts"
   },
   "dependencies": {
     "@odb/data-room": "workspace:*",
@@ -27,6 +28,7 @@
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "tsx": "catalog:",
     "vitest": "catalog:"
   }
 }
