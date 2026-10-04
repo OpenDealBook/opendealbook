@@ -4,3 +4,4 @@ export * from './requests/actions';
 export * from './seller-questions/actions';
 export { listSellerQuestions } from './seller-questions/queries';
 export { isLoiSigned } from './seller-questions/loi';
+export { fetchDealSchedule } from './schedule/queries';
