@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "@types/node": "catalog:",
     "@types/papaparse": "catalog:",
     "vitest": "catalog:"

@@ -89,7 +89,7 @@ async function messagesFor(emails: string[]): Promise<Record<string, number>> {
     .from('outreach_enrollment')
     .select('id')
     .eq('account_id', account.accountId);
-  const ids = (enrollments ?? []).map((row) => row.id as string);
+  const ids = (enrollments ?? []).map((row: { id: string }) => row.id);
   const { data } = await account.admin
     .from('outreach_message')
     .select('to_email, status')
@@ -97,7 +97,8 @@ async function messagesFor(emails: string[]): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const email of emails) {
     counts[email] = (data ?? []).filter(
-      (row) => row.to_email === email && row.status === 'sent',
+      (row: { to_email: string; status: string }) =>
+        row.to_email === email && row.status === 'sent',
     ).length;
   }
   return counts;
