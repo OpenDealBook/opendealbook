@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => {
     status: 'PENDING',
   }));
   const dealBoxScreenPasses = vi.fn(async () => true);
+  const uploadVersion = vi.fn(async () => undefined);
+  const download = vi.fn(async () => ({ data: new Blob(['pdf']), error: null }));
+  const storageFrom = vi.fn(() => ({ download }));
 
   let offer: unknown = {
     deal_id: 'deal-1',
@@ -81,6 +84,8 @@ const mocks = vi.hoisted(() => {
     generateFromTemplate,
     sendForSignature,
     dealBoxScreenPasses,
+    uploadVersion,
+    storageFrom,
     from,
     setOffer,
     inserted,
@@ -93,7 +98,10 @@ vi.mock('@odb/next/actions', () => ({
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ from: mocks.from }),
+  getSupabaseServerClient: () => ({
+    from: mocks.from,
+    storage: { from: mocks.storageFrom },
+  }),
 }));
 
 vi.mock('@odb/events', () => ({
@@ -102,10 +110,14 @@ vi.mock('@odb/events', () => ({
 
 vi.mock('@odb/templates/server', () => ({
   generateFromTemplate: mocks.generateFromTemplate,
+  GENERATED_BUCKET: 'generated',
 }));
 
 vi.mock('@odb/contracts', () => ({
-  createSupabaseContractStorage: () => ({ marker: 'storage' }),
+  createSupabaseContractStorage: () => ({ uploadVersion: mocks.uploadVersion }),
+  contractPdfPath: (accountId: string, contractId: string, version: number) =>
+    `${accountId}/${contractId}/v${version}.pdf`,
+  PDF_CONTENT_TYPE: 'application/pdf',
 }));
 
 vi.mock('@odb/contracts/esign', () => ({
@@ -162,15 +174,24 @@ describe('generateLoi', () => {
   it('creates a generated version-one contract version from the render', async () => {
     await run({ offer_id: 'offer-1' }, user);
 
-    expect(mocks.inserted.contract_version?.[0]).toMatchObject({
+    const version = mocks.inserted.contract_version?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(version).toMatchObject({
       account_id: 'acc-1',
       version: 1,
       source: 'generated',
       party: 'buyer',
       docx_path: 'gen/loi.docx',
-      pdf_path: 'gen/loi.pdf',
       author_user_id: 'user-1',
     });
+    expect(version.pdf_path).toBe(`acc-1/${version.contract_id}/v1.pdf`);
+    expect(mocks.uploadVersion).toHaveBeenCalledWith(
+      version.pdf_path,
+      expect.any(Uint8Array),
+      'application/pdf',
+    );
     expect(mocks.updated.generated_document?.[0]).toMatchObject({
       contract_id: expect.any(String),
     });

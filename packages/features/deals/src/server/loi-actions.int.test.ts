@@ -37,14 +37,28 @@ vi.mock('@odb/templates/server', () => ({
       fieldValues: Record<string, unknown>;
     }) => {
       const client = holder.client as SupabaseClient<Database>;
+      const docxPath = `${input.accountId}/${input.dealId}/loi.docx`;
+      const pdfPath = `${input.accountId}/${input.dealId}/loi.pdf`;
+
+      const upload = await client.storage
+        .from('generated')
+        .upload(pdfPath, new Uint8Array([37, 80, 68, 70]), {
+          contentType: 'application/pdf',
+          upsert: true,
+        });
+
+      if (upload.error) {
+        throw upload.error;
+      }
+
       const { data, error } = await client
         .from('generated_document')
         .insert({
           account_id: input.accountId,
           deal_id: input.dealId,
           values_json: input.fieldValues as never,
-          docx_path: 'mock/loi.docx',
-          pdf_path: 'mock/loi.pdf',
+          docx_path: docxPath,
+          pdf_path: pdfPath,
           created_by: holder.userId,
         })
         .select('*')
@@ -57,6 +71,7 @@ vi.mock('@odb/templates/server', () => ({
       return data;
     },
   ),
+  GENERATED_BUCKET: 'generated',
 }));
 
 vi.mock('@odb/contracts/esign', () => ({
@@ -228,8 +243,15 @@ describe('generateLoi (integration)', () => {
       version: 1,
       source: 'generated',
       party: 'buyer',
-      pdf_path: 'mock/loi.pdf',
     });
+    expect(versions?.[0]?.pdf_path).toBe(
+      `${account.accountId}/${contractId}/v1.pdf`,
+    );
+
+    const signable = await account.admin.storage
+      .from('contracts')
+      .download(versions?.[0]?.pdf_path as string);
+    expect(signable.error).toBeNull();
 
     expect(esign.sendForSignature).toHaveBeenCalledWith(
       expect.objectContaining({ contractVersionId: versions?.[0]?.id }),

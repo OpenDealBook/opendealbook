@@ -1,6 +1,11 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
-import { type ContractType, createSupabaseContractStorage } from '@odb/contracts';
+import {
+  type ContractType,
+  PDF_CONTENT_TYPE,
+  contractPdfPath,
+  createSupabaseContractStorage,
+} from '@odb/contracts';
 import {
   createDocumensoClient,
   type DocumensoSigner,
@@ -8,7 +13,7 @@ import {
 } from '@odb/contracts/esign';
 import { appendDealEvent } from '@odb/events';
 import type { Database } from '@odb/supabase';
-import { generateFromTemplate } from '@odb/templates/server';
+import { GENERATED_BUCKET, generateFromTemplate } from '@odb/templates/server';
 
 export interface GenerateContractInput {
   client: SupabaseClient<Database>;
@@ -51,6 +56,22 @@ export async function generateContract(
     fieldValues: input.terms,
   });
 
+  const storage = createSupabaseContractStorage(input.client);
+  const pdfPath = contractPdfPath(input.accountId, contractId, 1);
+  const rendered = await input.client.storage
+    .from(GENERATED_BUCKET)
+    .download(generated.pdf_path!);
+
+  if (rendered.error) {
+    throw rendered.error;
+  }
+
+  await storage.uploadVersion(
+    pdfPath,
+    new Uint8Array(await rendered.data.arrayBuffer()),
+    PDF_CONTENT_TYPE,
+  );
+
   await input.client
     .from('generated_document')
     .update({ contract_id: contractId })
@@ -66,7 +87,7 @@ export async function generateContract(
       source: 'generated',
       party: 'buyer',
       docx_path: generated.docx_path,
-      pdf_path: generated.pdf_path,
+      pdf_path: pdfPath,
       author_user_id: input.user.id,
     })
     .select('id')
@@ -88,7 +109,7 @@ export async function generateContract(
     },
     {
       client: input.client,
-      storage: createSupabaseContractStorage(input.client),
+      storage,
       documenso: createDocumensoClient(),
     },
   );

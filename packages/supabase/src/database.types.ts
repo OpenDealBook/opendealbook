@@ -5495,6 +5495,70 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_view: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          filters: Json
+          id: string
+          name: string
+          owner_user_id: string | null
+          sort: Json | null
+          updated_at: string | null
+          updated_by: string | null
+          visible_columns: Json | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          owner_user_id?: string | null
+          sort?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+          visible_columns?: Json | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          owner_user_id?: string | null
+          sort?: Json | null
+          updated_at?: string | null
+          updated_by?: string | null
+          visible_columns?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_view_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_view_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_view_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_week: {
         Row: {
           account_id: string

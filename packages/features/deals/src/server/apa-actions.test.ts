@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => {
     documentId: 'doc-1',
     status: 'PENDING',
   }));
+  const uploadVersion = vi.fn(async () => undefined);
+  const download = vi.fn(async () => ({ data: new Blob(['pdf']), error: null }));
+  const storageFrom = vi.fn(() => ({ download }));
 
   let stage = 'loi_accepted';
 
@@ -77,6 +80,8 @@ const mocks = vi.hoisted(() => {
     appendDealEvent,
     generateFromTemplate,
     sendForSignature,
+    uploadVersion,
+    storageFrom,
     from,
     setStage,
     inserted,
@@ -88,7 +93,10 @@ vi.mock('@odb/next/actions', () => ({
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ from: mocks.from }),
+  getSupabaseServerClient: () => ({
+    from: mocks.from,
+    storage: { from: mocks.storageFrom },
+  }),
 }));
 
 vi.mock('@odb/events', () => ({
@@ -97,10 +105,14 @@ vi.mock('@odb/events', () => ({
 
 vi.mock('@odb/templates/server', () => ({
   generateFromTemplate: mocks.generateFromTemplate,
+  GENERATED_BUCKET: 'generated',
 }));
 
 vi.mock('@odb/contracts', () => ({
-  createSupabaseContractStorage: () => ({ marker: 'storage' }),
+  createSupabaseContractStorage: () => ({ uploadVersion: mocks.uploadVersion }),
+  contractPdfPath: (accountId: string, contractId: string, version: number) =>
+    `${accountId}/${contractId}/v${version}.pdf`,
+  PDF_CONTENT_TYPE: 'application/pdf',
 }));
 
 vi.mock('@odb/contracts/esign', () => ({
@@ -140,12 +152,21 @@ describe('generateApa', () => {
       dealId: 'deal-1',
       fieldValues: { schema_version: 1, purchase_price: 1_200_000 },
     });
-    expect(mocks.inserted.contract_version?.[0]).toMatchObject({
+    const version = mocks.inserted.contract_version?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(version).toMatchObject({
       version: 1,
       source: 'generated',
       party: 'buyer',
-      pdf_path: 'gen/apa.pdf',
     });
+    expect(version.pdf_path).toBe(`acc-1/${version.contract_id}/v1.pdf`);
+    expect(mocks.uploadVersion).toHaveBeenCalledWith(
+      version.pdf_path,
+      expect.any(Uint8Array),
+      'application/pdf',
+    );
     expect(mocks.sendForSignature).toHaveBeenCalledWith(
       expect.objectContaining({ contractVersionId: 'cv-1' }),
       expect.objectContaining({ documenso: { marker: 'documenso' } }),
