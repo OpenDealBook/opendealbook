@@ -9,3 +9,4 @@ export * from './approval.schema';
 export * from './offer.schema';
 export * from './calc.schema';
 export * from './deal-thesis.schema';
+export * from './saved-view.schema';

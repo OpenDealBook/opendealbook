@@ -26,17 +26,37 @@ export const DEAL_PARAM = {
   sort: 'sort',
   cursor: 'cursor',
   view: 'view',
+  cols: 'cols',
 } as const;
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 export type DealView = 'cards' | 'table';
 
+export const DEAL_COLUMNS = [
+  { key: 'stage', label: 'Stage' },
+  { key: 'resolution', label: 'Resolution' },
+  { key: 'asking', label: 'Asking price' },
+  { key: 'offer', label: 'Your offer' },
+  { key: 'revenue', label: 'Revenue' },
+  { key: 'sde', label: 'SDE' },
+  { key: 'multiple', label: 'Multiple' },
+  { key: 'margin', label: 'Margin' },
+  { key: 'days', label: 'Days in stage' },
+] as const;
+
+export type DealColumnKey = (typeof DEAL_COLUMNS)[number]['key'];
+
+export const DEFAULT_VISIBLE_COLUMNS: DealColumnKey[] = DEAL_COLUMNS.map(
+  (column) => column.key,
+);
+
 export interface ParsedDealParams {
   filters: DealListFilters;
   sort: DealSort;
   cursor?: string;
   view: DealView;
+  visibleColumns: DealColumnKey[];
 }
 
 const SORTS: DealSort[] = [
@@ -89,6 +109,16 @@ function parseView(value: string | string[] | undefined): DealView {
   return first(value) === 'table' ? 'table' : 'cards';
 }
 
+const COLUMN_KEYS = new Set<string>(DEFAULT_VISIBLE_COLUMNS);
+
+function parseColumns(value: string | string[] | undefined): DealColumnKey[] {
+  const raw = csv(value);
+  if (raw === undefined) {
+    return DEFAULT_VISIBLE_COLUMNS;
+  }
+  return raw.filter((part): part is DealColumnKey => COLUMN_KEYS.has(part));
+}
+
 export function parseDealParams(params: RawSearchParams): ParsedDealParams {
   const filters: DealListFilters = {
     q: first(params[DEAL_PARAM.q]),
@@ -119,7 +149,55 @@ export function parseDealParams(params: RawSearchParams): ParsedDealParams {
     sort: parseSort(params[DEAL_PARAM.sort]),
     cursor: first(params[DEAL_PARAM.cursor]),
     view: parseView(params[DEAL_PARAM.view]),
+    visibleColumns: parseColumns(params[DEAL_PARAM.cols]),
   };
+}
+
+export function viewToSearchParams(view: {
+  filters: DealListFilters;
+  sort?: string;
+  visibleColumns?: string[];
+}): URLSearchParams {
+  const params = new URLSearchParams();
+  const f = view.filters;
+
+  const setValue = (key: string, value: string | number | undefined) => {
+    if (value !== undefined && String(value).length > 0) {
+      params.set(key, String(value));
+    }
+  };
+  const setCsv = (key: string, value: string[] | undefined) => {
+    if (value !== undefined && value.length > 0) {
+      params.set(key, value.join(','));
+    }
+  };
+  const setFlag = (key: string, value: boolean | undefined) => {
+    if (value === true) {
+      params.set(key, '1');
+    }
+  };
+
+  setValue(DEAL_PARAM.q, f.q);
+  setCsv(DEAL_PARAM.stage, f.stage);
+  setCsv(DEAL_PARAM.resolution, f.resolution);
+  setCsv(DEAL_PARAM.listingStatus, f.listingStatus);
+  setCsv(DEAL_PARAM.industry, f.industryId);
+  setCsv(DEAL_PARAM.location, f.locationId);
+  setValue(DEAL_PARAM.askingMin, f.askingMin);
+  setValue(DEAL_PARAM.askingMax, f.askingMax);
+  setFlag(DEAL_PARAM.askingUndisclosed, f.askingIncludeUndisclosed);
+  setValue(DEAL_PARAM.revenueMin, f.revenueMin);
+  setValue(DEAL_PARAM.revenueMax, f.revenueMax);
+  setFlag(DEAL_PARAM.revenueUndisclosed, f.revenueIncludeUndisclosed);
+  setValue(DEAL_PARAM.sdeMin, f.sdeMin);
+  setValue(DEAL_PARAM.sdeMax, f.sdeMax);
+  setFlag(DEAL_PARAM.sdeUndisclosed, f.sdeIncludeUndisclosed);
+  setFlag(DEAL_PARAM.starred, f.starred);
+  setFlag(DEAL_PARAM.archived, f.archived);
+  setValue(DEAL_PARAM.sort, view.sort);
+  setCsv(DEAL_PARAM.cols, view.visibleColumns);
+
+  return params;
 }
 
 export function hasActiveFilters(params: RawSearchParams): boolean {

@@ -6,3 +6,4 @@ export * from './deal-thesis-actions';
 export * from './loi-actions';
 export * from './offer-actions';
 export * from './apa-actions';
+export * from './saved-view-actions';

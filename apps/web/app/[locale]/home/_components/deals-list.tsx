@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import Link from 'next/link';
 
 import {
@@ -6,6 +8,7 @@ import {
   type FacetCount,
   listDealsFaceted,
 } from '@odb/deals';
+import { listSavedViews } from '@odb/deals/server';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
@@ -22,13 +25,30 @@ import { DealCard } from './deal-card';
 import { DealRowActions } from './deal-row-actions';
 import { DealsFilters, type FilterOption } from './deals-filters';
 import {
+  DEAL_COLUMNS,
+  type DealColumnKey,
   type RawSearchParams,
   hasActiveFilters,
   parseDealParams,
 } from './deals-search-params';
 import { DealsViewToggle } from './deals-view-toggle';
+import { SavedViewsBar } from './saved-views-bar';
 
-const COLUMN_COUNT = 11;
+const COLUMN_CELLS: Record<DealColumnKey, (deal: DealListItem) => ReactNode> = {
+  stage: (deal) => deal.stageLabel ?? deal.stage,
+  resolution: (deal) => resolutionLabel(deal.resolution, deal.resolutionReason),
+  asking: (deal) => formatCurrency(deal.askingPrice),
+  offer: (deal) => formatCurrency(deal.yourOffer),
+  revenue: (deal) => formatCurrency(deal.revenue),
+  sde: (deal) => formatCurrency(deal.sde),
+  multiple: (deal) =>
+    deal.multiple === null ? 'Not disclosed' : `${deal.multiple.toFixed(1)}x`,
+  margin: (deal) =>
+    deal.margin === null ? null : (
+      <Badge variant={'outline'}>{Math.round(deal.margin * 100)}%</Badge>
+    ),
+  days: (deal) => deal.daysInStage ?? '',
+};
 
 const GROUP_ORDER: { group: DealListGroup; label: string }[] = [
   { group: 'actively_pursuing', label: 'Actively pursuing' },
@@ -131,7 +151,8 @@ export async function DealsList({
   detailBasePath: string;
 }) {
   const client = getSupabaseServerClient();
-  const { filters, sort, cursor, view } = parseDealParams(searchParams);
+  const { filters, sort, cursor, view, visibleColumns } =
+    parseDealParams(searchParams);
 
   const result = await listDealsFaceted(client, {
     accountId,
@@ -139,6 +160,12 @@ export async function DealsList({
     sort,
     cursor,
   });
+
+  const savedViews = await listSavedViews({ account_id: accountId });
+
+  const columns = DEAL_COLUMNS.filter((column) =>
+    visibleColumns.includes(column.key),
+  );
 
   const stageLabels = nameMap(
     result.items,
@@ -191,11 +218,18 @@ export async function DealsList({
       />
 
       <div className={'flex min-w-0 flex-1 flex-col gap-4'}>
-        <div className={'flex items-center justify-between'}>
-          <DealsViewToggle view={view} />
-          <Button asChild size={'sm'}>
-            <Link href={`${detailBasePath}/new`}>New deal</Link>
-          </Button>
+        <div className={'flex flex-wrap items-center justify-between gap-2'}>
+          <SavedViewsBar
+            views={savedViews}
+            accountId={accountId}
+            view={view}
+          />
+          <div className={'flex items-center gap-2'}>
+            <DealsViewToggle view={view} />
+            <Button asChild size={'sm'}>
+              <Link href={`${detailBasePath}/new`}>New deal</Link>
+            </Button>
+          </div>
         </div>
 
         {result.items.length === 0 ? (
@@ -211,15 +245,9 @@ export async function DealsList({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Resolution</TableHead>
-                    <TableHead>Asking price</TableHead>
-                    <TableHead>Your offer</TableHead>
-                    <TableHead>Revenue</TableHead>
-                    <TableHead>SDE</TableHead>
-                    <TableHead>Multiple</TableHead>
-                    <TableHead>Margin</TableHead>
-                    <TableHead>Days in stage</TableHead>
+                    {columns.map((column) => (
+                      <TableHead key={column.key}>{column.label}</TableHead>
+                    ))}
                     <TableHead />
                   </TableRow>
                 </TableHeader>
@@ -229,6 +257,7 @@ export async function DealsList({
                       key={section.group}
                       label={section.label}
                       items={section.items}
+                      columns={columns}
                       detailBasePath={detailBasePath}
                     />
                   ))}
@@ -279,17 +308,19 @@ export async function DealsList({
 function GroupSection({
   label,
   items,
+  columns,
   detailBasePath,
 }: {
   label: string;
   items: DealListItem[];
+  columns: readonly { key: DealColumnKey; label: string }[];
   detailBasePath: string;
 }) {
   return (
     <>
       <TableRow>
         <TableCell
-          colSpan={COLUMN_COUNT}
+          colSpan={columns.length + 2}
           className={'text-muted-foreground bg-muted/50 text-xs font-medium'}
         >
           {label} ({items.length})
@@ -305,23 +336,9 @@ function GroupSection({
               <Badge variant={'secondary'}>Example</Badge>
             ) : null}
           </TableCell>
-          <TableCell>{deal.stageLabel ?? deal.stage}</TableCell>
-          <TableCell>
-            {resolutionLabel(deal.resolution, deal.resolutionReason)}
-          </TableCell>
-          <TableCell>{formatCurrency(deal.askingPrice)}</TableCell>
-          <TableCell>{formatCurrency(deal.yourOffer)}</TableCell>
-          <TableCell>{formatCurrency(deal.revenue)}</TableCell>
-          <TableCell>{formatCurrency(deal.sde)}</TableCell>
-          <TableCell>
-            {deal.multiple === null ? 'Not disclosed' : `${deal.multiple.toFixed(1)}x`}
-          </TableCell>
-          <TableCell>
-            {deal.margin === null ? null : (
-              <Badge variant={'outline'}>{Math.round(deal.margin * 100)}%</Badge>
-            )}
-          </TableCell>
-          <TableCell>{deal.daysInStage ?? ''}</TableCell>
+          {columns.map((column) => (
+            <TableCell key={column.key}>{COLUMN_CELLS[column.key](deal)}</TableCell>
+          ))}
           <TableCell>
             <DealRowActions
               dealId={deal.id}
