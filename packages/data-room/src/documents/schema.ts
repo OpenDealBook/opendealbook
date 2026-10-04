@@ -21,6 +21,12 @@ export const bulkDownloadSchema = z.object({
   documentIds: z.array(z.uuid()),
 });
 
+export const documentSignedUrlSchema = z.object({
+  dealId: z.uuid(),
+  documentId: z.uuid(),
+});
+
 export type UploadDocumentInput = z.infer<typeof uploadDocumentSchema>;
 export type MoveDocumentInput = z.infer<typeof moveDocumentSchema>;
 export type BulkDownloadInput = z.infer<typeof bulkDownloadSchema>;
+export type DocumentSignedUrlInput = z.infer<typeof documentSignedUrlSchema>;

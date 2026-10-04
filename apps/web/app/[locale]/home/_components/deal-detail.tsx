@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { CalculatorsSection } from './calculators-section';
 import { ChecklistSection } from './checklist-section';
 import { CompsSection } from './comps-section';
+import { DataRoomSection } from './data-room-section';
 import { DealHeaderActions } from './deal-detail-actions';
 import { DealIntakeRerun } from './deal-intake-rerun';
 import { EarningsBasisToggle } from './earnings-basis-toggle';
@@ -299,6 +300,8 @@ export async function DealDetail({
       />
 
       <ChecklistSection items={checklist} dealId={dealId} accountId={accountId} />
+
+      <DataRoomSection dealId={deal.id} />
 
       <ScreeningSection dealId={deal.id} />
 

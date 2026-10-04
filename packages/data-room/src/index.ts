@@ -15,14 +15,25 @@ export type {
 
 export { nextVersion } from './documents/version';
 export {
+  documentType,
+  groupDocumentsByFolder,
+} from './documents/grouped';
+export type {
+  BrowseDocument,
+  DocumentRow,
+  FolderGroup,
+} from './documents/grouped';
+export {
   uploadDocumentSchema,
   moveDocumentSchema,
   bulkDownloadSchema,
+  documentSignedUrlSchema,
 } from './documents/schema';
 export type {
   UploadDocumentInput,
   MoveDocumentInput,
   BulkDownloadInput,
+  DocumentSignedUrlInput,
 } from './documents/schema';
 
 export {
