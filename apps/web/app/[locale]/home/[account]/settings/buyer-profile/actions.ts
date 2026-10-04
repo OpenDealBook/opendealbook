@@ -32,6 +32,7 @@ const saveSchema = z.object({
     .nullable(),
   interested_json: z.array(z.string()).nullable(),
   not_interested_json: z.array(z.string()).nullable(),
+  photo_path: z.string().nullable(),
   include_sensitive: z.boolean(),
   sensitive_json: z
     .object({

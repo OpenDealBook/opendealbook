@@ -12,7 +12,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server/index.ts"
+    "./server": "./src/server/index.ts",
+    "./storage": "./src/storage.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

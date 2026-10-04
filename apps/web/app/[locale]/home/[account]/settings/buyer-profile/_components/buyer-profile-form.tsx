@@ -1,9 +1,12 @@
 'use client';
 
+import type { ChangeEvent } from 'react';
 import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { uploadBuyerProfilePhoto } from '@odb/buyer-profile/storage';
+import { useSupabase } from '@odb/supabase/hooks';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Checkbox } from '@odb/ui/checkbox';
@@ -32,6 +35,8 @@ interface BuyerProfileFormProps {
     contact: { email: string; phone: string; website: string };
     interested: string[];
     not_interested: string[];
+    photo_path: string | null;
+    photo_url: string | null;
     include_sensitive: boolean;
     sensitive: { credit_score: string; pre_approval: string; phone: string };
   };
@@ -81,13 +86,30 @@ function StringListEditor({
 
 export function BuyerProfileForm({ accountId, initial }: BuyerProfileFormProps) {
   const router = useRouter();
+  const client = useSupabase();
   const [values, setValues] = useState(initial);
+  const [preview, setPreview] = useState(initial.photo_url);
   const [saved, setSaved] = useState(false);
   const [isSaving, startSaving] = useTransition();
+  const [isUploading, startUploading] = useTransition();
 
   function update(patch: Partial<typeof values>) {
     setValues((current) => ({ ...current, ...patch }));
     setSaved(false);
+  }
+
+  function onPhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    startUploading(async () => {
+      const path = await uploadBuyerProfilePhoto(client, accountId, file);
+      update({ photo_path: path });
+      setPreview(URL.createObjectURL(file));
+    });
   }
 
   function onSave() {
@@ -106,6 +128,7 @@ export function BuyerProfileForm({ accountId, initial }: BuyerProfileFormProps) 
         contact_json: values.contact,
         interested_json: values.interested,
         not_interested_json: values.not_interested,
+        photo_path: values.photo_path,
         include_sensitive: values.include_sensitive,
         sensitive_json: values.sensitive,
       });
@@ -137,6 +160,31 @@ export function BuyerProfileForm({ accountId, initial }: BuyerProfileFormProps) 
               onChange={(event) => update({ headline: event.target.value })}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Photo</CardTitle>
+        </CardHeader>
+        <CardContent className={'flex flex-col gap-4'}>
+          {preview ? (
+            <img
+              src={preview}
+              alt={'Buyer profile'}
+              className={'h-24 w-24 rounded-md object-cover'}
+            />
+          ) : null}
+          <Input
+            type={'file'}
+            accept={'image/*'}
+            className={'max-w-xs'}
+            onChange={onPhotoChange}
+            disabled={isUploading}
+          />
+          {isUploading ? (
+            <span className={'text-muted-foreground text-sm'}>Uploading</span>
+          ) : null}
         </CardContent>
       </Card>
 

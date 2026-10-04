@@ -5,6 +5,7 @@ import type {
   BuyerProfileSensitive,
 } from '@odb/buyer-profile/server';
 import { loadBuyerProfile } from '@odb/buyer-profile/server';
+import { buyerProfilePhotoSignedUrl } from '@odb/buyer-profile/storage';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Button } from '@odb/ui/button';
 
@@ -31,6 +32,11 @@ export default async function BuyerProfilePage({
   const notInterested = profile?.not_interested_json as string[] | null;
   const sensitive = profile?.sensitive_json as BuyerProfileSensitive | null;
 
+  const photoPath = profile?.photo_path ?? null;
+  const photoUrl = photoPath
+    ? await buyerProfilePhotoSignedUrl(client, photoPath)
+    : null;
+
   const initial = {
     display_name: profile?.display_name ?? '',
     headline: profile?.headline ?? '',
@@ -48,6 +54,8 @@ export default async function BuyerProfilePage({
     contact: contact ?? { email: '', phone: '', website: '' },
     interested: interested ?? [],
     not_interested: notInterested ?? [],
+    photo_path: photoPath,
+    photo_url: photoUrl,
     include_sensitive: profile?.include_sensitive ?? false,
     sensitive: sensitive ?? {
       credit_score: '',

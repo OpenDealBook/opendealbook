@@ -29,6 +29,7 @@ function draft(overrides: Partial<BuyerProfileDraft> = {}): BuyerProfileDraft {
     },
     interested_json: ['retiring owners'],
     not_interested_json: ['distressed'],
+    photo_path: 'account-1/photo.jpg',
     include_sensitive: false,
     sensitive_json: null,
     ...overrides,
@@ -95,6 +96,20 @@ describe('saveBuyerProfile', () => {
         interested_json: ['retiring owners'],
         not_interested_json: ['distressed'],
       }),
+    );
+  });
+
+  it('carries the photo_path into the inserted version', async () => {
+    const { client, insert } = makeClient(null);
+
+    await saveBuyerProfile(
+      client,
+      'account-1',
+      draft({ photo_path: 'account-1/headshot.png' }),
+    );
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ photo_path: 'account-1/headshot.png' }),
     );
   });
 

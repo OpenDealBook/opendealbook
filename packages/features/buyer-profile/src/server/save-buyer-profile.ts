@@ -39,6 +39,7 @@ export type BuyerProfileDraft = {
   contact_json: BuyerProfileContact | null;
   interested_json: string[] | null;
   not_interested_json: string[] | null;
+  photo_path: string | null;
   include_sensitive: boolean;
   sensitive_json: BuyerProfileSensitive | null;
 };
