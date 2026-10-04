@@ -1,7 +1,11 @@
 import { NativeConnection, Worker } from '@temporalio/worker';
 
+import {
+  ensureCompEventRelay,
+  ensureDealEventNotificationRelay,
+} from '@odb/workflows';
 import * as activities from '@odb/workflows/activities';
-import { TASK_QUEUE } from '@odb/workflows/client';
+import { getTemporalClient, TASK_QUEUE } from '@odb/workflows/client';
 
 import { fileURLToPath } from 'node:url';
 
@@ -17,5 +21,15 @@ const worker = await Worker.create({
   workflowsPath,
   activities,
 });
+
+const client = await getTemporalClient();
+
+for (const ensure of [ensureCompEventRelay, ensureDealEventNotificationRelay]) {
+  try {
+    await ensure(client);
+  } catch (error) {
+    console.error(`relay ensure failed: ${ensure.name}`, error);
+  }
+}
 
 await worker.run();
