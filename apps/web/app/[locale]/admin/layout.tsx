@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { adminGuard } from '@odb/admin';
@@ -32,5 +33,14 @@ export default async function AdminLayout({
     redirect('/mfa-setup');
   }
 
-  return <>{children}</>;
+  return (
+    <div className="space-y-6 p-6">
+      <nav className="flex gap-4 text-sm font-medium">
+        <Link href="/admin">Accounts</Link>
+        <Link href="/admin/overview">Overview</Link>
+        <Link href="/admin/comps">Comps pool</Link>
+      </nav>
+      {children}
+    </div>
+  );
 }
