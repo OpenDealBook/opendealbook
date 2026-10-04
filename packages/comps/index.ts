@@ -45,6 +45,16 @@ export { planRelayDispatch, routeRelayEvent } from './relay';
 export type { CompConsumer, RelayEvent, RelayPlan, RelayStep } from './relay';
 export { loadColumnMap, mapRow, parseField } from './vendors/column-map';
 export type { ColumnMap, ColumnSpec, ParsedValue, ParserKind } from './vendors/column-map';
+export { importComps, parseCsv } from './import';
+export type {
+  CompImportInsert,
+  ImportCompsDeps,
+  ImportCompsInput,
+  ImportCompsResult,
+  ImportFormat,
+  ProprietaryCompRow,
+  VendorKey,
+} from './import';
 export {
   SBA_LOAN_TO_PRICE_DEFAULT,
   deriveSbaPrice,
