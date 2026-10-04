@@ -184,4 +184,29 @@ spec:
                 - ALL
             seccompProfile:
               type: RuntimeDefault
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "opendealbook.fullname" . }}-web
+  labels:
+    {{- include "opendealbook.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-clifton-quest
+spec:
+  tls:
+    - hosts:
+        - app.opendealbook.com
+      secretName: opendealbook-web-tls
+  rules:
+    - host: app.opendealbook.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "opendealbook.fullname" . }}-web
+                port:
+                  number: 3000
 

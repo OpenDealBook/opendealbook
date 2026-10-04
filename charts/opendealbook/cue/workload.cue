@@ -81,15 +81,79 @@ _web: #Deployment & {
 	}
 }
 
+_webServiceName: [if values.service.name != "" {values.service.name}, "\(#holes.fullname)-web"][0]
+
 _webService: #Service & {
 	metadata: {
-		name:   "\(#holes.fullname)-web"
+		name:   _webServiceName
 		labels: _labels
+		if len(values.service.annotations) > 0 {
+			annotations: values.service.annotations
+		}
 	}
 	spec: {
 		type:     values.service.type
 		selector: _selectorWeb
 		ports: [{name: "http", port: values.service.port, targetPort: "http", protocol: "TCP"}]
+	}
+}
+
+// Optional ingress for the web Service. generate.cue emits at most one of these
+// (_ingress when type=ingress, _httpRoute when type=gateway), and only while
+// ingress.enabled; otherwise the Service is the sole attach point.
+_ingressAnnotations: {
+	values.ingress.annotations
+	if values.ingress.tls.clusterIssuer != "" {
+		"cert-manager.io/cluster-issuer": values.ingress.tls.clusterIssuer
+	}
+}
+
+_ingress: #Ingress & {
+	metadata: {
+		name:   _webServiceName
+		labels: _labels
+		if len(_ingressAnnotations) > 0 {
+			annotations: _ingressAnnotations
+		}
+	}
+	spec: {
+		if values.ingress.className != "" {
+			ingressClassName: values.ingress.className
+		}
+		if values.ingress.tls.secretName != "" {
+			tls: [{hosts: [values.ingress.host], secretName: values.ingress.tls.secretName}]
+		}
+		rules: [{
+			host: values.ingress.host
+			http: paths: [{
+				path:     "/"
+				pathType: "Prefix"
+				backend: service: {
+					name: _webServiceName
+					port: number: values.service.port
+				}
+			}]
+		}]
+	}
+}
+
+_httpRoute: #HTTPRoute & {
+	metadata: {
+		name:   _webServiceName
+		labels: _labels
+		if len(values.ingress.annotations) > 0 {
+			annotations: values.ingress.annotations
+		}
+	}
+	spec: {
+		parentRefs: values.ingress.parentRefs
+		hostnames: [values.ingress.host]
+		rules: [{
+			backendRefs: [{
+				name: _webServiceName
+				port: values.service.port
+			}]
+		}]
 	}
 }
 

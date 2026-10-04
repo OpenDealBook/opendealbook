@@ -55,7 +55,7 @@ rendered-vet:
 	mkdir -p $$tmp/cue.mod; \
 	printf 'module: "example.com/rendered@v0"\nlanguage: version: "v0.17.1"\n' > $$tmp/cue.mod/module.cue; \
 	cp $(CUE_DIR)/k8s.cue $$tmp/; \
-	printf 'package opendealbook\n\n#AnyResource: #Deployment | #Service | #ServiceAccount\n' > $$tmp/check.cue; \
+	printf 'package opendealbook\n\n#AnyResource: #Deployment | #Service | #ServiceAccount | #Ingress | #HTTPRoute\n' > $$tmp/check.cue; \
 	$(HELM) template $(RELEASE) $(CHART_DIR) > $$tmp/rendered.yaml; \
 	( cd $$tmp && $(CUE) vet -c ./*.cue rendered.yaml -d '#AnyResource' ) && \
 		echo "rendered-vet OK" || { rm -rf $$tmp; exit 1; }; \

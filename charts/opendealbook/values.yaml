@@ -35,13 +35,26 @@ serviceAccount:
   create: true
   name: ""
 
-# Per-instance HTTP exposure. NOT rendered by the chart; the platform composite
-# (ingress/HTTPRoute + ClusterIssuer) and the XApp claim consume these.
+# HTTP exposure for the web Service. The Service is the stable attach point; the
+# chart renders an optional, ingress-agnostic resource in front of it.
+#   enabled: false  -> render nothing; bring your own ingress/gateway and point
+#                      it at the web Service.
+#   type: ingress   -> a classic networking.k8s.io Ingress (default).
+#   type: gateway   -> a gateway.networking.k8s.io HTTPRoute instead.
+# className empty selects the cluster's default IngressClass (no controller is
+# hardcoded). tls.clusterIssuer is emitted as the cert-manager.io/cluster-issuer
+# annotation. Baked at generate time from cue/fixture.cue; edit there + regenerate.
 ingress:
+  enabled: true
+  type: ingress
   host: app.opendealbook.com
-  className: traefik
-  clusterIssuer: letsencrypt-clifton-quest
-  tlsSecretName: opendealbook-web-tls
+  className: ""
+  annotations: {}
+  tls:
+    secretName: opendealbook-web-tls
+    clusterIssuer: letsencrypt-clifton-quest
+  # Gateway (type: gateway) only; the HTTPRoute's parent Gateway(s).
+  parentRefs: []
 
 # ESO-synced secret name (envFrom.secretRef on both workloads). Baked.
 secretName: opendealbook-secrets
@@ -85,6 +98,9 @@ workers:
       cpu: "1"
       memory: 1Gi
 
+# The web Service: the stable backend any ingress/gateway points at.
 service:
   type: ClusterIP
   port: 3000
+  annotations: {}
+  name: ""

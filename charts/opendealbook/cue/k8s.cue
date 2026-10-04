@@ -127,3 +127,45 @@ package opendealbook
 		...
 	}
 }
+
+#IngressBackend: {
+	service: {
+		name: string
+		port: {number?: int, name?: string, ...}
+	}
+	...
+}
+
+#Ingress: {
+	apiVersion: "networking.k8s.io/v1"
+	kind:       "Ingress"
+	metadata:   #ObjectMeta
+	spec: {
+		ingressClassName?: string
+		tls?: [...{hosts: [...string], secretName: string, ...}]
+		rules: [...{
+			host?: string
+			http: paths: [...{
+				path:     string
+				pathType: "Prefix" | "Exact" | "ImplementationSpecific"
+				backend:  #IngressBackend
+			}]
+		}]
+		...
+	}
+}
+
+#HTTPRoute: {
+	apiVersion: "gateway.networking.k8s.io/v1"
+	kind:       "HTTPRoute"
+	metadata:   #ObjectMeta
+	spec: {
+		parentRefs: [...{name: string, namespace?: string, sectionName?: string, ...}]
+		hostnames?: [...string]
+		rules: [...{
+			backendRefs: [...{name: string, port?: int, ...}]
+			...
+		}]
+		...
+	}
+}

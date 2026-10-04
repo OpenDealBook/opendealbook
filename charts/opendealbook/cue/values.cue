@@ -16,8 +16,8 @@ package opendealbook
 	//   public   = hosted OpenDealbook for the world; marketing site OFF
 	//              (straight to auth/app, no robots/sitemap surface).
 	//   internal = internal platform instance; marketing site ON.
-	// mode drives marketing.enabled (below) plus the per-instance ingress
-	// block that the XApp claim / composite consumes for domain and TLS.
+	// mode drives marketing.enabled (below). Per-instance host/TLS live in the
+	// ingress block, which this chart renders directly (see below).
 	mode: "public" | "internal"
 
 	// Marketing route-group toggle for apps/web. Derived from mode:
@@ -33,15 +33,37 @@ package opendealbook
 		pullPolicy: "Always" | "IfNotPresent" | "Never"
 	}
 
-	// Per-instance HTTP exposure. Not rendered by the chart workloads; the
-	// ingress/HTTPRoute + ClusterIssuer live in the platform composite, and
-	// the XApp claim passes these through. Kept here so both instances are
-	// described by one schema.
+	// HTTP exposure the chart renders for the web Service. Ingress-agnostic and
+	// BYO-friendly: the Service is the stable attach point, and this block is an
+	// optional, type-selectable ingress rendered from generic values (no
+	// controller hardcoded). One resource at most is rendered.
+	//   enabled: false  -> render nothing; attach your own ingress/gateway to
+	//                      the web Service.
+	//   type: "ingress" -> a classic networking.k8s.io Ingress (default).
+	//   type: "gateway" -> a gateway.networking.k8s.io HTTPRoute instead.
 	ingress: {
-		host:          string
-		className:     string
-		clusterIssuer: string
-		tlsSecretName: string
+		enabled: bool | *true
+		type:    *"ingress" | "gateway"
+
+		// Hostname matched by the Ingress rule / HTTPRoute hostname.
+		host: string
+
+		// Ingress only: spec.ingressClassName. Empty selects the cluster's
+		// default IngressClass; set it to pin a controller (nginx, traefik, ...).
+		className: string | *""
+
+		// Extra annotations on the rendered resource. tls.clusterIssuer, when
+		// set, is added as the cert-manager.io/cluster-issuer annotation.
+		annotations: {[string]: string}
+
+		// Ingress only. secretName empty -> no tls block.
+		tls: {
+			secretName:    string | *""
+			clusterIssuer: string | *""
+		}
+
+		// Gateway only: the parent Gateway(s) the HTTPRoute attaches to.
+		parentRefs: [...{name: string, namespace?: string, sectionName?: string}]
 	}
 
 	// Secret synced into the namespace by an ESO ExternalSecret from OpenBao.
@@ -68,8 +90,11 @@ package opendealbook
 		resources: #Resources
 	}
 
+	// The web Service: the stable backend any ingress/gateway points at.
 	service: {
-		type: string
-		port: int & >0 & <65536
+		type:        string | *"ClusterIP"
+		port:        int & >0 & <65536
+		annotations: {[string]: string}
+		name:        string | *""
 	}
 }

@@ -45,11 +45,35 @@
     "ingress": {
       "type": "object",
       "additionalProperties": false,
+      "description": "Optional, ingress-agnostic exposure for the web Service. enabled:false renders nothing (bring your own). type selects a classic Ingress or a Gateway API HTTPRoute.",
       "properties": {
+        "enabled": {"type": "boolean"},
+        "type": {"type": "string", "enum": ["ingress", "gateway"]},
         "host": {"type": "string"},
-        "className": {"type": "string"},
-        "clusterIssuer": {"type": "string"},
-        "tlsSecretName": {"type": "string"}
+        "className": {"type": "string", "description": "Ingress only. Empty selects the cluster default IngressClass; no controller is hardcoded."},
+        "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "tls": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "secretName": {"type": "string"},
+            "clusterIssuer": {"type": "string", "description": "Emitted as the cert-manager.io/cluster-issuer annotation."}
+          }
+        },
+        "parentRefs": {
+          "type": "array",
+          "description": "Gateway (type:gateway) only; parent Gateway(s) for the HTTPRoute.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string"},
+              "namespace": {"type": "string"},
+              "sectionName": {"type": "string"}
+            }
+          }
+        }
       }
     },
     "secretName": {"type": "string"},
@@ -76,9 +100,12 @@
     "service": {
       "type": "object",
       "additionalProperties": true,
+      "description": "The web Service: the stable backend any ingress/gateway points at.",
       "properties": {
         "type": {"type": "string"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "name": {"type": "string"}
       }
     }
   }

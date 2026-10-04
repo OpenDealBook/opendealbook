@@ -11,10 +11,13 @@ values: #Values & {
 	mode: "public"
 
 	ingress: {
-		host:          "app.opendealbook.com"
-		className:     "traefik"
-		clusterIssuer: "letsencrypt-clifton-quest"
-		tlsSecretName: "opendealbook-web-tls"
+		host: "app.opendealbook.com"
+		annotations: {}
+		tls: {
+			secretName:    "opendealbook-web-tls"
+			clusterIssuer: "letsencrypt-clifton-quest"
+		}
+		parentRefs: []
 	}
 
 	image: {
@@ -62,5 +65,7 @@ values: #Values & {
 	service: {
 		type: "ClusterIP"
 		port: 3000
+		annotations: {}
+		name: ""
 	}
 }

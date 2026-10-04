@@ -67,8 +67,9 @@ by separate charts.
 | Domain / ingress / TLS | public (`opendealbook.com`) | internal host |
 
 `mode` drives `marketing.enabled` (invariant enforced in `values.cue`:
-`enabled == (mode == "internal")`) and selects the per-instance `ingress` block
-that the platform composite / claim consumes for host, class, and issuer.
+`enabled == (mode == "internal")`). Per-instance host / TLS live in the
+`ingress` block (see [Ingress](#ingress)); the two instances differ by values,
+not by separate charts.
 
 ### App-side caveat (surfaced, not resolved here)
 
@@ -81,63 +82,50 @@ convention), but the app lane must wire `feature-flags.config.ts` (and the
 `[locale]/(marketing)` route group / robots / sitemap) to read it. Until then
 the toggle has no effect. Confirm the final var name with that lane.
 
-## Deployment: XApp claim + OCI publish
+## Ingress
 
-This repo has **no** `XApp` XRD; the closest real construct is an ArgoCD
-`Application` entry authored in CUE in `composites/<cluster>/argocd.cue`. The
-"XApp claim" below is that entry, pinning chart name, chart version, image
-repository, and image tag. Two claims, one chart:
+The chart is ingress-agnostic. The web `Service` (default `ClusterIP`, port
+`3000`, with configurable `type`, `annotations`, and `name`) is the stable
+backend; what sits in front of it is a toggle, not a hardcoded controller.
 
-```cue
-// composites/<cluster>/argocd.cue — PUBLIC instance
-opendealbookPublic: {
-	repoURL:        "ghcr.io/bearbinary/charts"
-	chart:          "opendealbook"
-	targetRevision: "0.1.0" // chartVersion; pin by digest for prod
-	helm: valuesObject: {
-		mode: "public"
-		marketing: enabled: false
-		image: {repository: "ghcr.io/bearbinary/opendealbook", tag: "0.1.0"}
-		web: replicaCount:     2
-		workers: replicaCount: 1
-		ingress: {
-			host:          "app.opendealbook.com"
-			className:     "cloudflare-tunnel"
-			clusterIssuer: "letsencrypt-clifton-quest"
-			tlsSecretName: "opendealbook-web-tls"
-		}
-	}
-}
+| `ingress.enabled` | `ingress.type` | Rendered |
+| --- | --- | --- |
+| `true` (default) | `ingress` (default) | a classic `networking.k8s.io` `Ingress` |
+| `true` | `gateway` | a `gateway.networking.k8s.io` `HTTPRoute` |
+| `false` | — | nothing; bring your own ingress/gateway, attach it to the Service |
 
-// composites/<cluster>/argocd.cue — INTERNAL instance
-opendealbookInternal: {
-	repoURL:        "ghcr.io/bearbinary/charts"
-	chart:          "opendealbook"
-	targetRevision: "0.1.0" // SAME chart + version as public
-	helm: valuesObject: {
-		mode: "internal"
-		marketing: enabled: true
-		image: {repository: "ghcr.io/bearbinary/opendealbook", tag: "0.1.0"}
-		web: replicaCount:     1
-		workers: replicaCount: 1
-		ingress: {
-			host:          "opendealbook.clifton.internal"
-			className:     "traefik"
-			clusterIssuer: "openbao-clifton-internal"
-			tlsSecretName: "opendealbook-internal-web-tls"
-		}
-	}
-}
-```
+Both render from generic values, with no controller assumed:
 
-OCI publish (run by the platform team with registry credentials — **do not run
-here**, no login/push from this lane):
+- `host` — the Ingress rule host / HTTPRoute hostname.
+- `className` — the `Ingress` `ingressClassName`. **Empty (default) selects the
+  cluster's default `IngressClass`**; set it to pin a controller (nginx,
+  traefik, cloudflare-tunnel, ...). Not used by the gateway type.
+- `annotations` — extra annotations on the rendered resource.
+- `tls.secretName` / `tls.clusterIssuer` — classic `Ingress` only; when
+  `secretName` is set a `tls` block is emitted for `host`, and `clusterIssuer`
+  (when set) becomes the controller-neutral `cert-manager.io/cluster-issuer`
+  annotation.
+- `parentRefs` — gateway type only; the parent `Gateway`(s) the `HTTPRoute`
+  attaches to.
+
+Because this is a CUE-baked chart, `ingress` is resolved at generate time: edit
+`cue/fixture.cue` and run `make generate`. The two instances differ only by
+these values (public uses its public host; internal uses the internal host).
+
+## Deployment
+
+The chart is deploy-tool-agnostic. Install it like any Helm chart:
 
 ```
-helm package charts/opendealbook               # -> opendealbook-0.1.0.tgz
-helm push opendealbook-0.1.0.tgz oci://ghcr.io/bearbinary/charts
-# prod promotion pins the resulting digest, per docs/helm-immutable-upgrades.md
+helm install odb charts/opendealbook \
+  --set mode=public --set image.tag=0.1.0
 ```
+
+The platform attaches networking to the web `Service` (or lets the chart render
+an `Ingress`/`HTTPRoute`; see [Ingress](#ingress)). How the platform publishes,
+syncs, or promotes the chart — GitOps or otherwise — is out of scope for this
+chart and lives in the platform repo, not here. This lane does not log in to or
+push to any registry.
 
 ## Secrets (ESO / OpenBao)
 

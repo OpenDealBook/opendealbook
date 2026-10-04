@@ -10,7 +10,15 @@ import (
 // holes.cue for the real Helm holes. The objects still vet as concrete data
 // (cue vet), and the emitted text carries only the allowed holes.
 
-_stream: yaml.MarshalStream([_web, _webService, _workers])
+_resources: [
+	_web,
+	_webService,
+	_workers,
+	if values.ingress.enabled && values.ingress.type == "ingress" {_ingress},
+	if values.ingress.enabled && values.ingress.type == "gateway" {_httpRoute},
+]
+
+_stream: yaml.MarshalStream(_resources)
 
 // scalar sentinels (all marshal unquoted); the marketing token carries its
 // own surrounding quotes so the env value stays a string.
