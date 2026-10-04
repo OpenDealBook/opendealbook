@@ -322,6 +322,9 @@ importers:
       '@odb/cms':
         specifier: workspace:*
         version: link:../../packages/cms/core
+      '@odb/comps':
+        specifier: workspace:*
+        version: link:../../packages/comps
       '@odb/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -343,12 +346,18 @@ importers:
       '@odb/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@odb/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@odb/keystatic':
         specifier: workspace:*
         version: link:../../packages/cms/keystatic
       '@odb/mailers':
         specifier: workspace:*
         version: link:../../packages/mailers/core
+      '@odb/meetings':
+        specifier: workspace:*
+        version: link:../../packages/features/meetings
       '@odb/monitoring':
         specifier: workspace:*
         version: link:../../packages/monitoring/core
