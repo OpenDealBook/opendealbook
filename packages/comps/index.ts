@@ -33,6 +33,14 @@ export type {
   DedupeDecision,
   DedupeSubject,
 } from './dedupe';
+export { NullCompProvider, ingestExternalComps } from './provider';
+export type {
+  CompIngestionCriteria,
+  CompProvider,
+  CompUpsertClient,
+  ExternalCompRecord,
+  IngestExternalCompsDeps,
+} from './provider';
 export { planRelayDispatch, routeRelayEvent } from './relay';
 export type { CompConsumer, RelayEvent, RelayPlan, RelayStep } from './relay';
 export { loadColumnMap, mapRow, parseField } from './vendors/column-map';
