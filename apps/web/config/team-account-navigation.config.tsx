@@ -5,12 +5,18 @@ export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
 
   return [
     { label: 'common.home', path: prefix, icon: 'home' },
+    { label: 'common.todos', path: `${prefix}/todos`, icon: 'check-square' },
     { label: 'common.deals', path: `${prefix}/deals`, icon: 'briefcase' },
     { label: 'common.outreach', path: `${prefix}/outreach`, icon: 'send' },
     {
       label: 'common.underwriting',
       path: `${prefix}/underwriting`,
       icon: 'calculator',
+    },
+    {
+      label: 'common.compsImport',
+      path: `${prefix}/comps/import`,
+      icon: 'upload',
     },
     { label: 'account.settings', path: `${prefix}/settings`, icon: 'settings' },
     {
