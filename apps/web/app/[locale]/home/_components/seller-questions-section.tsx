@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useCallback, useEffect, useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
 import {
+  addSellerQuestionNote,
   answerSellerQuestion,
+  listSellerQuestionNotes,
   poseSellerQuestion,
 } from '@odb/diligence/server';
 import type { Tables } from '@odb/supabase';
@@ -59,6 +61,65 @@ function AnswerControl({
           onClick={submit}
         >
           Answer
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PrivateNotesPanel({ questionId }: { questionId: string }) {
+  const [pending, startTransition] = useTransition();
+  const [notes, setNotes] = useState<Tables<'seller_question_note'>[]>([]);
+  const [draft, setDraft] = useState('');
+
+  const load = useCallback(() => {
+    startTransition(async () => {
+      setNotes(await listSellerQuestionNotes({ questionId }));
+    });
+  }, [questionId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function add() {
+    startTransition(async () => {
+      await addSellerQuestionNote({ questionId, note: draft });
+      setDraft('');
+      setNotes(await listSellerQuestionNotes({ questionId }));
+    });
+  }
+
+  return (
+    <div className={'border-muted mt-1 flex flex-col gap-1.5 border-l-2 pl-3'}>
+      <span className={'text-muted-foreground text-xs font-medium uppercase'}>
+        Private notes (buyer only)
+      </span>
+      {notes.length === 0 ? (
+        <p className={'text-muted-foreground text-xs'}>No private notes yet</p>
+      ) : (
+        <ul className={'flex flex-col gap-1'}>
+          {notes.map((note) => (
+            <li key={note.id} className={'text-sm'}>
+              {note.note}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Textarea
+        value={draft}
+        disabled={pending}
+        placeholder={'Add a private note'}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+      <div>
+        <Button
+          size={'sm'}
+          variant={'outline'}
+          disabled={pending || draft.length === 0}
+          onClick={add}
+        >
+          Add note
         </Button>
       </div>
     </div>
@@ -139,6 +200,7 @@ export function SellerQuestionsSection({
                     </span>
                   </div>
                 )}
+                <PrivateNotesPanel questionId={item.id} />
               </div>
             ))}
           </div>

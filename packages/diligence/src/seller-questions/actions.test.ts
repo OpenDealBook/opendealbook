@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => {
       return { account_id: 'acct-1', owner_user_id: 'buyer-1' };
     }
     if (table === 'seller_question') {
-      return { id: 'question-1', deal_id: 'deal-1' };
+      return { id: 'question-1', deal_id: 'deal-1', account_id: 'acct-1' };
     }
     if (table === 'deal_participant') {
       return { user_id: 'seller-1' };
@@ -29,6 +29,9 @@ const mocks = vi.hoisted(() => {
     }
     if (table === 'seller_question') {
       return [{ id: 'question-1' }, { id: 'question-2' }];
+    }
+    if (table === 'seller_question_note') {
+      return [{ id: 'note-1' }, { id: 'note-2' }];
     }
 
     return [];
@@ -112,7 +115,12 @@ vi.mock('@odb/notifications/server', () => ({
   },
 }));
 
-import { answerSellerQuestion, poseSellerQuestion } from './actions';
+import {
+  addSellerQuestionNote,
+  answerSellerQuestion,
+  listSellerQuestionNotes,
+  poseSellerQuestion,
+} from './actions';
 
 type Action = (
   data: Record<string, unknown>,
@@ -121,6 +129,8 @@ type Action = (
 
 const runPose = poseSellerQuestion as unknown as Action;
 const runAnswer = answerSellerQuestion as unknown as Action;
+const runAddNote = addSellerQuestionNote as unknown as Action;
+const runListNotes = listSellerQuestionNotes as unknown as Action;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -211,6 +221,47 @@ describe('answerSellerQuestion', () => {
       'contract',
       'contract_version.is_signed',
       true,
+    );
+  });
+});
+
+describe('addSellerQuestionNote', () => {
+  it('inserts a buyer-private note gated on buyer-account checklists.manage', async () => {
+    await runAddNote(
+      { questionId: 'question-1', note: 'Cross-check against the QoE.' },
+      { id: 'analyst-1' },
+    );
+
+    expect(mocks.permissionSpy).toHaveBeenCalledWith(
+      'has_permission',
+      expect.objectContaining({
+        account_id: 'acct-1',
+        permission_name: 'checklists.manage',
+        user_id: 'analyst-1',
+      }),
+    );
+
+    const insert = mocks.insertSpy.mock.calls.find(
+      ([table]) => table === 'seller_question_note',
+    );
+    expect(insert?.[1]).toMatchObject({
+      seller_question_id: 'question-1',
+      deal_id: 'deal-1',
+      account_id: 'acct-1',
+      note: 'Cross-check against the QoE.',
+    });
+  });
+});
+
+describe('listSellerQuestionNotes', () => {
+  it('reads the notes for a single question', async () => {
+    const notes = await runListNotes({ questionId: 'question-1' });
+
+    expect(notes).toEqual([{ id: 'note-1' }, { id: 'note-2' }]);
+    expect(mocks.eqSpy).toHaveBeenCalledWith(
+      'seller_question_note',
+      'seller_question_id',
+      'question-1',
     );
   });
 });

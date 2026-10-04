@@ -72,6 +72,22 @@ export async function listWorkbooks(
   return data;
 }
 
+export async function listWorkbookTemplates(
+  accountId: string,
+  client: SupabaseClient<Database>,
+): Promise<Pick<Tables<'workbook_template'>, 'id' | 'name' | 'workflow_type'>[]> {
+  const { data, error } = await client
+    .from('workbook_template')
+    .select('id, name, workflow_type')
+    .or(`account_id.is.null,account_id.eq.${accountId}`);
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function pauseWorkbook(
   workbookId: string,
   deps: WorkbookDeps,

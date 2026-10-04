@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '@odb/supabase';
 
-import { installWorkbook } from './install';
+import { installWorkbook, listWorkbookTemplates } from './install';
 import type { WorkbookScheduleClient } from './schedule';
 
 function makeClient(queue: Array<{ data: unknown; error: unknown }>) {
@@ -93,5 +93,33 @@ describe('installWorkbook', () => {
     ).rejects.toThrow();
 
     expect(schedule.startWorkbookSchedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('listWorkbookTemplates', () => {
+  it('returns platform and account templates for the create picker', async () => {
+    const templates = [
+      { id: 'tmpl-1', name: 'Broker catch-up', workflow_type: 'broker_catch_up' },
+    ];
+    const or = vi.fn(async () => ({ data: templates, error: null }));
+    const select = vi.fn(() => ({ or }));
+    const client = {
+      from: vi.fn(() => ({ select })),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await listWorkbookTemplates('acc-1', client);
+
+    expect(client.from).toHaveBeenCalledWith('workbook_template');
+    expect(or).toHaveBeenCalledWith('account_id.is.null,account_id.eq.acc-1');
+    expect(result).toEqual(templates);
+  });
+
+  it('throws when the query errors', async () => {
+    const or = vi.fn(async () => ({ data: null, error: new Error('nope') }));
+    const client = {
+      from: vi.fn(() => ({ select: () => ({ or }) })),
+    } as unknown as SupabaseClient<Database>;
+
+    await expect(listWorkbookTemplates('acc-1', client)).rejects.toThrow('nope');
   });
 });

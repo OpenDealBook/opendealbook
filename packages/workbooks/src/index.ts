@@ -9,6 +9,7 @@ export {
 export {
   installWorkbook,
   listWorkbooks,
+  listWorkbookTemplates,
   pauseWorkbook,
   resumeWorkbook,
   getRuns,

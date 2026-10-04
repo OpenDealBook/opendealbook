@@ -6,7 +6,10 @@ import { enhanceAction } from '@odb/next/actions';
 import { createNovuClient, triggerNotification } from '@odb/notifications/server';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
-import { assertDealChecklistsManager } from '../templates/permissions';
+import {
+  assertChecklistsManager,
+  assertDealChecklistsManager,
+} from '../templates/permissions';
 import { isLoiSigned } from './loi';
 
 const poseSellerQuestionSchema = z.object({
@@ -117,4 +120,59 @@ export const answerSellerQuestion = enhanceAction(
     return answered;
   },
   { auth: true, schema: answerSellerQuestionSchema },
+);
+
+const addSellerQuestionNoteSchema = z.object({
+  questionId: z.uuid(),
+  note: z.string().min(1),
+});
+
+export const addSellerQuestionNote = enhanceAction(
+  async (input, user) => {
+    const client = getSupabaseServerClient();
+
+    const { data: question } = await client
+      .from('seller_question')
+      .select('deal_id, account_id')
+      .eq('id', input.questionId)
+      .single()
+      .throwOnError();
+
+    await assertChecklistsManager(client, question.account_id, user.id);
+
+    const { data: note } = await client
+      .from('seller_question_note')
+      .insert({
+        seller_question_id: input.questionId,
+        deal_id: question.deal_id,
+        account_id: question.account_id,
+        note: input.note,
+      })
+      .select('*')
+      .single()
+      .throwOnError();
+
+    return note;
+  },
+  { auth: true, schema: addSellerQuestionNoteSchema },
+);
+
+const listSellerQuestionNotesSchema = z.object({
+  questionId: z.uuid(),
+});
+
+export const listSellerQuestionNotes = enhanceAction(
+  async (input) => {
+    const client = getSupabaseServerClient();
+
+    const { data } = await client
+      .from('seller_question_note')
+      .select('*')
+      .eq('seller_question_id', input.questionId)
+      .order('created_at', { ascending: true })
+      .throwOnError();
+
+    return data;
+  },
+  { auth: true, schema: listSellerQuestionNotesSchema },
 );
