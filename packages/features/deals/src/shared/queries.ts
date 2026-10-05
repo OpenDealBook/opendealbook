@@ -242,6 +242,40 @@ export async function fetchDealDiscovery(
   return data;
 }
 
+export async function fetchDealOperatingPeriods(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<Tables<'deal_operating_period'>[]> {
+  const { data, error } = await client
+    .from('deal_operating_period')
+    .select('*')
+    .eq('deal_id', deal_id)
+    .order('period_month', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function fetchDealFinancials(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<Tables<'deal_financials'> | null> {
+  const { data, error } = await client
+    .from('deal_financials')
+    .select('*')
+    .eq('deal_id', deal_id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function fetchDealValueMarkers(
   client: Client,
   { deal_id }: { deal_id: string },

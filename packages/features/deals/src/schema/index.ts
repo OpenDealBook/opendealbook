@@ -11,5 +11,6 @@ export * from './calc.schema';
 export * from './deal-thesis.schema';
 export * from './deal-discovery.schema';
 export * from './deal-value-marker.schema';
+export * from './operating-period.schema';
 export * from './saved-view.schema';
 export * from './personal-todo.schema';

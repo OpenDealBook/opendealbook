@@ -2822,6 +2822,89 @@ export type Database = {
           },
         ]
       }
+      deal_operating_period: {
+        Row: {
+          account_id: string
+          cash_balance: number | null
+          cogs: number | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          debt_service: number | null
+          headcount: number | null
+          id: string
+          notes: string | null
+          opex: number | null
+          period_month: string
+          revenue: number | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          cash_balance?: number | null
+          cogs?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          debt_service?: number | null
+          headcount?: number | null
+          id?: string
+          notes?: string | null
+          opex?: number | null
+          period_month: string
+          revenue?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          cash_balance?: number | null
+          cogs?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          debt_service?: number | null
+          headcount?: number | null
+          id?: string
+          notes?: string | null
+          opex?: number | null
+          period_month?: string
+          revenue?: number | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_operating_period_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_operating_period_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_operating_period_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_operating_period_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_participant: {
         Row: {
           created_at: string | null
