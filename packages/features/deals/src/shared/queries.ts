@@ -259,6 +259,24 @@ export async function fetchDealOperatingPeriods(
   return data;
 }
 
+export async function fetchWorksheetRows(
+  client: Client,
+  { deal_id }: { deal_id: string },
+): Promise<Tables<'deal_worksheet_row'>[]> {
+  const { data, error } = await client
+    .from('deal_worksheet_row')
+    .select('*')
+    .eq('deal_id', deal_id)
+    .order('worksheet_type', { ascending: true })
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function fetchDealFinancials(
   client: Client,
   { deal_id }: { deal_id: string },

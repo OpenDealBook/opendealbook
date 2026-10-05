@@ -3244,6 +3244,74 @@ export type Database = {
           },
         ]
       }
+      deal_worksheet_row: {
+        Row: {
+          account_id: string
+          created_at: string | null
+          created_by: string | null
+          data: Json
+          deal_id: string
+          id: string
+          sort_order: number
+          updated_at: string | null
+          updated_by: string | null
+          worksheet_type: Database["public"]["Enums"]["deal_worksheet_type"]
+        }
+        Insert: {
+          account_id: string
+          created_at?: string | null
+          created_by?: string | null
+          data?: Json
+          deal_id: string
+          id?: string
+          sort_order?: number
+          updated_at?: string | null
+          updated_by?: string | null
+          worksheet_type: Database["public"]["Enums"]["deal_worksheet_type"]
+        }
+        Update: {
+          account_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          data?: Json
+          deal_id?: string
+          id?: string
+          sort_order?: number
+          updated_at?: string | null
+          updated_by?: string | null
+          worksheet_type?: Database["public"]["Enums"]["deal_worksheet_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_worksheet_row_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_worksheet_row_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_worksheet_row_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_worksheet_row_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diligence_schedule: {
         Row: {
           account_id: string
@@ -7690,6 +7758,11 @@ export type Database = {
       comp_data_class: "external" | "proprietary" | "internal"
       comp_license_status: "active" | "expired" | "revoked"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
+      deal_worksheet_type:
+        | "margin_analysis"
+        | "retention_plan"
+        | "process_sop"
+        | "marketing_effectiveness"
       discovery_counterparty_type: "owner" | "broker"
       discovery_financing_stance: "yes" | "no" | "unsure"
       discovery_owner_dependency: "low" | "medium" | "high"
@@ -7909,6 +7982,12 @@ export const Constants = {
       comp_data_class: ["external", "proprietary", "internal"],
       comp_license_status: ["active", "expired", "revoked"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
+      deal_worksheet_type: [
+        "margin_analysis",
+        "retention_plan",
+        "process_sop",
+        "marketing_effectiveness",
+      ],
       discovery_counterparty_type: ["owner", "broker"],
       discovery_financing_stance: ["yes", "no", "unsure"],
       discovery_owner_dependency: ["low", "medium", "high"],

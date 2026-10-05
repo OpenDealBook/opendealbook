@@ -14,3 +14,4 @@ export * from './deal-value-marker.schema';
 export * from './operating-period.schema';
 export * from './saved-view.schema';
 export * from './personal-todo.schema';
+export * from './worksheet.schema';
