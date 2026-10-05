@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const ITEMS: { segment: string; label: string }[] = [
   { segment: '', label: 'Overview' },
   { segment: 'close', label: 'Close' },
+  { segment: 'operating', label: 'Operating' },
   { segment: 'hr-audit', label: 'HR audit' },
   { segment: 'workbooks', label: 'Workbooks' },
   { segment: 'schedule', label: 'Schedule' },
