@@ -20,6 +20,19 @@ const addChecklistItemSchema = z.object({
 const templateItemColumns =
   'title, category, priority, deal_killer, due_offset_days, owner_role, importance, offer_term_key';
 
+function anchoredDueAt(
+  closeDate: string | null,
+  offsetDays: number | null,
+): string | null {
+  if (closeDate === null || offsetDays === null) {
+    return null;
+  }
+
+  const due = new Date(`${closeDate}T00:00:00.000Z`);
+  due.setUTCDate(due.getUTCDate() + offsetDays);
+  return due.toISOString();
+}
+
 export const applyChecklistTemplate = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
@@ -37,11 +50,40 @@ export const applyChecklistTemplate = enhanceAction(
       return { count: 0 };
     }
 
+    const { data: templateRows } = await client
+      .from('checklist_template')
+      .select('kind')
+      .eq('id', data.template_id)
+      .throwOnError();
+
+    const isPostClose = templateRows?.[0]?.kind === 'post_close';
+
+    let closeDate: string | null = null;
+
+    if (isPostClose) {
+      const { data: deal } = await client
+        .from('deal')
+        .select('close_date')
+        .eq('id', data.deal_id)
+        .single()
+        .throwOnError();
+
+      closeDate = deal.close_date;
+    }
+
     const events: DealEventInput[] = templateItems.map((item) => ({
       aggregateType: 'checklist_item',
       aggregateId: crypto.randomUUID(),
       eventType: 'checklist_item.added',
-      payload: item as Json,
+      payload: isPostClose
+        ? ({
+            ...item,
+            due_at: anchoredDueAt(
+              closeDate,
+              item.due_offset_days as number | null,
+            ),
+          } as Json)
+        : (item as Json),
     }));
 
     await appendDealEvents(client, data.deal_id, events);

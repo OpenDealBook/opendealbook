@@ -71,3 +71,71 @@ from public.accounts where slug = 'tuckin-hq'
 union all
 select id, 'Sample APA - replace with your counsel-reviewed template', 'apa', 'samples/apa-short.docx', 1
 from public.accounts where slug = 'tuckin-hq';
+
+-- Two default post-close checklist templates per account. Day 0 Takeover groups
+-- same-day cutover tasks by functional area; First 90 Days phases a transition
+-- plan through due_offset_days. Applied to a deal, each item's due_at anchors to
+-- the deal close_date plus its offset (see checklist-actions applyChecklistTemplate).
+
+with day0 as (
+  insert into public.checklist_template (account_id, name, kind)
+  select id, 'Day 0 Takeover', 'post_close' from public.accounts
+  returning id
+)
+insert into public.checklist_template_item (template_id, category, title, due_offset_days, owner_role, importance, sort_order)
+select d.id, v.category, v.title, 0, v.owner_role, v.importance, v.sort_order
+from day0 d
+cross join (values
+  ('Customers', 'Transfer the CRM and customer and vendor contact lists', 'buyer', 'required', 1),
+  ('Customers', 'Notify key customers of the ownership change and introduce yourself', 'buyer', 'required', 2),
+  ('Employees', 'Meet each employee and confirm who is staying on', 'buyer', 'required', 3),
+  ('Employees', 'Extend and sign new offer or at-will employment letters', 'buyer', 'required', 4),
+  ('Employees', 'Set up the payroll system and confirm the first pay run', 'buyer', 'required', 5),
+  ('Employees', 'Establish employee benefits and complete enrollment', 'buyer', 'nice_to_have', 6),
+  ('Financial', 'Open the operating bank account and move balances over', 'buyer', 'required', 7),
+  ('Financial', 'Set up merchant and card processing accounts', 'buyer', 'required', 8),
+  ('Financial', 'Finalize the accounts receivable and accounts payable handoff', 'buyer', 'required', 9),
+  ('Financial', 'Confirm the opening cash position and reconcile day one', 'buyer', 'required', 10),
+  ('Legal & Taxes', 'Apply for the federal employer identification number', 'buyer', 'required', 11),
+  ('Legal & Taxes', 'Apply for the required business licenses and permits', 'buyer', 'required', 12),
+  ('Legal & Taxes', 'Register for state payroll tax and sales tax accounts', 'buyer', 'required', 13),
+  ('Legal & Taxes', 'Transfer or re-title vehicles, equipment, and registrations', 'buyer', 'nice_to_have', 14),
+  ('Owner Transition', 'Agree the knowledge transfer and training plan with the seller', 'buyer', 'required', 15),
+  ('Owner Transition', 'Collect standard operating procedures and tribal knowledge from the seller', 'seller', 'required', 16),
+  ('Owner Transition', 'Confirm the seller transition support schedule', 'buyer', 'nice_to_have', 17),
+  ('Operations', 'Transfer utilities, phone, internet, and service accounts', 'buyer', 'required', 18),
+  ('Operations', 'Transfer the website, domain, email, and social accounts', 'buyer', 'nice_to_have', 19),
+  ('Operations', 'Transfer intellectual property, trademarks, and brand assets', 'buyer', 'required', 20),
+  ('Operations', 'Arrange business insurance and confirm coverage is active', 'buyer', 'required', 21),
+  ('Operations', 'Collect keys, alarm codes, and system passwords', 'buyer', 'required', 22),
+  ('Operations', 'Inspect fixed assets and confirm inventory counts', 'buyer', 'nice_to_have', 23)
+) as v(category, title, owner_role, importance, sort_order);
+
+with first90 as (
+  insert into public.checklist_template (account_id, name, kind)
+  select id, 'First 90 Days', 'post_close' from public.accounts
+  returning id
+)
+insert into public.checklist_template_item (template_id, category, title, due_offset_days, owner_role, importance, sort_order)
+select f.id, v.category, v.title, v.due_offset_days, 'buyer', v.importance, v.sort_order
+from first90 f
+cross join (values
+  ('Week 1', 'Hold a first all-team meeting and share your early plan', 1, 'required', 1),
+  ('Week 1', 'Meet one on one with the key employees', 3, 'required', 2),
+  ('Week 1', 'Meet or call the top customers', 5, 'required', 3),
+  ('Week 1', 'Meet the key vendors and suppliers', 6, 'nice_to_have', 4),
+  ('Week 1', 'Begin reviewing the financial statements and legal documents', 7, 'required', 5),
+  ('Weeks 2 to 6', 'Complete a financial deep dive on profit and loss, cash flow, and cost drivers', 14, 'required', 6),
+  ('Weeks 2 to 6', 'Define and start tracking the core performance indicators', 18, 'nice_to_have', 7),
+  ('Weeks 2 to 6', 'Analyze operations and map the main bottlenecks', 24, 'required', 8),
+  ('Weeks 2 to 6', 'Run a customer insight review and gather feedback', 30, 'nice_to_have', 9),
+  ('Weeks 2 to 6', 'Review technology and systems and list the gaps', 36, 'nice_to_have', 10),
+  ('Weeks 2 to 6', 'Build a retention plan for the key employees', 42, 'required', 11),
+  ('Day 45 to Month 2', 'Draft the stabilization roadmap', 45, 'required', 12),
+  ('Day 45 to Month 2', 'Analyze profit margins by product and service line', 50, 'nice_to_have', 13),
+  ('Day 45 to Month 2', 'Build a rolling cash flow forecast', 55, 'required', 14),
+  ('Day 45 to Month 2', 'Document the core standard operating procedures', 60, 'nice_to_have', 15),
+  ('Month 3 to Day 90', 'Create an employee development and training plan', 75, 'nice_to_have', 16),
+  ('Month 3 to Day 90', 'Optimize sales and marketing and test one growth channel', 82, 'nice_to_have', 17),
+  ('Month 3 to Day 90', 'Run the 90 day business review and set the next quarter plan', 90, 'required', 18)
+) as v(category, title, due_offset_days, importance, sort_order);
