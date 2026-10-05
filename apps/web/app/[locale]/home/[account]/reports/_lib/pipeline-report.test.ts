@@ -11,12 +11,11 @@ const stages = [
 
 function baseInput(): PipelineReportInput {
   return {
-    deals: [
-      { group: 'actively_pursuing' },
-      { group: 'actively_pursuing' },
-      { group: 'early_funnel' },
-      { group: 'closed_off_track' },
-      { group: 'archived' },
+    groupFacets: [
+      { value: 'actively_pursuing', count: 2 },
+      { value: 'early_funnel', count: 1 },
+      { value: 'closed_off_track', count: 1 },
+      { value: 'archived', count: 1 },
     ],
     stageFacets: [
       { value: 'sourcing', count: 1 },
@@ -51,6 +50,26 @@ describe('buildPipelineReport', () => {
       { group: 'early_funnel', count: 1 },
       { group: 'closed_off_track', count: 1 },
       { group: 'archived', count: 1 },
+    ]);
+  });
+
+  it('reports exact group counts from the facet even when they exceed a paginated page size', () => {
+    const input = baseInput();
+    input.groupFacets = [
+      { value: 'actively_pursuing', count: 140 },
+      { value: 'early_funnel', count: 30 },
+      { value: 'closed_off_track', count: 20 },
+      { value: 'archived', count: 10 },
+    ];
+
+    const report = buildPipelineReport(input);
+
+    expect(report.activeTotal).toBe(170);
+    expect(report.groups).toEqual([
+      { group: 'actively_pursuing', count: 140 },
+      { group: 'early_funnel', count: 30 },
+      { group: 'closed_off_track', count: 20 },
+      { group: 'archived', count: 10 },
     ]);
   });
 

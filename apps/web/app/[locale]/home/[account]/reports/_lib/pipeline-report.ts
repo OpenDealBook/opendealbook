@@ -5,10 +5,6 @@ export interface PipelineStage {
   label: string;
 }
 
-export interface ReportDeal {
-  group: DealListGroup;
-}
-
 export interface GroupCount {
   group: DealListGroup;
   count: number;
@@ -45,7 +41,7 @@ export interface PipelineReport {
 }
 
 export interface PipelineReportInput {
-  deals: ReportDeal[];
+  groupFacets: FacetCount[];
   stageFacets: FacetCount[];
   resolutionFacets: FacetCount[];
   reach: Map<string, Set<string>>;
@@ -78,12 +74,13 @@ function reachedCount(reach: Map<string, Set<string>>, key: string): number {
 export function buildPipelineReport(input: PipelineReportInput): PipelineReport {
   const groups = GROUP_ORDER.map((group) => ({
     group,
-    count: input.deals.filter((deal) => deal.group === group).length,
+    count: facetValue(input.groupFacets, group),
   }));
 
-  const activeTotal = input.deals.filter((deal) =>
-    ACTIVE_GROUPS.includes(deal.group),
-  ).length;
+  const activeTotal = ACTIVE_GROUPS.reduce(
+    (total, group) => total + facetValue(input.groupFacets, group),
+    0,
+  );
 
   const stageDistribution = input.stages.map((stage) => ({
     key: stage.key,

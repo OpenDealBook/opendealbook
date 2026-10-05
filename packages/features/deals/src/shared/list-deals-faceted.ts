@@ -89,6 +89,7 @@ export interface DealListFacetCounts {
   listingStatus: FacetCount[];
   industry: FacetCount[];
   location: FacetCount[];
+  group: FacetCount[];
   starred: number;
   archived: number;
 }
@@ -428,6 +429,7 @@ export function buildDealListResult(candidates: DealListItem[], params: BuildPar
     ),
     industry: tally(candidates.filter((item) => matches(item, filters, 'industry')), (item) => item.industryId),
     location: tally(candidates.filter((item) => matches(item, filters, 'location')), (item) => item.locationId),
+    group: tally(matched, (item) => item.group),
     starred: candidates.filter((item) => matches(item, filters, 'starred') && item.starred).length,
     archived: candidates.filter((item) => matches(item, filters, 'archived') && item.archivedAt !== null).length,
   };

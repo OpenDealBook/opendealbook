@@ -51,7 +51,7 @@ export async function loadPipelineReport(
   }
 
   return buildPipelineReport({
-    deals: faceted.items.map((item) => ({ group: item.group })),
+    groupFacets: faceted.facetCounts.group,
     stageFacets: faceted.facetCounts.stage,
     resolutionFacets: faceted.facetCounts.resolution,
     reach,

@@ -170,6 +170,16 @@ describe('facet counts', () => {
     expect(result.facetCounts.starred).toBe(1);
     expect(result.facetCounts.archived).toBe(1);
   });
+
+  it('counts the group facet over the full matched set, not the paginated page', () => {
+    const result = buildDealListResult(candidates(), { filters: {}, limit: 1 });
+
+    expect(result.items.length).toBe(1);
+    const groupCounts = Object.fromEntries(result.facetCounts.group.map((row) => [row.value, row.count]));
+    expect(groupCounts.actively_pursuing).toBe(2);
+    expect(groupCounts.early_funnel).toBe(2);
+    expect(groupCounts.closed_off_track).toBe(1);
+  });
 });
 
 describe('ranges', () => {
