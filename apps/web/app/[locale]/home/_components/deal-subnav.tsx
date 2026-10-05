@@ -7,6 +7,7 @@ const ITEMS: { segment: string; label: string }[] = [
   { segment: '', label: 'Overview' },
   { segment: 'close', label: 'Close' },
   { segment: 'operating', label: 'Operating' },
+  { segment: 'worksheets', label: 'Worksheets' },
   { segment: 'hr-audit', label: 'HR audit' },
   { segment: 'workbooks', label: 'Workbooks' },
   { segment: 'schedule', label: 'Schedule' },
