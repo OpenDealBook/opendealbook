@@ -32,6 +32,8 @@ schema, not a wish list.
 - [Outreach and notifications](outreach-and-notifications.md) - send-as-user cold outreach
   and the notification relay.
 - [Close and integration](close-and-integration.md) - per-client transition tracking.
+- [Operating and onboarding](operating-onboarding.md) - post-close operating metrics, the
+  seeded post-close checklist templates, and worksheets.
 - [Architecture](architecture.md) - the event store, multi-tenant RLS, storage, and the
   optional integrations.
 - [Configuration](configuration.md) - what must be set to go live, keyed by feature.

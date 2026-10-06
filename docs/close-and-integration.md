@@ -25,3 +25,6 @@ members and by participants with deal access. The reachable UI is the deal close
 A deal in these stages is still an ordinary open deal: its final won/lost resolution is a
 separate field (see [Deal lifecycle](deal-lifecycle.md)), and a closed-won deal can also feed
 the comparables pools and a DealStats contributor package (see [Comparables](comparables.md)).
+
+Once the deal is won, the acquired business's operating metrics, post-close checklists, and
+worksheets live on the same deal; see [Operating and onboarding](operating-onboarding.md).
