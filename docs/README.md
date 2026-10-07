@@ -36,6 +36,8 @@ schema, not a wish list.
   seeded post-close checklist templates, and worksheets.
 - [Architecture](architecture.md) - the event store, multi-tenant RLS, storage, and the
   optional integrations.
+- [Design system](design.md) - the token system, brand, type, spacing, radius, and
+  elevation.
 - [Configuration](configuration.md) - what must be set to go live, keyed by feature.
 
 ## Conventions used in this guide
