@@ -28,6 +28,7 @@
     "./form": "./src/components/form.tsx",
     "./input": "./src/components/input.tsx",
     "./label": "./src/components/label.tsx",
+    "./logo": "./src/components/logo.tsx",
     "./meeting-card": "./src/components/meeting-card.tsx",
     "./prompt-input": "./src/components/prompt-input.tsx",
     "./redline-diff": "./src/components/redline-diff.tsx",

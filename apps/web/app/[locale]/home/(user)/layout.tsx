@@ -7,6 +7,7 @@ import { getTranslations } from 'next-intl/server';
 
 import { NotificationsPopover } from '@odb/notifications/components';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { Logo } from '@odb/ui/logo';
 
 import personalAccountNavigationConfig from '~/config/personal-account-navigation.config';
 
@@ -42,8 +43,8 @@ export default async function UserWorkspaceLayout({
       <aside
         className={'bg-muted/40 hidden w-64 flex-col border-r p-4 md:flex'}
       >
-        <Link href={'/home'} className={'px-2 py-4 text-lg font-semibold'}>
-          Open Deal Book
+        <Link href={'/home'} className={'flex items-center gap-2 px-2 py-4'}>
+          <Logo size={24} wordmark />
         </Link>
 
         <nav className={'mt-2 flex flex-col gap-1'}>

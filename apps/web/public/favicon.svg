@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="Open Deal Book">
+  <defs>
+    <linearGradient id="odsGrad" gradientUnits="objectBoundingBox" x1="0.02" y1="0.60" x2="0.98" y2="0.40">
+      <stop offset="0" stop-color="#122A47"/>
+      <stop offset="0.52" stop-color="#167C52"/>
+      <stop offset="1" stop-color="#3ECD5E"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#odsGrad)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 30.39 18.65 C 30.93 28.51 31.46 41.05 32.00 55.02 C 25.55 51.80 17.85 49.83 12.11 45.71 C 10.50 44.63 9.87 43.02 9.78 40.87 L 9.61 13.46 C 9.61 10.59 10.50 9.16 12.83 8.98 C 19.82 8.80 25.55 13.63 30.39 18.65 Z"/>
+    <path d="M 33.61 18.65 C 33.07 28.51 32.54 41.05 32.00 55.02 C 38.45 51.80 46.16 49.83 51.89 45.71 C 53.50 44.63 54.13 43.02 54.22 40.87 L 54.39 13.46 C 54.39 10.59 53.50 9.16 51.17 8.98 C 44.18 8.80 38.45 13.63 33.61 18.65 Z"/>
+  </g>
+</svg>
