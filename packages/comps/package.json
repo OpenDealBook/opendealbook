@@ -12,6 +12,7 @@
   },
   "exports": {
     ".": "./index.ts",
+    "./workflow": "./index.workflow.ts",
     "./vendors": "./vendors/column-map.ts"
   },
   "scripts": {

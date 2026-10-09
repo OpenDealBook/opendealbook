@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash } from 'crypto';
 
 const INDUSTRY_SHORT_NAMES: Record<string, string> = {
   '541211': 'CPA Firm',

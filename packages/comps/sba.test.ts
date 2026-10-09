@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  SBA_LOAN_TO_PRICE_DEFAULT,
-  deriveSbaPrice,
-  mapSbaRow,
-  mapSbaRows,
-  sbaUpsertKey,
-  unionNaics,
-} from './sba';
+import { SBA_LOAN_TO_PRICE_DEFAULT, deriveSbaPrice, unionNaics } from './sba';
+import { mapSbaRow, mapSbaRows, sbaUpsertKey } from './sba-mapping';
 
 const sevenA: Record<string, string> = {
   Program: '7A',

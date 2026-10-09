@@ -1,6 +1,6 @@
 import { proxyActivities } from '@temporalio/workflow';
 
-import { SBA_LOAN_TO_PRICE_DEFAULT } from '@odb/comps';
+import { SBA_LOAN_TO_PRICE_DEFAULT } from '@odb/comps/workflow';
 
 import type * as activities from '../activities';
 

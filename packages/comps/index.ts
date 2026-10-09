@@ -55,15 +55,9 @@ export type {
   ProprietaryCompRow,
   VendorKey,
 } from './import';
-export {
-  SBA_LOAN_TO_PRICE_DEFAULT,
-  deriveSbaPrice,
-  mapSbaRow,
-  mapSbaRows,
-  sbaUpsertKey,
-  unionNaics,
-} from './sba';
+export { SBA_LOAN_TO_PRICE_DEFAULT, deriveSbaPrice, unionNaics } from './sba';
 export type { SbaCompFacts, SbaProgram } from './sba';
+export { mapSbaRow, mapSbaRows, sbaUpsertKey } from './sba-mapping';
 export {
   DEALSTATS_CONTRIBUTOR_FIELDS,
   buildDealStatsContributorPackage,

@@ -1,6 +1,6 @@
 import { continueAsNew, proxyActivities, sleep } from '@temporalio/workflow';
 
-import { planRelayDispatch } from '@odb/comps';
+import { planRelayDispatch } from '@odb/comps/workflow';
 
 import type * as activities from '../activities';
 
