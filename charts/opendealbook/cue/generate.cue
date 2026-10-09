@@ -23,7 +23,8 @@ _stream: yaml.MarshalStream(_resources)
 // scalar sentinels (all marshal unquoted); the marketing token carries its
 // own surrounding quotes so the env value stays a string.
 _s1: strings.Replace(_stream, #holes.image, #holes.tokens[#holes.image], -1)
-_s2: strings.Replace(_s1, "\(#holes.replicasWeb)", #holes.tokens["424201"], -1)
+_s1b: strings.Replace(_s1, #holes.workerImage, #holes.tokens[#holes.workerImage], -1)
+_s2: strings.Replace(_s1b, "\(#holes.replicasWeb)", #holes.tokens["424201"], -1)
 _s3: strings.Replace(_s2, "\(#holes.replicasWorkers)", #holes.tokens["424202"], -1)
 _s4: strings.Replace(_s3, #holes.fullname, #holes.tokens[#holes.fullname], -1)
 _s5: strings.Replace(_s4, #holes.marketing, #holes.tokens[#holes.marketing], -1)

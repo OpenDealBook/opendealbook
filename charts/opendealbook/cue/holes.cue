@@ -10,6 +10,8 @@ package opendealbook
 //   {{ .Values.workers.replicaCount }}
 //   {{ .Values.image.repository }}
 //   {{ .Values.image.tag }}
+//   {{ .Values.workerImage.repository }}
+//   {{ .Values.workerImage.tag }}
 //   {{ .Values.marketing.enabled }}      (public|internal instance toggle)
 //   {{ include "opendealbook.fullname" . }}
 //   {{- include "opendealbook.labels" . | nindent N }}
@@ -24,8 +26,9 @@ package opendealbook
 	replicasWorkers: 424202
 
 	// bare-string sentinels (marshal unquoted)
-	image:    "0.0.0-ODBIMAGE"
-	fullname: "ODBFULLNAME"
+	image:       "0.0.0-ODBIMAGE"
+	workerImage: "0.0.0-ODBWORKERIMAGE"
+	fullname:    "ODBFULLNAME"
 
 	// marketing toggle sentinel: the token is wrapped in quotes on swap so the
 	// rendered env value is a quoted string ("true"/"false"), not a YAML bool.
@@ -39,6 +42,7 @@ package opendealbook
 		"424201":        "{{ .Values.web.replicaCount }}"
 		"424202":        "{{ .Values.workers.replicaCount }}"
 		"0.0.0-ODBIMAGE": "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+		"0.0.0-ODBWORKERIMAGE": "{{ .Values.workerImage.repository }}:{{ .Values.workerImage.tag }}"
 		"ODBFULLNAME":   "{{ include \"opendealbook.fullname\" . }}"
 		"ODBMARKETING":  "\"{{ .Values.marketing.enabled }}\""
 	}

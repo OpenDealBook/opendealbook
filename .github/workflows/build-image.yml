@@ -1,7 +1,8 @@
 name: build-image
 
-# Builds the single multi-target image (web + Temporal worker) and pushes it to
-# ghcr.io/opendealbook/opendealbook.
+# Builds the web image and the Temporal worker's dedicated image, and pushes
+# them to ghcr.io/opendealbook/opendealbook and
+# ghcr.io/opendealbook/opendealbook-worker respectively.
 #
 # Auth: the default GITHUB_TOKEN is used with `packages: write`. It can push to
 # ghcr.io packages owned by the repository's org/user. If the ghcr package lives
@@ -20,10 +21,18 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: opendealbook/opendealbook
 
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - target: web
+            image: opendealbook/opendealbook
+            dockerfile: Dockerfile
+          - target: worker
+            image: opendealbook/opendealbook-worker
+            dockerfile: Dockerfile.worker
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,7 +55,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ matrix.image }}
           tags: |
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
@@ -57,8 +66,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}

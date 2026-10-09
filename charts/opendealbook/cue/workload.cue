@@ -4,9 +4,10 @@ import "list"
 
 // Workload definitions for OpenDealbook: the Next.js `web` Deployment + its
 // Service, and the long-lived Temporal `workers` Deployment (no Service, no
-// probes). Both run the one image and load the ESO-synced secret via envFrom.
-// Values come from fixture.cue; the four runtime holes are sentinel values
-// swapped in generate.cue (see holes.cue).
+// probes). web runs the web image, workers runs its own dedicated image
+// (Dockerfile.worker); both load the ESO-synced secret via envFrom. Values
+// come from fixture.cue; the runtime holes are sentinel values swapped in
+// generate.cue (see holes.cue).
 
 _labels: {(#holes.labels): ""}
 
@@ -179,7 +180,7 @@ _workers: #Deployment & {
 				}
 				containers: [{
 					name:            "workers"
-					image:           #holes.image
+					image:           #holes.workerImage
 					imagePullPolicy: values.image.pullPolicy
 					if len(values.workers.command) > 0 {
 						command: values.workers.command
@@ -187,7 +188,7 @@ _workers: #Deployment & {
 					if len(values.workers.args) > 0 {
 						args: values.workers.args
 					}
-					env:     list.Concat([_env, [{name: "APP_TARGET", value: "worker"}]])
+					env:     _env
 					envFrom: _envFrom
 					resources: {
 						requests: {cpu: values.workers.resources.requests.cpu, memory: values.workers.resources.requests.memory}

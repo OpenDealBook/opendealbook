@@ -26,6 +26,11 @@ values: #Values & {
 		pullPolicy: "IfNotPresent"
 	}
 
+	workerImage: {
+		repository: "ghcr.io/bearbinary/opendealbook-worker"
+		tag:        "0.1.0"
+	}
+
 	secretName:         "opendealbook-secrets"
 	serviceAccountName: "opendealbook"
 

@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1
+
+# Dedicated image for the Temporal worker: an esbuild bundle of the worker
+# entry (apps/workers/dist/worker.js) running on the pruned @odb/* workspace
+# source and production-only node_modules. The source tree stays alongside
+# the bundle because apps/workers/src/worker.ts resolves @odb/workflows on
+# disk at runtime (import.meta.resolve) and hands that path to Temporal's own
+# workflow bundler (Worker.create -> workflowsPath), which reads and compiles
+# the workflow source itself, separately from this image's esbuild bundle.
+# No tsx, no web payload.
+
+ARG NODE_VERSION=24
+
+FROM node:${NODE_VERSION}-bookworm-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="${PNPM_HOME}:${PATH}"
+RUN corepack enable
+WORKDIR /app
+
+# Prune to the worker's transitive workspace closure. --docker splits the
+# result into json/ (manifests + lockfile) and full/ (sources). The
+# pnpm-workspace.yaml "set this to true or false" build-script placeholders
+# that pnpm v11's strictDepBuilds aborts on are resolved to skip, for this
+# image build only (the repo file on disk is untouched). Nothing in the
+# worker's dependency closure needs a native build: @temporalio/core-bridge
+# ships a prebuilt linux .node, and @swc/core (pulled in by @temporalio/worker
+# for its own workflow bundler) resolves a prebuilt binary the same way, so
+# this image carries no compiler toolchain.
+FROM base AS pruner
+COPY . .
+RUN sed -i 's/set this to true or false/false/g' pnpm-workspace.yaml
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm dlx turbo@2.10.4 prune workers --docker --out-dir /prune
+
+# Build: full install (esbuild is a devDependency of apps/workers) then bundle
+# the worker entry and its @odb/* workspace sources into dist/worker.js.
+FROM base AS builder
+COPY --from=pruner /prune/json/ ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile
+COPY --from=pruner /prune/full/ ./
+RUN pnpm --filter workers build
+
+# Production-only install. Installing from json/ first, then overlaying
+# full/, preserves the pnpm packages/* symlink layout so Node type-stripping
+# (and Temporal's own workflow bundler) resolve @odb/* sources by a real path
+# outside node_modules.
+FROM base AS worker-deps
+COPY --from=pruner /prune/json/ ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+  pnpm install --frozen-lockfile --prod
+COPY --from=pruner /prune/full/ ./
+
+# Slim runtime: the pruned source plus production node_modules, with
+# dist/worker.js swapped in for the TypeScript entry.
+FROM base AS runtime
+ENV NODE_ENV=production
+COPY --from=worker-deps /app /app
+COPY --from=builder /app/apps/workers/dist ./apps/workers/dist
+
+WORKDIR /app/apps/workers
+CMD ["node", "dist/worker.js"]

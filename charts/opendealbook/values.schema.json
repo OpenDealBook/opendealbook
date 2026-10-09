@@ -4,7 +4,7 @@
   "description": "Contract for the OpenDealbook Hybrid C / CUE chart. Mirrors cue/values.cue #Values. Only the runtime holes are meaningfully overridable per release; the rest is baked at generate time and kept here for the XApp claim to stay aligned.",
   "type": "object",
   "additionalProperties": true,
-  "required": ["mode", "marketing", "image", "web", "workers"],
+  "required": ["mode", "marketing", "image", "workerImage", "web", "workers"],
   "properties": {
     "mode": {
       "type": "string",
@@ -32,6 +32,16 @@
         "repository": {"type": "string", "minLength": 1},
         "tag": {"type": "string", "minLength": 1},
         "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "workerImage": {
+      "type": "object",
+      "description": "The Temporal worker's own dedicated image (see Dockerfile.worker).",
+      "required": ["repository", "tag"],
+      "additionalProperties": false,
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "minLength": 1}
       }
     },
     "serviceAccount": {

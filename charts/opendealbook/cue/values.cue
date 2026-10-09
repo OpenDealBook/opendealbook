@@ -33,6 +33,12 @@ package opendealbook
 		pullPolicy: "Always" | "IfNotPresent" | "Never"
 	}
 
+	// The Temporal worker's own dedicated image (see Dockerfile.worker).
+	workerImage: {
+		repository: string
+		tag:        string
+	}
+
 	// HTTP exposure the chart renders for the web Service. Ingress-agnostic and
 	// BYO-friendly: the Service is the stable attach point, and this block is an
 	// optional, type-selectable ingress rendered from generic values (no

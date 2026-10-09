@@ -37,6 +37,8 @@ values.schema.json     XApp contract
 {{ .Values.workers.replicaCount }}
 {{ .Values.image.repository }}
 {{ .Values.image.tag }}
+{{ .Values.workerImage.repository }}
+{{ .Values.workerImage.tag }}
 {{ .Values.marketing.enabled }}
 {{ include "opendealbook.fullname" . }}
 {{- include "opendealbook.labels" . | nindent N }}

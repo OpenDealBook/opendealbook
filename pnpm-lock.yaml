@@ -479,21 +479,57 @@ importers:
 
   apps/workers:
     dependencies:
+      '@nangohq/node':
+        specifier: 'catalog:'
+        version: 0.71.10(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
+      '@novu/node':
+        specifier: 'catalog:'
+        version: 2.6.6(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       '@odb/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
       '@odb/workflows':
         specifier: workspace:*
         version: link:../../packages/workflows
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
       '@temporalio/activity':
+        specifier: 'catalog:'
+        version: 1.24.0
+      '@temporalio/client':
         specifier: 'catalog:'
         version: 1.24.0
       '@temporalio/worker':
         specifier: 'catalog:'
         version: 1.24.0(@swc/helpers@0.5.23)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@25.6.2))(uglify-js@3.19.3)
-      tsx:
+      '@temporalio/workflow':
         specifier: 'catalog:'
-        version: 4.23.15
+        version: 1.24.0
+      exceljs:
+        specifier: 'catalog:'
+        version: 4.4.0
+      nodemailer:
+        specifier: 'catalog:'
+        version: 8.0.9
+      papaparse:
+        specifier: 'catalog:'
+        version: 5.5.3
+      pino:
+        specifier: 'catalog:'
+        version: 10.3.1
+      react:
+        specifier: 'catalog:'
+        version: 19.2.6
+      react-email:
+        specifier: 'catalog:'
+        version: 6.1.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@8.1.1)
+      resend:
+        specifier: 'catalog:'
+        version: 6.30.0(@react-email/render@2.1.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@odb/tsconfig':
         specifier: workspace:*
@@ -501,6 +537,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.15
 
   packages/ai:
     dependencies:
@@ -9707,7 +9749,7 @@ snapshots:
     dependencies:
       '@babel/code-frame': 7.29.7
       '@babel/generator': 7.29.8
-      '@babel/parser': 7.27.0
+      '@babel/parser': 7.29.9
       '@babel/template': 7.29.7
       '@babel/types': 7.29.8
       debug: 4.4.3(supports-color@8.1.1)

@@ -5,17 +5,33 @@
   "type": "module",
   "scripts": {
     "dev": "node --import tsx --watch src/worker.ts",
-    "start": "node --import tsx src/worker.ts"
+    "build": "node esbuild.config.mjs",
+    "start": "node dist/worker.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@nangohq/node": "catalog:",
+    "@novu/node": "catalog:",
+    "@supabase/supabase-js": "catalog:",
     "@temporalio/activity": "catalog:",
+    "@temporalio/client": "catalog:",
     "@temporalio/worker": "catalog:",
+    "@temporalio/workflow": "catalog:",
+    "exceljs": "catalog:",
+    "nodemailer": "catalog:",
+    "papaparse": "catalog:",
+    "pino": "catalog:",
+    "react": "catalog:",
+    "react-email": "catalog:",
+    "resend": "catalog:",
+    "zod": "catalog:",
     "@odb/supabase": "workspace:*",
-    "@odb/workflows": "workspace:*",
-    "tsx": "catalog:"
+    "@odb/workflows": "workspace:*"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "esbuild": "0.28.2",
+    "tsx": "catalog:"
   }
 }

@@ -5,9 +5,10 @@
 # configuration at generate time. Only these values are live Helm holes at
 # render time and can be overridden per release / per XApp claim:
 #
-#   image.repository, image.tag, web.replicaCount, workers.replicaCount,
-#   marketing.enabled  (plus nameOverride/fullnameOverride/serviceAccount.*
-#   consumed by the label + name helpers)
+#   image.repository, image.tag, workerImage.repository, workerImage.tag,
+#   web.replicaCount, workers.replicaCount, marketing.enabled  (plus
+#   nameOverride/fullnameOverride/serviceAccount.* consumed by the label +
+#   name helpers)
 #
 # Every other key below is baked into the generated YAML from cue/fixture.cue
 # and is documentation only at the Helm layer. To change it, edit cue/ and run
@@ -30,6 +31,11 @@ image:
   repository: ghcr.io/bearbinary/opendealbook
   tag: "0.1.0"
   pullPolicy: IfNotPresent
+
+# The Temporal worker's own dedicated image (see Dockerfile.worker).
+workerImage:
+  repository: ghcr.io/bearbinary/opendealbook-worker
+  tag: "0.1.0"
 
 serviceAccount:
   create: true

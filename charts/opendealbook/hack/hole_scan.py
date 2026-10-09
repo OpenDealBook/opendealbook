@@ -10,6 +10,8 @@ ALLOWED = [
     r"\{\{ \.Values\.workers\.replicaCount \}\}",
     r"\{\{ \.Values\.image\.repository \}\}",
     r"\{\{ \.Values\.image\.tag \}\}",
+    r"\{\{ \.Values\.workerImage\.repository \}\}",
+    r"\{\{ \.Values\.workerImage\.tag \}\}",
     r"\{\{ \.Values\.marketing\.enabled \}\}",
     r'\{\{ include "opendealbook\.fullname" \. \}\}',
     r'\{\{- include "opendealbook\.labels" \. \| nindent \d+ \}\}',
