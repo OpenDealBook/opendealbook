@@ -17,6 +17,7 @@ import billingConfig from '~/config/billing.config';
 import featureFlagsConfig from '~/config/feature-flags.config';
 import { marketingGateRedirect } from '~/config/marketing-gate';
 import pathsConfig from '~/config/paths.config';
+import { ogImageMetadata } from '~/config/seo';
 
 import { MarketingShell } from './_components/marketing-shell';
 
@@ -28,8 +29,8 @@ export const metadata: Metadata = {
   title: { absolute: title },
   description,
   alternates: { canonical: '/' },
-  openGraph: { title, description, url: '/' },
-  twitter: { title, description },
+  openGraph: { title, description, url: '/', ...ogImageMetadata.openGraph },
+  twitter: { title, description, ...ogImageMetadata.twitter },
 };
 
 const organizationData = {
