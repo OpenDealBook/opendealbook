@@ -28,3 +28,17 @@ export default meta;
 type Story = StoryObj<typeof RedlineDiff>;
 
 export const Default: Story = {};
+
+export const Added: Story = {
+  args: { segments: [{ type: 'added', text: 'customary escrow conditions' }] },
+};
+
+export const Removed: Story = {
+  args: { segments: [{ type: 'removed', text: 'thirty (30) days' }] },
+};
+
+export const Unchanged: Story = {
+  args: {
+    segments: [{ type: 'unchanged', text: 'subject to regulatory approval.' }],
+  },
+};

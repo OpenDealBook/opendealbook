@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '#components/table';
+import { cn } from '#lib/utils';
 
 type ChecklistItem = {
   id: string;
@@ -19,6 +20,13 @@ type ChecklistItem = {
   status: StatusValue;
   dueAt?: string;
   owner?: string;
+};
+
+const statusRowAccent: Record<StatusValue, string> = {
+  not_started: 'border-l-transparent',
+  requested: 'border-l-brass',
+  received: 'border-l-warning',
+  reviewed: 'border-l-success',
 };
 
 function ChecklistTable({
@@ -48,7 +56,11 @@ function ChecklistTable({
           </TableRow>
         ) : (
           items.map((item) => (
-            <TableRow key={item.id} data-status={item.status}>
+            <TableRow
+              key={item.id}
+              data-status={item.status}
+              className={cn('border-l-4', statusRowAccent[item.status])}
+            >
               <TableCell>{item.title}</TableCell>
               <TableCell>{item.category}</TableCell>
               <TableCell>

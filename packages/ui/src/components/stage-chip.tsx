@@ -15,7 +15,7 @@ function StageChip({
       data-slot="stage-chip"
       data-stage={stage}
       variant={variant}
-      className={cn(className)}
+      className={cn('border-primary/20 bg-primary/10 text-primary', className)}
       {...props}
     >
       {children ?? stage}

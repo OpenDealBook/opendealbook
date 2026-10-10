@@ -7,6 +7,12 @@ type DiffSegment = {
   text: string;
 };
 
+const diffStyles: Record<DiffSegment['type'], string> = {
+  unchanged: 'text-muted-foreground',
+  added: 'bg-success/10 text-success',
+  removed: 'bg-destructive/10 text-destructive line-through',
+};
+
 function RedlineDiff({
   segments,
   className,
@@ -15,7 +21,11 @@ function RedlineDiff({
   return (
     <span data-slot="redline-diff" className={cn(className)} {...props}>
       {segments.map((segment, index) => (
-        <span key={index} data-diff={segment.type}>
+        <span
+          key={index}
+          data-diff={segment.type}
+          className={diffStyles[segment.type]}
+        >
           {segment.text}
         </span>
       ))}

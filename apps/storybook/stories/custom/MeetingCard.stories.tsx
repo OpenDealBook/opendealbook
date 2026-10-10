@@ -21,6 +21,14 @@ type Story = StoryObj<typeof MeetingCard>;
 
 export const Default: Story = {};
 
-export const Completed: Story = {
-  args: { status: 'completed', title: 'IC pre-read walkthrough' },
+export const Held: Story = {
+  args: { status: 'held', title: 'IC pre-read walkthrough' },
+};
+
+export const Skipped: Story = {
+  args: { status: 'skipped', title: 'Weekly sync' },
+};
+
+export const Cancelled: Story = {
+  args: { status: 'cancelled', title: 'Site visit' },
 };

@@ -19,6 +19,13 @@ const STATUS_OPTIONS: { value: StatusValue; label: string }[] = [
   { value: 'reviewed', label: 'Reviewed' },
 ];
 
+const statusStyles: Record<StatusValue, string> = {
+  not_started: 'text-muted-foreground',
+  requested: 'bg-brass/10 text-brass',
+  received: 'bg-warning/10 text-warning',
+  reviewed: 'bg-success/10 text-success',
+};
+
 function StatusDropdown({
   value,
   onChange,
@@ -34,7 +41,11 @@ function StatusDropdown({
       onValueChange={(next) => onChange(next as StatusValue)}
       disabled={disabled}
     >
-      <SelectTrigger data-slot="status-dropdown" data-status={value}>
+      <SelectTrigger
+        data-slot="status-dropdown"
+        data-status={value}
+        className={statusStyles[value]}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -43,6 +54,7 @@ function StatusDropdown({
             key={option.value}
             value={option.value}
             data-status={option.value}
+            className={statusStyles[option.value]}
           >
             {option.label}
           </SelectItem>
@@ -52,5 +64,5 @@ function StatusDropdown({
   );
 }
 
-export { StatusDropdown };
+export { StatusDropdown, statusStyles };
 export type { StatusValue };

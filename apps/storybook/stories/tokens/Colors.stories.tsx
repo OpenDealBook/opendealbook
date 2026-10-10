@@ -32,7 +32,12 @@ const roles: Swatch[] = [
   { token: 'secondary-foreground', description: 'On secondary' },
   { token: 'accent', description: 'Accent surface' },
   { token: 'accent-foreground', description: 'On accent' },
+  { token: 'success', description: 'Success / positive (green)' },
+  { token: 'warning', description: 'Warning / attention (amber)' },
+  { token: 'brass', description: 'Brass / in-progress (gold)' },
+  { token: 'brass-foreground', description: 'On brass' },
   { token: 'destructive', description: 'Risk / destructive (red)' },
+  { token: 'destructive-foreground', description: 'On destructive' },
 ];
 
 const charts: Swatch[] = [
@@ -123,7 +128,7 @@ export const Palette: Story = {
       <Grid title="Roles & Status" items={roles} />
       <Grid
         title="Chart palette"
-        note="globals.css ships the chart ramp for data. Dedicated grey/amber/blue/green status tokens are not defined yet; destructive carries the red risk role."
+        note="globals.css ships the chart ramp for data visualization; success/warning/brass/destructive above carry the semantic status roles."
         items={charts}
       />
     </div>

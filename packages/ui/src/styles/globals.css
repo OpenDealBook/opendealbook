@@ -25,6 +25,7 @@
   --warning: oklch(0.72 0.13 75);
   --destructive: oklch(0.55 0.21 27);
   --destructive-foreground: oklch(0.99 0.005 95);
+  --overlay: oklch(0 0 0 / 0.5);
   --border: oklch(0.9 0.006 100);
   --input: oklch(0.9 0.006 100);
   --ring: oklch(0.42 0.072 162);
@@ -115,6 +116,7 @@
   --color-warning: var(--warning);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-overlay: var(--overlay);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
