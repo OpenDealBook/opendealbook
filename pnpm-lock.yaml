@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@docuconf/t3':
+      specifier: 0.1.0
+      version: 0.1.0
     '@faker-js/faker':
       specifier: ^10.4.0
       version: 10.6.0
@@ -48,6 +51,9 @@ catalogs:
     '@supabase/supabase-js':
       specifier: 2.105.4
       version: 2.105.4
+    '@t3-oss/env-core':
+      specifier: ^0.13.11
+      version: 0.13.11
     '@tailwindcss/vite':
       specifier: 4.3.0
       version: 4.3.0
@@ -283,6 +289,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@docuconf/t3':
+        specifier: 'catalog:'
+        version: 0.1.0(@t3-oss/env-core@0.13.11(typescript@6.0.3)(zod@4.4.3))(jiti@2.7.0)(zod@4.4.3)
       '@keystatic/next':
         specifier: 5.0.4
         version: 5.0.4(@keystatic/core@0.5.50(@react-spectrum/provider@3.11.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(supports-color@8.1.1))(next@16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -430,6 +439,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.11(typescript@6.0.3)(zod@4.4.3)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.100.9(react@19.2.6)
@@ -479,6 +491,9 @@ importers:
 
   apps/workers:
     dependencies:
+      '@docuconf/t3':
+        specifier: 'catalog:'
+        version: 0.1.0(@t3-oss/env-core@0.13.11(typescript@6.0.3)(zod@4.4.3))(jiti@2.7.0)(zod@4.4.3)
       '@nangohq/node':
         specifier: 'catalog:'
         version: 0.71.10(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
@@ -494,6 +509,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.11(typescript@6.0.3)(zod@4.4.3)
       '@temporalio/activity':
         specifier: 'catalog:'
         version: 1.24.0
@@ -2228,6 +2246,23 @@ packages:
   '@datadog/pprof@5.14.4':
     resolution: {integrity: sha512-egEZDD9v98RBI8ijbHyaWQeY8rW0WEu004As5D7SUkdqSMORhrnh7ZdsM46PUzQgAc85IaEZoukWS9UhMvWn9w==}
     engines: {node: '>=16'}
+
+  '@docuconf/core@0.1.0':
+    resolution: {integrity: sha512-/6slhRXxKNe5Nc6SpV9Zfbp9yv7kagV3+BszMfuD8hnfrbZZL8gXSVVpD5KK5YhRId2Dqlmc51bGl7eSQGJ2IA==}
+    engines: {node: '>=22.12'}
+    peerDependencies:
+      jiti: ^2.4.0
+    peerDependenciesMeta:
+      jiti:
+        optional: true
+
+  '@docuconf/t3@0.1.0':
+    resolution: {integrity: sha512-ZkUmkZnv/dJ2kR6k5P/y8EorkDH7j6sNeFmmINgcd+OVU06eQCy56OfecS6PtfuWaSIgb1Jw7rd4kqwEfhNIvA==}
+    engines: {node: '>=22.12'}
+    hasBin: true
+    peerDependencies:
+      '@t3-oss/env-core': '>=0.13.0 <1'
+      zod: ^4.1.0
 
   '@eloqnt/config@0.1.0':
     resolution: {integrity: sha512-SLR6ZSHxu6XdZtmOz3xRmC3gsY/sCzqtLMD1gxbW2I3XXPBbupwL5RZbkLU/NcZm74AKZrIUPfz3CtEJfxUKqQ==}
@@ -5769,6 +5804,23 @@ packages:
   '@swc/types@0.1.28':
     resolution: {integrity: sha512-V6Mnml8v09QALx6K0elJ7o9K/MkVDtW3t6L+7Ou/JcWtb3xwId2AH4FeOceySd2JaO87IMw4+6vSZxLm34LPbw==}
 
+  '@t3-oss/env-core@0.13.11':
+    resolution: {integrity: sha512-sM7GYY+KL7H/Hl0BE0inWfk3nRHZOLhmVn7sHGxaZt9FAR6KqREXAE+6TqKfiavfXmpRxO/OZ2QgKRd+oiBYRQ==}
+    peerDependencies:
+      arktype: ^2.1.0
+      typescript: '>=5.0.0'
+      valibot: ^1.0.0-beta.7 || ^1.0.0
+      zod: ^3.24.0 || ^4.0.0
+    peerDependenciesMeta:
+      arktype:
+        optional: true
+      typescript:
+        optional: true
+      valibot:
+        optional: true
+      zod:
+        optional: true
+
   '@tailwindcss/node@4.3.0':
     resolution: {integrity: sha512-aFb4gUhFOgdh9AXo4IzBEOzBkkAxm9VigwDJnMIYv3lcfXCJVesNfbEaBl4BNgVRyid92AmdviqwBUBRKSeY3g==}
 
@@ -8809,6 +8861,10 @@ packages:
   slate@0.91.4:
     resolution: {integrity: sha512-aUJ3rpjrdi5SbJ5G1Qjr3arytfRkEStTmHjBfWq2A2Q8MybacIzkScSvGJjQkdTk3djCK9C9SEOt39sSeZFwTw==}
 
+  smol-toml@1.9.1:
+    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
+    engines: {node: '>= 18'}
+
   socket.io-adapter@2.5.8:
     resolution: {integrity: sha512-6Oy52pbg+kvdCVvjcN+FnY7BvxZ7cIHNScbvztT/It5d0vbwoJoVZmF2gjJmnV0/4WlXRfG15zc45ySk9Ah8bw==}
 
@@ -9805,6 +9861,22 @@ snapshots:
       node-gyp-build: 4.8.4
       pprof-format: 2.3.1
       source-map: 0.7.6
+
+  '@docuconf/core@0.1.0(jiti@2.7.0)':
+    dependencies:
+      ajv: 8.20.0
+      smol-toml: 1.9.1
+      yaml: 2.9.1
+    optionalDependencies:
+      jiti: 2.7.0
+
+  '@docuconf/t3@0.1.0(@t3-oss/env-core@0.13.11(typescript@6.0.3)(zod@4.4.3))(jiti@2.7.0)(zod@4.4.3)':
+    dependencies:
+      '@docuconf/core': 0.1.0(jiti@2.7.0)
+      '@t3-oss/env-core': 0.13.11(typescript@6.0.3)(zod@4.4.3)
+      zod: 4.4.3
+    transitivePeerDependencies:
+      - jiti
 
   '@eloqnt/config@0.1.0': {}
 
@@ -13463,6 +13535,11 @@ snapshots:
     dependencies:
       '@swc/counter': 0.1.3
 
+  '@t3-oss/env-core@0.13.11(typescript@6.0.3)(zod@4.4.3)':
+    optionalDependencies:
+      typescript: 6.0.3
+      zod: 4.4.3
+
   '@tailwindcss/node@4.3.0':
     dependencies:
       '@jridgewell/remapping': 2.3.5
@@ -17019,6 +17096,8 @@ snapshots:
       immer: 9.0.21
       is-plain-object: 5.1.0
       tiny-warning: 1.0.3
+
+  smol-toml@1.9.1: {}
 
   socket.io-adapter@2.5.8(supports-color@8.1.1):
     dependencies:

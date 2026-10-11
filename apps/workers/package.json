@@ -10,9 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@docuconf/t3": "catalog:",
     "@nangohq/node": "catalog:",
     "@novu/node": "catalog:",
     "@supabase/supabase-js": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@temporalio/activity": "catalog:",
     "@temporalio/client": "catalog:",
     "@temporalio/worker": "catalog:",

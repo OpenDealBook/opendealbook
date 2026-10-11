@@ -40,3 +40,8 @@ jobs:
 
       - name: Typecheck, lint, and test
         run: pnpm turbo run typecheck lint test --filter='!e2e'
+
+      - name: Check env contracts are up to date
+        run: |
+          pnpm --filter web exec docuconf-t3 export env.ts --check contract.cue
+          pnpm --filter workers exec docuconf-t3 export src/env.ts --check contract.cue

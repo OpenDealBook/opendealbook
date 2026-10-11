@@ -4,6 +4,7 @@ packages:
   - tooling/*
 catalogMode: prefer
 catalog:
+  '@docuconf/t3': 0.1.0
   '@faker-js/faker': ^10.4.0
   '@harbour-enterprises/superdoc': 1.46.3
   '@hookform/resolvers': ^5.2.2
@@ -19,6 +20,7 @@ catalog:
   '@stripe/stripe-js': 9.17.0
   '@supabase/ssr': ^0.10.3
   '@supabase/supabase-js': 2.105.4
+  '@t3-oss/env-core': ^0.13.11
   '@tailwindcss/vite': 4.3.0
   '@tanstack/react-query': 5.100.9
   '@tanstack/react-table': ^8.21.3
@@ -97,3 +99,5 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - '@posthog/types@1.413.0'
   - posthog-js@1.435.2
+  - '@docuconf/core@0.1.0'
+  - '@docuconf/t3@0.1.0'
