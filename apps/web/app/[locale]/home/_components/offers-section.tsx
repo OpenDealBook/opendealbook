@@ -4,6 +4,7 @@ import {
   diffOfferTerms,
   fetchDealOffer,
 } from '@odb/deals';
+import { loadOfferSignatures } from '@odb/deals/server';
 import type { Tables } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
+import { contractSignatures } from './signature-wording';
 import { CreateOfferButton, OfferLifecycleActions } from './offer-editor';
 
 const currency = new Intl.NumberFormat('en-US', {
@@ -133,6 +135,9 @@ export async function OffersSection({ dealId }: { dealId: string; accountId: str
           nextNumber={maxNumber + 1}
           loiGatePassed={loiGatePassed}
           loiAccepted={loiAccepted}
+          signatures={contractSignatures(
+            await loadOfferSignatures(client, offer.offer.id),
+          )}
         />
 
         <Table>

@@ -29,6 +29,7 @@ export async function dealEventNotificationRelay(
 
   for (const step of plan.steps) {
     await notifyDealEvent({
+      globalSeq: step.event.globalSeq,
       workflowId: step.workflowId,
       dealId: step.event.dealId,
       accountId: step.event.accountId,

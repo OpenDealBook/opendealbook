@@ -12,10 +12,9 @@ const mocks = vi.hoisted(() => {
     docx_path: 'gen/loi.docx',
     pdf_path: 'gen/loi.pdf',
   }));
-  const sendForSignature = vi.fn(async () => ({
-    documentId: 'doc-1',
-    status: 'PENDING',
-  }));
+  const requestContractSignature = vi.fn(
+    async () => 'https://sign.test/t/team/documents/envelope_doc1/edit',
+  );
   const dealBoxScreenPasses = vi.fn(async () => true);
   const uploadVersion = vi.fn(async () => undefined);
   const download = vi.fn(async () => ({ data: new Blob(['pdf']), error: null }));
@@ -28,11 +27,35 @@ const mocks = vi.hoisted(() => {
     current_version_id: 'ver-1',
   };
 
+  let template: { id: string } | null = { id: 'tmpl-loi' };
+
+  function setTemplate(next: { id: string } | null) {
+    template = next;
+  }
+
   const inserted: Record<string, unknown[]> = {};
   const updated: Record<string, unknown[]> = {};
 
   function setOffer(next: unknown) {
     offer = next;
+  }
+
+  let existing: { signing_status: string | null }[] = [];
+  const checkContractSignature = vi.fn(async () => undefined);
+
+  function setExistingContract(signingStatus: string | null) {
+    existing = [{ signing_status: signingStatus }];
+  }
+
+  function listFor(table: string): unknown {
+    if (table === 'offer_version') {
+      return [{ id: 'ver-1' }];
+    }
+
+    return existing.map((version) => ({
+      type: 'loi',
+      versions: [{ id: 'cv-0', version: 1, ...version }],
+    }));
   }
 
   function dataFor(table: string): unknown {
@@ -43,7 +66,7 @@ const mocks = vi.hoisted(() => {
       return { terms: { schema_version: 1, purchase_price: 900_000 } };
     }
     if (table === 'document_template') {
-      return { id: 'tmpl-loi' };
+      return template;
     }
     if (table === 'contract_version') {
       return { id: 'cv-1' };
@@ -60,8 +83,15 @@ const mocks = vi.hoisted(() => {
     builder.eq = chain;
     builder.order = chain;
     builder.limit = chain;
-    builder.single = chain;
-    builder.maybeSingle = chain;
+    let isOne = false;
+    const one = () => {
+      isOne = true;
+      return builder;
+    };
+
+    builder.in = chain;
+    builder.single = one;
+    builder.maybeSingle = one;
     builder.throwOnError = chain;
     builder.insert = (row: unknown) => {
       (inserted[table] ??= []).push(row);
@@ -72,7 +102,13 @@ const mocks = vi.hoisted(() => {
       return builder;
     };
     builder.then = (resolve: (value: unknown) => void) =>
-      resolve({ data: dataFor(table), error: null });
+      resolve({
+        data:
+          isOne || (table !== 'contract' && table !== 'offer_version')
+            ? dataFor(table)
+            : listFor(table),
+        error: null,
+      });
 
     return builder;
   }
@@ -82,11 +118,14 @@ const mocks = vi.hoisted(() => {
   return {
     appendDealEvent,
     generateFromTemplate,
-    sendForSignature,
+    requestContractSignature,
     dealBoxScreenPasses,
     uploadVersion,
     storageFrom,
     from,
+    setTemplate,
+    setExistingContract,
+    checkContractSignature,
     setOffer,
     inserted,
     updated,
@@ -94,7 +133,9 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('@odb/next/actions', () => ({
-  enhanceAction: (fn: unknown) => fn,
+  enhanceAction:
+    (fn: (data: unknown, user: { id: string }) => unknown) => (data: unknown) =>
+      fn(data, { id: 'user-1' }),
 }));
 
 vi.mock('@odb/supabase/server', () => ({
@@ -102,6 +143,7 @@ vi.mock('@odb/supabase/server', () => ({
     from: mocks.from,
     storage: { from: mocks.storageFrom },
   }),
+  getSupabaseServerAdminClient: () => ({ marker: 'admin' }),
 }));
 
 vi.mock('@odb/events', () => ({
@@ -120,8 +162,10 @@ vi.mock('@odb/contracts', () => ({
   PDF_CONTENT_TYPE: 'application/pdf',
 }));
 
-vi.mock('@odb/contracts/esign', () => ({
-  sendForSignature: mocks.sendForSignature,
+vi.mock('@odb/contracts/esign', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@odb/contracts/esign')>()),
+  requestContractSignature: mocks.requestContractSignature,
+  checkContractSignature: mocks.checkContractSignature,
   createDocumensoClient: () => ({ marker: 'documenso' }),
 }));
 
@@ -129,18 +173,29 @@ vi.mock('../shared/queries', () => ({
   dealBoxScreenPasses: mocks.dealBoxScreenPasses,
 }));
 
+import { DocumensoRejected } from '@odb/contracts/esign';
+
 import { generateLoi } from './loi-actions';
 
-type Action = (
-  data: Record<string, unknown>,
-  user: { id: string; email?: string },
-) => Promise<unknown>;
+type Action = (data: Record<string, unknown>) => Promise<unknown>;
 
 const run = generateLoi as unknown as Action;
-const user = { id: 'user-1', email: 'buyer@example.com' };
+const SIGNERS = [
+  { name: 'Bea Buyer', email: 'buyer@example.com' },
+  { name: 'Sol Seller', email: 'seller@example.com' },
+];
+const REQUEST = {
+  offer_id: '0b0f5a0e-58a5-4a40-9d4e-6f0f3f3c8a11',
+  signers: SIGNERS,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.setTemplate({ id: 'tmpl-loi' });
+  mocks.setExistingContract(null);
+  mocks.checkContractSignature.mockImplementation(async () => undefined);
+  process.env.DOCUMENSO_URL = 'https://sign.test';
+  process.env.DOCUMENSO_API_KEY = 'api_test';
   mocks.setOffer({
     deal_id: 'deal-1',
     account_id: 'acc-1',
@@ -160,8 +215,144 @@ beforeEach(() => {
 });
 
 describe('generateLoi', () => {
+  it('refuses before writing anything when Documenso is not configured', async () => {
+    delete process.env.DOCUMENSO_API_KEY;
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'E-signature is not set up yet: Documenso is not configured',
+    });
+
+    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+    expect(mocks.generateFromTemplate).not.toHaveBeenCalled();
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no signers', [], 'Name at least one signer'],
+    [
+      'a signer without a name',
+      [{ name: ' ', email: 'buyer@example.com' }],
+      'Each signer needs a name',
+    ],
+    [
+      'a signer without a valid email address',
+      [{ name: 'Bea Buyer', email: 'buyer' }],
+      'Each signer needs a valid email address',
+    ],
+  ])('refuses %s before writing anything', async (_label, signers, refusal) => {
+    expect(await run({ ...REQUEST, signers })).toEqual({ ok: false, refusal });
+
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+  });
+
+  it.each(['draft', 'sent'])(
+    'refuses before writing anything while the LOI of this offer has a %s signature request',
+    async (status) => {
+      mocks.setExistingContract(status);
+
+      expect(await run(REQUEST)).toEqual({
+        ok: false,
+        refusal: 'A signature request for this LOI is already in progress',
+      });
+
+      expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+      expect(mocks.requestContractSignature).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses before writing anything once the LOI of this offer has been signed', async () => {
+    mocks.setExistingContract('completed');
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'This LOI has already been signed',
+    });
+
+    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+  });
+
+  it.each(['declined', 'expired', null])(
+    'generates again when the earlier LOI of this offer is %s',
+    async (status) => {
+      mocks.setExistingContract(status);
+
+      expect(await run(REQUEST)).toMatchObject({ ok: true });
+    },
+  );
+
+  it('asks Documenso first when our record says draft, and generates again if the draft turns out to be gone', async () => {
+    mocks.setExistingContract('draft');
+    mocks.checkContractSignature.mockImplementation(async () => {
+      mocks.setExistingContract('declined');
+    });
+
+    expect(await run(REQUEST)).toMatchObject({ ok: true });
+    expect(mocks.checkContractSignature).toHaveBeenCalledWith(
+      'cv-0',
+      expect.objectContaining({ admin: { marker: 'admin' } }),
+    );
+  });
+
+  it('refuses the loser of two simultaneous generates, whose contract another request created first', async () => {
+    mocks.appendDealEvent.mockRejectedValueOnce({
+      code: '40001',
+      message: 'stale aggregate',
+    });
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'A signature request for this LOI is already in progress',
+    });
+
+    expect(mocks.generateFromTemplate).not.toHaveBeenCalled();
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the account has no LOI template', async () => {
+    mocks.setTemplate(null);
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'No LOI template is set up for this account',
+    });
+
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
+  });
+
+  it('says so when Documenso does not accept the signature request', async () => {
+    mocks.requestContractSignature.mockRejectedValueOnce(
+      new DocumensoRejected('Documenso responded with 400'),
+    );
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal:
+        'Documenso did not accept the signature request. Check the signers and try again',
+    });
+  });
+
+  it('still throws when Documenso fails for a reason no person caused', async () => {
+    mocks.requestContractSignature.mockRejectedValueOnce(
+      new Error('Documenso responded with 500'),
+    );
+
+    await expect(run(REQUEST)).rejects.toThrow('Documenso responded with 500');
+  });
+
+  it('returns the contract version and where to place signature fields and send in Documenso', async () => {
+    expect(await run(REQUEST)).toEqual({
+      ok: true,
+      value: {
+        contractVersionId: 'cv-1',
+        editorUrl: 'https://sign.test/t/team/documents/envelope_doc1/edit',
+      },
+    });
+  });
+
   it('renders the loi template with the accepted offer terms', async () => {
-    await run({ offer_id: 'offer-1' }, user);
+    await run(REQUEST);
 
     expect(mocks.generateFromTemplate).toHaveBeenCalledWith({
       accountId: 'acc-1',
@@ -172,7 +363,7 @@ describe('generateLoi', () => {
   });
 
   it('creates a generated version-one contract version from the render', async () => {
-    await run({ offer_id: 'offer-1' }, user);
+    await run(REQUEST);
 
     const version = mocks.inserted.contract_version?.[0] as Record<
       string,
@@ -197,20 +388,21 @@ describe('generateLoi', () => {
     });
   });
 
-  it('sends the new contract version for signature', async () => {
-    await run({ offer_id: 'offer-1' }, user);
+  it('requests a signature for the new contract version from the signers named, and nobody else', async () => {
+    await run(REQUEST);
 
-    expect(mocks.sendForSignature).toHaveBeenCalledWith(
+    expect(mocks.requestContractSignature).toHaveBeenCalledWith(
       {
         contractVersionId: 'cv-1',
-        signers: [{ email: 'buyer@example.com', name: 'buyer@example.com' }],
+        dealId: 'deal-1',
+        signers: SIGNERS,
       },
       expect.objectContaining({ documenso: { marker: 'documenso' } }),
     );
   });
 
   it('does not advance the deal stage', async () => {
-    await run({ offer_id: 'offer-1' }, user);
+    await run(REQUEST);
 
     const stageChanges = mocks.appendDealEvent.mock.calls.filter(
       (call) => call[1].eventType === 'deal.stage_changed',
@@ -218,7 +410,17 @@ describe('generateLoi', () => {
     expect(stageChanges).toHaveLength(0);
   });
 
-  it('rejects when the offer is not accepted', async () => {
+  it('refuses when the deal has not passed the deal box screen', async () => {
+    mocks.dealBoxScreenPasses.mockResolvedValueOnce(false);
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'This deal has not passed the deal box screen',
+    });
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the offer is not accepted', async () => {
     mocks.setOffer({
       deal_id: 'deal-1',
       account_id: 'acc-1',
@@ -226,9 +428,10 @@ describe('generateLoi', () => {
       current_version_id: 'ver-1',
     });
 
-    await expect(run({ offer_id: 'offer-1' }, user)).rejects.toThrow(
-      'not accepted',
-    );
-    expect(mocks.sendForSignature).not.toHaveBeenCalled();
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'This offer has not been accepted yet',
+    });
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
   });
 });

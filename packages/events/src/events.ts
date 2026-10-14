@@ -50,6 +50,8 @@ export type EventType =
   | 'meeting_action_item.updated'
   | 'contract.created'
   | 'contract.version_set'
+  | 'contract.signature_requested'
+  | 'contract.signature_status_changed'
   | 'offer.drafted'
   | 'offer.version_added'
   | 'offer.submitted'

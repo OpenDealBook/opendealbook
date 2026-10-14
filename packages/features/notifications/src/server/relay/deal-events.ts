@@ -17,6 +17,8 @@ export interface DealEventNotificationPlan {
   cursor: number;
 }
 
+export const LENDER_ROOM_DOCUMENTS_WORKFLOW_ID = 'lender-room-documents';
+
 const STAGE_WORKFLOW_IDS: Record<string, string> = {
   loi_accepted: 'deal.loi_accepted',
   pa_accepted: 'deal.apa_accepted',
@@ -30,6 +32,8 @@ export function routeDealEventNotification(event: NotifiableDealEvent): string |
       return 'deal.offer_accepted';
     case 'deal.resolved':
       return 'deal.resolved';
+    case 'dr_document.added':
+      return LENDER_ROOM_DOCUMENTS_WORKFLOW_ID;
     case 'deal.stage_changed':
       return event.stage ? STAGE_WORKFLOW_IDS[event.stage] ?? null : null;
     default:

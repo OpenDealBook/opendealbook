@@ -1,0 +1,102 @@
+{
+  "event": "DOCUMENT_SENT",
+  "payload": {
+    "id": 1,
+    "envelopeId": "envelope_niswawarahwbteoi",
+    "externalId": "draft-1",
+    "userId": 3,
+    "authOptions": {
+      "globalAccessAuth": [],
+      "globalActionAuth": []
+    },
+    "formValues": null,
+    "visibility": "EVERYONE",
+    "title": "Draft probe",
+    "status": "PENDING",
+    "createdAt": "2026-10-13T23:08:42.699Z",
+    "updatedAt": "2026-10-13T23:09:13.243Z",
+    "completedAt": null,
+    "deletedAt": null,
+    "teamId": 3,
+    "templateId": null,
+    "source": "DOCUMENT",
+    "documentMeta": {
+      "id": "cmv7alg6v0005rp28l2o3kq36",
+      "subject": null,
+      "message": null,
+      "timezone": "Etc/UTC",
+      "dateFormat": "yyyy-MM-dd hh:mm a",
+      "redirectUrl": null,
+      "signingOrder": "PARALLEL",
+      "allowDictateNextSigner": false,
+      "typedSignatureEnabled": true,
+      "uploadSignatureEnabled": true,
+      "drawSignatureEnabled": true,
+      "language": "en",
+      "distributionMethod": "EMAIL",
+      "emailSettings": {
+        "documentDeleted": true,
+        "documentPending": true,
+        "recipientSigned": true,
+        "recipientRemoved": true,
+        "documentCompleted": true,
+        "ownerDocumentCreated": true,
+        "ownerRecipientExpired": true,
+        "ownerDocumentCompleted": true,
+        "recipientSigningRequest": true
+      }
+    },
+    "recipients": [
+      {
+        "id": 1,
+        "envelopeId": "envelope_niswawarahwbteoi",
+        "documentId": 1,
+        "templateId": null,
+        "email": "signer@b18.test",
+        "name": "Sig Ner",
+        "token": "<redacted>",
+        "documentDeletedAt": null,
+        "expiresAt": "2027-01-11T23:09:13.239Z",
+        "expirationNotifiedAt": null,
+        "signedAt": null,
+        "authOptions": {
+          "accessAuth": [],
+          "actionAuth": []
+        },
+        "signingOrder": null,
+        "rejectionReason": null,
+        "role": "SIGNER",
+        "readStatus": "NOT_OPENED",
+        "signingStatus": "NOT_SIGNED",
+        "sendStatus": "NOT_SENT"
+      }
+    ],
+    "Recipient": [
+      {
+        "id": 1,
+        "envelopeId": "envelope_niswawarahwbteoi",
+        "documentId": 1,
+        "templateId": null,
+        "email": "signer@b18.test",
+        "name": "Sig Ner",
+        "token": "<redacted>",
+        "documentDeletedAt": null,
+        "expiresAt": "2027-01-11T23:09:13.239Z",
+        "expirationNotifiedAt": null,
+        "signedAt": null,
+        "authOptions": {
+          "accessAuth": [],
+          "actionAuth": []
+        },
+        "signingOrder": null,
+        "rejectionReason": null,
+        "role": "SIGNER",
+        "readStatus": "NOT_OPENED",
+        "signingStatus": "NOT_SIGNED",
+        "sendStatus": "NOT_SENT"
+      }
+    ]
+  },
+  "createdAt": "2026-10-13T23:09:13.432Z",
+  "webhookEndpoint": "http://odb-b18-sink:54998/api/webhooks/documenso"
+}

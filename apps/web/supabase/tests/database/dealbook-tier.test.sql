@@ -42,7 +42,7 @@ values ('cccccccc-0000-0000-0000-0000000000f1', tests.account_id('tier-a'), 'ccc
 
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'dr_document',
   gen_random_uuid(), 'dr_document.added',
-  jsonb_build_object('folder_id', 'cccccccc-0000-0000-0000-0000000000f1', 'name', 'P&L.pdf', 'storage_path', 'deals/a/pl.pdf'),
+  jsonb_build_object('folder_id', 'cccccccc-0000-0000-0000-0000000000f1', 'name', 'P&L.pdf', 'storage_path', 'deal/cccccccc-0000-0000-0000-0000000000d1/pl.pdf'),
   null, 'service');
 
 -- ---- Account-scoped isolation: a foreign account sees nothing ----

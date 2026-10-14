@@ -36,12 +36,18 @@ contract.#Contract & {
 		}
 		DOCUMENSO_API_KEY: {
 			type:        "string"
-			description: "Documenso API key used to create and send documents"
+			description: "Documenso API key used to create drafts and read document state"
 			secret:      true
 		}
 		DOCUMENSO_URL: {
 			type:        "url"
 			description: "Base URL of the Documenso instance used for e-signature"
+		}
+		DOCUMENSO_WEBHOOK_SECRET: {
+			type:        "string"
+			description: "Secret Documenso sends with each webhook, at least 32 characters; must match the webhook configured in Documenso"
+			secret:      true
+			minLength:   32
 		}
 		GOTENBERG_URL: {
 			type:        "url"
@@ -50,6 +56,10 @@ contract.#Contract & {
 		KEYSTATIC_CONTENT_ROOT: {
 			type:        "string"
 			description: "Filesystem root Keystatic reads marketing content from"
+		}
+		LENDER_ROOMS_FROM_EMAIL: {
+			type:        "string"
+			description: "Sender address for lender room invite and sign-in emails"
 		}
 		NANGO_GMAIL_INTEGRATION_ID: {
 			type:        "string"

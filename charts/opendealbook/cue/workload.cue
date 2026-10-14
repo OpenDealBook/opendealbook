@@ -205,3 +205,71 @@ _workers: #Deployment & {
 		}
 	}
 }
+
+_novuSyncScript: """
+	const { NOVU_API_KEY, NOVU_API_URL, NOVU_BRIDGE_URL } = process.env;
+
+	if (!NOVU_API_KEY || !NOVU_API_URL) {
+	  console.log('Novu is not configured; skipping the workflow sync');
+	  process.exit(0);
+	}
+
+	const response = await fetch(`${NOVU_API_URL}/v1/bridge/sync?source=cli`, {
+	  method: 'POST',
+	  headers: {
+	    authorization: `ApiKey ${NOVU_API_KEY}`,
+	    'content-type': 'application/json',
+	  },
+	  body: JSON.stringify({ bridgeUrl: NOVU_BRIDGE_URL }),
+	});
+
+	if (!response.ok) {
+	  console.error(`Novu refused the workflow sync: ${response.status} ${await response.text()}`);
+	  process.exit(1);
+	}
+
+	console.log('Synced the lender workflows with Novu');
+	"""
+
+// Novu fetches the lender workflow definitions from the web app's bridge and
+// replaces what it holds, so a re-run converges. Deploy with --wait (or an
+// Argo CD sync, which waits for health) so the bridge it reads is the new
+// version.
+_novuSync: #Job & {
+	metadata: {
+		name:   "\(#holes.fullname)-novu-sync"
+		labels: _labels
+		annotations: {
+			"helm.sh/hook":               "post-install,post-upgrade"
+			"helm.sh/hook-delete-policy": "before-hook-creation"
+		}
+	}
+	spec: template: spec: {
+		restartPolicy: "OnFailure"
+		securityContext: {
+			runAsNonRoot: true
+			runAsUser:    1000
+			runAsGroup:   1000
+			fsGroup:      1000
+			seccompProfile: type: "RuntimeDefault"
+		}
+		containers: [{
+			name:            "novu-sync"
+			image:           #holes.image
+			imagePullPolicy: values.image.pullPolicy
+			command: ["node", "--input-type=module", "--eval", _novuSyncScript]
+			env: list.Concat([_env, [{name: "NOVU_BRIDGE_URL", value: "http://\(_webServiceName):\(values.service.port)/api/novu"}]])
+			envFrom: _envFrom
+			resources: {
+				requests: {cpu: "50m", memory: "128Mi"}
+				limits: {cpu: "250m", memory: "256Mi"}
+			}
+			securityContext: {
+				allowPrivilegeEscalation: false
+				readOnlyRootFilesystem:   true
+				capabilities: drop: ["ALL"]
+				seccompProfile: type: "RuntimeDefault"
+			}
+		}]
+	}
+}

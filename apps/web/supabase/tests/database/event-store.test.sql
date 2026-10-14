@@ -249,7 +249,7 @@ select is(
 
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'dr_document',
   'e0000000-0000-0000-0000-0000000000e1', 'dr_document.added',
-  '{"folder_id":"f1f1f1f1-0000-0000-0000-000000000001","name":"cim.pdf","storage_path":"deals/d1/cim.pdf"}'::jsonb);
+  '{"folder_id":"f1f1f1f1-0000-0000-0000-000000000001","name":"cim.pdf","storage_path":"deal/d1d1d1d1-0000-0000-0000-000000000001/cim.pdf"}'::jsonb);
 select is(
   (select name from public.dr_document where id = 'e0000000-0000-0000-0000-0000000000e1'),
   'cim.pdf', 'dr_document projector materialises the row');
@@ -304,7 +304,7 @@ select is_empty(
 
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'dr_document',
   'e0000000-0000-0000-0000-0000000000e2', 'dr_document.added',
-  '{"folder_id":"f1f1f1f1-0000-0000-0000-000000000001","name":"pnl.pdf","storage_path":"deals/d1/pnl.pdf"}'::jsonb);
+  '{"folder_id":"f1f1f1f1-0000-0000-0000-000000000001","name":"pnl.pdf","storage_path":"deal/d1d1d1d1-0000-0000-0000-000000000001/pnl.pdf"}'::jsonb);
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'dr_document',
   'e0000000-0000-0000-0000-0000000000e2', 'dr_document.moved',
   '{"folder_id":"f1f1f1f1-0000-0000-0000-0000000000b2"}'::jsonb);

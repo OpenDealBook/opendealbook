@@ -104,7 +104,12 @@ export const env = createEnv({
       .describe('Base URL of the Documenso instance used for e-signature'),
     DOCUMENSO_API_KEY: secret(z.string())
       .optional()
-      .describe('Documenso API key used to create and send documents'),
+      .describe('Documenso API key used to create drafts and read document state'),
+    DOCUMENSO_WEBHOOK_SECRET: secret(z.string().min(32))
+      .optional()
+      .describe(
+        'Secret Documenso sends with each webhook, at least 32 characters; must match the webhook configured in Documenso',
+      ),
     DOCLING_URL: url()
       .optional()
       .describe('Base URL of the Docling service used to extract document text'),
@@ -126,6 +131,10 @@ export const env = createEnv({
       .string()
       .optional()
       .describe('Mailbox notified when the contact form receives a new lead'),
+    LENDER_ROOMS_FROM_EMAIL: z
+      .string()
+      .optional()
+      .describe('Sender address for lender room invite and sign-in emails'),
     PYROSCOPE_SERVER_ADDRESS: url()
       .optional()
       .describe('Pyroscope server address continuous profiling data is sent to'),

@@ -1,0 +1,103 @@
+{
+  "internalVersion": 2,
+  "type": "DOCUMENT",
+  "status": "DRAFT",
+  "source": "DOCUMENT",
+  "visibility": "EVERYONE",
+  "templateType": "PRIVATE",
+  "id": "envelope_aeuvrmzdbblazzmh",
+  "secondaryId": "document_1",
+  "externalId": "state-draft",
+  "createdAt": "2026-10-13T23:45:46.002Z",
+  "updatedAt": "2026-10-13T23:45:46.002Z",
+  "completedAt": null,
+  "deletedAt": null,
+  "title": "state-draft",
+  "authOptions": {
+    "globalAccessAuth": [],
+    "globalActionAuth": []
+  },
+  "formValues": null,
+  "publicTitle": "",
+  "publicDescription": "",
+  "userId": 3,
+  "teamId": 3,
+  "folderId": null,
+  "templateId": null,
+  "documentMeta": {
+    "signingOrder": "PARALLEL",
+    "distributionMethod": "EMAIL",
+    "id": "cmv7bx3p80005p32mxh8ifh13",
+    "subject": null,
+    "message": null,
+    "timezone": "Etc/UTC",
+    "dateFormat": "yyyy-MM-dd hh:mm a",
+    "redirectUrl": null,
+    "typedSignatureEnabled": true,
+    "uploadSignatureEnabled": true,
+    "drawSignatureEnabled": true,
+    "allowDictateNextSigner": false,
+    "language": "en",
+    "emailSettings": {
+      "recipientSigningRequest": true,
+      "recipientRemoved": true,
+      "recipientSigned": true,
+      "documentPending": true,
+      "documentCompleted": true,
+      "documentDeleted": true,
+      "ownerDocumentCompleted": true,
+      "ownerRecipientExpired": true,
+      "ownerDocumentCreated": true
+    },
+    "emailId": null,
+    "emailReplyTo": null,
+    "envelopeExpirationPeriod": {
+      "unit": "month",
+      "amount": 3
+    }
+  },
+  "recipients": [
+    {
+      "envelopeId": "envelope_aeuvrmzdbblazzmh",
+      "role": "SIGNER",
+      "readStatus": "NOT_OPENED",
+      "signingStatus": "NOT_SIGNED",
+      "sendStatus": "NOT_SENT",
+      "id": 1,
+      "email": "signer@b18.test",
+      "name": "Sig Ner",
+      "token": "<redacted>",
+      "documentDeletedAt": null,
+      "expired": null,
+      "expiresAt": null,
+      "expirationNotifiedAt": null,
+      "signedAt": null,
+      "authOptions": {
+        "accessAuth": [],
+        "actionAuth": []
+      },
+      "signingOrder": null,
+      "rejectionReason": null
+    }
+  ],
+  "fields": [],
+  "envelopeItems": [
+    {
+      "envelopeId": "envelope_aeuvrmzdbblazzmh",
+      "documentDataId": "cmv7bx3b70004p32mgilnfb9y",
+      "id": "envelope_item_hkbafsrvfhhfvwwd",
+      "title": "state-draft.pdf",
+      "order": 1
+    }
+  ],
+  "directLink": null,
+  "team": {
+    "id": 3,
+    "url": "personal_ofafstrhxavumolb"
+  },
+  "user": {
+    "id": 3,
+    "name": "B18 Tester",
+    "email": "owner@b18.test"
+  }
+}

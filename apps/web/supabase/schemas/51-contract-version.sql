@@ -14,6 +14,8 @@ create table if not exists public.contract_version (
   change_summary text,
   is_signed boolean not null default false,
   content_hash text,
+  signing_document_id text unique,
+  signing_status text check (signing_status in ('draft', 'sent', 'completed', 'declined', 'expired')),
   created_at timestamptz not null default now(),
   unique (contract_id, version)
 );
@@ -24,7 +26,13 @@ create index ix_contract_version_contract on public.contract_version (contract_i
 create index ix_contract_version_account on public.contract_version (account_id);
 
 revoke all on public.contract_version from authenticated, service_role;
-grant select, insert, update, delete on public.contract_version to authenticated;
+-- signing_document_id and signing_status are left out: only the contract
+-- projector and the service role write what a signing webhook is matched on.
+grant select, delete on public.contract_version to authenticated;
+grant
+  insert (id, contract_id, account_id, version, source, author_user_id, party, docx_path, pdf_path, change_summary, is_signed, content_hash, created_at),
+  update (id, contract_id, account_id, version, source, author_user_id, party, docx_path, pdf_path, change_summary, is_signed, content_hash, created_at)
+  on public.contract_version to authenticated;
 grant select, insert, update, delete on public.contract_version to service_role;
 
 create policy contract_version_read on public.contract_version

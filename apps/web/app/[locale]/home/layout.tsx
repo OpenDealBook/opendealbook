@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { redirect } from 'next/navigation';
 
+import { notOnboardedDestination } from '@odb/lender-rooms/members/entry-rules.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,9 @@ export default async function HomeLayout({
   }
 
   if (!account.onboarded) {
-    redirect('/onboarding');
+    const { data: rooms } = await client.rpc('my_lender_rooms').throwOnError();
+
+    redirect(notOnboardedDestination(rooms));
   }
 
   return <>{children}</>;

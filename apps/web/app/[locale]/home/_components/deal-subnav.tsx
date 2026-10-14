@@ -13,11 +13,12 @@ const ITEMS: { segment: string; label: string }[] = [
   { segment: 'schedule', label: 'Schedule' },
   { segment: 'meetings', label: 'Meetings' },
   { segment: 'todos', label: 'Todos' },
+  { segment: 'lenders', label: 'Lenders' },
 ];
 
 const MARKER = '/deals/';
 
-export function DealSubnav() {
+export function DealSubnav({ showLenders = false }: { showLenders?: boolean }) {
   const pathname = usePathname();
 
   const markerIndex = pathname.indexOf(MARKER);
@@ -28,23 +29,26 @@ export function DealSubnav() {
 
   return (
     <nav className={'flex flex-wrap gap-1 border-b pb-2'}>
-      {ITEMS.map((item) => {
-        const active = item.segment === current;
-        return (
-          <Link
-            key={item.segment}
-            href={item.segment === '' ? base : `${base}/${item.segment}`}
-            aria-current={active ? 'page' : undefined}
-            className={
-              active
-                ? 'rounded-md bg-muted px-3 py-1.5 text-sm font-medium text-foreground'
-                : 'text-muted-foreground hover:text-foreground rounded-md px-3 py-1.5 text-sm font-medium'
-            }
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+      {ITEMS.filter((item) => showLenders || item.segment !== 'lenders').map(
+        (item) => {
+          const active =
+            item.segment === current || current.startsWith(`${item.segment}/`);
+          return (
+            <Link
+              key={item.segment}
+              href={item.segment === '' ? base : `${base}/${item.segment}`}
+              aria-current={active ? 'page' : undefined}
+              className={
+                active
+                  ? 'bg-muted text-foreground rounded-md px-3 py-1.5 text-sm font-medium'
+                  : 'text-muted-foreground hover:text-foreground rounded-md px-3 py-1.5 text-sm font-medium'
+              }
+            >
+              {item.label}
+            </Link>
+          );
+        },
+      )}
     </nav>
   );
 }

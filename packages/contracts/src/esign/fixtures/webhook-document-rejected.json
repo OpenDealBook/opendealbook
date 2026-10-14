@@ -1,0 +1,102 @@
+{
+  "event": "DOCUMENT_REJECTED",
+  "payload": {
+    "id": 3,
+    "envelopeId": "envelope_hbcuynmsvaseayvz",
+    "externalId": "probe-reject",
+    "userId": 3,
+    "authOptions": {
+      "globalAccessAuth": [],
+      "globalActionAuth": []
+    },
+    "formValues": null,
+    "visibility": "EVERYONE",
+    "title": "B18 reject",
+    "status": "REJECTED",
+    "createdAt": "2026-10-13T22:43:35.930Z",
+    "updatedAt": "2026-10-13T22:43:45.407Z",
+    "completedAt": "2026-10-13T22:43:45.406Z",
+    "deletedAt": null,
+    "teamId": 3,
+    "templateId": null,
+    "source": "DOCUMENT",
+    "documentMeta": {
+      "id": "cmv79p5kn001cp827yob9ptcm",
+      "subject": null,
+      "message": null,
+      "timezone": "Etc/UTC",
+      "dateFormat": "yyyy-MM-dd hh:mm a",
+      "redirectUrl": null,
+      "signingOrder": "PARALLEL",
+      "allowDictateNextSigner": false,
+      "typedSignatureEnabled": true,
+      "uploadSignatureEnabled": true,
+      "drawSignatureEnabled": true,
+      "language": "en",
+      "distributionMethod": "EMAIL",
+      "emailSettings": {
+        "documentDeleted": true,
+        "documentPending": true,
+        "recipientSigned": true,
+        "recipientRemoved": true,
+        "documentCompleted": true,
+        "ownerDocumentCreated": true,
+        "ownerRecipientExpired": true,
+        "ownerDocumentCompleted": true,
+        "recipientSigningRequest": true
+      }
+    },
+    "recipients": [
+      {
+        "id": 3,
+        "envelopeId": "envelope_hbcuynmsvaseayvz",
+        "documentId": 3,
+        "templateId": null,
+        "email": "signer@b18.test",
+        "name": "Sig Ner",
+        "token": "<redacted>",
+        "documentDeletedAt": null,
+        "expiresAt": "2027-01-11T22:43:36.154Z",
+        "expirationNotifiedAt": null,
+        "signedAt": "2026-10-13T22:43:44.951Z",
+        "authOptions": {
+          "accessAuth": [],
+          "actionAuth": []
+        },
+        "signingOrder": null,
+        "rejectionReason": "Terms are wrong",
+        "role": "SIGNER",
+        "readStatus": "NOT_OPENED",
+        "signingStatus": "REJECTED",
+        "sendStatus": "SENT"
+      }
+    ],
+    "Recipient": [
+      {
+        "id": 3,
+        "envelopeId": "envelope_hbcuynmsvaseayvz",
+        "documentId": 3,
+        "templateId": null,
+        "email": "signer@b18.test",
+        "name": "Sig Ner",
+        "token": "<redacted>",
+        "documentDeletedAt": null,
+        "expiresAt": "2027-01-11T22:43:36.154Z",
+        "expirationNotifiedAt": null,
+        "signedAt": "2026-10-13T22:43:44.951Z",
+        "authOptions": {
+          "accessAuth": [],
+          "actionAuth": []
+        },
+        "signingOrder": null,
+        "rejectionReason": "Terms are wrong",
+        "role": "SIGNER",
+        "readStatus": "NOT_OPENED",
+        "signingStatus": "REJECTED",
+        "sendStatus": "SENT"
+      }
+    ]
+  },
+  "createdAt": "2026-10-13T22:43:45.425Z",
+  "webhookEndpoint": "http://odb-b18-sink:54998/api/webhooks/documenso"
+}

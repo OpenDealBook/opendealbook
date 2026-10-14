@@ -7,7 +7,11 @@ import { resolveNovuChannels } from './preferences';
 export interface NovuClient {
   trigger(
     workflowId: string,
-    data: { to: { subscriberId: string }; payload: Record<string, unknown> },
+    data: {
+      to: { subscriberId: string; email?: string };
+      payload: Record<string, unknown>;
+      transactionId?: string;
+    },
   ): Promise<unknown>;
   subscribers: {
     identify(
@@ -20,7 +24,9 @@ export interface NovuClient {
 export interface TriggerNotificationInput {
   eventType: string;
   recipientUserId: string;
+  email?: string;
   payload: Record<string, unknown>;
+  transactionId?: string;
 }
 
 export interface NovuSubscriber {
@@ -45,8 +51,9 @@ export async function triggerNotification(
   }
 
   await deps.novu.trigger(input.eventType, {
-    to: { subscriberId: input.recipientUserId },
+    to: { subscriberId: input.recipientUserId, email: input.email },
     payload: input.payload,
+    transactionId: input.transactionId,
   });
 
   return channels;

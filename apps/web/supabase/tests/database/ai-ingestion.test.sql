@@ -40,7 +40,7 @@ values ('cccccccc-0000-0000-0000-000000000fd1', tests.account_id('ej-acct-a'), '
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000e2', 'dr_document',
   'cccccccc-0000-0000-0000-000000000dc1', 'dr_document.added',
   jsonb_build_object('folder_id', 'cccccccc-0000-0000-0000-000000000fd1', 'name', 'financials.pdf',
-    'storage_path', 'deals/a/financials.pdf'), null, 'service');
+    'storage_path', 'deal/cccccccc-0000-0000-0000-0000000000e2/financials.pdf'), null, 'service');
 
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000e2', 'deal_participant',
   gen_random_uuid(), 'deal_participant.added',

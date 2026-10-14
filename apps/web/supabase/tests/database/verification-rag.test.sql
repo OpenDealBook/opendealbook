@@ -55,7 +55,7 @@ values ('cccccccc-0000-0000-0000-0000000000f1', tests.account_id('vr-acct-a'),
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000a1', 'dr_document',
   'cccccccc-0000-0000-0000-0000000000d1', 'dr_document.added',
   jsonb_build_object('folder_id', 'cccccccc-0000-0000-0000-0000000000f1', 'name', 'financials.pdf',
-    'storage_path', 'deals/a/financials.pdf'), null, 'service');
+    'storage_path', 'deal/cccccccc-0000-0000-0000-0000000000a1/financials.pdf'), null, 'service');
 
 insert into public.document_chunk (id, account_id, deal_id, document_id, chunk_index, content, embedding)
 values

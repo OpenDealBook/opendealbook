@@ -35,6 +35,13 @@ const config = {
   outputFileTracingRoot: MONOREPO_ROOT,
   outputFileTracingIncludes: {
     '/**': ['node_modules/@pyroscope/nodejs/**/*', 'node_modules/@datadog/pprof/**/*'],
+    '/api/pdfjs/\\[\\.\\.\\.asset\\]': [
+      '../../packages/features/lender-rooms/node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
+      '../../packages/features/lender-rooms/node_modules/pdfjs-dist/wasm/*',
+      '../../packages/features/lender-rooms/node_modules/pdfjs-dist/cmaps/*',
+      '../../packages/features/lender-rooms/node_modules/pdfjs-dist/standard_fonts/*',
+      '../../packages/features/lender-rooms/node_modules/pdfjs-dist/iccs/*',
+    ],
   },
   transpilePackages: TUCKIN_PACKAGES,
   serverExternalPackages: ['pino', 'pino-pretty', '@pyroscope/nodejs', '@datadog/pprof'],

@@ -1,0 +1,61 @@
+{
+  "name": "@odb/lender-rooms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
+  },
+  "dependencies": {
+    "@kenjiuno/msgreader": "1.28.0",
+    "@odb/auth": "workspace:*",
+    "@odb/buyer-profile": "workspace:*",
+    "@odb/contracts": "workspace:*",
+    "@odb/data-room": "workspace:*",
+    "@odb/email-templates": "workspace:*",
+    "@odb/events": "workspace:*",
+    "@odb/mailers": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/notifications": "workspace:*",
+    "@odb/shared": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/ui": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "dompurify": "3.4.16",
+    "fflate": "0.8.2",
+    "heic-convert": "2.1.0",
+    "lucide-react": "catalog:",
+    "mammoth": "1.13.0",
+    "next": "catalog:",
+    "pdfjs-dist": "6.4.299",
+    "postal-mime": "4.0.5",
+    "react": "catalog:",
+    "server-only": "^0.0.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@odb/tsconfig": "workspace:*",
+    "@types/heic-convert": "2.1.1",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "30.1.2",
+    "react-dom": "catalog:",
+    "vitest": "catalog:"
+  }
+}

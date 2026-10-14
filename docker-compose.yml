@@ -221,6 +221,12 @@ services:
       PORT: 3000
       NEXTAUTH_URL: ${DOCUMENSO_URL:-http://localhost:3005}
       NEXT_PUBLIC_WEBAPP_URL: ${DOCUMENSO_URL:-http://localhost:3005}
+      # Documenso runs its background jobs (emails, sealing, webhooks) by calling itself. Inside
+      # the container it listens on PORT, not on the published host port in DOCUMENSO_URL.
+      NEXT_PRIVATE_INTERNAL_WEBAPP_URL: http://localhost:3000
+      # Documenso refuses webhook URLs that resolve to private addresses. Allow the app on the
+      # host so a webhook to http://host.docker.internal:<port>/api/webhooks/documenso is sent.
+      NEXT_PRIVATE_WEBHOOK_SSRF_BYPASS_HOSTS: ${DOCUMENSO_WEBHOOK_SSRF_BYPASS_HOSTS:-host.docker.internal}
       NEXTAUTH_SECRET: ${DOCUMENSO_NEXTAUTH_SECRET:?set DOCUMENSO_NEXTAUTH_SECRET in .env}
       NEXT_PRIVATE_ENCRYPTION_KEY: ${DOCUMENSO_ENCRYPTION_KEY:?set DOCUMENSO_ENCRYPTION_KEY in .env}
       NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY: ${DOCUMENSO_ENCRYPTION_SECONDARY_KEY:?set DOCUMENSO_ENCRYPTION_SECONDARY_KEY in .env}
@@ -476,8 +482,13 @@ services:
       NOVU_SECRET_KEY: ${NOVU_SECRET_KEY:?set NOVU_SECRET_KEY in .env}
       IS_API_RATE_LIMITING_ENABLED: "false"
       IS_V2_ENABLED: "true"
+      # Novu refuses bridge URLs that resolve to private addresses. Allow the app on the host so
+      # the lender workflows sync from, and run against, http://host.docker.internal:<port>/api/novu.
+      NOVU_SAFE_OUTBOUND_ALLOW: ${NOVU_SAFE_OUTBOUND_ALLOW:-host.docker.internal}
     ports:
       - "3006:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/v1/health-check || exit 1"]
       interval: 15s
@@ -508,6 +519,11 @@ services:
       JWT_SECRET: ${NOVU_JWT_SECRET:?set NOVU_JWT_SECRET in .env}
       STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY:?set a 32-char NOVU_STORE_ENCRYPTION_KEY in .env}
       NOVU_SECRET_KEY: ${NOVU_SECRET_KEY:?set NOVU_SECRET_KEY in .env}
+      # Novu refuses bridge URLs that resolve to private addresses. Allow the app on the host so
+      # the lender workflows sync from, and run against, http://host.docker.internal:<port>/api/novu.
+      NOVU_SAFE_OUTBOUND_ALLOW: ${NOVU_SAFE_OUTBOUND_ALLOW:-host.docker.internal}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3004/v1/health-check || exit 1"]
       interval: 15s

@@ -2009,6 +2009,8 @@ export type Database = {
           is_signed: boolean
           party: string
           pdf_path: string | null
+          signing_document_id: string | null
+          signing_status: string | null
           source: string
           version: number
         }
@@ -2024,6 +2026,8 @@ export type Database = {
           is_signed?: boolean
           party: string
           pdf_path?: string | null
+          signing_document_id?: string | null
+          signing_status?: string | null
           source: string
           version: number
         }
@@ -2039,6 +2043,8 @@ export type Database = {
           is_signed?: boolean
           party?: string
           pdf_path?: string | null
+          signing_document_id?: string | null
+          signing_status?: string | null
           source?: string
           version?: number
         }
@@ -3724,11 +3730,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "dr_folder_parent_id_fkey"
-            columns: ["parent_id"]
+            foreignKeyName: "dr_folder_parent_id_deal_id_fkey"
+            columns: ["parent_id", "deal_id"]
             isOneToOne: false
             referencedRelation: "dr_folder"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "deal_id"]
           },
         ]
       }
@@ -4546,6 +4552,648 @@ export type Database = {
           source?: string | null
         }
         Relationships: []
+      }
+      lender_ask: {
+        Row: {
+          account_id: string
+          body: string | null
+          created_at: string
+          created_by: string | null
+          first_response_at: string | null
+          id: string
+          kind: Database["public"]["Enums"]["lender_ask_kind"]
+          return_route:
+            | Database["public"]["Enums"]["lender_return_route"]
+            | null
+          room_id: string
+          status: Database["public"]["Enums"]["lender_ask_status"]
+          title: string
+        }
+        Insert: {
+          account_id: string
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_response_at?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["lender_ask_kind"]
+          return_route?:
+            | Database["public"]["Enums"]["lender_return_route"]
+            | null
+          room_id: string
+          status?: Database["public"]["Enums"]["lender_ask_status"]
+          title: string
+        }
+        Update: {
+          account_id?: string
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          first_response_at?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["lender_ask_kind"]
+          return_route?:
+            | Database["public"]["Enums"]["lender_return_route"]
+            | null
+          room_id?: string
+          status?: Database["public"]["Enums"]["lender_ask_status"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_ask_room_id_account_id_fkey"
+            columns: ["room_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
+      lender_ask_file: {
+        Row: {
+          added_by: string | null
+          ask_id: string
+          created_at: string
+          dr_document_id: string
+          id: string
+          role: Database["public"]["Enums"]["lender_ask_file_role"]
+        }
+        Insert: {
+          added_by?: string | null
+          ask_id: string
+          created_at?: string
+          dr_document_id: string
+          id?: string
+          role: Database["public"]["Enums"]["lender_ask_file_role"]
+        }
+        Update: {
+          added_by?: string | null
+          ask_id?: string
+          created_at?: string
+          dr_document_id?: string
+          id?: string
+          role?: Database["public"]["Enums"]["lender_ask_file_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_ask_file_ask_id_fkey"
+            columns: ["ask_id"]
+            isOneToOne: false
+            referencedRelation: "lender_ask"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_ask_message: {
+        Row: {
+          ask_id: string
+          author_user_id: string | null
+          body: string
+          created_at: string
+          id: string
+          side: Database["public"]["Enums"]["lender_side"]
+        }
+        Insert: {
+          ask_id: string
+          author_user_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          side: Database["public"]["Enums"]["lender_side"]
+        }
+        Update: {
+          ask_id?: string
+          author_user_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          side?: Database["public"]["Enums"]["lender_side"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_ask_message_ask_id_fkey"
+            columns: ["ask_id"]
+            isOneToOne: false
+            referencedRelation: "lender_ask"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_brand: {
+        Row: {
+          domain: string
+          fetched_at: string | null
+          logo_path: string | null
+          name: string | null
+        }
+        Insert: {
+          domain: string
+          fetched_at?: string | null
+          logo_path?: string | null
+          name?: string | null
+        }
+        Update: {
+          domain?: string
+          fetched_at?: string | null
+          logo_path?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      lender_form_signature: {
+        Row: {
+          ask_id: string
+          created_at: string
+          documenso_document_id: string
+          editor_url: string | null
+          id: string
+          signers: Json
+          status: Database["public"]["Enums"]["lender_signature_status"]
+        }
+        Insert: {
+          ask_id: string
+          created_at?: string
+          documenso_document_id: string
+          editor_url?: string | null
+          id?: string
+          signers: Json
+          status?: Database["public"]["Enums"]["lender_signature_status"]
+        }
+        Update: {
+          ask_id?: string
+          created_at?: string
+          documenso_document_id?: string
+          editor_url?: string | null
+          id?: string
+          signers?: Json
+          status?: Database["public"]["Enums"]["lender_signature_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_form_signature_ask_id_fkey"
+            columns: ["ask_id"]
+            isOneToOne: false
+            referencedRelation: "lender_ask"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_oversize_file: {
+        Row: {
+          account_id: string
+          created_at: string
+          dr_folder_id: string
+          id: string
+          name: string
+          size_bytes: number
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          dr_folder_id: string
+          id?: string
+          name: string
+          size_bytes: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          dr_folder_id?: string
+          id?: string
+          name?: string
+          size_bytes?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_oversize_file_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_oversize_file_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_oversize_file_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_oversize_file_dr_folder_id_fkey"
+            columns: ["dr_folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_package: {
+        Row: {
+          account_id: string
+          deal_id: string
+          master_folder_id: string
+        }
+        Insert: {
+          account_id: string
+          deal_id: string
+          master_folder_id: string
+        }
+        Update: {
+          account_id?: string
+          deal_id?: string
+          master_folder_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_package_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_package_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_package_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_package_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: true
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_package_master_folder_id_fkey"
+            columns: ["master_folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_person: {
+        Row: {
+          name: string | null
+          name_asked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          name?: string | null
+          name_asked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          name?: string | null
+          name_asked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      lender_rate_limit: {
+        Row: {
+          key: string
+          last_at: string
+        }
+        Insert: {
+          key: string
+          last_at: string
+        }
+        Update: {
+          key?: string
+          last_at?: string
+        }
+        Relationships: []
+      }
+      lender_room: {
+        Row: {
+          account_id: string
+          brand_domain: string | null
+          closed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          deal_id: string
+          expires_at: string | null
+          id: string
+          name: string
+          private_folder_id: string
+          status: Database["public"]["Enums"]["lender_room_status"]
+          updated_at: string | null
+          updated_by: string | null
+          welcome_note: string | null
+        }
+        Insert: {
+          account_id: string
+          brand_domain?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: string
+          expires_at?: string | null
+          id?: string
+          name: string
+          private_folder_id: string
+          status?: Database["public"]["Enums"]["lender_room_status"]
+          updated_at?: string | null
+          updated_by?: string | null
+          welcome_note?: string | null
+        }
+        Update: {
+          account_id?: string
+          brand_domain?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string
+          expires_at?: string | null
+          id?: string
+          name?: string
+          private_folder_id?: string
+          status?: Database["public"]["Enums"]["lender_room_status"]
+          updated_at?: string | null
+          updated_by?: string | null
+          welcome_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_room_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_room_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_room_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_room_brand_domain_fkey"
+            columns: ["brand_domain"]
+            isOneToOne: false
+            referencedRelation: "lender_brand"
+            referencedColumns: ["domain"]
+          },
+          {
+            foreignKeyName: "lender_room_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_room_private_folder_id_fkey"
+            columns: ["private_folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_room_activity: {
+        Row: {
+          account_id: string
+          action: Database["public"]["Enums"]["lender_activity_action"]
+          created_at: string
+          dr_document_id: string | null
+          dr_folder_id: string | null
+          id: string
+          payload: Json | null
+          room_id: string
+          side: Database["public"]["Enums"]["lender_side"]
+          user_id: string | null
+        }
+        Insert: {
+          account_id: string
+          action: Database["public"]["Enums"]["lender_activity_action"]
+          created_at?: string
+          dr_document_id?: string | null
+          dr_folder_id?: string | null
+          id?: string
+          payload?: Json | null
+          room_id: string
+          side: Database["public"]["Enums"]["lender_side"]
+          user_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          action?: Database["public"]["Enums"]["lender_activity_action"]
+          created_at?: string
+          dr_document_id?: string | null
+          dr_folder_id?: string | null
+          id?: string
+          payload?: Json | null
+          room_id?: string
+          side?: Database["public"]["Enums"]["lender_side"]
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_room_activity_room_id_account_id_fkey"
+            columns: ["room_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
+      lender_room_hidden: {
+        Row: {
+          dr_document_id: string | null
+          dr_folder_id: string | null
+          id: string
+          room_id: string
+        }
+        Insert: {
+          dr_document_id?: string | null
+          dr_folder_id?: string | null
+          id?: string
+          room_id: string
+        }
+        Update: {
+          dr_document_id?: string | null
+          dr_folder_id?: string | null
+          id?: string
+          room_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_room_hidden_dr_folder_id_fkey"
+            columns: ["dr_folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_room_hidden_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_room_member: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          invited_by: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          invited_by?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          invited_by?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_room_member_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_room_removed_member: {
+        Row: {
+          email: string
+          id: string
+          invited_at: string
+          removed_at: string
+          removed_by: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          invited_at: string
+          removed_at?: string
+          removed_by?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          invited_at?: string
+          removed_at?: string
+          removed_by?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_room_removed_member_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lender_upload: {
+        Row: {
+          created_at: string
+          deal_id: string
+          document_ids: string[] | null
+          folder_id: string
+          id: string
+          keep_as_zip: boolean | null
+          name: string
+          registered_at: string | null
+          room_id: string | null
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          document_ids?: string[] | null
+          folder_id: string
+          id?: string
+          keep_as_zip?: boolean | null
+          name: string
+          registered_at?: string | null
+          room_id?: string | null
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          document_ids?: string[] | null
+          folder_id?: string
+          id?: string
+          keep_as_zip?: boolean | null
+          name?: string
+          registered_at?: string | null
+          room_id?: string | null
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_upload_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_upload_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "dr_folder"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_upload_room_id_deal_id_fkey"
+            columns: ["room_id", "deal_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id", "deal_id"]
+          },
+        ]
       }
       llm_endpoint: {
         Row: {
@@ -7407,6 +8055,26 @@ export type Database = {
         Args: { target_team_account_id: string; target_user_id: string }
         Returns: boolean
       }
+      can_manage_lender_room: { Args: { room_id: string }; Returns: boolean }
+      check_contract_event: {
+        Args: {
+          p_aggregate_id: string
+          p_deal_id: string
+          p_event_type: string
+          p_payload: Json
+        }
+        Returns: undefined
+      }
+      check_dr_document_event: {
+        Args: {
+          p_actor_ref: string
+          p_aggregate_id: string
+          p_deal_id: string
+          p_event_type: string
+          p_payload: Json
+        }
+        Returns: undefined
+      }
       consume_mfa_recovery_code: { Args: { p_code: string }; Returns: string }
       create_nonce: {
         Args: {
@@ -7520,6 +8188,7 @@ export type Database = {
       has_super_admin_role: { Args: never; Returns: boolean }
       is_aal2: { Args: never; Returns: boolean }
       is_account_owner: { Args: { account_id: string }; Returns: boolean }
+      is_lender_room_member: { Args: { room_id: string }; Returns: boolean }
       is_mfa_compliant: { Args: never; Returns: boolean }
       is_set: { Args: { field_name: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
@@ -7530,6 +8199,90 @@ export type Database = {
       is_trial_active: { Args: { p_account_id: string }; Returns: boolean }
       is_user_super_admin: {
         Args: { target_user_id: string }
+        Returns: boolean
+      }
+      lender_can_read_document: {
+        Args: { document_id: string }
+        Returns: boolean
+      }
+      lender_can_read_folder: { Args: { folder_id: string }; Returns: boolean }
+      lender_document_recipients: {
+        Args: { document_id: string }
+        Returns: {
+          email: string
+          room_id: string
+          user_id: string
+        }[]
+      }
+      lender_form_signature_status: {
+        Args: { ask_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          status: Database["public"]["Enums"]["lender_signature_status"]
+        }[]
+      }
+      lender_open_room_deal_ids: { Args: never; Returns: string[] }
+      lender_package_folder_count: {
+        Args: { deal_id: string }
+        Returns: number
+      }
+      lender_person_visible_user_ids: { Args: never; Returns: string[] }
+      lender_rate_limit_pass: {
+        Args: { key: string; window_seconds: number }
+        Returns: boolean
+      }
+      lender_room_folder_count: { Args: { room_id: string }; Returns: number }
+      lender_room_is_open: {
+        Args: { room: Database["public"]["Tables"]["lender_room"]["Row"] }
+        Returns: boolean
+      }
+      lender_room_people: {
+        Args: { room_id: string }
+        Returns: {
+          email: string
+          name: string
+          user_id: string
+        }[]
+      }
+      lender_room_shows_document: {
+        Args: { document_id: string; room_id: string }
+        Returns: boolean
+      }
+      lender_room_shows_document_unchecked: {
+        Args: { document_id: string; room_id: string }
+        Returns: boolean
+      }
+      lender_room_shows_folder: {
+        Args: { folder_id: string; room_id: string }
+        Returns: boolean
+      }
+      lender_room_shows_folder_unchecked: {
+        Args: { folder_id: string; room_id: string }
+        Returns: boolean
+      }
+      lender_room_view: {
+        Args: { room_id: string }
+        Returns: Database["public"]["CompositeTypes"]["lender_room_summary"][]
+        SetofOptions: {
+          from: "*"
+          to: "lender_room_summary"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      lender_visible_documents: {
+        Args: { document_ids: string[]; user_id: string }
+        Returns: {
+          document_id: string
+          folder_id: string
+          name: string
+          room_id: string
+          room_name: string
+        }[]
+      }
+      manages_deal_in_account: {
+        Args: { account_id: string; deal_id: string }
         Returns: boolean
       }
       match_document_chunks: {
@@ -7547,6 +8300,16 @@ export type Database = {
           total: number
           unused: number
         }[]
+      }
+      my_lender_rooms: {
+        Args: never
+        Returns: Database["public"]["CompositeTypes"]["lender_room_summary"][]
+        SetofOptions: {
+          from: "*"
+          to: "lender_room_summary"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       project_approval: {
         Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
@@ -7633,6 +8396,56 @@ export type Database = {
           role_hierarchy_level: number
           slug: string
           subscription_status: Database["public"]["Enums"]["subscription_status"]
+        }[]
+      }
+      team_lender_contacts: {
+        Args: { account_id: string }
+        Returns: {
+          brand_logo_path: string
+          brand_name: string
+          deal_description: string
+          deal_id: string
+          deal_name: string
+          downloads: number
+          email: string
+          files_viewed: number
+          first_visit_at: string
+          forms_out_for_signature: number
+          has_signed_in: boolean
+          invited_at: string
+          invited_by: string
+          invited_by_email: string
+          invited_by_name: string
+          last_visit_at: string
+          name: string
+          removed_at: string
+          requests_opened: number
+          requests_waiting_on_lender: number
+          requests_waiting_on_team: number
+          room_id: string
+          room_name: string
+          room_status: Database["public"]["Enums"]["lender_room_status"]
+          user_id: string
+        }[]
+      }
+      team_lender_rooms: {
+        Args: { account_id: string }
+        Returns: {
+          brand_domain: string
+          brand_logo_path: string
+          brand_name: string
+          closed_at: string
+          deal_description: string
+          deal_id: string
+          deal_name: string
+          expires_at: string
+          is_open: boolean
+          last_lender_activity_at: string
+          member_count: number
+          requests_waiting_on_team: number
+          room_id: string
+          room_name: string
+          status: Database["public"]["Enums"]["lender_room_status"]
         }[]
       }
       transfer_team_account_ownership: {
@@ -7784,6 +8597,36 @@ export type Database = {
       discovery_revenue_trend: "up" | "down" | "flat"
       embedding_job_status: "queued" | "running" | "done" | "failed"
       event_actor_kind: "user" | "service" | "api_key" | "system"
+      lender_activity_action:
+        | "room_opened"
+        | "folder_opened"
+        | "document_previewed"
+        | "document_downloaded"
+        | "zip_downloaded"
+        | "folder_created"
+      lender_ask_file_role:
+        | "attachment"
+        | "fulfilment"
+        | "blank_form"
+        | "completed_form"
+        | "signed_form"
+      lender_ask_kind: "ask" | "form"
+      lender_ask_status: "open" | "answered" | "closed" | "withdrawn"
+      lender_return_route: "upload" | "esign"
+      lender_room_status:
+        | "invited"
+        | "reviewing"
+        | "term_sheet"
+        | "declined"
+        | "selected"
+      lender_side: "lender" | "internal"
+      lender_signature_status:
+        | "draft"
+        | "sent"
+        | "completed"
+        | "declined"
+        | "expired"
+        | "cancelled"
       meeting_status: "scheduled" | "held" | "skipped" | "cancelled"
       notification_channel: "in_app" | "email"
       notification_type: "info" | "warning" | "error"
@@ -7829,6 +8672,20 @@ export type Database = {
       invitation: {
         email: string | null
         role: string | null
+      }
+      lender_room_summary: {
+        id: string | null
+        deal_id: string | null
+        name: string | null
+        welcome_note: string | null
+        expires_at: string | null
+        is_open: boolean | null
+        private_folder_id: string | null
+        master_folder_id: string | null
+        brand_name: string | null
+        brand_logo_path: string | null
+        deal_name: string | null
+        deal_description: string | null
       }
     }
   }
@@ -8011,6 +8868,40 @@ export const Constants = {
       discovery_revenue_trend: ["up", "down", "flat"],
       embedding_job_status: ["queued", "running", "done", "failed"],
       event_actor_kind: ["user", "service", "api_key", "system"],
+      lender_activity_action: [
+        "room_opened",
+        "folder_opened",
+        "document_previewed",
+        "document_downloaded",
+        "zip_downloaded",
+        "folder_created",
+      ],
+      lender_ask_file_role: [
+        "attachment",
+        "fulfilment",
+        "blank_form",
+        "completed_form",
+        "signed_form",
+      ],
+      lender_ask_kind: ["ask", "form"],
+      lender_ask_status: ["open", "answered", "closed", "withdrawn"],
+      lender_return_route: ["upload", "esign"],
+      lender_room_status: [
+        "invited",
+        "reviewing",
+        "term_sheet",
+        "declined",
+        "selected",
+      ],
+      lender_side: ["lender", "internal"],
+      lender_signature_status: [
+        "draft",
+        "sent",
+        "completed",
+        "declined",
+        "expired",
+        "cancelled",
+      ],
       meeting_status: ["scheduled", "held", "skipped", "cancelled"],
       notification_channel: ["in_app", "email"],
       notification_type: ["info", "warning", "error"],

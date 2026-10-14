@@ -6,10 +6,11 @@ import { notFound, redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
 import { isAccountOwner, type Role } from '@odb/policies';
+import { hasLenderRooms } from '@odb/lender-rooms/members/room-gate.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import pathsConfig from '~/config/paths.config';
-import { getTeamAccountNavigationConfig } from '~/config/team-account-navigation.config';
+import { teamNavigationFor } from '~/config/team-account-navigation.config';
 
 import { TrialBanner } from '../_components/trial-banner';
 import { loadTrialState } from '../_lib/trial';
@@ -82,10 +83,12 @@ export default async function TeamAccountLayout({
 
   const t = await getTranslations({ locale });
 
-  const { user, team } = await loadTeamWorkspace(account);
+  const { user, team, permissions } = await loadTeamWorkspace(account);
   const teams = await loadTeamAccounts(user.id);
-  const navigation = getTeamAccountNavigationConfig(account);
+  const navigation = teamNavigationFor(account, permissions);
   const trial = await loadTrialState(team.id);
+
+  const showLenderRooms = await hasLenderRooms(getSupabaseServerClient());
 
   return (
     <div className={'flex min-h-screen'}>
@@ -123,6 +126,12 @@ export default async function TeamAccountLayout({
               {t(item.label)}
             </Link>
           ))}
+
+          {showLenderRooms && (
+            <Link href={'/lender'} className={'rounded px-3 py-2 text-sm'}>
+              {t('common.lenderRooms')}
+            </Link>
+          )}
         </nav>
       </aside>
 

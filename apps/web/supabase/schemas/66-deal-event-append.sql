@@ -11,6 +11,91 @@
 -- deals.create on the account and resolves the account from the payload, since the
 -- deal row does not exist yet; every other event authorises with the log's
 -- has_deal_permission and resolves the account from the deal.
+--
+-- A dr_document event is checked here, where it enters, and nowhere else:
+-- replay_deal re-runs stored history through the projector, and history
+-- written before a rule existed must still rebuild.
+
+-- Anyone can open a deal on their personal account and append to it, and
+-- server code signs whatever storage path a document carries, so the
+-- aggregate id, the payload folder, and the payload storage path are all held
+-- to the event's own deal. Only an event with no user behind it names its
+-- uploader in the payload; a user's event is uploaded by that user.
+create or replace function public.check_dr_document_event(
+  p_deal_id uuid,
+  p_aggregate_id uuid,
+  p_event_type text,
+  p_payload jsonb,
+  p_actor_ref uuid
+) returns void
+  language plpgsql set search_path = '' as $$
+declare
+  v_document_deal_id uuid;
+begin
+  select d.deal_id into v_document_deal_id from public.dr_document d where d.id = p_aggregate_id;
+
+  if v_document_deal_id <> p_deal_id then
+    raise exception 'document % is not in deal %', p_aggregate_id, p_deal_id;
+  end if;
+
+  if p_event_type in ('dr_document.added', 'dr_document.moved') and not exists (
+    select 1 from public.dr_folder f
+    where f.id = (p_payload ->> 'folder_id')::uuid and f.deal_id = p_deal_id
+  ) then
+    raise exception 'folder % is not in deal %', p_payload ->> 'folder_id', p_deal_id;
+  end if;
+
+  if p_event_type = 'dr_document.added' and (
+    p_payload ->> 'storage_path' is null
+    or not starts_with(p_payload ->> 'storage_path', 'deal/' || p_deal_id || '/')
+    or p_payload ->> 'storage_path' ~ '\\|(^|/)\.{0,2}(/|$)'
+  ) then
+    raise exception 'storage path % is not a file of deal %', p_payload ->> 'storage_path', p_deal_id;
+  end if;
+
+  if p_event_type = 'dr_document.added' and (p_payload ->> 'uploaded_by')::uuid <> p_actor_ref then
+    raise exception 'document % cannot be added by % as uploaded by %', p_aggregate_id, p_actor_ref, p_payload ->> 'uploaded_by';
+  end if;
+end;
+$$;
+
+-- A signing webhook is matched to a contract version by the signing document
+-- recorded here, so a signing event may only name a version of its own
+-- contract in its own deal, and must carry what it sets.
+create or replace function public.check_contract_event(
+  p_deal_id uuid,
+  p_aggregate_id uuid,
+  p_event_type text,
+  p_payload jsonb
+) returns void
+  language plpgsql set search_path = '' as $$
+begin
+  if p_event_type not in ('contract.signature_requested', 'contract.signature_status_changed') then
+    return;
+  end if;
+
+  if not exists (
+    select 1
+    from public.contract_version cv
+    join public.contract c on c.id = cv.contract_id
+    where cv.id = (p_payload ->> 'version_id')::uuid
+      and cv.contract_id = p_aggregate_id
+      and c.deal_id = p_deal_id
+  ) then
+    raise exception 'contract version % is not a version of contract % in deal %',
+      p_payload ->> 'version_id', p_aggregate_id, p_deal_id;
+  end if;
+
+  if p_event_type = 'contract.signature_requested' and p_payload ->> 'signing_document_id' is null then
+    raise exception 'signature request for contract version % names no signing document', p_payload ->> 'version_id';
+  end if;
+
+  if p_event_type = 'contract.signature_status_changed'
+    and coalesce(p_payload ->> 'status', '') not in ('draft', 'sent', 'completed', 'declined', 'expired') then
+    raise exception '% is not a signing status of a contract version', p_payload ->> 'status';
+  end if;
+end;
+$$;
 
 create or replace function public.append_deal_event(
   p_deal_id uuid,
@@ -64,6 +149,12 @@ begin
     raise exception 'stale aggregate %/%: expected head %, actual head %',
       p_aggregate_type, p_aggregate_id, p_expected_aggregate_seq, v_agg_seq - 1
       using errcode = 'serialization_failure';
+  end if;
+
+  if p_aggregate_type = 'dr_document' then
+    perform public.check_dr_document_event(p_deal_id, p_aggregate_id, p_event_type, p_payload, v_actor_ref);
+  elsif p_aggregate_type = 'contract' then
+    perform public.check_contract_event(p_deal_id, p_aggregate_id, p_event_type, p_payload);
   end if;
 
   insert into public.deal_event (

@@ -1,12 +1,24 @@
 import type { NavigationItem } from '~/config/personal-account-navigation.config';
 
-export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
+export interface TeamNavigationItem extends NavigationItem {
+  requires?: string;
+}
+
+export function getTeamAccountNavigationConfig(
+  slug: string,
+): TeamNavigationItem[] {
   const prefix = `/home/${slug}`;
 
   return [
     { label: 'common.home', path: prefix, icon: 'home' },
     { label: 'common.todos', path: `${prefix}/todos`, icon: 'check-square' },
     { label: 'common.deals', path: `${prefix}/deals`, icon: 'briefcase' },
+    {
+      label: 'common.lenders',
+      path: `${prefix}/lenders`,
+      icon: 'landmark',
+      requires: 'deals.manage',
+    },
     { label: 'common.reports', path: `${prefix}/reports`, icon: 'bar-chart' },
     { label: 'common.outreach', path: `${prefix}/outreach`, icon: 'send' },
     {
@@ -39,4 +51,12 @@ export function getTeamAccountNavigationConfig(slug: string): NavigationItem[] {
   ];
 }
 
-export default getTeamAccountNavigationConfig;
+export function teamNavigationFor(
+  slug: string,
+  permissions: readonly string[],
+): TeamNavigationItem[] {
+  return getTeamAccountNavigationConfig(slug).filter(
+    (item) =>
+      item.requires === undefined || permissions.includes(item.requires),
+  );
+}

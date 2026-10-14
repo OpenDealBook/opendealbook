@@ -14,6 +14,7 @@
     "./actions": "./src/server/dismiss-notification.ts",
     "./server": "./src/server/novu/index.ts",
     "./relay": "./src/server/relay/deal-events.ts",
+    "./lender-bridge": "./src/server/lender-workflows/bridge.ts",
     "./components": "./src/components/index.ts",
     "./hooks": "./src/hooks/index.ts"
   },
@@ -23,7 +24,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@novu/framework": "2.13.0",
     "@novu/node": "catalog:",
+    "@odb/email-templates": "workspace:*",
     "@supabase/supabase-js": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@odb/next": "workspace:*",

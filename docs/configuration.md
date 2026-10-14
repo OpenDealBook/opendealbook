@@ -15,19 +15,26 @@ keyed by the feature it unlocks. Names below are the actual variables referenced
 Multi-factor recovery also needs a Postgres GUC, `app.mfa_recovery_pepper`, set in production
 (it is the HMAC pepper for recovery codes).
 
-## E-signature: Documenso (LOI / APA)
+## E-signature: Documenso (LOI / APA and lender forms)
 
 Unlocks the document signature pipeline and the signature-driven stage transitions (see
-[Offers, LOI and APA](offers-loi-apa.md)).
+[Offers, LOI and APA](offers-loi-apa.md)), and signature requests for the forms a lender
+uploads to a lender room. A Word form is converted to PDF through Gotenberg first, at
+`GOTENBERG_URL` (default `http://localhost:3009`).
 
 | Variable | Notes |
 | --- | --- |
 | `DOCUMENSO_URL` | The Documenso instance URL |
-| `DOCUMENSO_API_TOKEN` / `DOCUMENSO_API_KEY` | API credential |
+| `DOCUMENSO_API_KEY` | API token created in Documenso (Team settings, API Tokens) |
+| `DOCUMENSO_WEBHOOK_SECRET` | The secret set on the Documenso webhook that points at `/api/webhooks/documenso`, at least 32 characters. Documenso sends it in the `X-Documenso-Secret` header. When it is unset or shorter the route refuses every webhook with 401 |
+
+A webhook only tells the app which document changed. The app then asks Documenso for that
+document's state with the API key and acts on the answer, so the API key must belong to the
+same Documenso team as the webhook.
 
 Also required to go live, beyond env: the LOI and APA **template language is user-provided**
-(the seed ships placeholders only); the **signer model** currently has a single buyer signer
-and a real LOI needs the seller added; and the rendered-output-to-signing **bucket handoff**
+(the seed ships placeholders only); the **signers** are named by the deal team for each LOI
+and APA; and the rendered-output-to-signing **bucket handoff**
 (`generated` to `contracts`) must be reconciled when activating.
 
 ## Mailbox and calendar: Nango
@@ -78,9 +85,39 @@ Unlocks the deal-event notification relay and the trial drip (see
 
 | Variable | Notes |
 | --- | --- |
-| `NOVU_API_KEY` | Novu credential |
+| `NOVU_API_KEY` | The secret key of one Novu environment (Novu dashboard, API Keys). The app triggers workflows with it, and Novu signs its calls to the app's bridge at `/api/novu` with the same key. When it is unset the bridge refuses every call with 401 |
 | `NOVU_API_URL` | Novu host |
 | `NOVU_OWNED_CHANNELS` | Which channels Novu owns |
+| `NOVU_SAFE_OUTBOUND_ALLOW` | Set on Novu's own `api` and `worker` services, not on the app. Novu refuses to call a bridge or an SMTP host that resolves to a private address unless the hostname, `.suffix`, IP, or CIDR is listed here, comma separated. `docker-compose.yml` defaults it to `host.docker.internal`; in a cluster list the web Service's hostname |
+
+### Lender room workflows
+
+The lender room emails (`lender_ask.opened`, `lender_ask.replied`, `lender_ask.answered`,
+`lender_form.uploaded`, `lender_form.returned`, `lender_form.signature_completed`,
+`lender_form.signature_declined`, `lender_form.signature_expired`, `lender_room.access_requested`, and the daily
+`lender-room-documents` digest) are defined in `packages/features/notifications/src/server/lender-workflows`
+and served to Novu by the bridge at `/api/novu`. Nothing is built in the Novu dashboard. Novu
+calls the bridge to run each step, so names are read when an email is sent: the digest, sent
+daily at 22:00 UTC, lists only the files the person can still see at that moment.
+
+Register the workflows with Novu after the app is running. The call replaces what Novu holds
+for this bridge, so repeating it is safe:
+
+```bash
+curl -X POST "$NOVU_API_URL/v1/bridge/sync?source=cli" \
+  -H "Authorization: ApiKey $NOVU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"bridgeUrl": "http://host.docker.internal:3000/api/novu"}'
+```
+
+`bridgeUrl` is the address Novu's containers use to reach the app, which is why the local
+value is `host.docker.internal` and not `localhost`. The Helm chart runs the same call from the
+`novu-sync` hook Job after every install and upgrade, against the web Service; it skips itself
+when `NOVU_API_KEY` or `NOVU_API_URL` is unset. Deploy with `--wait` so the Job reads the new
+version of the bridge.
+
+Novu also needs an active email integration (Novu dashboard, Integrations) in the same
+environment as the key, or the email steps fail.
 
 ## Background workflows: Temporal
 

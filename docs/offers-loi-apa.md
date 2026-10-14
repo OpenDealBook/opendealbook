@@ -46,10 +46,18 @@ The letter of intent is generated from the pinned offer version, not drafted fre
    `required_personal_cash_flow` against the adopted calculation snapshot). See
    [Intake and valuation](intake-and-valuation.md).
 2. **Render.** `generateLoi` renders the LOI from a `document_template` and the offer version.
-3. **Sign.** The rendered document is sent through Documenso for e-signature.
-4. **Advance.** When all parties sign, the Documenso webhook
-   (`apps/web/app/api/webhooks/documenso/route.ts`) marks the contract version signed and the
-   deal auto-advances from `loi_submitted` to `loi_accepted`.
+3. **Sign.** The rendered document is created in Documenso as a draft for the signers the
+   deal team names (name and email each, at least one). The deal team opens the draft in
+   Documenso's editor, places the signature fields, and sends it from there. `generateLoi`
+   takes the signer list and returns the editor link; the offer screen does neither yet.
+4. **Advance.** The Documenso webhook (`apps/web/app/api/webhooks/documenso/route.ts`) must
+   carry the shared secret and only names the document that changed. The app asks Documenso
+   for that document's state, and when Documenso reports it completed the contract version is
+   marked signed. The deal auto-advances to `loi_accepted` only if it is still at
+   `loi_submitted`; from any other stage the version is marked signed and the stage is left
+   alone. For an LOI a draft, a send, a rejection, a cancellation, or an expiry does not move
+   the stage. `checkContractSignatureStatus` applies the same step on demand if a webhook was
+   lost.
 
 The accepted offer version is pinned to the contract (`source_offer_version_id`), so there is
 one document lineage from offer to signed artifact.
@@ -57,8 +65,16 @@ one document lineage from offer to signed artifact.
 ## The APA mirrors the LOI
 
 The purchase agreement is an offer document of kind `apa` and follows the same pipeline:
-`generateApa` renders from a template and the offer terms, sends through Documenso, and on
-full signature the webhook advances the deal from `pa_submitted` to `pa_accepted`.
+`generateApa` renders from a template and the offer terms and creates the draft in Documenso
+for the deal team to place fields and send; generating does not move the stage. The deal
+advances from `loi_accepted` to `pa_submitted` when Documenso reports the document sent, and
+to `pa_accepted` when Documenso reports it completed, from `pa_submitted` or, if the sent
+notice was lost, from `loi_accepted`. From any other stage nothing moves. A declined,
+cancelled, or expired APA is recorded on the contract version and steps the deal back from
+`pa_submitted` to `loi_accepted` so a new APA can be generated.
+
+A fully signed LOI or APA is filed once in the deal's data room, in a top-level folder named
+"Signed contracts", as "LOI (signed).pdf" or "APA (signed).pdf".
 
 ## What the operator provides
 
@@ -67,9 +83,11 @@ The document pipeline is wired but intentionally content- and config-gated:
 - **Template language.** The LOI and APA template bodies are user-provided. The seed ships
   placeholder templates only.
 - **Documenso configuration.** The Documenso URL and API token must be set; until then the
-  e-sign step is dark. See [Configuration](configuration.md).
-- **Signer model.** The current signer model is a single buyer signer; a real LOI needs the
-  seller as a signer too. This is a known activation item.
+  e-sign step is dark. Without the webhook secret drafts can still be created and sent, but
+  every webhook is refused, so nothing advances until the status is checked by hand. See
+  [Configuration](configuration.md).
+- **Signer model.** The deal team names the signers when generating an LOI or APA; the acting
+  user is not added unless named.
 - **Storage buckets.** Rendered output is written to the `generated` bucket and the e-sign
   step reads from `contracts`; reconciling that bucket handoff is part of activating the
   pipeline.

@@ -92,7 +92,8 @@ list below highlights what each stage is for.
 - Build an offer as a chain of immutable versions, then submit it (this is what moves the deal
   to `loi_submitted`).
 - Once the deal passes the deal-box screen, **Generate LOI** renders the letter of intent from
-  the pinned offer version and sends it through Documenso for e-signature.
+  the pinned offer version and creates it in Documenso as a draft for the signers the deal
+  team names. The deal team places the signature fields and sends it from Documenso.
 - The deal waits here for signatures.
 
 ### 5. LOI accepted
@@ -120,7 +121,9 @@ list below highlights what each stage is for.
 ### 7. PA submitted
 
 - Build the purchase agreement as an offer document of kind APA, mirroring the LOI flow.
-- Generate the APA and send it through Documenso for e-signature. The deal waits here.
+- Generate the APA, which creates it in Documenso as a draft; the deal team places the
+  signature fields and sends it from Documenso. The deal moves to `pa_submitted` when
+  Documenso reports it sent and waits there for signatures.
 
 ### 8. PA accepted
 

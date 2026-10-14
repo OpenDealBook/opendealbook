@@ -1,0 +1,8 @@
+From: Dana Whitfield <dana@firstbank.example>
+To: Sam Ortiz <sam@buyer.example>
+Date: Wed, 04 Mar 2026 15:30:00 +0000
+Subject: Updated rent roll
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+
+<html><head><style>body{background:url(https://tracker.example/bg.png)}</style><script>alert(document.domain)</script></head><body><p onclick="alert(1)">Please see the <b>attached</b> rent roll.</p><img src="https://tracker.example/open.gif"><img src="x" onerror="alert(2)"><a href="javascript:alert(3)">Statement</a><iframe src="https://tracker.example/frame"></iframe></body></html>

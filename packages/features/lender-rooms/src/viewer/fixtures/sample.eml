@@ -1,0 +1,20 @@
+From: Dana Whitfield <dana@firstbank.example>
+To: Sam Ortiz <sam@buyer.example>
+Cc: Lee Park <lee@buyer.example>
+Date: Wed, 04 Mar 2026 15:30:00 +0000
+Subject: Updated rent roll
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+Please see the attached rent roll.
+Dana
+--b1
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename="rent-roll.xlsx"
+Content-Transfer-Encoding: base64
+
+bm90IHJlYWxseSBhIHdvcmtib29r
+--b1--

@@ -45,6 +45,7 @@
     "@odb/i18n": "workspace:*",
     "@odb/integrations": "workspace:*",
     "@odb/keystatic": "workspace:*",
+    "@odb/lender-rooms": "workspace:*",
     "@odb/mailers": "workspace:*",
     "@odb/meetings": "workspace:*",
     "@odb/monitoring": "workspace:*",

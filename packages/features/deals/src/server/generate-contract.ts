@@ -7,47 +7,81 @@ import {
   createSupabaseContractStorage,
 } from '@odb/contracts';
 import {
+  DOCUMENSO_NOT_CONFIGURED,
+  DocumensoRejected,
+  checkContractSignature,
+  deterministicUuid,
+  isStaleAggregate,
+  type Signer,
   createDocumensoClient,
-  type DocumensoSigner,
-  sendForSignature,
+  isDocumensoConfigured,
+  requestContractSignature,
+  signersSchema,
 } from '@odb/contracts/esign';
 import { appendDealEvent } from '@odb/events';
 import type { Database } from '@odb/supabase';
+import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 import { GENERATED_BUCKET, generateFromTemplate } from '@odb/templates/server';
+
+import { offerIdSchema } from '../schema/offer.schema';
+import {
+  generationRefusal,
+  latestVersion,
+  offerContracts,
+} from './contract-signature-loader';
+import { Refusal } from './refusal';
+
+export const contractRequestSchema = offerIdSchema.extend({
+  signers: signersSchema,
+});
 
 export interface GenerateContractInput {
   client: SupabaseClient<Database>;
   user: User;
   dealId: string;
   accountId: string;
+  offerId: string;
   offerVersionId: string;
   terms: Record<string, unknown>;
-  type: ContractType;
+  type: Extract<ContractType, 'loi' | 'apa'>;
+  earlierContracts: number;
+  signers: Signer[];
 }
 
 export async function generateContract(
   input: GenerateContractInput,
-): Promise<string> {
+): Promise<{ contractVersionId: string; editorUrl: string }> {
   const templateId = await placeholderTemplateId(
     input.client,
     input.accountId,
     input.type,
   );
 
-  const contractId = crypto.randomUUID();
+  const contractId = deterministicUuid(
+    `${input.offerId}:${input.type}:${input.earlierContracts}`,
+  );
 
-  await appendDealEvent(input.client, {
-    dealId: input.dealId,
-    aggregateType: 'contract',
-    aggregateId: contractId,
-    eventType: 'contract.created',
-    payload: {
-      type: input.type,
-      status: 'draft',
-      current_version: 0,
-      source_offer_version_id: input.offerVersionId,
-    },
-  });
+  try {
+    await appendDealEvent(input.client, {
+      dealId: input.dealId,
+      aggregateType: 'contract',
+      aggregateId: contractId,
+      eventType: 'contract.created',
+      expectedAggregateSeq: 0,
+      payload: {
+        type: input.type,
+        status: 'draft',
+        current_version: 0,
+        source_offer_version_id: input.offerVersionId,
+      },
+    });
+  } catch (failure) {
+    if (isStaleAggregate(failure)) {
+      throw new Refusal(generationRefusal(input.type, 'draft')!);
+    }
+
+    throw failure;
+  }
 
   const generated = await generateFromTemplate({
     accountId: input.accountId,
@@ -102,25 +136,66 @@ export async function generateContract(
     payload: { current_version: 1 },
   });
 
-  await sendForSignature(
-    {
-      contractVersionId: contractVersion.id,
-      signers: [contractSigner(input.user)],
-    },
-    {
-      client: input.client,
-      storage,
-      documenso: createDocumensoClient(),
-    },
-  );
+  try {
+    const editorUrl = await requestContractSignature(
+      {
+        contractVersionId: contractVersion.id,
+        dealId: input.dealId,
+        signers: input.signers,
+      },
+      {
+        client: input.client,
+        storage,
+        documenso: createDocumensoClient(),
+      },
+    );
 
-  return contractId;
+    return { contractVersionId: contractVersion.id, editorUrl };
+  } catch (failure) {
+    if (failure instanceof DocumensoRejected) {
+      throw new Refusal(
+        'Documenso did not accept the signature request. Check the signers and try again',
+      );
+    }
+
+    throw failure;
+  }
 }
 
-function contractSigner(user: User): DocumensoSigner {
-  const email = user.email ?? '';
-  const name = (user.user_metadata?.name as string | undefined) ?? email;
-  return { email, name };
+export async function countEarlierContractsOrRefuse(input: {
+  client: SupabaseClient<Database>;
+  offerId: string;
+  type: GenerateContractInput['type'];
+}): Promise<number> {
+  if (!isDocumensoConfigured()) {
+    throw new Refusal(DOCUMENSO_NOT_CONFIGURED);
+  }
+
+  let contracts = await offerContracts(input.client, input.offerId);
+  const recorded = latestVersion(contracts, input.type);
+
+  if (
+    recorded?.signing_status === 'draft' ||
+    recorded?.signing_status === 'sent'
+  ) {
+    await checkContractSignature(recorded.id, {
+      client: input.client,
+      admin: getSupabaseServerAdminClient(),
+      documenso: createDocumensoClient(),
+    });
+    contracts = await offerContracts(input.client, input.offerId);
+  }
+
+  const refusal = generationRefusal(
+    input.type,
+    latestVersion(contracts, input.type)?.signing_status,
+  );
+
+  if (refusal) {
+    throw new Refusal(refusal);
+  }
+
+  return contracts.filter((contract) => contract.type === input.type).length;
 }
 
 async function placeholderTemplateId(
@@ -139,7 +214,9 @@ async function placeholderTemplateId(
     .throwOnError();
 
   if (data === null) {
-    throw new Error(`No ${type} template configured`);
+    throw new Refusal(
+      `No ${type.toUpperCase()} template is set up for this account`,
+    );
   }
 
   return data.id;

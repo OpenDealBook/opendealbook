@@ -1,0 +1,14 @@
+{
+  "message": "Envelope could not be found",
+  "code": "INTERNAL_SERVER_ERROR",
+  "data": {
+    "code": "NOT_FOUND",
+    "httpStatus": 404,
+    "stack": "<redacted>",
+    "path": "envelope.get",
+    "appError": {
+      "code": "NOT_FOUND",
+      "message": "Envelope could not be found"
+    }
+  }
+}

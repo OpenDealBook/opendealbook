@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 
 import { NotificationsPopover } from '@odb/notifications/components';
+import { hasLenderRooms } from '@odb/lender-rooms/members/room-gate.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Logo } from '@odb/ui/logo';
 
@@ -38,6 +39,8 @@ export default async function UserWorkspaceLayout({
 
   const trial = await loadTrialState(user.id);
 
+  const showLenderRooms = await hasLenderRooms(client);
+
   return (
     <div className={'flex min-h-screen'}>
       <aside
@@ -59,6 +62,17 @@ export default async function UserWorkspaceLayout({
               {t(item.label)}
             </Link>
           ))}
+
+          {showLenderRooms && (
+            <Link
+              href={'/lender'}
+              className={
+                'hover:bg-muted rounded-md px-2 py-2 text-sm font-medium'
+              }
+            >
+              {t('common.lenderRooms')}
+            </Link>
+          )}
         </nav>
       </aside>
 

@@ -53,6 +53,12 @@ describe('routeDealEventNotification', () => {
     );
   });
 
+  it('maps a document added to a data room to the lender documents workflow', () => {
+    expect(routeDealEventNotification(event({ eventType: 'dr_document.added' }))).toBe(
+      'lender-room-documents',
+    );
+  });
+
   it('does not notify on a stage change into an unremarkable stage', () => {
     expect(
       routeDealEventNotification(

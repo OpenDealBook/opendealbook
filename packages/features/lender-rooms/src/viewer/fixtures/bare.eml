@@ -1,0 +1,21 @@
+To: undisclosed-recipients:;
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b1"
+
+--b1
+Content-Type: text/plain; charset=utf-8
+
+No headers to speak of.
+--b1
+Content-Type: image/png
+Content-Disposition: inline
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgo=
+--b1
+Content-Type: application/octet-stream
+Content-Disposition: attachment
+Content-Transfer-Encoding: base64
+
+bm90IHJlYWxseSBhIHdvcmtib29r
+--b1--

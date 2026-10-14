@@ -183,6 +183,99 @@ spec:
             seccompProfile:
               type: RuntimeDefault
 ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "opendealbook.fullname" . }}-novu-sync
+  labels:
+    {{- include "opendealbook.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: novu-sync
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - node
+            - --input-type=module
+            - --eval
+            - |-
+              const { NOVU_API_KEY, NOVU_API_URL, NOVU_BRIDGE_URL } = process.env;
+
+              if (!NOVU_API_KEY || !NOVU_API_URL) {
+                console.log('Novu is not configured; skipping the workflow sync');
+                process.exit(0);
+              }
+
+              const response = await fetch(`${NOVU_API_URL}/v1/bridge/sync?source=cli`, {
+                method: 'POST',
+                headers: {
+                  authorization: `ApiKey ${NOVU_API_KEY}`,
+                  'content-type': 'application/json',
+                },
+                body: JSON.stringify({ bridgeUrl: NOVU_BRIDGE_URL }),
+              });
+
+              if (!response.ok) {
+                console.error(`Novu refused the workflow sync: ${response.status} ${await response.text()}`);
+                process.exit(1);
+              }
+
+              console.log('Synced the lender workflows with Novu');
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: SUPABASE_URL
+              value: http://supabase-kong.supabase.svc.cluster.local:8000
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability.svc.cluster.local:4318
+            - name: OTEL_SERVICE_NAME
+              value: opendealbook-web
+            - name: PYROSCOPE_SERVER_ADDRESS
+              value: http://pyroscope.observability.svc.cluster.local:4040
+            - name: TEMPORAL_ADDRESS
+              value: temporal-frontend.temporal.svc.cluster.local:7233
+            - name: GOTENBERG_URL
+              value: http://gotenberg.gotenberg.svc.cluster.local:3000
+            - name: DOCLING_URL
+              value: http://docling-serve.docling.svc.cluster.local:5001
+            - name: NOVU_API_URL
+              value: http://novu-api.novu.svc.cluster.local:3000
+            - name: NANGO_SERVER_URL
+              value: http://nango-server.nango.svc.cluster.local:3003
+            - name: NOVU_BRIDGE_URL
+              value: http://{{ include "opendealbook.fullname" . }}-web:3000/api/novu
+          envFrom:
+            - secretRef:
+                name: opendealbook-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:

@@ -297,6 +297,10 @@ begin
 end;
 $$;
 
+-- A dr_document event only ever touches a document of its own deal. Nothing
+-- else about the event is judged here: replay_deal feeds stored history back
+-- through this, so what a new event may say is settled at append, by
+-- check_dr_document_event.
 create or replace function public.project_dr_document(ev public.deal_event)
   returns void
   language plpgsql security definer set search_path = '' as $$
@@ -310,17 +314,19 @@ begin
       ev.payload ->> 'storage_path',
       coalesce((ev.payload ->> 'version')::int, 1),
       (ev.payload ->> 'checklist_item_id')::uuid,
-      ev.actor_ref
+      coalesce(ev.actor_ref, (ev.payload ->> 'uploaded_by')::uuid)
     )
     on conflict (id) do update set
       folder_id = excluded.folder_id,
       name = excluded.name,
-      checklist_item_id = excluded.checklist_item_id;
+      checklist_item_id = excluded.checklist_item_id
+    where dr_document.deal_id = excluded.deal_id;
   elsif ev.event_type = 'dr_document.moved' then
     update public.dr_document set folder_id = (ev.payload ->> 'folder_id')::uuid
-    where id = ev.aggregate_id;
+    where id = ev.aggregate_id and deal_id = ev.deal_id;
   elsif ev.event_type = 'dr_document.removed' then
-    update public.dr_document set removed_at = ev.created_at where id = ev.aggregate_id;
+    update public.dr_document set removed_at = ev.created_at
+    where id = ev.aggregate_id and deal_id = ev.deal_id;
   else
     raise exception 'unknown dr_document event %', ev.event_type;
   end if;
@@ -428,6 +434,22 @@ begin
       current_version = (ev.payload ->> 'current_version')::int,
       status = coalesce(ev.payload ->> 'status', status)
     where id = ev.aggregate_id;
+  elsif ev.event_type = 'contract.signature_requested' then
+    update public.contract_version cv set
+      signing_document_id = ev.payload ->> 'signing_document_id',
+      signing_status = 'draft'
+    from public.contract c
+    where cv.id = (ev.payload ->> 'version_id')::uuid
+      and cv.contract_id = ev.aggregate_id
+      and c.id = cv.contract_id
+      and c.deal_id = ev.deal_id;
+  elsif ev.event_type = 'contract.signature_status_changed' then
+    update public.contract_version cv set signing_status = ev.payload ->> 'status'
+    from public.contract c
+    where cv.id = (ev.payload ->> 'version_id')::uuid
+      and cv.contract_id = ev.aggregate_id
+      and c.id = cv.contract_id
+      and c.deal_id = ev.deal_id;
   else
     raise exception 'unknown contract event %', ev.event_type;
   end if;

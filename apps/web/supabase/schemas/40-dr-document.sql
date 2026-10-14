@@ -2,6 +2,8 @@
 -- row with a higher version; the database allows it and the app decides how to
 -- present versions. checklist_item_id links a document to the diligence item it
 -- satisfies. Deal-scoped.
+-- The read policy lives in 99a-lender-rooms.sql because it depends on
+-- lender_can_read_document.
 
 create table if not exists public.dr_document (
   id uuid primary key default gen_random_uuid(),
@@ -32,16 +34,6 @@ grant select on public.dr_document to service_role;
 create trigger dr_document_timestamps
   before insert or update on public.dr_document
   for each row execute function public.set_timestamps();
-
-create policy dr_document_read on public.dr_document
-  for select to authenticated
-  using (
-    removed_at is null
-    and (
-      public.has_role_on_account(account_id)
-      or public.has_deal_permission(deal_id, 'deals.manage')
-    )
-  );
 
 create policy dr_document_insert on public.dr_document
   for insert to authenticated

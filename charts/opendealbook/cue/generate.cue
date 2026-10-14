@@ -14,6 +14,7 @@ _resources: [
 	_web,
 	_webService,
 	_workers,
+	_novuSync,
 	if values.ingress.enabled && values.ingress.type == "ingress" {_ingress},
 	if values.ingress.enabled && values.ingress.type == "gateway" {_httpRoute},
 ]

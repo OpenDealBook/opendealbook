@@ -51,6 +51,45 @@ describe('triggerNotification', () => {
     expect(channels).toEqual(['email']);
   });
 
+  it('forwards a transaction id to Novu when one is given', async () => {
+    const novu = stubNovu();
+
+    await triggerNotification(
+      { novu, client: stubSupabase([]) },
+      {
+        eventType: 'loi.countersigned',
+        recipientUserId: 'user-1',
+        payload: { dealName: 'Acme' },
+        transactionId: 'loi.countersigned:7:user-1',
+      },
+    );
+
+    expect(novu.trigger).toHaveBeenCalledWith('loi.countersigned', {
+      to: { subscriberId: 'user-1' },
+      payload: { dealName: 'Acme' },
+      transactionId: 'loi.countersigned:7:user-1',
+    });
+  });
+
+  it('gives Novu the recipient email alongside the subscriber id when one is given', async () => {
+    const novu = stubNovu();
+
+    await triggerNotification(
+      { novu, client: stubSupabase([]) },
+      {
+        eventType: 'loi.countersigned',
+        recipientUserId: 'user-1',
+        email: 'ada@bank.test',
+        payload: { dealName: 'Acme' },
+      },
+    );
+
+    expect(novu.trigger).toHaveBeenCalledWith('loi.countersigned', {
+      to: { subscriberId: 'user-1', email: 'ada@bank.test' },
+      payload: { dealName: 'Acme' },
+    });
+  });
+
   it('does not trigger when the recipient has disabled email', async () => {
     const novu = stubNovu();
     const client = stubSupabase([{ channel: 'email', enabled: false }]);

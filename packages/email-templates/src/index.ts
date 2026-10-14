@@ -1,4 +1,7 @@
 export * from './emails/invitation.email';
+export * from './emails/lender-documents-digest.email';
+export * from './emails/lender-notice.email';
+export * from './emails/lender-sign-in.email';
 export * from './emails/verification.email';
 export * from './emails/password-reset.email';
 export * from './emails/welcome.email';

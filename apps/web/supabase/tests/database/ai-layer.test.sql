@@ -43,7 +43,7 @@ values ('aaaaaaaa-0000-0000-0000-000000000fd1', tests.account_id('ai-acct-a'), '
 select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e2', 'dr_document',
   'aaaaaaaa-0000-0000-0000-000000000dc1', 'dr_document.added',
   jsonb_build_object('folder_id', 'aaaaaaaa-0000-0000-0000-000000000fd1', 'name', 'financials.pdf',
-    'storage_path', 'deals/a/financials.pdf'), null, 'service');
+    'storage_path', 'deal/aaaaaaaa-0000-0000-0000-0000000000e2/financials.pdf'), null, 'service');
 
 insert into public.document_chunk (account_id, deal_id, document_id, chunk_index, content)
 values (tests.account_id('ai-acct-a'), 'aaaaaaaa-0000-0000-0000-0000000000e2',

@@ -137,7 +137,8 @@ the chart never inlines secret material. That Secret is synced by an ESO
 (`secretStoreRef: openbao-backend`), following the repo pattern. Expected keys:
 `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
 `DATABASE_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NANGO_SECRET_KEY`,
-`NOVU_API_KEY`, `DOCUMENSO_API_TOKEN`, `LLM_ENDPOINT`, `LLM_API_KEY`. Seed
+`NOVU_API_KEY`, `DOCUMENSO_API_KEY`, `DOCUMENSO_WEBHOOK_SECRET`, `LLM_ENDPOINT`,
+`LLM_API_KEY`. Seed
 OpenBao (`bao kv put secret/<env>/opendealbook ...`) before the ExternalSecret
 can sync.
 

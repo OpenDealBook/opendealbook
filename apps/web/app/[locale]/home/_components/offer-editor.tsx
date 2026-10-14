@@ -17,6 +17,7 @@ import {
   addOfferVersion,
   createOffer,
   acceptOffer,
+  checkContractSignatureStatus,
   expireOffer,
   generateApa,
   generateLoi,
@@ -24,6 +25,9 @@ import {
   submitOffer,
   withdrawOffer,
 } from '@odb/deals/server';
+import type { ActionResult } from '@odb/lender-rooms/actions/refusal.ts';
+import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
+import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
 import { Button } from '@odb/ui/button';
 import { Checkbox } from '@odb/ui/checkbox';
 import {
@@ -42,6 +46,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@odb/ui/select';
+
+import { SignatureState } from './signature-state';
+import type { ContractSignatures } from './signature-wording';
+import {
+  type Signer,
+  SignerInputs,
+  oneBlankSigner,
+} from './signer-inputs';
 
 const INVENTORY_UNSET = 'none';
 
@@ -659,6 +671,99 @@ export function CreateOfferButton({ dealId }: { dealId: string }) {
   );
 }
 
+function RequestContractSignature({
+  contract,
+  disabled,
+  signature,
+  generate,
+}: {
+  contract: 'LOI' | 'APA';
+  disabled: boolean;
+  signature: ContractSignatures['loi'];
+  generate: (signers: Signer[]) => Promise<ActionResult<unknown>>;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [signers, setSigners] = useState(oneBlankSigner);
+  const requesting = useAttempt();
+  const checking = useAttempt();
+  const requestWording = `Request ${contract} signature`;
+
+  return (
+    <>
+      <Button
+        size={'sm'}
+        disabled={requesting.isPending || disabled}
+        onClick={() => setOpen(true)}
+      >
+        {requestWording}
+      </Button>
+      {signature?.signingStatus ? (
+        <SignatureState
+          status={signature.signingStatus}
+          editorUrl={signature.editorUrl}
+          checkLabel={`Check ${contract} signature status`}
+          isPending={checking.isPending}
+          onCheck={() =>
+            checking.attempt(
+              () =>
+                checkContractSignatureStatus({
+                  contract_version_id: signature.contractVersionId,
+                }),
+              () => router.refresh(),
+            )
+          }
+        >
+          {contract}:{' '}
+        </SignatureState>
+      ) : null}
+      <ProblemNote problem={checking.problem} signInPath={'/auth/sign-in'} />
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{requestWording}</DialogTitle>
+          </DialogHeader>
+          <form
+            className={'flex flex-col gap-4'}
+            onSubmit={(event) => {
+              event.preventDefault();
+              requesting.attempt(
+                () => generate(signers),
+                () => {
+                  setOpen(false);
+                  setSigners(oneBlankSigner);
+                  router.refresh();
+                },
+              );
+            }}
+          >
+            <p className={'text-muted-foreground text-sm'}>
+              This generates the {contract} and creates a draft in Documenso.
+              You place the signature fields there and it goes out to the
+              signers from Documenso.
+            </p>
+            <SignerInputs signers={signers} onChange={setSigners} />
+            <ProblemNote problem={requesting.problem} signInPath={'/auth/sign-in'} />
+            <DialogFooter>
+              <Button
+                type={'button'}
+                variant={'outline'}
+                onClick={() => setOpen(false)}
+                disabled={requesting.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type={'submit'} disabled={requesting.isPending}>
+                {requestWording}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 const CLOSED_OFFER_STATUSES = ['rejected', 'withdrawn', 'expired'];
 
 export function OfferLifecycleActions({
@@ -668,6 +773,7 @@ export function OfferLifecycleActions({
   nextNumber,
   loiGatePassed,
   loiAccepted,
+  signatures,
 }: {
   offerId: string;
   status: string;
@@ -675,6 +781,7 @@ export function OfferLifecycleActions({
   nextNumber: number;
   loiGatePassed: boolean;
   loiAccepted: boolean;
+  signatures: ContractSignatures;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -693,21 +800,19 @@ export function OfferLifecycleActions({
   if (status === 'accepted') {
     return (
       <div className={'flex flex-wrap items-center gap-2'}>
-        <Button
-          size={'sm'}
-          disabled={pending || !loiGatePassed}
-          onClick={() => run(() => generateLoi({ offer_id: offerId }))}
-        >
-          Generate LOI
-        </Button>
+        <RequestContractSignature
+          contract={'LOI'}
+          disabled={!loiGatePassed || !signatures.canGenerate.loi}
+          signature={signatures.loi}
+          generate={(signers) => generateLoi({ offer_id: offerId, signers })}
+        />
         {loiAccepted ? (
-          <Button
-            size={'sm'}
-            disabled={pending}
-            onClick={() => run(() => generateApa({ offer_id: offerId }))}
-          >
-            Generate APA
-          </Button>
+          <RequestContractSignature
+            contract={'APA'}
+            disabled={!signatures.canGenerate.apa}
+            signature={signatures.apa}
+            generate={(signers) => generateApa({ offer_id: offerId, signers })}
+          />
         ) : null}
       </div>
     );

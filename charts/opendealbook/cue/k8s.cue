@@ -101,6 +101,13 @@ package opendealbook
 	}
 }
 
+#Job: {
+	apiVersion: "batch/v1"
+	kind:       "Job"
+	metadata:   #ObjectMeta
+	spec: template: spec: #PodSpec & {restartPolicy: "OnFailure"}
+}
+
 #ServiceAccount: {
 	apiVersion: "v1"
 	kind:       "ServiceAccount"
