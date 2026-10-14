@@ -5,14 +5,18 @@ import type { AddressInfo } from 'node:net';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-function syncScriptFromChart(): string {
-  const lines = readFileSync(
+function chartLines(): string[] {
+  return readFileSync(
     new URL(
       '../../../../../../charts/opendealbook/templates/workloads.yaml',
       import.meta.url,
     ),
     'utf8',
   ).split('\n');
+}
+
+function syncScriptFromChart(): string {
+  const lines = chartLines();
   const start = lines.findIndex((line) => line.includes('-novu-sync'));
   const block = lines.indexOf('            - |-', start) + 1;
   const end = lines.findIndex(
@@ -63,6 +67,17 @@ function runSync(env: Record<string, string>): Promise<number | null> {
 }
 
 describe('chart workflow sync script', () => {
+  it('registers the bridge by the address other namespaces resolve', () => {
+    const lines = chartLines();
+    const name = lines.findIndex((line) =>
+      line.includes('- name: NOVU_BRIDGE_URL'),
+    );
+
+    expect(lines[name + 1]?.trim()).toBe(
+      'value: http://{{ include "opendealbook.fullname" . }}-web.{{ .Release.Namespace }}.svc.cluster.local:3000/api/novu',
+    );
+  });
+
   afterEach(() => {
     for (const server of servers.splice(0)) {
       server.close();

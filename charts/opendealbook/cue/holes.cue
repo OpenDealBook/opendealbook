@@ -14,6 +14,7 @@ package opendealbook
 //   {{ .Values.workerImage.tag }}
 //   {{ .Values.marketing.enabled }}      (public|internal instance toggle)
 //   {{ include "opendealbook.fullname" . }}
+//   {{ .Release.Namespace }}
 //   {{- include "opendealbook.labels" . | nindent N }}
 //   {{- include "opendealbook.selectorLabels" . | nindent N }}
 //
@@ -29,6 +30,7 @@ package opendealbook
 	image:       "0.0.0-ODBIMAGE"
 	workerImage: "0.0.0-ODBWORKERIMAGE"
 	fullname:    "ODBFULLNAME"
+	namespace:   "ODBNAMESPACE"
 
 	// marketing toggle sentinel: the token is wrapped in quotes on swap so the
 	// rendered env value is a quoted string ("true"/"false"), not a YAML bool.
@@ -39,11 +41,12 @@ package opendealbook
 	selector: "ODBSELECTOR"
 
 	tokens: {
-		"424201":        "{{ .Values.web.replicaCount }}"
-		"424202":        "{{ .Values.workers.replicaCount }}"
-		"0.0.0-ODBIMAGE": "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+		"424201":               "{{ .Values.web.replicaCount }}"
+		"424202":               "{{ .Values.workers.replicaCount }}"
+		"0.0.0-ODBIMAGE":       "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
 		"0.0.0-ODBWORKERIMAGE": "{{ .Values.workerImage.repository }}:{{ .Values.workerImage.tag }}"
-		"ODBFULLNAME":   "{{ include \"opendealbook.fullname\" . }}"
-		"ODBMARKETING":  "\"{{ .Values.marketing.enabled }}\""
+		"ODBFULLNAME":          "{{ include \"opendealbook.fullname\" . }}"
+		"ODBNAMESPACE":         "{{ .Release.Namespace }}"
+		"ODBMARKETING":         "\"{{ .Values.marketing.enabled }}\""
 	}
 }

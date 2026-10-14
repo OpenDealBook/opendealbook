@@ -41,6 +41,7 @@ values.schema.json     XApp contract
 {{ .Values.workerImage.tag }}
 {{ .Values.marketing.enabled }}
 {{ include "opendealbook.fullname" . }}
+{{ .Release.Namespace }}
 {{- include "opendealbook.labels" . | nindent N }}
 {{- include "opendealbook.selectorLabels" . | nindent N }}
 ```
@@ -141,6 +142,30 @@ the chart never inlines secret material. That Secret is synced by an ESO
 `LLM_API_KEY`. Seed
 OpenBao (`bao kv put secret/<env>/opendealbook ...`) before the ExternalSecret
 can sync.
+
+## Hook Jobs and cross-namespace addresses
+
+`<fullname>-novu-sync` runs after every install and upgrade and registers the
+lender notification workflows with Novu, giving it the bridge address
+`http://<fullname>-web.<release namespace>.svc.cluster.local:3000/api/novu`. The
+full name matters because Novu runs in its own namespace. Novu's api and worker
+must list that host in `NOVU_SAFE_OUTBOUND_ALLOW`.
+
+`DOCUMENSO_URL` is baked to `http://documenso.documenso.svc.cluster.local:3000`.
+Three Documenso steps stay manual and are done once, because Documenso v2.18 lets
+only a signed-in browser session, not an API token, manage API tokens and
+webhooks:
+
+1. Sign in to Documenso as the team that will own the documents, mint an API
+   token, and store it in OpenBao `secret/home/opendealbook` as
+   `DOCUMENSO_API_KEY`.
+2. Generate a webhook secret (`openssl rand -hex 32`) and store it there as
+   `DOCUMENSO_WEBHOOK_SECRET`.
+3. In that team's Documenso settings create one enabled webhook to
+   `http://<fullname>-web.<release namespace>.svc.cluster.local:3000/api/webhooks/documenso`
+   with that secret and the events `DOCUMENT_SENT`, `DOCUMENT_COMPLETED`,
+   `DOCUMENT_REJECTED`, `DOCUMENT_CANCELLED`, `RECIPIENT_EXPIRED`. Documenso must
+   list that host in `NEXT_PRIVATE_WEBHOOK_SSRF_BYPASS_HOSTS`.
 
 ## Open decisions (carried from k8-infra infrastructure/opendealbook/DECISIONS.md)
 

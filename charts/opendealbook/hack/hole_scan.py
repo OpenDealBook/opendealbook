@@ -14,6 +14,7 @@ ALLOWED = [
     r"\{\{ \.Values\.workerImage\.tag \}\}",
     r"\{\{ \.Values\.marketing\.enabled \}\}",
     r'\{\{ include "opendealbook\.fullname" \. \}\}',
+    r"\{\{ \.Release\.Namespace \}\}",
     r'\{\{- include "opendealbook\.labels" \. \| nindent \d+ \}\}',
     r'\{\{- include "opendealbook\.selectorLabels" \. \| nindent \d+ \}\}',
 ]

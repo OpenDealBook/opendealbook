@@ -24,13 +24,30 @@ uploads to a lender room. A Word form is converted to PDF through Gotenberg firs
 
 | Variable | Notes |
 | --- | --- |
-| `DOCUMENSO_URL` | The Documenso instance URL |
+| `DOCUMENSO_URL` | The Documenso instance URL. The Helm chart sets it to the in-cluster Service, `http://documenso.documenso.svc.cluster.local:3000` |
 | `DOCUMENSO_API_KEY` | API token created in Documenso (Team settings, API Tokens) |
 | `DOCUMENSO_WEBHOOK_SECRET` | The secret set on the Documenso webhook that points at `/api/webhooks/documenso`, at least 32 characters. Documenso sends it in the `X-Documenso-Secret` header. When it is unset or shorter the route refuses every webhook with 401 |
 
 A webhook only tells the app which document changed. The app then asks Documenso for that
 document's state with the API key and acts on the answer, so the API key must belong to the
 same Documenso team as the webhook.
+
+In a cluster, three steps stay manual and are done once, because Documenso v2.18 lets only a
+signed-in browser session, not an API token, manage API tokens and webhooks:
+
+1. Sign in to Documenso as the team that will own the documents, mint an API token, and store
+   it in OpenBao `secret/home/opendealbook` as `DOCUMENSO_API_KEY`.
+2. Generate a webhook secret, for example `openssl rand -hex 32`, and store it there as
+   `DOCUMENSO_WEBHOOK_SECRET`.
+3. In that same team's Documenso settings, create one webhook to
+   `http://<fullname>-web.<namespace>.svc.cluster.local:3000/api/webhooks/documenso` (for a
+   release `odb`, `http://odb-opendealbook-web.<namespace>.svc.cluster.local:3000/api/webhooks/documenso`),
+   enabled, using that secret, for the events `DOCUMENT_SENT`, `DOCUMENT_COMPLETED`,
+   `DOCUMENT_REJECTED`, `DOCUMENT_CANCELLED`, and `RECIPIENT_EXPIRED`. Documenso must be allowed
+   to call that private host (`NEXT_PRIVATE_WEBHOOK_SSRF_BYPASS_HOSTS` on Documenso).
+
+The ExternalSecret already loads every key under `secret/home/opendealbook` into the app, so
+the two new keys need no chart change.
 
 Also required to go live, beyond env: the LOI and APA **template language is user-provided**
 (the seed ships placeholders only); the **signers** are named by the deal team for each LOI
@@ -88,7 +105,7 @@ Unlocks the deal-event notification relay and the trial drip (see
 | `NOVU_API_KEY` | The secret key of one Novu environment (Novu dashboard, API Keys). The app triggers workflows with it, and Novu signs its calls to the app's bridge at `/api/novu` with the same key. When it is unset the bridge refuses every call with 401 |
 | `NOVU_API_URL` | Novu host |
 | `NOVU_OWNED_CHANNELS` | Which channels Novu owns |
-| `NOVU_SAFE_OUTBOUND_ALLOW` | Set on Novu's own `api` and `worker` services, not on the app. Novu refuses to call a bridge or an SMTP host that resolves to a private address unless the hostname, `.suffix`, IP, or CIDR is listed here, comma separated. `docker-compose.yml` defaults it to `host.docker.internal`; in a cluster list the web Service's hostname |
+| `NOVU_SAFE_OUTBOUND_ALLOW` | Set on Novu's own `api` and `worker` services, not on the app. Novu refuses to call a bridge or an SMTP host that resolves to a private address unless the hostname, `.suffix`, IP, or CIDR is listed here, comma separated. `docker-compose.yml` defaults it to `host.docker.internal`; in a cluster list the web Service's full hostname, `<fullname>-web.<namespace>.svc.cluster.local` |
 
 ### Lender room workflows
 
@@ -112,7 +129,9 @@ curl -X POST "$NOVU_API_URL/v1/bridge/sync?source=cli" \
 
 `bridgeUrl` is the address Novu's containers use to reach the app, which is why the local
 value is `host.docker.internal` and not `localhost`. The Helm chart runs the same call from the
-`novu-sync` hook Job after every install and upgrade, against the web Service; it skips itself
+`novu-sync` hook Job after every install and upgrade, with `bridgeUrl` set to
+`http://<fullname>-web.<namespace>.svc.cluster.local:3000/api/novu` (the release namespace, so
+Novu reaches it from its own namespace); it skips itself
 when `NOVU_API_KEY` or `NOVU_API_URL` is unset. Deploy with `--wait` so the Job reads the new
 version of the bridge.
 

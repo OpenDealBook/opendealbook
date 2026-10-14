@@ -44,6 +44,7 @@ values: #Values & {
 		GOTENBERG_URL:               "http://gotenberg.gotenberg.svc.cluster.local:3000"
 		DOCLING_URL:                 "http://docling-serve.docling.svc.cluster.local:5001"
 		NOVU_API_URL:                "http://novu-api.novu.svc.cluster.local:3000"
+		DOCUMENSO_URL:               "http://documenso.documenso.svc.cluster.local:3000"
 		NANGO_SERVER_URL:            "http://nango-server.nango.svc.cluster.local:3003"
 	}
 

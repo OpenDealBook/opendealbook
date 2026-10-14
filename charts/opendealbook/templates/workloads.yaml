@@ -55,6 +55,8 @@ spec:
               value: http://docling-serve.docling.svc.cluster.local:5001
             - name: NOVU_API_URL
               value: http://novu-api.novu.svc.cluster.local:3000
+            - name: DOCUMENSO_URL
+              value: http://documenso.documenso.svc.cluster.local:3000
             - name: NANGO_SERVER_URL
               value: http://nango-server.nango.svc.cluster.local:3003
             - name: NEXT_PUBLIC_ENABLE_MARKETING
@@ -162,6 +164,8 @@ spec:
               value: http://docling-serve.docling.svc.cluster.local:5001
             - name: NOVU_API_URL
               value: http://novu-api.novu.svc.cluster.local:3000
+            - name: DOCUMENSO_URL
+              value: http://documenso.documenso.svc.cluster.local:3000
             - name: NANGO_SERVER_URL
               value: http://nango-server.nango.svc.cluster.local:3003
           envFrom:
@@ -253,10 +257,12 @@ spec:
               value: http://docling-serve.docling.svc.cluster.local:5001
             - name: NOVU_API_URL
               value: http://novu-api.novu.svc.cluster.local:3000
+            - name: DOCUMENSO_URL
+              value: http://documenso.documenso.svc.cluster.local:3000
             - name: NANGO_SERVER_URL
               value: http://nango-server.nango.svc.cluster.local:3003
             - name: NOVU_BRIDGE_URL
-              value: http://{{ include "opendealbook.fullname" . }}-web:3000/api/novu
+              value: http://{{ include "opendealbook.fullname" . }}-web.{{ .Release.Namespace }}.svc.cluster.local:3000/api/novu
           envFrom:
             - secretRef:
                 name: opendealbook-secrets

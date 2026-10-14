@@ -258,7 +258,7 @@ _novuSync: #Job & {
 			image:           #holes.image
 			imagePullPolicy: values.image.pullPolicy
 			command: ["node", "--input-type=module", "--eval", _novuSyncScript]
-			env: list.Concat([_env, [{name: "NOVU_BRIDGE_URL", value: "http://\(_webServiceName):\(values.service.port)/api/novu"}]])
+			env: list.Concat([_env, [{name: "NOVU_BRIDGE_URL", value: "http://\(_webServiceName).\(#holes.namespace).svc.cluster.local:\(values.service.port)/api/novu"}]])
 			envFrom: _envFrom
 			resources: {
 				requests: {cpu: "50m", memory: "128Mi"}

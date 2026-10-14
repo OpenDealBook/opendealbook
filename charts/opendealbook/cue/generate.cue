@@ -29,12 +29,13 @@ _s2: strings.Replace(_s1b, "\(#holes.replicasWeb)", #holes.tokens["424201"], -1)
 _s3: strings.Replace(_s2, "\(#holes.replicasWorkers)", #holes.tokens["424202"], -1)
 _s4: strings.Replace(_s3, #holes.fullname, #holes.tokens[#holes.fullname], -1)
 _s5: strings.Replace(_s4, #holes.marketing, #holes.tokens[#holes.marketing], -1)
+_s6: strings.Replace(_s5, #holes.namespace, #holes.tokens[#holes.namespace], -1)
 
 // label/selector map-key sentinels become the include holes at their exact
 // marshaled indentation (yaml.Marshal uses 2-space steps). Selector sentinels
 // occur at 8, 6 and 4 spaces; replace deepest-first so a shallower pattern
 // never eats the trailing spaces of a deeper line.
-_l1: strings.Replace(_s5,
+_l1: strings.Replace(_s6,
 	"    \(#holes.labels): \"\"",
 	"    {{- include \"opendealbook.labels\" . | nindent 4 }}", -1)
 
