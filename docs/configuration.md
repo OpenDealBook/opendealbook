@@ -135,8 +135,15 @@ Novu reaches it from its own namespace); it skips itself
 when `NOVU_API_KEY` or `NOVU_API_URL` is unset. Deploy with `--wait` so the Job reads the new
 version of the bridge.
 
-Novu also needs an active email integration (Novu dashboard, Integrations) in the same
-environment as the key, or the email steps fail.
+The same Job then sends Novu's emails through the app's SMTP settings. It finds its Custom
+SMTP (`nodemailer`) email integration in the key's environment by the identifier
+`opendealbook-smtp`, overwrites its credentials or creates it, and makes it the active primary.
+Other integrations stay as they are. It reads the `EMAIL_*` keys in
+[Transactional email](#transactional-email). `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_SENDER`, and
+`EMAIL_SENDER_NAME` are required: when any is unset, the Job still syncs the workflows, then
+fails and names the missing keys. `EMAIL_USER` and `EMAIL_PASSWORD` are sent only when set.
+Local development has no Job, so add the integration by hand there (Novu dashboard,
+Integrations).
 
 ## Background workflows: Temporal
 
@@ -154,6 +161,8 @@ not just the worker connected.
 | `MAILER_PROVIDER` / `MAILER_PROVIDERS` | Selects the provider (nodemailer or resend) |
 | `RESEND_API_KEY` | Resend provider |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`, `EMAIL_TLS` | SMTP (nodemailer) provider |
+| `EMAIL_SENDER` | The from address of Novu's emails |
+| `EMAIL_SENDER_NAME` | The sender name of Novu's emails |
 | `EMAIL_TEMPLATE_RENDERERS` | Template renderer selection |
 
 This is the transactional mailer, separate from the send-as-user outreach mailbox.

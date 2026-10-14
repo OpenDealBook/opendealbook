@@ -139,7 +139,8 @@ the chart never inlines secret material. That Secret is synced by an ESO
 `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
 `DATABASE_URL`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NANGO_SECRET_KEY`,
 `NOVU_API_KEY`, `DOCUMENSO_API_KEY`, `DOCUMENSO_WEBHOOK_SECRET`, `LLM_ENDPOINT`,
-`LLM_API_KEY`. Seed
+`LLM_API_KEY`, `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD`,
+`EMAIL_TLS`, `EMAIL_SENDER`, `EMAIL_SENDER_NAME`. Seed
 OpenBao (`bao kv put secret/<env>/opendealbook ...`) before the ExternalSecret
 can sync.
 
@@ -150,6 +151,13 @@ lender notification workflows with Novu, giving it the bridge address
 `http://<fullname>-web.<release namespace>.svc.cluster.local:3000/api/novu`. The
 full name matters because Novu runs in its own namespace. Novu's api and worker
 must list that host in `NOVU_SAFE_OUTBOUND_ALLOW`.
+
+The same Job keeps Novu's SMTP email integration (identifier
+`opendealbook-smtp`) in step with the `EMAIL_*` keys and makes it the active
+primary, so nothing is set up in the Novu dashboard. The keys it requires are in
+[docs/configuration.md](../../docs/configuration.md#lender-room-workflows).
+Novu's worker must also be allowed to reach `EMAIL_HOST` when it resolves to a
+private address (`NOVU_SAFE_OUTBOUND_ALLOW`).
 
 `DOCUMENSO_URL` is baked to `http://documenso.documenso.svc.cluster.local:3000`.
 Three Documenso steps stay manual and are done once, because Documenso v2.18 lets

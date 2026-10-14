@@ -223,21 +223,56 @@ spec:
                 process.exit(0);
               }
 
-              const response = await fetch(`${NOVU_API_URL}/v1/bridge/sync?source=cli`, {
-                method: 'POST',
-                headers: {
-                  authorization: `ApiKey ${NOVU_API_KEY}`,
-                  'content-type': 'application/json',
-                },
-                body: JSON.stringify({ bridgeUrl: NOVU_BRIDGE_URL }),
-              });
+              async function novu(method, path, body) {
+                const response = await fetch(`${NOVU_API_URL}${path}`, {
+                  method,
+                  headers: {
+                    authorization: `ApiKey ${NOVU_API_KEY}`,
+                    'content-type': 'application/json',
+                  },
+                  body: JSON.stringify(body),
+                });
 
-              if (!response.ok) {
-                console.error(`Novu refused the workflow sync: ${response.status} ${await response.text()}`);
+                if (!response.ok) {
+                  console.error(`Novu refused ${method} ${path}: ${response.status} ${await response.text()}`);
+                  process.exit(1);
+                }
+
+                return response;
+              }
+
+              await novu('POST', '/v1/bridge/sync?source=cli', { bridgeUrl: NOVU_BRIDGE_URL });
+              console.log('Synced the lender workflows with Novu');
+
+              const missing = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_SENDER', 'EMAIL_SENDER_NAME']
+                .filter((key) => !process.env[key]);
+
+              if (missing.length > 0) {
+                console.error(`Novu's email integration needs ${missing.join(', ')} in the app secret`);
                 process.exit(1);
               }
 
-              console.log('Synced the lender workflows with Novu');
+              const credentials = {
+                host: process.env.EMAIL_HOST,
+                port: process.env.EMAIL_PORT,
+                secure: process.env.EMAIL_TLS !== 'false',
+                user: process.env.EMAIL_USER,
+                password: process.env.EMAIL_PASSWORD,
+                from: process.env.EMAIL_SENDER,
+                senderName: process.env.EMAIL_SENDER_NAME,
+              };
+              const identifier = 'opendealbook-smtp';
+              const { data: integrations } = await (await novu('GET', '/v1/integrations')).json();
+              const existing = integrations.find((integration) => integration.identifier === identifier);
+
+              if (existing) {
+                await novu('PUT', `/v1/integrations/${existing._id}`, { credentials });
+              }
+
+              const { _id } = existing
+                ?? (await (await novu('POST', '/v1/integrations', { identifier, providerId: 'nodemailer', channel: 'email', credentials })).json()).data;
+              await novu('POST', `/v1/integrations/${_id}/set-primary`);
+              console.log('Made the SMTP email integration the active primary in Novu');
           env:
             - name: NODE_ENV
               value: production
