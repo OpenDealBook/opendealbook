@@ -39,6 +39,8 @@ import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
 import { cn } from '@odb/ui/utils';
 
+import { AskTheSeller } from './ask-the-seller';
+import { type FaqPrefill, LenderFaqAdd } from './lender-faq-add';
 import { LenderFileLink } from './lender-file-link';
 import {
   type FormSignature,
@@ -182,6 +184,7 @@ export function LenderRequestThread({
   fulfilmentFileIds,
   packageFolders,
   signatures,
+  faq,
 }: {
   roomId: string;
   privateFolderId: string;
@@ -190,6 +193,7 @@ export function LenderRequestThread({
   fulfilmentFileIds: Record<string, string>;
   packageFolders: PackageFolder[];
   signatures: FormSignature[];
+  faq: { dealId: string; faqPath: string; prefill: FaqPrefill } | null;
 }) {
   const router = useRouter();
   const { problem, isPending, attempt } = useAttempt();
@@ -268,6 +272,15 @@ export function LenderRequestThread({
         ))}
       </ol>
 
+      {faq ? (
+        <LenderFaqAdd
+          dealId={faq.dealId}
+          askId={request.id}
+          faqPath={faq.faqPath}
+          prefill={faq.prefill}
+        />
+      ) : null}
+
       {request.kind === 'form' && request.return_route === 'upload' ? (
         <ReturnCompletedForm
           roomId={roomId}
@@ -319,6 +332,10 @@ export function LenderRequestThread({
           </p>
         ) : null}
       </section>
+
+      {request.kind === 'ask' && request.status !== 'closed' ? (
+        <AskTheSeller lenderAskId={request.id} />
+      ) : null}
 
       {request.status === 'closed' ? null : (
         <Button

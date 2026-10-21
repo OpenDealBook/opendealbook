@@ -9,6 +9,7 @@ playwright-report
 .env
 .env.*
 !.env.example
+infra/documenso/cert.p12
 .DS_Store
 
 # JetBrains IDE

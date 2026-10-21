@@ -15,7 +15,8 @@
     "./server": "./src/server.ts",
     "./admin": "./src/admin.ts",
     "./client": "./src/client.ts",
-    "./hooks": "./src/hooks/index.ts"
+    "./hooks": "./src/hooks/index.ts",
+    "./storage-key": "./src/storage-key.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

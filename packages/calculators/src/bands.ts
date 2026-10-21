@@ -1,13 +1,14 @@
 import {
-  amortizeMonthlyPayment,
   cashOnCash,
   dealBoxGap,
   deriveBuyerEquity,
-  dscr,
-  netCashFlow,
-  proForma,
+  projectYear,
   purchaseMultiple,
+  shiftRates,
+  tenYearProForma,
   type DscrMode,
+  type ProjectionInputs,
+  type YearBasis,
 } from './deal-calc';
 import type { FundingSource } from './funding-source';
 
@@ -65,21 +66,20 @@ export function baseOf(assumption: Assumption): number {
 export type DealDriver =
   | 'sde'
   | 'annual_growth'
-  | 'interest_rate'
+  | 'interest_rate_delta'
   | 'dscr_tax_rate'
   | 'purchase_price';
 
 export interface DealAssumptions {
   sde: Assumption;
   annual_growth: Assumption;
-  interest_rate: Assumption;
+  interest_rate_delta: Assumption;
   dscr_tax_rate: Assumption;
   purchase_price: Assumption;
-  loan_principal: number;
-  loan_term_months: number;
+  funding_sources: FundingSource[];
+  basis: YearBasis;
   closing_costs: number;
   buyer_equity?: number;
-  funding_sources?: FundingSource[];
   working_capital?: number;
   required_personal_cash_flow: number;
   dscr_mode?: DscrMode;
@@ -106,14 +106,17 @@ export interface ScenarioBand {
 
 type DriverValues = Record<DealDriver, number>;
 
-function debtService(inputs: DealAssumptions, interestRate: number): number {
-  return (
-    amortizeMonthlyPayment(
-      inputs.loan_principal,
-      interestRate,
-      inputs.loan_term_months,
-    ) * 12
-  );
+function projectionFor(
+  inputs: DealAssumptions,
+  drivers: DriverValues,
+): ProjectionInputs {
+  return {
+    sde: drivers.sde,
+    annualGrowth: drivers.annual_growth,
+    sources: shiftRates(inputs.funding_sources, drivers.interest_rate_delta),
+    dscrOptions: { mode: inputs.dscr_mode, taxRate: drivers.dscr_tax_rate },
+    basis: inputs.basis,
+  };
 }
 
 function equityFor(inputs: DealAssumptions): number {
@@ -124,7 +127,7 @@ function equityFor(inputs: DealAssumptions): number {
     purchase_price: baseOf(inputs.purchase_price),
     closing_costs: inputs.closing_costs,
     working_capital: inputs.working_capital,
-    funding_sources: inputs.funding_sources ?? [],
+    funding_sources: inputs.funding_sources,
   });
 }
 
@@ -132,13 +135,10 @@ function outputsFor(
   inputs: DealAssumptions,
   drivers: DriverValues,
 ): DealOutputs {
-  const service = debtService(inputs, drivers.interest_rate);
-  const cashFlow = netCashFlow(drivers.sde, service);
+  const year1 = projectYear(projectionFor(inputs, drivers), 1);
+  const cashFlow = year1.net_cash_flow;
   return {
-    dscr: dscr(drivers.sde, service, {
-      mode: inputs.dscr_mode,
-      taxRate: drivers.dscr_tax_rate,
-    }),
+    dscr: year1.dscr,
     net_cash_flow: cashFlow,
     cash_on_cash: cashOnCash(cashFlow, equityFor(inputs)),
     deal_box_gap: dealBoxGap(cashFlow, inputs.required_personal_cash_flow),
@@ -154,7 +154,7 @@ function baseDrivers(inputs: DealAssumptions): DriverValues {
   return {
     sde: baseOf(inputs.sde),
     annual_growth: baseOf(inputs.annual_growth),
-    interest_rate: baseOf(inputs.interest_rate),
+    interest_rate_delta: baseOf(inputs.interest_rate_delta),
     dscr_tax_rate: baseOf(inputs.dscr_tax_rate),
     purchase_price: baseOf(inputs.purchase_price),
   };
@@ -186,14 +186,14 @@ export function computeScenarioBand(inputs: DealAssumptions): ScenarioBand {
   const worst: DriverValues = {
     sde: lowValue(inputs.sde),
     annual_growth: lowValue(inputs.annual_growth),
-    interest_rate: highValue(inputs.interest_rate),
+    interest_rate_delta: highValue(inputs.interest_rate_delta),
     dscr_tax_rate: highValue(inputs.dscr_tax_rate),
     purchase_price: highValue(inputs.purchase_price),
   };
   const best: DriverValues = {
     sde: highValue(inputs.sde),
     annual_growth: highValue(inputs.annual_growth),
-    interest_rate: lowValue(inputs.interest_rate),
+    interest_rate_delta: lowValue(inputs.interest_rate_delta),
     dscr_tax_rate: lowValue(inputs.dscr_tax_rate),
     purchase_price: lowValue(inputs.purchase_price),
   };
@@ -204,15 +204,6 @@ export function computeScenarioBand(inputs: DealAssumptions): ScenarioBand {
   };
 }
 
-export function computeDealProjection(
-  inputs: DealAssumptions,
-  years = 10,
-): number[] {
-  const drivers = baseDrivers(inputs);
-  return proForma(
-    drivers.sde,
-    drivers.annual_growth,
-    debtService(inputs, drivers.interest_rate),
-    years,
-  );
+export function computeDealProjection(inputs: DealAssumptions): number[] {
+  return tenYearProForma(projectionFor(inputs, baseDrivers(inputs)));
 }

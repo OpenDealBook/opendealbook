@@ -14,9 +14,12 @@
 
 -- Per-account send governor. One row per account, read with maybeSingle by the
 -- dispatcher to size the daily batch, so account_id is the primary key.
+-- letter_monthly_cap counts every letter created in the UTC calendar month; a
+-- team with no setting row sends no letters.
 create table if not exists public.outreach_setting (
   account_id uuid primary key references public.accounts (id) on delete cascade,
   daily_cap int not null,
+  letter_monthly_cap int not null default 0,
   max_touches int not null default 1,
   created_at timestamptz,
   updated_at timestamptz,
@@ -106,7 +109,8 @@ create policy mailbox_connection_update on public.mailbox_connection
 -- One target's progress through a sequence. The dispatcher selects queued rows
 -- whose next_send_at is due, sends the current step, then advances status and
 -- sent_count. firm_id and contact_id are optional sources for the merge context;
--- target_email is the address actually sent to.
+-- target_email is the address actually sent to. held means the firm's newest
+-- verdict waits for approval; approving it puts the row back in the queue.
 create table if not exists public.outreach_enrollment (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
@@ -115,14 +119,15 @@ create table if not exists public.outreach_enrollment (
   contact_id uuid references public.contact (id) on delete set null,
   target_email text not null,
   status text not null default 'queued'
-    check (status in ('queued', 'sent', 'replied', 'stopped', 'suppressed', 'failed')),
+    check (status in ('queued', 'held', 'sent', 'replied', 'stopped', 'suppressed', 'failed')),
   current_step int not null default 1,
   next_send_at timestamptz not null default now(),
   sent_count int not null default 0,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  unique (id, account_id)
 );
 
 alter table public.outreach_enrollment enable row level security;
@@ -159,9 +164,11 @@ create policy outreach_enrollment_delete on public.outreach_enrollment
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
--- One send attempt against an enrollment, appended by the dispatcher on success
--- and on failure. step_id is the integer ordinal taken from the enrollment's
--- current_step at send time. No account_id: the account is resolved through the
+-- One send of one enrollment step, an outbox row: the dispatcher records it as
+-- sending before it sends, then marks it sent or failed, and the unique step key
+-- keeps a retried dispatch from sending twice. Only the background sender
+-- writes it, and it can change only the send outcome. step_id is the integer ordinal
+-- taken from the enrollment's current_step at send time. No account_id: the account is resolved through the
 -- parent enrollment, and RLS joins back through it.
 create table if not exists public.outreach_message (
   id uuid primary key default gen_random_uuid(),
@@ -170,10 +177,11 @@ create table if not exists public.outreach_message (
   to_email text not null,
   subject text not null,
   body text not null,
-  status text not null check (status in ('sent', 'failed')),
+  status text not null check (status in ('sending', 'sent', 'failed')),
   provider_message_id text,
   sent_at timestamptz,
-  error text
+  error text,
+  unique (enrollment_id, step_id)
 );
 
 alter table public.outreach_message enable row level security;
@@ -182,41 +190,15 @@ create index ix_outreach_message_enrollment on public.outreach_message (enrollme
 create index ix_outreach_message_to_email on public.outreach_message (to_email);
 
 revoke all on public.outreach_message from authenticated, service_role;
-grant select, insert, update on public.outreach_message to authenticated;
-grant select, insert, update on public.outreach_message to service_role;
+grant select on public.outreach_message to authenticated;
+grant select, insert on public.outreach_message to service_role;
+grant update (status, provider_message_id, sent_at, error) on public.outreach_message to service_role;
 
 create policy outreach_message_read on public.outreach_message
   for select to authenticated
   using (
     public.has_role_on_account(
       (select e.account_id from public.outreach_enrollment e where e.id = outreach_message.enrollment_id)
-    )
-  );
-
-create policy outreach_message_insert on public.outreach_message
-  for insert to authenticated
-  with check (
-    public.has_permission(
-      (select auth.uid()),
-      (select e.account_id from public.outreach_enrollment e where e.id = outreach_message.enrollment_id),
-      'deals.manage'
-    )
-  );
-
-create policy outreach_message_update on public.outreach_message
-  for update to authenticated
-  using (
-    public.has_permission(
-      (select auth.uid()),
-      (select e.account_id from public.outreach_enrollment e where e.id = outreach_message.enrollment_id),
-      'deals.manage'
-    )
-  )
-  with check (
-    public.has_permission(
-      (select auth.uid()),
-      (select e.account_id from public.outreach_enrollment e where e.id = outreach_message.enrollment_id),
-      'deals.manage'
     )
   );
 

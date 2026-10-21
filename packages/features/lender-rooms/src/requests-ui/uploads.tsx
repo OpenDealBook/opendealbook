@@ -322,11 +322,13 @@ export function useFileDrop(onPick: (files: File[]) => void) {
 export function AttachButton({
   onPick,
   multiple,
+  accept,
   buttonRef,
   children,
 }: {
   onPick: (files: File[]) => void;
   multiple: boolean;
+  accept?: string;
   buttonRef?: RefObject<HTMLButtonElement | null>;
   children: ReactNode;
 }) {
@@ -338,6 +340,7 @@ export function AttachButton({
         ref={input}
         type={'file'}
         multiple={multiple}
+        accept={accept}
         hidden
         aria-label={typeof children === 'string' ? children : undefined}
         onChange={(event) => {

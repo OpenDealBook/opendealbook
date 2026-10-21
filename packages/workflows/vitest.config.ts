@@ -5,6 +5,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
+      '@odb/comps/workflow': fileURLToPath(new URL('../comps/index.workflow.ts', import.meta.url)),
       '@odb/comps': fileURLToPath(new URL('../comps/index.ts', import.meta.url)),
       papaparse: fileURLToPath(
         new URL(

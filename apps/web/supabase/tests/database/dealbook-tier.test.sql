@@ -97,9 +97,9 @@ select isnt_empty(
 --      account-scoped tables that no deal grant reaches ----
 select tests.login_as('tier_ext');
 
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.dr_document where deal_id = 'cccccccc-0000-0000-0000-0000000000d1' $$,
-  'a deal participant sees dr_document on their granted deal'
+  'a deal participant cannot read dr_document on their granted deal'
 );
 select is_empty(
   $$ select 1 from public.integration_connection where account_id = tests.account_id('tier-a') $$,
@@ -110,7 +110,7 @@ select is_empty(
 select tests.login_as('tier_a_owner');
 select lives_ok(
   $$ select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'deal',
-       'cccccccc-0000-0000-0000-0000000000d1', 'deal.stage_changed', '{"stage":"qualifying"}'::jsonb) $$,
+       'cccccccc-0000-0000-0000-0000000000d1', 'deal.stage_changed', '{"stage":"pre_nda"}'::jsonb) $$,
   'the deal owner can move the deal stage'
 );
 

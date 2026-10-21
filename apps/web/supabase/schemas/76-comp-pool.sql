@@ -87,3 +87,18 @@ create view public.comp_pool_public as
   having count(*) >= (select c.comp_pool_min_bucket from public.config c limit 1);
 
 grant select on public.comp_pool_public to authenticated, service_role;
+
+-- Pseudonym numbers come from a sequence rather than a row count, so a number
+-- freed by a deleted key is never handed out again.
+create sequence if not exists public.pool_pseudonym_number;
+
+create or replace function public.next_pool_pseudonym_number()
+  returns bigint
+  language sql set search_path = '' as $$
+  select nextval('public.pool_pseudonym_number');
+$$;
+
+revoke all on sequence public.pool_pseudonym_number from public, anon, authenticated;
+grant usage on sequence public.pool_pseudonym_number to service_role;
+revoke all on function public.next_pool_pseudonym_number() from public, anon, authenticated;
+grant execute on function public.next_pool_pseudonym_number() to service_role;

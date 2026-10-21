@@ -84,11 +84,10 @@ async function provisionPerson(): Promise<Person> {
   }
 
   const { data: account } = await admin
-    .from('accounts')
-    .select('id')
-    .eq('primary_owner_user_id', created.user.id)
-    .eq('is_personal_account', true)
-    .single()
+    .rpc('create_team_account', {
+      account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
+      user_id: created.user.id,
+    })
     .throwOnError();
 
   const client = createClient<Database>(

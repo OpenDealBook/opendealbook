@@ -91,7 +91,9 @@ function inserted(
   capture: ReturnType<typeof makeClient>['capture'],
   table: string,
 ): unknown[] {
-  return capture.inserts.filter((row) => row.table === table).map((r) => r.rows);
+  return capture.inserts
+    .filter((row) => row.table === table)
+    .map((r) => r.rows);
 }
 
 beforeEach(() => {
@@ -105,13 +107,29 @@ describe('buildDocumentExtractionChecks', () => {
   it('selects the W-2 and 941 documents, extracts via Docling then the LLM, and maps them to the payroll input', async () => {
     const { client, capture } = makeClient({
       documents: [
-        { id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2', checklist_item_id: 'c1' },
-        { id: 'd_941', name: 'Form 941 Q1.pdf', storage_path: 'p/941', checklist_item_id: null },
+        {
+          id: 'd_w2',
+          name: 'W-2 2024.pdf',
+          storage_path: 'p/w2',
+        },
+        {
+          id: 'd_941',
+          name: 'Form 941 Q1.pdf',
+          storage_path: 'p/941',
+        },
       ],
     });
     collaborators.extractFigure
-      .mockResolvedValueOnce({ amount: 100000, promptTokens: 20, completionTokens: 3 })
-      .mockResolvedValueOnce({ amount: 98000, promptTokens: 22, completionTokens: 4 });
+      .mockResolvedValueOnce({
+        amount: 100000,
+        promptTokens: 20,
+        completionTokens: 3,
+      })
+      .mockResolvedValueOnce({
+        amount: 98000,
+        promptTokens: 22,
+        completionTokens: 4,
+      });
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -120,7 +138,10 @@ describe('buildDocumentExtractionChecks', () => {
     });
 
     const payroll = checks.find((c) => c.check.key === 'payroll_tax_vs_w2')!;
-    const input = (await payroll.gather({ dealId: 'deal1', period: '2024' })) as {
+    const input = (await payroll.gather({
+      dealId: 'deal1',
+      period: '2024',
+    })) as {
       w2WagesTotal: number | null;
       payrollTaxWagesTotal: number | null;
     };
@@ -133,7 +154,9 @@ describe('buildDocumentExtractionChecks', () => {
     );
     expect(collaborators.extractFigure).toHaveBeenCalledTimes(2);
 
-    const logs = inserted(capture, 'ai_call_log') as Array<Record<string, unknown>>;
+    const logs = inserted(capture, 'ai_call_log') as Array<
+      Record<string, unknown>
+    >;
     expect(logs).toHaveLength(2);
     expect(logs[0]).toMatchObject({
       account_id: 'acct1',
@@ -142,10 +165,101 @@ describe('buildDocumentExtractionChecks', () => {
     });
   });
 
+  it('finds a document through the checklist item that links it and names that item', async () => {
+    const { client } = makeClient({
+      documents: [
+        { id: 'd_scan', name: 'scan-001.pdf', storage_path: 'p/scan' },
+        { id: 'd_941', name: 'Form 941 Q1.pdf', storage_path: 'p/941' },
+      ],
+      checklistItems: [
+        {
+          id: 'c1',
+          category: null,
+          title: 'W-2 forms',
+          linked_document_id: 'd_scan',
+        },
+      ],
+    });
+    collaborators.extractFigure.mockResolvedValue({
+      amount: 100000,
+      promptTokens: 10,
+      completionTokens: 2,
+    });
+
+    const checks = await buildDocumentExtractionChecks({
+      client: client as never,
+      dealId: 'deal1',
+      docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
+    });
+
+    const payroll = checks.find((c) => c.check.key === 'payroll_tax_vs_w2')!;
+    const input = (await payroll.gather({
+      dealId: 'deal1',
+      period: '2024',
+    })) as {
+      w2WagesTotal: number | null;
+      links: Record<string, string>;
+    };
+
+    expect(input.w2WagesTotal).toBe(100000);
+    expect(input.links).toEqual({
+      drDocumentId: 'd_scan',
+      checklistItemIds: ['c1'],
+    });
+  });
+
+  it('matches a document by every checklist item that links it', async () => {
+    const { client } = makeClient({
+      documents: [
+        { id: 'd_scan', name: 'scan-001.pdf', storage_path: 'p/scan' },
+        { id: 'd_941', name: 'Form 941 Q1.pdf', storage_path: 'p/941' },
+      ],
+      checklistItems: [
+        {
+          id: 'c2',
+          category: null,
+          title: 'W-2 forms',
+          linked_document_id: 'd_scan',
+        },
+        {
+          id: 'c1',
+          category: null,
+          title: 'Bank statements',
+          linked_document_id: 'd_scan',
+        },
+      ],
+    });
+    collaborators.extractFigure.mockResolvedValue({
+      amount: 100000,
+      promptTokens: 10,
+      completionTokens: 2,
+    });
+
+    const checks = await buildDocumentExtractionChecks({
+      client: client as never,
+      dealId: 'deal1',
+      docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
+    });
+
+    const payroll = checks.find((c) => c.check.key === 'payroll_tax_vs_w2')!;
+    const input = (await payroll.gather({
+      dealId: 'deal1',
+      period: '2024',
+    })) as {
+      w2WagesTotal: number | null;
+    };
+
+    expect(input.w2WagesTotal).toBe(100000);
+  });
+
   it('drives the payroll check to a missing error finding when no W-2 document is present', async () => {
     const { client } = makeClient({
       documents: [
-        { id: 'd_941', name: 'Form 941 Q1.pdf', storage_path: 'p/941', checklist_item_id: null },
+        {
+          id: 'd_941',
+          name: 'Form 941 Q1.pdf',
+          storage_path: 'p/941',
+        },
       ],
     });
     collaborators.extractFigure.mockResolvedValue({
@@ -171,7 +285,11 @@ describe('buildDocumentExtractionChecks', () => {
   it('drives the revenue check to a missing error finding when no DD financials document is present', async () => {
     const { client } = makeClient({
       documents: [
-        { id: 'd_cim', name: 'Marketing CIM.pdf', storage_path: 'p/cim', checklist_item_id: null },
+        {
+          id: 'd_cim',
+          name: 'Marketing CIM.pdf',
+          storage_path: 'p/cim',
+        },
       ],
     });
     collaborators.extractFigure.mockResolvedValue({
@@ -186,7 +304,9 @@ describe('buildDocumentExtractionChecks', () => {
       docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
     });
 
-    const revenue = checks.find((c) => c.check.key === 'revenue_vs_dd_financials')!;
+    const revenue = checks.find(
+      (c) => c.check.key === 'revenue_vs_dd_financials',
+    )!;
     const input = await revenue.gather({ dealId: 'deal1', period: '2024' });
     const findings = revenue.check.evaluate(input);
 
@@ -197,7 +317,11 @@ describe('buildDocumentExtractionChecks', () => {
   it('is a logged no-op (no checks) when the docling endpoint is not configured', async () => {
     const { client } = makeClient({
       documents: [
-        { id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2', checklist_item_id: 'c1' },
+        {
+          id: 'd_w2',
+          name: 'W-2 2024.pdf',
+          storage_path: 'p/w2',
+        },
       ],
     });
 
@@ -215,7 +339,11 @@ describe('buildDocumentExtractionChecks', () => {
     delete process.env.TENANT_LLM_KEY;
     const { client } = makeClient({
       documents: [
-        { id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2', checklist_item_id: 'c1' },
+        {
+          id: 'd_w2',
+          name: 'W-2 2024.pdf',
+          storage_path: 'p/w2',
+        },
       ],
     });
 
@@ -232,7 +360,11 @@ describe('buildDocumentExtractionChecks', () => {
   it('runs end-to-end through runVerification and persists the missing-document finding', async () => {
     const { client, capture } = makeClient({
       documents: [
-        { id: 'd_941', name: 'Form 941 Q1.pdf', storage_path: 'p/941', checklist_item_id: null },
+        {
+          id: 'd_941',
+          name: 'Form 941 Q1.pdf',
+          storage_path: 'p/941',
+        },
       ],
     });
     collaborators.extractFigure.mockResolvedValue({
@@ -262,5 +394,58 @@ describe('buildDocumentExtractionChecks', () => {
     expect(findingRows).toHaveLength(1);
     const rows = findingRows[0]!;
     expect(rows.some((row) => row.severity === 'error')).toBe(true);
+  });
+
+  it('names every checklist item that links the document on the persisted finding', async () => {
+    const { client, capture } = makeClient({
+      documents: [
+        { id: 'd_scan', name: 'scan-001.pdf', storage_path: 'p/scan' },
+        { id: 'd_941', name: 'Form 941 Q1.pdf', storage_path: 'p/941' },
+      ],
+      checklistItems: [
+        {
+          id: 'c2',
+          category: null,
+          title: 'W-2 forms',
+          linked_document_id: 'd_scan',
+        },
+        {
+          id: 'c1',
+          category: null,
+          title: 'Bank statements',
+          linked_document_id: 'd_scan',
+        },
+      ],
+    });
+    collaborators.extractFigure.mockResolvedValue({
+      amount: 100000,
+      promptTokens: 10,
+      completionTokens: 2,
+    });
+
+    const runnableChecks = await buildDocumentExtractionChecks({
+      client: client as never,
+      dealId: 'deal1',
+      docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
+    });
+    await runVerification({
+      client: client as never,
+      dealId: 'deal1',
+      trigger: 'ingest',
+      runnableChecks: runnableChecks.filter(
+        (c) => c.check.key === 'payroll_tax_vs_w2',
+      ),
+      notify: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const [rows] = inserted(capture, 'verification_finding') as Array<
+      Array<Record<string, unknown>>
+    >;
+    expect(rows).toEqual([
+      expect.objectContaining({
+        dr_document_id: 'd_scan',
+        checklist_item_ids: ['c2', 'c1'],
+      }),
+    ]);
   });
 });

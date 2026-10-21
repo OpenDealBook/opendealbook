@@ -10,7 +10,11 @@ create type public.app_permissions as enum (
   'deals.manage',
   'checklists.manage',
   'participants.manage',
-  'buyer_profile.manage'
+  'buyer_profile.manage',
+  'api_keys.manage',
+  'deal_updates.approve',
+  'workflows.manage',
+  'deals.work'
 );
 
 create type public.billing_provider as enum ('stripe', 'lemon-squeezy', 'paddle');

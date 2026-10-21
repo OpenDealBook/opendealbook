@@ -2,7 +2,9 @@ import 'server-only';
 import {
   type DocumensoClient,
   assertSignedPdf,
+  deterministicUuid,
   isStaleAggregate,
+  setMilestoneActual,
 } from '@odb/contracts/esign';
 import { appendDealEvent } from '@odb/events';
 import type { Enums, Tables } from '@odb/supabase';
@@ -26,7 +28,7 @@ type Signature = Pick<
 
 type Form = Pick<
   Tables<'lender_ask'>,
-  'id' | 'room_id' | 'account_id' | 'status' | 'first_response_at'
+  'id' | 'room_id' | 'account_id' | 'title' | 'status' | 'first_response_at'
 >;
 
 export const SIGNATURE = 'id, ask_id, documenso_document_id, status';
@@ -55,10 +57,10 @@ export async function syncFormSignature(
   signature: Signature,
   deps: FormSignatureDeps,
 ): Promise<Enums<'lender_signature_status'>> {
-  const transition = signatureTransition(
-    signature.status,
-    await deps.documenso.signatureState(signature.documenso_document_id),
+  const reading = await deps.documenso.signatureState(
+    signature.documenso_document_id,
   );
+  const transition = signatureTransition(signature.status, reading.state);
 
   if (transition === null) {
     return signature.status;
@@ -66,13 +68,13 @@ export async function syncFormSignature(
 
   const { data: form } = await deps.admin
     .from('lender_ask')
-    .select('id, room_id, account_id, status, first_response_at')
+    .select('id, room_id, account_id, title, status, first_response_at')
     .eq('id', signature.ask_id)
     .single()
     .throwOnError();
 
-  if (transition.to === 'completed') {
-    await fileSignedForm(deps, signature, form);
+  if (reading.state === 'completed') {
+    await fileSignedForm(deps, signature, form, reading.completedOn);
   }
 
   const { data: recorded } = await deps.admin
@@ -84,7 +86,7 @@ export async function syncFormSignature(
     .throwOnError();
 
   if (transition.to !== 'sent' && recorded.length > 0) {
-    const eventType = `lender_form.signature_${transition.to}`;
+    const eventType = `lender_form.signature_${transition.to}` as const;
     const told = { roomId: form.room_id, askId: form.id };
 
     await Promise.all([
@@ -92,9 +94,10 @@ export async function syncFormSignature(
         roomId: form.room_id,
         payload: { ...told, audience: 'lender' },
       }),
-      notifyOurTeam(eventType, {
-        roomId: form.room_id,
+      notifyOurTeam({
+        eventType,
         accountId: form.account_id,
+        eventKey: `${signature.id}:${transition.to}`,
         payload: { ...told, audience: 'team' },
       }),
     ]);
@@ -107,10 +110,11 @@ async function fileSignedForm(
   { admin, documenso }: FormSignatureDeps,
   signature: Signature,
   form: Form,
+  signedOn: string,
 ) {
   const { data: room } = await admin
     .from('lender_room')
-    .select('deal_id, private_folder_id')
+    .select('deal_id, name, private_folder_id')
     .eq('id', form.room_id)
     .single()
     .throwOnError();
@@ -155,6 +159,18 @@ async function fileSignedForm(
       }
     }
   }
+
+  await setMilestoneActual(
+    admin,
+    room.deal_id,
+    {
+      id: deterministicUuid(`signed form milestone:${signature.id}`),
+      kind: 'custom',
+      label: `${form.title} signed (${room.name})`,
+    },
+    signedOn,
+    { actorKind: 'service', actorVia: 'documenso' },
+  );
 
   await admin
     .from('lender_ask_file')

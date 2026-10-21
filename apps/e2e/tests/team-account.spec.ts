@@ -1,37 +1,34 @@
-import { expect, test } from '@playwright/test';
-
-import {
-  accountBySlug,
-  completeTeamOnboarding,
-  membershipsForAccount,
-  signUp,
-} from './fixtures/team';
+import { completeTeamOnboarding, db, expect, test } from './fixtures';
 
 test('fresh signup onboards as a team and lands in the team workspace', async ({
   page,
-  request,
+  auth,
 }) => {
-  test.setTimeout(240 * 1000);
+  test.setTimeout(120 * 1000);
 
-  await signUp(page);
+  await auth.signUp(page);
 
   const teamName = `Harbor Capital ${Date.now()}`;
   const slug = await completeTeamOnboarding(page, teamName);
 
-  // Onboarding lands on the personal /home; open the team "Home" index
-  // (/home/<slug>), which seeds trial sample deals during render. Hitting the
-  // index directly exercises that seed path and asserts it renders the team
-  // name instead of the "Something went wrong" error boundary.
-  await page.goto(`/home/${slug}`);
   await expect(page).toHaveURL(new RegExp(`/home/${slug}(/|$)`));
   await expect(page.getByText(teamName).first()).toBeVisible();
   await expect(page.getByText('Something went wrong')).toHaveCount(0);
 
-  const team = await accountBySlug(request, slug);
+  const teams = await db.rows<{
+    id: string;
+    name: string;
+    is_personal_account: boolean;
+  }>('accounts', `slug=eq.${slug}&select=id,name,is_personal_account`);
+  expect(teams.length).toBe(1);
+  const team = teams[0]!;
   expect(team.is_personal_account).toBe(false);
   expect(team.name).toBe(teamName);
 
-  const members = await membershipsForAccount(request, team.id);
+  const members = await db.rows<{ account_role: string }>(
+    'accounts_memberships',
+    `account_id=eq.${team.id}&select=user_id,account_role`,
+  );
   expect(members).toHaveLength(1);
   expect(members[0]!.account_role).toBe('owner');
 });

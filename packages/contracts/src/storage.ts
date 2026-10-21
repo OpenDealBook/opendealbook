@@ -30,7 +30,7 @@ export interface ContractStorage {
     bytes: Uint8Array,
     contentType: string,
   ): Promise<void>;
-  downloadVersion(path: string): Promise<Uint8Array>;
+  downloadVersion(bucket: string, path: string): Promise<Uint8Array>;
 }
 
 export function createSupabaseContractStorage(
@@ -46,10 +46,8 @@ export function createSupabaseContractStorage(
         throw error;
       }
     },
-    async downloadVersion(path) {
-      const { data, error } = await client.storage
-        .from(CONTRACTS_BUCKET)
-        .download(path);
+    async downloadVersion(bucket, path) {
+      const { data, error } = await client.storage.from(bucket).download(path);
 
       if (error) {
         throw error;

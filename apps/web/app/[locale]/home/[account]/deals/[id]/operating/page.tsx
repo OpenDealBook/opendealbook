@@ -32,7 +32,7 @@ export default async function TeamDealOperatingPage({
   });
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <Card>
         <CardHeader>
           <CardTitle>Operating</CardTitle>

@@ -13,8 +13,18 @@ export interface OutboundEmail {
   html?: string;
   text?: string;
   replyTo?: string;
+  inThread?: string;
 }
 
 export interface SendResult {
   providerMessageId: string;
+  threadId: string;
 }
+
+export interface ThreadMessage {
+  providerMessageId: string;
+  receivedAt: string;
+  fromAddress: string;
+}
+
+export class MailboxAccessDenied extends Error {}

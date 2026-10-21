@@ -1,11 +1,11 @@
 'use server';
 
-import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { dealValueMarkerSchema } from '../schema/deal-value-marker.schema';
+import { refusableAction } from './refusal';
 
-export const saveDealValueMarkers = enhanceAction(
+export const saveDealValueMarkers = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -32,5 +32,10 @@ export const saveDealValueMarkers = enhanceAction(
 
     return saved;
   },
-  { auth: true, schema: dealValueMarkerSchema },
+  dealValueMarkerSchema,
+  {
+    what: 'rate value markers',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );

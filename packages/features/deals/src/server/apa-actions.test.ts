@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   const appendDealEvent = vi.fn(
     async (_client: unknown, _event: { eventType: string }) => undefined,
   );
+  const checkTemplateFields = vi.fn(async () => undefined);
   const generateFromTemplate = vi.fn(async () => ({
     id: 'gen-1',
     docx_path: 'gen/apa.docx',
@@ -16,7 +17,10 @@ const mocks = vi.hoisted(() => {
     async () => 'https://sign.test/t/team/documents/envelope_doc1/edit',
   );
   const uploadVersion = vi.fn(async () => undefined);
-  const download = vi.fn(async () => ({ data: new Blob(['pdf']), error: null }));
+  const download = vi.fn(async () => ({
+    data: new Blob(['pdf']),
+    error: null,
+  }));
   const storageFrom = vi.fn(() => ({ download }));
 
   let stage = 'loi_accepted';
@@ -40,6 +44,10 @@ const mocks = vi.hoisted(() => {
     existing = [{ signing_status: signingStatus }];
   }
 
+  function clearExistingContracts() {
+    existing = [];
+  }
+
   function listFor(table: string): unknown {
     if (table === 'offer_version') {
       return [{ id: 'ver-1' }];
@@ -60,10 +68,26 @@ const mocks = vi.hoisted(() => {
       };
     }
     if (table === 'deal') {
-      return { stage };
+      return { stage, firm_id: 'firm-1' };
     }
     if (table === 'offer_version') {
-      return { terms: { schema_version: 1, purchase_price: 1_200_000 } };
+      return {
+        terms: { schema_version: 1, purchase_price: 1_200_000 },
+        purchase_price: 1_200_000,
+        target_close_date: '2027-01-15',
+        exclusivity_days: null,
+        diligence_days: 60,
+        real_estate_portion: 200_000,
+      };
+    }
+    if (table === 'firm') {
+      return { owner_names: ['Sol Seller'] };
+    }
+    if (table === 'accounts') {
+      return { legal_entity_name: 'Buyer Holdings LLC' };
+    }
+    if (table === 'deal_terms_sought') {
+      return { seller_note_amount: null };
     }
     if (table === 'document_template') {
       return template;
@@ -115,12 +139,14 @@ const mocks = vi.hoisted(() => {
   return {
     appendDealEvent,
     generateFromTemplate,
+    checkTemplateFields,
     requestContractSignature,
     uploadVersion,
     storageFrom,
     from,
     setTemplate,
     setExistingContract,
+    clearExistingContracts,
     checkContractSignature,
     setStage,
     inserted,
@@ -136,6 +162,7 @@ vi.mock('@odb/next/actions', () => ({
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({
     from: mocks.from,
+    rpc: () => ({ throwOnError: async () => ({ data: true }) }),
     storage: { from: mocks.storageFrom },
   }),
   getSupabaseServerAdminClient: () => ({ marker: 'admin' }),
@@ -147,6 +174,7 @@ vi.mock('@odb/events', () => ({
 
 vi.mock('@odb/templates/server', () => ({
   generateFromTemplate: mocks.generateFromTemplate,
+  checkTemplateFields: mocks.checkTemplateFields,
   GENERATED_BUCKET: 'generated',
 }));
 
@@ -155,6 +183,7 @@ vi.mock('@odb/contracts', () => ({
   contractPdfPath: (accountId: string, contractId: string, version: number) =>
     `${accountId}/${contractId}/v${version}.pdf`,
   PDF_CONTENT_TYPE: 'application/pdf',
+  announceNewVersion: async () => undefined,
 }));
 
 vi.mock('@odb/contracts/esign', async (importOriginal) => ({
@@ -164,26 +193,19 @@ vi.mock('@odb/contracts/esign', async (importOriginal) => ({
   createDocumensoClient: () => ({ marker: 'documenso' }),
 }));
 
-import { DocumensoRejected } from '@odb/contracts/esign';
-
 import { generateApa } from './apa-actions';
 
 type Action = (data: Record<string, unknown>) => Promise<unknown>;
 
 const run = generateApa as unknown as Action;
-const SIGNERS = [
-  { name: 'Bea Buyer', email: 'buyer@example.com' },
-  { name: 'Sol Seller', email: 'seller@example.com' },
-];
 const REQUEST = {
   offer_id: '0b0f5a0e-58a5-4a40-9d4e-6f0f3f3c8a11',
-  signers: SIGNERS,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.setTemplate({ id: 'tmpl-apa' });
-  mocks.setExistingContract(null);
+  mocks.clearExistingContracts();
   mocks.checkContractSignature.mockImplementation(async () => undefined);
   process.env.DOCUMENSO_URL = 'https://sign.test';
   process.env.DOCUMENSO_API_KEY = 'api_test';
@@ -209,25 +231,6 @@ describe('generateApa', () => {
     expect(mocks.appendDealEvent).not.toHaveBeenCalled();
     expect(mocks.generateFromTemplate).not.toHaveBeenCalled();
     expect(mocks.requestContractSignature).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['no signers', [], 'Name at least one signer'],
-    [
-      'a signer without a name',
-      [{ name: ' ', email: 'buyer@example.com' }],
-      'Each signer needs a name',
-    ],
-    [
-      'a signer without a valid email address',
-      [{ name: 'Bea Buyer', email: 'buyer' }],
-      'Each signer needs a valid email address',
-    ],
-  ])('refuses %s before writing anything', async (_label, signers, refusal) => {
-    expect(await run({ ...REQUEST, signers })).toEqual({ ok: false, refusal });
-
-    expect(mocks.from).not.toHaveBeenCalled();
-    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
   });
 
   it.each(['draft', 'sent'])(
@@ -304,44 +307,34 @@ describe('generateApa', () => {
     expect(mocks.requestContractSignature).not.toHaveBeenCalled();
   });
 
-  it('says so when Documenso does not accept the signature request', async () => {
-    mocks.requestContractSignature.mockRejectedValueOnce(
-      new DocumensoRejected('Documenso responded with 400'),
-    );
-
-    expect(await run(REQUEST)).toEqual({
-      ok: false,
-      refusal:
-        'Documenso did not accept the signature request. Check the signers and try again',
-    });
-  });
-
-  it('still throws when Documenso fails for a reason no person caused', async () => {
-    mocks.requestContractSignature.mockRejectedValueOnce(
-      new Error('Documenso responded with 500'),
-    );
-
-    await expect(run(REQUEST)).rejects.toThrow('Documenso responded with 500');
-  });
-
-  it('returns the contract version and where to place signature fields and send in Documenso', async () => {
+  it('returns the new contract version', async () => {
     expect(await run(REQUEST)).toEqual({
       ok: true,
       value: {
         contractVersionId: 'cv-1',
-        editorUrl: 'https://sign.test/t/team/documents/envelope_doc1/edit',
       },
     });
   });
 
-  it('renders an apa contract version and requests its signature from the signers named', async () => {
+  it('renders an apa contract version without requesting a signature', async () => {
     await run(REQUEST);
 
     expect(mocks.generateFromTemplate).toHaveBeenCalledWith({
       accountId: 'acc-1',
       templateId: 'tmpl-apa',
       dealId: 'deal-1',
-      fieldValues: { schema_version: 1, purchase_price: 1_200_000 },
+      fieldValues: {
+        schema_version: 1,
+        buyer_name: 'Buyer Holdings LLC',
+        seller_name: 'Sol Seller',
+        effective_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        purchase_price: 1_200_000,
+        cash_at_close: 1_200_000,
+        target_close_date: '2027-01-15',
+        exclusivity_days: null,
+        diligence_days: 60,
+        real_estate_portion: 200_000,
+      },
     });
     const version = mocks.inserted.contract_version?.[0] as Record<
       string,
@@ -358,10 +351,7 @@ describe('generateApa', () => {
       expect.any(Uint8Array),
       'application/pdf',
     );
-    expect(mocks.requestContractSignature).toHaveBeenCalledWith(
-      expect.objectContaining({ contractVersionId: 'cv-1', signers: SIGNERS }),
-      expect.objectContaining({ documenso: { marker: 'documenso' } }),
-    );
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
   });
 
   it('does not change the deal stage; that waits for Documenso to report the envelope sent', async () => {

@@ -26,6 +26,12 @@ export async function loadPipelineReport(
     limit: 100,
   });
 
+  const examples = await listDealsFaceted(client, {
+    accountId,
+    filters: { archived: true, examples: true },
+    limit: 100,
+  });
+
   const stageRows = await client
     .from('pipeline_stage')
     .select('key, label, sort_order')
@@ -48,6 +54,10 @@ export async function loadPipelineReport(
     const reached = reach.get(row.deal_id) ?? new Set<string>();
     reached.add(stage);
     reach.set(row.deal_id, reached);
+  }
+
+  for (const example of examples.items) {
+    reach.delete(example.id);
   }
 
   return buildPipelineReport({

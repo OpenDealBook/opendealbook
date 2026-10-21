@@ -24,9 +24,6 @@ const mocks = vi.hoisted(() => {
   }
 
   function listFor(table: string): unknown[] {
-    if (table === 'contract') {
-      return state.loiSigned ? [{ id: 'contract-1' }] : [];
-    }
     if (table === 'seller_question') {
       return [{ id: 'question-1' }, { id: 'question-2' }];
     }
@@ -78,7 +75,16 @@ const mocks = vi.hoisted(() => {
   const from = vi.fn((table: string) => makeBuilder(table));
   const rpc = vi.fn((name: string, args: unknown) => {
     permissionSpy(name, args);
-    return Promise.resolve({ data: true, error: null });
+    const result = Promise.resolve({
+      data:
+        name === 'deal_loi_signed'
+          ? state.loiSigned
+          : name === 'seller_deal_owner'
+            ? 'buyer-1'
+            : true,
+      error: null,
+    });
+    return Object.assign(result, { throwOnError: () => result });
   });
   const client = { from, rpc };
 
@@ -216,12 +222,6 @@ describe('answerSellerQuestion', () => {
       eventType: 'seller_question.answered',
       recipientUserId: 'buyer-1',
     });
-
-    expect(mocks.eqSpy).toHaveBeenCalledWith(
-      'contract',
-      'contract_version.is_signed',
-      true,
-    );
   });
 });
 

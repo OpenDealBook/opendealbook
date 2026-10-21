@@ -51,12 +51,29 @@ export const env = createEnv({
       .string()
       .optional()
       .describe('From address the trial drip email activity sends with'),
+    SELLER_DELIVERY_FROM_EMAIL: z
+      .string()
+      .optional()
+      .describe(
+        'Sender address for the email that delivers a document to a seller',
+      ),
     NOVU_API_KEY: secret(z.string())
       .optional()
       .describe('Novu API key used to trigger notification workflows'),
     NOVU_API_URL: url()
       .optional()
       .describe('Base URL of the Novu API the worker sends notifications to'),
+    GMAIL_API_BASE: url()
+      .default('https://gmail.googleapis.com')
+      .describe('Base URL of the Gmail API connected mailboxes send through'),
+    E2E_CLOCK_OFFSET_HOURS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe(
+        'Hours the lender nudge check moves now forward; set only by the e2e stack',
+      ),
     DOCLING_URL: url()
       .optional()
       .describe('Base URL of the Docling service used to extract document text'),

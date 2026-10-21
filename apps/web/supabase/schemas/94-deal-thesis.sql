@@ -38,12 +38,12 @@ create policy deal_thesis_read on public.deal_thesis
 
 create policy deal_thesis_insert on public.deal_thesis
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy deal_thesis_update on public.deal_thesis
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy deal_thesis_delete on public.deal_thesis
   for delete to authenticated

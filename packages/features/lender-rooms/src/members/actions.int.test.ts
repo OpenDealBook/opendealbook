@@ -23,7 +23,10 @@ vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'http://localhost:3000');
 interface SentEmail {
   to: string;
   from: string;
+  replyTo?: string;
+  subject: string;
   text: string;
+  html: string;
 }
 
 const testWorld = vi.hoisted(() => ({
@@ -70,8 +73,8 @@ import {
   skipLenderNamePrompt,
 } from './actions';
 import { loadClosedRoomContactEmail } from './closed-room-contact';
-import { shouldAskLenderName } from './person-name';
 import { confirmSignIn } from './confirm-sign-in';
+import { shouldAskLenderName, shouldAskLenderPhone } from './person-name';
 import { hasLenderRooms, loadRoomGate, myOpenRoomIds } from './room-gate';
 import { sendSignInLink } from './sign-in-link';
 
@@ -124,11 +127,10 @@ async function provisionPerson(): Promise<Person> {
   userIds.push(created.user.id);
 
   const { data: account } = await admin
-    .from('accounts')
-    .select('id')
-    .eq('primary_owner_user_id', created.user.id)
-    .eq('is_personal_account', true)
-    .single()
+    .rpc('create_team_account', {
+      account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
+      user_id: created.user.id,
+    })
     .throwOnError();
 
   const client = freshClient();
@@ -147,6 +149,12 @@ async function newRoom(
   roomCount = 1,
 ): Promise<string> {
   const dealId = crypto.randomUUID();
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: accountId, name: 'Brennan Tooling' })
+    .select('id')
+    .single()
+    .throwOnError();
 
   await admin
     .rpc('append_deal_event', {
@@ -157,6 +165,7 @@ async function newRoom(
       p_payload: {
         account_id: accountId,
         owner_user_id: roomOwner.userId,
+        firm_id: firm.id,
         description: 'Lender members deal',
       },
       p_actor_kind: 'service',
@@ -296,9 +305,7 @@ describe('inviteLenderMember (integration)', () => {
 
     const invitedUserId = await trackInvitedUser(email);
     const sent = emailsSentTo(email);
-    expect(sent).toMatchObject([
-      { from: 'Open Deal Book <hello@opendealbook.app>' },
-    ]);
+    expect(sent).toHaveLength(1);
 
     const link = linkIn(sent[0]!);
     expect(link.origin + link.pathname).toBe(
@@ -309,6 +316,77 @@ describe('inviteLenderMember (integration)', () => {
     const invitee = await signInWith(link);
     expect(invitee.userId).toBe(invitedUserId);
     expect(await canOpenRoom(invitee.client)).toBe(true);
+  });
+
+  it('sends the invite as the inviter, under the outside name, with the loan summary', async () => {
+    const email = newEmail();
+    const room = await newRoom();
+    const { data: dealRow } = await admin
+      .from('lender_room')
+      .select('deal_id, account_id')
+      .eq('id', room)
+      .single()
+      .throwOnError();
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealRow.deal_id,
+        p_aggregate_type: 'deal',
+        p_aggregate_id: dealRow.deal_id,
+        p_event_type: 'deal.updated',
+        p_payload: { code_name: `Project ${room.slice(0, 8)}` },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+    await admin
+      .from('deal_terms_sought')
+      .insert({
+        account_id: dealRow.account_id,
+        deal_id: dealRow.deal_id,
+        loan_amount: 1200000,
+        loan_type: 'sba_7a',
+        term_years: 10,
+      })
+      .throwOnError();
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealRow.deal_id,
+        p_aggregate_type: 'deal',
+        p_aggregate_id: dealRow.deal_id,
+        p_event_type: 'deal.close_deadline_set',
+        p_payload: { must_close_by: '2026-12-01' },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+    await admin
+      .from('accounts')
+      .update({ name: 'Morgan Reyes' })
+      .eq('primary_owner_user_id', owner.userId)
+      .eq('is_personal_account', true)
+      .throwOnError();
+    const { data: team } = await admin
+      .from('accounts')
+      .select('name')
+      .eq('id', owner.accountId)
+      .single()
+      .throwOnError();
+    testWorld.signedInClient = owner.client;
+
+    await unwrap(inviteLenderMember({ roomId: room, email }));
+    await trackInvitedUser(email);
+
+    const [sent] = emailsSentTo(email);
+    expect(sent).toMatchObject({
+      from: '"Morgan Reyes via Open Deal Book" <hello@opendealbook.app>',
+      replyTo: owner.email,
+      subject: `Morgan Reyes at ${team.name} invited you to review a loan request for Project ${room.slice(0, 8)}`,
+    });
+    expect(sent!.text).toContain(`Borrower: ${team.name}`);
+    expect(sent!.text).toContain(`Business: Project ${room.slice(0, 8)}`);
+    expect(sent!.text).toContain('Loan ask: $1,200,000 SBA 7(a), 10-year term');
+    expect(sent!.text).toContain('Close by: December 1, 2026');
+    expect(`${sent!.subject}${sent!.text}${sent!.html}`).not.toMatch(
+      /Lender members deal|Brennan Tooling/,
+    );
   });
 
   it('records who invited the person', async () => {
@@ -495,6 +573,92 @@ describe('inviteLenderMember (integration)', () => {
   });
 });
 
+describe('inviteLenderMember across sides (integration)', () => {
+  let sideRoomId: string;
+  let dealId: string;
+
+  async function onDeal(
+    person: Person,
+    side: 'seller' | 'buyer counsel' | 'seller counsel',
+  ) {
+    if (side === 'seller') {
+      const { data: sellerRoomId } = await owner.client
+        .rpc('ensure_seller_room', { deal_id: dealId })
+        .throwOnError();
+      await admin
+        .from('seller_room_member')
+        .insert({
+          room_id: sellerRoomId,
+          user_id: person.userId,
+          email: person.email,
+          name: 'Sam Seller',
+        })
+        .throwOnError();
+
+      return;
+    }
+
+    await admin
+      .from('deal_counsel')
+      .insert({
+        account_id: owner.accountId,
+        deal_id: dealId,
+        side: side === 'buyer counsel' ? 'buyer' : 'seller',
+        user_id: person.userId,
+        email: person.email,
+      })
+      .throwOnError();
+  }
+
+  beforeAll(async () => {
+    sideRoomId = await newRoom();
+    const { data } = await admin
+      .from('lender_room')
+      .select('deal_id')
+      .eq('id', sideRoomId)
+      .single()
+      .throwOnError();
+    dealId = data.deal_id;
+  });
+
+  it('refuses a member of the deal team, and adds and emails no one', async () => {
+    testWorld.signedInClient = owner.client;
+    testWorld.outbox = [];
+
+    const result = await inviteLenderMember({
+      roomId: sideRoomId,
+      email: owner.email,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'This person is already on another side of this deal.',
+    });
+    expect(await memberRows(owner.email, sideRoomId)).toEqual([]);
+    expect(emailsSentTo(owner.email)).toEqual([]);
+  });
+
+  it.each(['seller', 'buyer counsel', 'seller counsel'] as const)(
+    'refuses someone who is the %s on the deal',
+    async (side) => {
+      const person = await provisionPerson();
+      await onDeal(person, side);
+      testWorld.signedInClient = owner.client;
+
+      const result = await inviteLenderMember({
+        roomId: sideRoomId,
+        email: person.email,
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        refusal: 'This person is already on another side of this deal.',
+      });
+      expect(await memberRows(person.email, sideRoomId)).toEqual([]);
+    },
+  );
+});
+
 describe('removeLenderMember (integration)', () => {
   it('stops the removed person opening the room at once', async () => {
     const leaving = await provisionPerson();
@@ -616,7 +780,7 @@ describe('listRemovedLenderMembers (integration)', () => {
     ]);
   });
 
-  it('ends the removed person\'s access at once and records the removal exactly once', async () => {
+  it("ends the removed person's access at once and records the removal exactly once", async () => {
     const room = await newRoom();
     const removed = await provisionPerson();
 
@@ -650,12 +814,12 @@ describe('listRemovedLenderMembers (integration)', () => {
   it('refuses a lender in the room', async () => {
     testWorld.signedInClient = lender.client;
 
-    await expect(
-      unwrap(listRemovedLenderMembers({ roomId })),
-    ).rejects.toThrow('Only the deal team can do that');
+    await expect(unwrap(listRemovedLenderMembers({ roomId }))).rejects.toThrow(
+      'Only the deal team can do that',
+    );
   });
 
-  it("leaves out people removed from another room", async () => {
+  it('leaves out people removed from another room', async () => {
     const room = await newRoom();
     const otherRoom = await newRoom();
     await removeAsOwner(await provisionPerson(), otherRoom);
@@ -752,7 +916,7 @@ describe('lender names (integration)', () => {
     expect(await shouldAskLenderName(person.client)).toBe(false);
   });
 
-  it("lets a person replace the name the deal team typed with their own", async () => {
+  it('lets a person replace the name the deal team typed with their own', async () => {
     const email = newEmail();
     await inviteAsOwner(email, 'Dana Lee');
     const person = await signedInAs(email);
@@ -761,6 +925,56 @@ describe('lender names (integration)', () => {
     await unwrap(setMyLenderName({ name: 'Danielle Lee' }));
 
     expect(await nameOf(person.userId)).toBe('Danielle Lee');
+  });
+
+  it('asks a new lender for name and phone together, then neither again', async () => {
+    const email = newEmail();
+    await inviteAsOwner(email);
+    const person = await signedInAs(email);
+    testWorld.signedInClient = person.client;
+
+    expect(await shouldAskLenderPhone(person.client)).toBe(false);
+
+    await unwrap(
+      setMyLenderName({ name: 'Sam Ortiz', phone: ' +1 555 0100 ' }),
+    );
+
+    const { data: account } = await admin
+      .from('accounts')
+      .select('phone, phone_asked_at')
+      .eq('id', person.userId)
+      .single()
+      .throwOnError();
+    expect(account.phone).toBe('+1 555 0100');
+    expect(account.phone_asked_at).not.toBeNull();
+    expect(await shouldAskLenderPhone(person.client)).toBe(false);
+  });
+
+  it('asks a lender the team already named for a phone, once', async () => {
+    const email = newEmail();
+    await inviteAsOwner(email, 'Dana Lee');
+    const person = await signedInAs(email);
+
+    expect(await shouldAskLenderPhone(person.client)).toBe(true);
+
+    await admin
+      .from('accounts')
+      .update({ phone_asked_at: new Date().toISOString() })
+      .eq('id', person.userId)
+      .throwOnError();
+
+    expect(await shouldAskLenderPhone(person.client)).toBe(false);
+  });
+
+  it('skipping the first prompt skips the phone too', async () => {
+    const email = newEmail();
+    await inviteAsOwner(email);
+    const person = await signedInAs(email);
+    testWorld.signedInClient = person.client;
+
+    await unwrap(skipLenderNamePrompt({}));
+
+    expect(await shouldAskLenderPhone(person.client)).toBe(false);
   });
 
   it('never asks again after a person skips, and leaves them unnamed', async () => {
@@ -775,7 +989,7 @@ describe('lender names (integration)', () => {
     expect(await nameOf(person.userId)).toBeNull();
   });
 
-  it('shows the deal team each member\'s name, or null when none was given', async () => {
+  it("shows the deal team each member's name, or null when none was given", async () => {
     const listedRoomId = await newRoom();
     const [named, unnamed] = [await provisionPerson(), await provisionPerson()];
     await addMember(named, listedRoomId);
@@ -811,9 +1025,9 @@ describe('lender names (integration)', () => {
 
     const members = await unwrap(listLenderMembers({ roomId: listedRoomId }));
 
-    expect(members.find((member) => member.email === colleague.email)?.name).toBe(
-      'Colleague Name',
-    );
+    expect(
+      members.find((member) => member.email === colleague.email)?.name,
+    ).toBe('Colleague Name');
   });
 
   it("shows the deal team a removed person's name", async () => {
@@ -953,10 +1167,10 @@ describe('loadClosedRoomContactEmail (integration)', () => {
     userIds.push(created.user.id);
 
     const { data: account } = await admin
-      .from('accounts')
-      .select('id')
-      .eq('primary_owner_user_id', created.user.id)
-      .single()
+      .rpc('create_team_account', {
+        account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
+        user_id: created.user.id,
+      })
       .throwOnError();
     const ownerlessRoomId = await newRoom(
       { ...owner, userId: created.user.id },
@@ -1352,6 +1566,37 @@ describe('requestLenderRoomAccess (integration)', () => {
       [owner, teammate]
         .map((person) => ({ subscriberId: person.userId, email: person.email }))
         .sort((a, b) => a.subscriberId.localeCompare(b.subscriberId)),
+    );
+  });
+
+  it('rings the bell once per team member, linking to the room, even when Novu is not configured', async () => {
+    await asLenderWithNovu(false);
+
+    await unwrap(requestLenderRoomAccess({ roomId: closedRoomId }));
+
+    const { data: room } = await admin
+      .from('lender_room')
+      .select('account_id, deal_id, accounts(slug)')
+      .eq('id', closedRoomId)
+      .single()
+      .throwOnError();
+    const eventKey = `${closedRoomId}:${lender.userId}:${new Date().toISOString().slice(0, 10)}`;
+    const { data: rung } = await admin
+      .from('notifications')
+      .select('recipient_user_id, deal_id, body, link, dedupe_key')
+      .eq('account_id', room.account_id)
+      .like('dedupe_key', `lender_room.access_requested:${eventKey}:%`)
+      .order('recipient_user_id')
+      .throwOnError();
+
+    expect(rung).toEqual(
+      [owner.userId, teammate.userId].toSorted().map((userId) => ({
+        recipient_user_id: userId,
+        deal_id: room.deal_id,
+        body: `${lender.email} asked for access to First Bank`,
+        link: `/home/${room.accounts.slug}/deals/${room.deal_id}/lenders/${closedRoomId}`,
+        dedupe_key: `lender_room.access_requested:${eventKey}:${userId}`,
+      })),
     );
   });
 

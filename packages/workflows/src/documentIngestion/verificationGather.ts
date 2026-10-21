@@ -7,7 +7,10 @@ import type {
   RevenueVsDdFinancialsInput,
   RunnableCheck,
 } from '@odb/verification';
-import { payrollTaxVsW2Check, revenueVsDdFinancialsCheck } from '@odb/verification';
+import {
+  payrollTaxVsW2Check,
+  revenueVsDdFinancialsCheck,
+} from '@odb/verification';
 
 import type { DoclingConfig } from './docling';
 import { extractMarkdown } from './docling';
@@ -26,7 +29,8 @@ const DOCUMENT_SELECTORS = {
   payrollTaxWages: /\b941\b|payroll tax/i,
   ddFinancialsRevenue:
     /due diligence financ|dd financ|financial statement|income statement|profit and loss|\bp&l\b/i,
-  marketingRevenue: /marketing|\bcim\b|teaser|offering memorandum|confidential information/i,
+  marketingRevenue:
+    /marketing|\bcim\b|teaser|offering memorandum|confidential information/i,
 };
 
 // Assumption pending CPA-domain ruling: which line/box each figure maps to and
@@ -49,9 +53,7 @@ interface DealDocument {
   id: string;
   name: string;
   storagePath: string;
-  checklistItemId: string | null;
-  category: string | null;
-  title: string | null;
+  items: Array<{ id: string; category: string | null; title: string }>;
 }
 
 interface SideResult {
@@ -135,7 +137,11 @@ export async function buildDocumentExtractionChecks(
     {
       check: payrollTaxVsW2Check as ReconciliationCheck<unknown>,
       gather: async (ctx: GatherContext) => {
-        const w2 = await resolveSide(context, DOCUMENT_SELECTORS.w2Wages, FIGURE_INSTRUCTIONS.w2Wages);
+        const w2 = await resolveSide(
+          context,
+          DOCUMENT_SELECTORS.w2Wages,
+          FIGURE_INSTRUCTIONS.w2Wages,
+        );
         const payroll = await resolveSide(
           context,
           DOCUMENT_SELECTORS.payrollTaxWages,
@@ -168,7 +174,9 @@ export async function buildDocumentExtractionChecks(
           period: ctx.period,
           marketingRevenue: marketing.total,
           ddFinancialsRevenue: ddFinancials.total,
-          links: marketing.links.drDocumentId ? marketing.links : ddFinancials.links,
+          links: marketing.links.drDocumentId
+            ? marketing.links
+            : ddFinancials.links,
         } satisfies RevenueVsDdFinancialsInput;
       },
     },
@@ -181,7 +189,7 @@ async function loadDealDocuments(
 ): Promise<DealDocument[]> {
   const { data: documents, error: documentsError } = await client
     .from('dr_document')
-    .select('id, name, storage_path, checklist_item_id')
+    .select('id, name, storage_path')
     .eq('deal_id', dealId)
     .is('removed_at', null);
 
@@ -191,29 +199,19 @@ async function loadDealDocuments(
 
   const { data: items, error: itemsError } = await client
     .from('checklist_item')
-    .select('id, category, title')
+    .select('id, category, title, linked_document_id')
     .eq('deal_id', dealId);
 
   if (itemsError) {
     throw itemsError;
   }
 
-  const byId = new Map(items.map((item) => [item.id, item]));
-
-  return documents.map((document) => {
-    const item = document.checklist_item_id
-      ? byId.get(document.checklist_item_id)
-      : undefined;
-
-    return {
-      id: document.id,
-      name: document.name,
-      storagePath: document.storage_path,
-      checklistItemId: document.checklist_item_id,
-      category: item?.category ?? null,
-      title: item?.title ?? null,
-    };
-  });
+  return documents.map((document) => ({
+    id: document.id,
+    name: document.name,
+    storagePath: document.storage_path,
+    items: items.filter((item) => item.linked_document_id === document.id),
+  }));
 }
 
 interface ResolveContext {
@@ -232,7 +230,12 @@ async function resolveSide(
   instruction: string,
 ): Promise<SideResult> {
   const matched = context.documents.filter((document) =>
-    selector.test(`${document.name} ${document.category ?? ''} ${document.title ?? ''}`),
+    selector.test(
+      [
+        document.name,
+        ...document.items.flatMap((item) => [item.category ?? '', item.title]),
+      ].join(' '),
+    ),
   );
 
   if (matched.length === 0) {
@@ -263,15 +266,21 @@ async function resolveSide(
   const first = matched[0]!;
 
   return {
-    total: amounts.length > 0 ? amounts.reduce((sum, value) => sum + value, 0) : null,
+    total:
+      amounts.length > 0
+        ? amounts.reduce((sum, value) => sum + value, 0)
+        : null,
     links: {
       drDocumentId: first.id,
-      ...(first.checklistItemId ? { checklistItemId: first.checklistItemId } : {}),
+      checklistItemIds: first.items.map((item) => item.id),
     },
   };
 }
 
-async function signDocument(client: Client, storagePath: string): Promise<string> {
+async function signDocument(
+  client: Client,
+  storagePath: string,
+): Promise<string> {
   const { data, error } = await client.storage
     .from(DATA_ROOM_BUCKET)
     .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);

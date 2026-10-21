@@ -5,6 +5,8 @@
   "sideEffects": false,
   "scripts": {
     "dev": "turbo dev",
+    "run-dev": "node scripts/run-dev.mjs",
+    "run-e2e": "node scripts/run-e2e.mjs",
     "build": "turbo build",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",

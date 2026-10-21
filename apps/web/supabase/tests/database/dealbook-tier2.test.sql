@@ -102,8 +102,8 @@ select isnt_empty(
 
 -- ---- Diligence schedule / week / seller question: deal-scoped visibility ----
 select tests.login_as_service_role();
-insert into public.diligence_schedule (id, deal_id, account_id, start_date, target_apa_date)
-values ('dddddddd-0000-0000-0000-0000000000e1', 'dddddddd-0000-0000-0000-0000000000a1', tests.account_id('tier2-a'), current_date, current_date + 60);
+insert into public.diligence_schedule (id, deal_id, account_id, start_date)
+values ('dddddddd-0000-0000-0000-0000000000e1', 'dddddddd-0000-0000-0000-0000000000a1', tests.account_id('tier2-a'), current_date);
 
 insert into public.schedule_week (id, schedule_id, account_id, week_no, starts_on, theme)
 values ('dddddddd-0000-0000-0000-0000000000f1', 'dddddddd-0000-0000-0000-0000000000e1', tests.account_id('tier2-a'), 1, current_date, 'Financials');
@@ -112,13 +112,13 @@ insert into public.seller_question (deal_id, account_id, schedule_week_id, quest
 values ('dddddddd-0000-0000-0000-0000000000a1', tests.account_id('tier2-a'), 'dddddddd-0000-0000-0000-0000000000f1', 'Provide trailing 12-month P&L');
 
 select tests.login_as('t2_ext');
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.diligence_schedule where deal_id = 'dddddddd-0000-0000-0000-0000000000a1' $$,
-  'a deal participant sees the diligence_schedule on their granted deal'
+  'a deal participant cannot read the diligence_schedule on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.schedule_week where id = 'dddddddd-0000-0000-0000-0000000000f1' $$,
-  'a deal participant sees a schedule_week through its schedule''s deal'
+  'a deal participant cannot read a schedule_week through its schedule''s deal'
 );
 select isnt_empty(
   $$ select 1 from public.seller_question where deal_id = 'dddddddd-0000-0000-0000-0000000000a1' $$,
@@ -157,15 +157,49 @@ select throws_ok(
 );
 
 select tests.login_as('t2_ext');
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.contract_version where contract_id = 'dddddddd-0000-0000-0000-000000000091' $$,
-  'a deal participant sees contract_version through the contract''s deal'
+  'a deal participant cannot read contract_version through the contract''s deal'
 );
 
 select tests.login_as('t2_b_owner');
 select is_empty(
   $$ select 1 from public.contract_version where contract_id = 'dddddddd-0000-0000-0000-000000000091' $$,
   'a foreign account cannot see contract_version'
+);
+
+-- ---- Legacy dates folded into the timeline ----
+select hasnt_column('public', 'deal', 'close_date', 'deal.close_date is folded into the closing milestone');
+select hasnt_column('public', 'diligence_schedule', 'target_apa_date',
+  'diligence_schedule.target_apa_date is folded into the APA signing milestone');
+
+select tests.login_as_service_role();
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'deal_milestone',
+  'dddddddd-0000-0000-0000-0000000000b1', 'deal_milestone.set',
+  '{"kind": "closing", "target_on": "2026-03-01", "actual_on": null}', null, 'service');
+
+select tests.login_as('t2_a_owner');
+select is(
+  (select d.close_date from public.deal d where d.id = 'dddddddd-0000-0000-0000-0000000000a1'),
+  '2026-03-01'::date,
+  'a deal''s close_date is its closing target while the closing has no actual'
+);
+
+select tests.login_as_service_role();
+select public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'deal_milestone',
+  'dddddddd-0000-0000-0000-0000000000b1', 'deal_milestone.set',
+  '{"kind": "closing", "target_on": "2026-03-01", "actual_on": "2026-02-20"}', null, 'service');
+select lives_ok(
+  $$ select public.append_deal_event('dddddddd-0000-0000-0000-0000000000a1', 'deal',
+       'dddddddd-0000-0000-0000-0000000000a1', 'deal.updated', '{"close_date": "2030-01-01"}', null, 'service') $$,
+  'a deal.updated event still carrying a close_date projects'
+);
+
+select tests.login_as('t2_a_owner');
+select is(
+  (select d.close_date from public.deal d where d.id = 'dddddddd-0000-0000-0000-0000000000a1'),
+  '2026-02-20'::date,
+  'a deal''s close_date is its closing actual, and a stale close_date in deal.updated does not move it'
 );
 
 select * from finish();

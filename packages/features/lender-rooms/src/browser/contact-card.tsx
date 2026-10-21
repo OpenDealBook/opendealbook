@@ -35,12 +35,6 @@ export function ContactCard({ contact }: { contact: RoomContact }) {
         {contact.name ? (
           <span className={'truncate font-medium'}>{contact.name}</span>
         ) : null}
-        <a
-          href={`mailto:${contact.email}`}
-          className={'truncate underline-offset-2 hover:underline'}
-        >
-          {contact.email}
-        </a>
         {contact.phone ? (
           <a
             href={`tel:${contact.phone}`}
@@ -49,6 +43,14 @@ export function ContactCard({ contact }: { contact: RoomContact }) {
             {contact.phone}
           </a>
         ) : null}
+        <a
+          href={`mailto:${contact.email}`}
+          className={
+            'text-muted-foreground truncate underline-offset-2 hover:underline'
+          }
+        >
+          {contact.email}
+        </a>
       </div>
     </address>
   );

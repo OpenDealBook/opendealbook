@@ -1,8 +1,18 @@
 import { z } from 'zod';
 
+export const INVITABLE_ROLES = [
+  'admin',
+  'deal_lead',
+  'member',
+  'counsel',
+  'viewer',
+] as const;
+
+export const invitableRoleSchema = z.enum(INVITABLE_ROLES);
+
 const inviteSchema = z.object({
   email: z.string().trim().email(),
-  role: z.string().trim().min(1).max(100),
+  role: invitableRoleSchema,
 });
 
 export const inviteMembersSchema = z

@@ -52,4 +52,31 @@ describe('enhanceAction', () => {
 
     expect(received).toHaveBeenCalledWith('hello', user);
   });
+
+  it('explains a write refused because the team is locked', async () => {
+    getSupabaseServerClientMock.mockReturnValue(mockClient({ id: 'u1' }));
+
+    const action = enhanceAction(async () => {
+      throw Object.assign(new Error('team is read-only'), { code: '42501' });
+    });
+
+    await expect(action(undefined)).rejects.toThrow(
+      'This team is read-only until billing is updated.',
+    );
+  });
+
+  it('keeps the message of any other refused write', async () => {
+    getSupabaseServerClientMock.mockReturnValue(mockClient({ id: 'u1' }));
+
+    const action = enhanceAction(async () => {
+      throw Object.assign(
+        new Error('new row violates row-level security policy'),
+        { code: '42501' },
+      );
+    });
+
+    await expect(action(undefined)).rejects.toThrow(
+      'new row violates row-level security policy',
+    );
+  });
 });

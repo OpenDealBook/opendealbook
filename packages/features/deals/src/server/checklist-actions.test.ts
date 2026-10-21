@@ -19,6 +19,14 @@ const mocks = vi.hoisted(() => {
       return templateItems;
     }
 
+    if (table === 'deal') {
+      return { account_id: 'account-1' };
+    }
+
+    if (table === 'checklist_template') {
+      return { kind: 'diligence' };
+    }
+
     return { id: `${table}-1` };
   }
 
@@ -30,6 +38,8 @@ const mocks = vi.hoisted(() => {
     builder.eq = chain;
     builder.order = chain;
     builder.throwOnError = chain;
+    builder.single = chain;
+    builder.insert = () => Promise.resolve({ error: null });
     builder.then = (resolve: (value: unknown) => void) =>
       resolve({ data: dataFor(table), error: null });
 
@@ -38,7 +48,13 @@ const mocks = vi.hoisted(() => {
 
   const from = vi.fn((table: string) => makeBuilder(table));
 
-  return { appendDealEvent, appendDealEvents, from, setTemplateItems };
+  const rpc = vi.fn(() => ({
+    throwOnError: async () => ({
+      data: [{ due_at: null, review_due_at: null }],
+    }),
+  }));
+
+  return { appendDealEvent, appendDealEvents, from, rpc, setTemplateItems };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -46,7 +62,7 @@ vi.mock('@odb/next/actions', () => ({
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ from: mocks.from }),
+  getSupabaseServerClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
 }));
 
 vi.mock('@odb/events', () => ({
@@ -98,7 +114,7 @@ describe('applyChecklistTemplate', () => {
     ]);
 
     await runApplyChecklistTemplate(
-      { deal_id: 'deal-1', template_id: 'template-9' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', template_id: '384a7618-43e9-434e-8933-9e8aeb5aa712' },
       { id: 'user-1' },
     );
 
@@ -114,7 +130,7 @@ describe('applyChecklistTemplate', () => {
       }>,
     ];
 
-    expect(dealId).toBe('deal-1');
+    expect(dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({
       aggregateType: 'checklist_item',
@@ -139,7 +155,7 @@ describe('applyChecklistTemplate', () => {
 
   it('appends nothing when the template has no items', async () => {
     await runApplyChecklistTemplate(
-      { deal_id: 'deal-1', template_id: 'template-empty' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', template_id: '15e8e39a-4c7d-4d68-8dcf-e893cbba1eee' },
       { id: 'user-1' },
     );
 
@@ -150,17 +166,17 @@ describe('applyChecklistTemplate', () => {
 describe('addChecklistItem', () => {
   it('appends a checklist_item.added event carrying the title', async () => {
     const result = await runAddChecklistItem(
-      { deal_id: 'deal-1', title: 'Confirm lease transfer' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', title: 'Confirm lease transfer' },
       { id: 'user-1' },
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'checklist_item',
       aggregateId: GENERATED_ID,
       eventType: 'checklist_item.added',
       payload: { title: 'Confirm lease transfer' },
     });
-    expect(result).toBe(GENERATED_ID);
+    expect(result).toEqual({ ok: true, value: GENERATED_ID });
   });
 });

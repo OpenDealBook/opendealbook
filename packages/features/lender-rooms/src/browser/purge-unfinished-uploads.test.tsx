@@ -4,11 +4,11 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { expect, it, vi } from 'vitest';
 
-import type { UnfinishedUpload } from './unfinished-uploads';
+import type { UnfinishedUpload } from '../room-browser/unfinished-uploads';
 
 const kept = vi.hoisted(() => new Map<string, UnfinishedUpload>());
 
-vi.mock('./unfinished-store', () => ({
+vi.mock('../room-browser/unfinished-store', () => ({
   unfinishedStore: {
     put: async (upload: UnfinishedUpload) => {
       kept.set(upload.id, upload);

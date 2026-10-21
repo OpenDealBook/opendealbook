@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+const rangeSchema = z
+  .object({
+    min: z.number().nonnegative().nullable().default(null),
+    max: z.number().nonnegative().nullable().default(null),
+  })
+  .refine(({ min, max }) => min === null || max === null || min <= max)
+  .prefault({});
+
 export const dealBoxCriteriaSchema = z.object({
   weights: z
     .object({
@@ -22,6 +30,14 @@ export const dealBoxCriteriaSchema = z.object({
       industries: z.array(z.string()).default([]),
       naics: z.array(z.string()).default([]),
       states: z.array(z.string()).default([]),
+    })
+    .prefault({}),
+  size: z
+    .object({
+      jobs: rangeSchema,
+      pppLoanAmount: rangeSchema,
+      form5500Participants: rangeSchema,
+      minBusinessAgeYears: z.number().nonnegative().nullable().default(null),
     })
     .prefault({}),
 });

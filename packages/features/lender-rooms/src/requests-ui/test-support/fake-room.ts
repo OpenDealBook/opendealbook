@@ -28,6 +28,8 @@ const fresh = () => ({
   refusal: null as string | null,
   crashesAt: [] as Step[],
   storageHold: null as Deferred | null,
+  sendHold: null as Deferred | null,
+  sentFormTitles: {} as Record<string, string>,
   refreshes: 0,
   pathname: '/lender/7d0f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11/requests',
 });
@@ -44,6 +46,13 @@ export const fakeRoom = {
     fakeRoom.storageHold?.release();
     fakeRoom.storageHold = null;
   },
+  holdSending() {
+    fakeRoom.sendHold = deferred();
+  },
+  releaseSending() {
+    fakeRoom.sendHold?.release();
+    fakeRoom.sendHold = null;
+  },
 };
 
 function crashIf(step: Step) {
@@ -55,6 +64,7 @@ function crashIf(step: Step) {
 
 function sends<Input>(record: (input: Input) => unknown) {
   return async (input: Input) => {
+    await fakeRoom.sendHold?.promise;
     crashIf('send');
 
     if (fakeRoom.refusal) {
@@ -81,6 +91,10 @@ export const formActions = {
   closeFormAsLender: sends(() => fakeRoom.moves.push('closed')),
   replaceBlankForm: sends((input) => fakeRoom.replacedWith.push(input)),
   changeReturnRoute: sends((input) => fakeRoom.routeChanges.push(input)),
+  sentFormTitle: async ({ name }: { name: string }) => ({
+    ok: true,
+    value: fakeRoom.sentFormTitles[name] ?? null,
+  }),
 };
 
 export const uploadActions = {

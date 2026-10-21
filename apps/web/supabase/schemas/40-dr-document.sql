@@ -1,7 +1,6 @@
 -- A file in a data room folder. Re-uploading a file with the same name is a new
 -- row with a higher version; the database allows it and the app decides how to
--- present versions. checklist_item_id links a document to the diligence item it
--- satisfies. Deal-scoped.
+-- present versions. Deal-scoped.
 -- The read policy lives in 99a-lender-rooms.sql because it depends on
 -- lender_can_read_document.
 
@@ -14,7 +13,6 @@ create table if not exists public.dr_document (
   storage_path text not null,
   version int not null default 1,
   uploaded_by uuid references auth.users default auth.uid(),
-  checklist_item_id uuid references public.checklist_item (id) on delete set null,
   created_at timestamptz,
   updated_at timestamptz,
   removed_at timestamptz

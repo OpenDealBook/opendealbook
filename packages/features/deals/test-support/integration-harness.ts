@@ -43,12 +43,10 @@ export async function provisionAccount(): Promise<IntegrationAccount> {
 
   const userId = created.user.id;
 
-  const { data: account, error: accountError } = await admin
-    .from('accounts')
-    .select('id')
-    .eq('primary_owner_user_id', userId)
-    .eq('is_personal_account', true)
-    .single();
+  const { data: account, error: accountError } = await admin.rpc(
+    'create_team_account',
+    { account_name: `Int ${unique}`, user_id: userId },
+  );
 
   if (accountError) {
     throw accountError;

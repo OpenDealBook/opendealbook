@@ -1,6 +1,10 @@
+import type { ReactNode } from 'react';
+
 import Link from 'next/link';
 
-import type { DealListGroup, DealListItem } from '@odb/deals';
+import { FIXED_MILESTONES, type MilestoneKind } from '@odb/deal-timeline/schema.ts';
+import type { DealListGroup, DealListItem, NextMilestone } from '@odb/deals';
+import { multipleText } from '@odb/deals/shared';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import { Card } from '@odb/ui/card';
@@ -25,8 +29,18 @@ function money(value: number | null): string {
   return value === null ? 'Not disclosed' : compactCurrency.format(value);
 }
 
-function dealTitle(title: string | null): string {
-  return title === null ? 'Untitled deal' : title.replace(/^Example:\s*/, '');
+const shortDate = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  dateStyle: 'medium',
+});
+
+function nextStep(milestone: NextMilestone | null): string {
+  if (milestone === null) {
+    return 'Not set';
+  }
+  const kind = milestone.kind as MilestoneKind;
+  const name = kind === 'custom' ? milestone.label! : FIXED_MILESTONES[kind].label;
+  return `${name}, ${shortDate.format(new Date(milestone.targetOn))}`;
 }
 
 function resolutionText(
@@ -40,15 +54,13 @@ function resolutionText(
   return reason === null ? outcome : `${outcome} (${reason.replace(/_/g, ' ')})`;
 }
 
-function monogram(name: string | null): string {
-  return name === null ? '#' : name.charAt(0).toUpperCase();
-}
-
 export function DealCard({
   deal,
+  ownerName,
   detailBasePath,
 }: {
   deal: DealListItem;
+  ownerName: string | null;
   detailBasePath: string;
 }) {
   const href = `${detailBasePath}/${deal.id}`;
@@ -64,29 +76,39 @@ export function DealCard({
         aria-hidden
       />
       <div className={'flex flex-col gap-4 py-5 pr-4 pl-5'}>
-        <div className={'flex items-start gap-3'}>
-          <span
-            className={
-              'bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-md text-sm font-semibold'
-            }
-            aria-hidden
-          >
-            {monogram(deal.industryName)}
-          </span>
-          <div className={'min-w-0 flex-1'}>
-            <div className={'flex items-center gap-2'}>
-              <Link href={href} className={'truncate font-semibold hover:underline'}>
-                {dealTitle(deal.title)}
-              </Link>
-              {deal.captureMethod === 'example' ? (
-                <Badge variant={'secondary'}>Example</Badge>
-              ) : null}
-            </div>
-            {subtitle.length > 0 ? (
-              <p className={'text-muted-foreground truncate text-sm'}>{subtitle}</p>
+        <div className={'flex flex-col gap-1'}>
+          <div className={'flex items-start gap-2'}>
+            <Link href={href} className={'font-semibold break-words hover:underline'}>
+              {deal.title}
+            </Link>
+            {deal.isExample ? (
+              <Badge variant={'secondary'}>Example</Badge>
             ) : null}
           </div>
+          {subtitle.length > 0 ? (
+            <p className={'text-muted-foreground text-sm'}>{subtitle}</p>
+          ) : null}
         </div>
+
+        <dl className={'grid grid-cols-2 gap-x-2 gap-y-3 text-sm'}>
+          <Fact label={'Next step'} value={nextStep(deal.nextMilestone)} />
+          <Fact label={'Owner'} value={ownerName ?? 'Unassigned'} />
+          <Fact
+            label={'Checklist'}
+            value={
+              <>
+                {deal.openItems} open,{' '}
+                <span className={deal.overdueItems > 0 ? 'text-destructive' : undefined}>
+                  {deal.overdueItems} overdue
+                </span>
+              </>
+            }
+          />
+          <Fact
+            label={'Last activity'}
+            value={shortDate.format(new Date(deal.lastActivityAt))}
+          />
+        </dl>
 
         <div className={'flex flex-wrap items-center gap-2'}>
           <Badge variant={'outline'}>{deal.stageLabel ?? deal.stage}</Badge>
@@ -98,7 +120,7 @@ export function DealCard({
           ) : null}
         </div>
 
-        <div className={'grid grid-cols-3 gap-2 text-sm'}>
+        <div className={'grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2 text-sm'}>
           <Metric label={'Ask'} value={money(deal.askingPrice)} />
           <Metric label={'Revenue'} value={money(deal.revenue)} />
           <Metric label={'SDE'} value={money(deal.sde)} />
@@ -110,7 +132,7 @@ export function DealCard({
         {deal.multiple !== null || deal.margin !== null ? (
           <div className={'flex flex-wrap gap-2'}>
             {deal.multiple !== null ? (
-              <Badge variant={'outline'}>{deal.multiple.toFixed(1)}x</Badge>
+              <Badge variant={'outline'}>{multipleText(deal.multiple)}</Badge>
             ) : null}
             {deal.margin !== null ? (
               <Badge variant={'outline'}>{Math.round(deal.margin * 100)}% margin</Badge>
@@ -135,6 +157,15 @@ export function DealCard({
         </div>
       </div>
     </Card>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className={'flex flex-col'}>
+      <dt className={'text-muted-foreground text-xs'}>{label}</dt>
+      <dd className={'font-medium'}>{value}</dd>
+    </div>
   );
 }
 

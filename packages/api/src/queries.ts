@@ -7,7 +7,7 @@ const MAX_LIMIT = 100;
 const DEAL_COLUMNS =
   'id, stage, source, asking_price, revenue_ttm, sde_ttm, ebitda_ttm, firm_id, description, close_date, created_at, updated_at';
 const FIRM_COLUMNS =
-  'id, name, website, industry, city, state, employee_band, established_year, owner_name, owner_age_estimate, icp_score, service_mix_json, source, source_url, status, imported_at, created_at, updated_at';
+  'id, name, website, industry, city, state, employee_band, established_year, owner_names, owner_age_estimate, icp_score, service_mix_json, source, source_url, status, imported_at, created_at, updated_at';
 const DEAL_BOX_COLUMNS =
   'id, version, criteria_json, broker_summary, created_at, updated_at';
 const CHECKLIST_COLUMNS =

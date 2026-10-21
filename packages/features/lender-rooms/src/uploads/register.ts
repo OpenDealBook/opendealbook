@@ -4,10 +4,16 @@ import { nextVersion } from '@odb/data-room';
 import { appendDealEvent } from '@odb/events';
 import { getLogger } from '@odb/shared/logger';
 import type { Tables } from '@odb/supabase';
+import { storageKeyName } from '@odb/supabase/storage-key';
 
 import { Refusal } from '../actions/refusal';
-import { type DealScope, levelBelowContainer, type Space } from './access';
-import { storageKeyName, uploadRefusal } from './allowed';
+import {
+  type DealScope,
+  levelBelowContainer,
+  type Space,
+  uploadLedger,
+} from './access';
+import { uploadRefusal } from './allowed';
 import { contentTypeFor } from './content-type';
 import { countFoldersInSpace, createFolderPaths } from './folders';
 import {
@@ -21,7 +27,10 @@ import { MAX_FOLDERS_IN_SPACE } from './paths';
 import { type ExpansionPlan, isZip, planExpansion } from './plan';
 import { ensurePreviewRendition } from './renditions';
 
-type Upload = Tables<'lender_upload'>;
+type Upload = Pick<
+  Tables<'lender_upload'>,
+  'id' | 'name' | 'storage_path' | 'folder_id' | 'uploaded_by'
+>;
 
 interface NewDocument {
   id: string;
@@ -68,7 +77,7 @@ export async function registerStoredUpload(
       ];
 
   await admin
-    .from('lender_upload')
+    .from(uploadLedger(space))
     .update({
       registered_at: new Date().toISOString(),
       keep_as_zip: keepAsZip,
@@ -214,7 +223,6 @@ async function registerDocument(
       name: document.name,
       storage_path: document.path,
       version: nextVersion(sameName.data.map((row) => row.version)),
-      checklist_item_id: null,
       uploaded_by: document.uploadedBy,
     },
   });

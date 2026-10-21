@@ -1,6 +1,7 @@
 -- Reusable diligence checklist templates. A template holds ordered items that
 -- are copied into a deal's checklist_item rows when applied. Account-scoped;
--- managed with checklists.manage. Items inherit access from their template.
+-- the team library, managed by deal managers (deals.manage); deal work only
+-- applies templates. Items inherit access from their template.
 
 create table if not exists public.checklist_template (
   id uuid primary key default gen_random_uuid(),
@@ -8,6 +9,7 @@ create table if not exists public.checklist_template (
   name text not null,
   category text,
   kind text check (kind in ('offer', 'diligence', 'closing', 'post_close')),
+  is_default boolean not null default false,
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
   updated_at timestamptz
@@ -16,6 +18,8 @@ create table if not exists public.checklist_template (
 alter table public.checklist_template enable row level security;
 
 create index ix_checklist_template_account on public.checklist_template (account_id);
+
+create unique index checklist_template_one_default on public.checklist_template (account_id, kind) where is_default;
 
 revoke all on public.checklist_template from authenticated, service_role;
 grant select, insert, update, delete on public.checklist_template to authenticated;
@@ -31,16 +35,16 @@ create policy checklist_template_read on public.checklist_template
 
 create policy checklist_template_insert on public.checklist_template
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
 create policy checklist_template_update on public.checklist_template
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
 create policy checklist_template_delete on public.checklist_template
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
 create table if not exists public.checklist_template_item (
   id uuid primary key default gen_random_uuid(),
@@ -50,6 +54,7 @@ create table if not exists public.checklist_template_item (
   priority int not null default 0,
   deal_killer boolean not null default false,
   due_offset_days int,
+  review_offset_days int not null default 3,
   owner_role text check (owner_role in ('buyer', 'attorney', 'cpa', 'broker', 'seller', 'sales_team')),
   importance text check (importance in ('required', 'nice_to_have', 'na')),
   offer_term_key text,
@@ -79,7 +84,7 @@ create policy checklist_template_item_insert on public.checklist_template_item
     exists (
       select 1 from public.checklist_template t
       where t.id = template_id
-        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
     )
   );
 
@@ -89,14 +94,14 @@ create policy checklist_template_item_update on public.checklist_template_item
     exists (
       select 1 from public.checklist_template t
       where t.id = template_id
-        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
     )
   )
   with check (
     exists (
       select 1 from public.checklist_template t
       where t.id = template_id
-        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
     )
   );
 
@@ -106,6 +111,6 @@ create policy checklist_template_item_delete on public.checklist_template_item
     exists (
       select 1 from public.checklist_template t
       where t.id = template_id
-        and public.has_permission((select auth.uid()), t.account_id, 'checklists.manage')
+        and public.has_permission((select auth.uid()), t.account_id, 'deals.manage')
     )
   );

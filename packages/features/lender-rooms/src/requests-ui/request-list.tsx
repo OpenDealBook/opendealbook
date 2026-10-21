@@ -47,15 +47,13 @@ export function RequestList({
   rows,
   hrefFor,
   dealName,
-  emptyMessage,
 }: {
   rows: Row[];
   hrefFor: (id: string) => string;
   dealName: string | null;
-  emptyMessage: string;
 }) {
   if (rows.length === 0) {
-    return <p className={'text-muted-foreground text-sm'}>{emptyMessage}</p>;
+    return null;
   }
 
   return (
@@ -68,10 +66,17 @@ export function RequestList({
               'hover:bg-accent focus-visible:ring-ring/50 flex flex-col gap-1.5 px-4 py-3 outline-none focus-visible:ring-[3px] sm:flex-row sm:items-center sm:gap-4'
             }
           >
-            <span className={'min-w-0 flex-1 font-medium sm:truncate'}>
+            <span
+              title={row.title}
+              className={'min-w-0 flex-1 font-medium sm:truncate'}
+            >
               {row.title}
             </span>
-            <span className={'flex flex-wrap items-center gap-x-3 gap-y-1'}>
+            <span
+              className={
+                'flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 sm:max-w-1/2'
+              }
+            >
               <RequestStatus request={row} dealName={dealName} />
               <span className={'text-muted-foreground text-xs'}>
                 <LocalTime at={row.last_activity_at} />

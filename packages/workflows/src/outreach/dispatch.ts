@@ -2,7 +2,13 @@ import { sendAs, type MailboxConnection } from '@odb/mailbox';
 import { renderTemplate, type MergeContext } from '@odb/outreach';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import { isTeamLocked } from '../teamLock';
+
 type OutreachClient = ReturnType<typeof getSupabaseServerAdminClient>;
+
+const UNIQUE_VIOLATION = '23505';
+
+type OutreachMessageStatus = 'sending' | 'sent' | 'failed';
 
 interface OutreachSettingRow {
   daily_cap: number;
@@ -29,7 +35,7 @@ interface OutreachEnrollmentRow {
 
 interface OutreachMessageRow {
   to_email: string;
-  status: string;
+  status: OutreachMessageStatus;
   sent_at: string | null;
 }
 
@@ -89,6 +95,10 @@ export async function dispatchAccountOutreach(
   const client = getSupabaseServerAdminClient();
   const now = new Date().toISOString();
 
+  if (await isTeamLocked({ accountId: input.accountId })) {
+    return { sent: 0 };
+  }
+
   const setting = await loadSetting(client, input.accountId);
 
   const accountEnrollmentIds = await loadAccountEnrollmentIds(client, input.accountId);
@@ -97,7 +107,7 @@ export async function dispatchAccountOutreach(
   const dayStart = startOfUtcDayIso();
   const sentToday = messages.filter(
     (message) =>
-      message.status === 'sent' &&
+      message.status !== 'failed' &&
       message.sent_at !== null &&
       message.sent_at >= dayStart,
   ).length;
@@ -119,8 +129,11 @@ export async function dispatchAccountOutreach(
     touches.set(message.to_email, (touches.get(message.to_email) ?? 0) + 1);
   }
 
+  const letterSteps = await loadLetterStepKeys(client, input.accountId);
+
   const due = await loadDueEnrollments(client, input.accountId, now);
   const eligible = due
+    .filter((enrollment) => !letterSteps.has(stepKey(enrollment.sequence_id, enrollment.current_step)))
     .filter((enrollment) => !suppressed.has(enrollment.target_email))
     .filter(
       (enrollment) =>
@@ -180,59 +193,121 @@ async function deliverOutreach(args: {
   const subject = renderTemplate(step.subject, context);
   const body = renderTemplate(step.body, context);
 
+  const { error: recordError } = await client.from('outreach_message').insert({
+    enrollment_id: enrollment.id,
+    step_id: enrollment.current_step,
+    to_email: enrollment.target_email,
+    subject,
+    body,
+    status: 'sending',
+    sent_at: new Date().toISOString(),
+  });
+
+  if (recordError?.code === UNIQUE_VIOLATION) {
+    await settleRecordedStep(client, accountId, enrollment);
+    return false;
+  }
+
+  if (recordError) {
+    throw recordError;
+  }
+
+  let providerMessageId: string;
+
   try {
-    const { providerMessageId } = await sendAs(connection, {
+    ({ providerMessageId } = await sendAs(connection, {
       to: enrollment.target_email,
       subject,
       text: body,
       html: body.replace(/\n/g, '<br>'),
       replyTo: connection.emailAddress,
-    });
-
-    await client.from('outreach_message').insert({
-      enrollment_id: enrollment.id,
-      step_id: enrollment.current_step,
-      to_email: enrollment.target_email,
-      subject,
-      body,
-      status: 'sent',
-      provider_message_id: providerMessageId,
-      sent_at: new Date().toISOString(),
-    });
-
-    await client
-      .from('outreach_enrollment')
-      .update({ status: 'sent', sent_count: enrollment.sent_count + 1 })
-      .eq('id', enrollment.id);
-
-    if (enrollment.firm_id !== null) {
-      await client
-        .from('firm')
-        .update({ status: 'contacted' })
-        .eq('id', enrollment.firm_id)
-        .eq('account_id', accountId);
-    }
-
-    return true;
+    }));
   } catch (error) {
-    await client.from('outreach_message').insert({
-      enrollment_id: enrollment.id,
-      step_id: enrollment.current_step,
-      to_email: enrollment.target_email,
-      subject,
-      body,
+    await markMessage(client, enrollment, {
       status: 'failed',
-      sent_at: new Date().toISOString(),
       error: error instanceof Error ? error.message : String(error),
     });
-
-    await client
-      .from('outreach_enrollment')
-      .update({ status: 'failed' })
-      .eq('id', enrollment.id);
+    await failEnrollment(client, enrollment);
 
     return false;
   }
+
+  await markMessage(client, enrollment, {
+    status: 'sent',
+    provider_message_id: providerMessageId,
+    sent_at: new Date().toISOString(),
+  });
+  await completeEnrollment(client, accountId, enrollment);
+
+  return true;
+}
+
+async function settleRecordedStep(
+  client: OutreachClient,
+  accountId: string,
+  enrollment: OutreachEnrollmentRow,
+): Promise<void> {
+  const { data } = await client
+    .from('outreach_message')
+    .select('status')
+    .eq('enrollment_id', enrollment.id)
+    .eq('step_id', enrollment.current_step)
+    .single()
+    .throwOnError();
+
+  const status = data.status as OutreachMessageStatus;
+  switch (status) {
+    case 'sent':
+      return completeEnrollment(client, accountId, enrollment);
+    case 'failed':
+      return failEnrollment(client, enrollment);
+    case 'sending':
+      return;
+  }
+}
+
+async function completeEnrollment(
+  client: OutreachClient,
+  accountId: string,
+  enrollment: OutreachEnrollmentRow,
+): Promise<void> {
+  await client
+    .from('outreach_enrollment')
+    .update({ status: 'sent', sent_count: enrollment.sent_count + 1 })
+    .eq('id', enrollment.id);
+
+  if (enrollment.firm_id !== null) {
+    await client
+      .from('firm')
+      .update({ status: 'contacted' })
+      .eq('id', enrollment.firm_id)
+      .eq('account_id', accountId);
+  }
+}
+
+async function failEnrollment(
+  client: OutreachClient,
+  enrollment: OutreachEnrollmentRow,
+): Promise<void> {
+  await client
+    .from('outreach_enrollment')
+    .update({ status: 'failed' })
+    .eq('id', enrollment.id);
+}
+
+async function markMessage(
+  client: OutreachClient,
+  enrollment: OutreachEnrollmentRow,
+  outcome:
+    | { status: 'sent'; provider_message_id: string; sent_at: string }
+    | { status: 'failed'; error: string },
+): Promise<void> {
+  await client
+    .from('outreach_message')
+    .update(outcome)
+    .eq('enrollment_id', enrollment.id)
+    .eq('step_id', enrollment.current_step)
+    .throwOnError();
 }
 
 function buildMergeContext(args: {
@@ -302,6 +377,24 @@ async function loadStep(
   }
 
   return data as { subject: string; body: string };
+}
+
+function stepKey(sequenceId: string, ordinal: number): string {
+  return `${sequenceId}:${ordinal}`;
+}
+
+async function loadLetterStepKeys(
+  client: OutreachClient,
+  accountId: string,
+): Promise<Set<string>> {
+  const { data } = await client
+    .from('outreach_step')
+    .select('sequence_id, ordinal')
+    .eq('account_id', accountId)
+    .eq('channel', 'letter')
+    .throwOnError();
+
+  return new Set(data.map((step) => stepKey(step.sequence_id, step.ordinal)));
 }
 
 async function loadAccountEnrollmentIds(

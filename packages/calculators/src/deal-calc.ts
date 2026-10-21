@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { FundingSource, FundingSourceType } from './funding-source';
 
 export type DscrMode = 'tax_adjusted' | 'sba_standard';
@@ -76,24 +78,151 @@ export function financedPrincipal(
   return baseLoan + financedClosing + financedFees;
 }
 
-export function debtServiceYear1(sources: FundingSource[]): number {
-  return sources.reduce((total, source) => {
-    if (source.rate == null || source.term_years == null) {
-      return total;
-    }
-    const standbyMonths = source.standby_months ?? 0;
-    if (standbyMonths >= 12) {
-      return total;
-    }
-    const balanceAfterStandby =
-      source.amount * Math.pow(1 + source.rate / 12, standbyMonths);
-    const monthly = amortizeMonthlyPayment(
-      balanceAfterStandby,
-      source.rate,
-      source.term_years * 12,
-    );
-    return total + monthly * (12 - standbyMonths);
-  }, 0);
+export interface ProjectedYear {
+  year: number;
+  debt_service_by_source: number[];
+  debt_service: number;
+  sde: number;
+  dscr: number | null;
+  net_cash_flow: number;
+}
+
+export const yearBasisKindSchema = z.enum(['months_from_close', 'fiscal_year']);
+
+export const yearBasisSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('months_from_close') }),
+  z.object({
+    kind: z.literal('fiscal_year'),
+    close_date: z.iso.date(),
+    fiscal_year_end_month: z.number().int().min(1).max(12),
+  }),
+]);
+
+export type YearBasis = z.infer<typeof yearBasisSchema>;
+
+const REVENUE_LOSS_RANGE =
+  'Revenue lost at close must be between 0% and 100%.';
+
+export const pathDriversSchema = z.object({
+  revenue_loss: z
+    .number()
+    .min(0, REVENUE_LOSS_RANGE)
+    .max(1, REVENUE_LOSS_RANGE),
+  growth: z.number(),
+  margin_change: z.number(),
+  rate_shift: z.number(),
+});
+
+export type PathDrivers = z.infer<typeof pathDriversSchema>;
+
+export const scenarioPathDriversSchema = z.object({
+  worst: pathDriversSchema,
+  great: pathDriversSchema,
+});
+
+export type ScenarioPathDrivers = z.infer<typeof scenarioPathDriversSchema>;
+
+export interface ProjectionInputs {
+  sde: number;
+  annualGrowth: number;
+  sources: FundingSource[];
+  dscrOptions: DscrOptions;
+  basis: YearBasis;
+}
+
+interface PaymentWindow {
+  after: number;
+  through: number;
+}
+
+function paymentWindow(basis: YearBasis, year: number): PaymentWindow {
+  const yearOneMonths =
+    basis.kind === 'months_from_close'
+      ? 12
+      : (basis.fiscal_year_end_month - Number(basis.close_date.slice(5, 7)) + 12) %
+        12;
+  if (year === 1) {
+    return { after: 0, through: yearOneMonths };
+  }
+  return {
+    after: yearOneMonths + 12 * (year - 2),
+    through: yearOneMonths + 12 * (year - 1),
+  };
+}
+
+function sourceDebtService(
+  source: FundingSource,
+  window: PaymentWindow,
+): number {
+  if (source.rate == null || source.term_years == null) {
+    return 0;
+  }
+  const standbyMonths = source.standby_months ?? 0;
+  const termMonths = source.term_years * 12;
+  const paymentMonths =
+    source.after_standby === 'remaining_term'
+      ? termMonths - standbyMonths
+      : termMonths;
+  const monthsOwed =
+    Math.min(window.through, standbyMonths + paymentMonths) -
+    Math.max(window.after, standbyMonths);
+  if (monthsOwed <= 0) {
+    return 0;
+  }
+  const balanceAfterStandby =
+    source.amount * Math.pow(1 + source.rate / 12, standbyMonths);
+  return (
+    amortizeMonthlyPayment(balanceAfterStandby, source.rate, paymentMonths) *
+    monthsOwed
+  );
+}
+
+export function shiftRates(
+  sources: FundingSource[],
+  shift: number,
+): FundingSource[] {
+  return sources.map((source) =>
+    source.rate == null
+      ? source
+      : { ...source, rate: Math.max(0, source.rate + shift) },
+  );
+}
+
+export function projectYear(
+  inputs: ProjectionInputs,
+  year: number,
+): ProjectedYear {
+  const window = paymentWindow(inputs.basis, year);
+  const bySource = inputs.sources.map((source) =>
+    sourceDebtService(source, window),
+  );
+  const debtService = bySource.reduce((sum, amount) => sum + amount, 0);
+  const grownSde = inputs.sde * Math.pow(1 + inputs.annualGrowth, year - 1);
+  return {
+    year,
+    debt_service_by_source: bySource,
+    debt_service: debtService,
+    sde: grownSde,
+    dscr: dscr(grownSde, debtService, inputs.dscrOptions),
+    net_cash_flow: netCashFlow(grownSde, debtService),
+  };
+}
+
+export function threeYearProjection(
+  inputs: ProjectionInputs,
+): [ProjectedYear, ProjectedYear, ProjectedYear] {
+  return [
+    projectYear(inputs, 1),
+    projectYear(inputs, 2),
+    projectYear(inputs, 3),
+  ];
+}
+
+export function tenYearProForma(inputs: ProjectionInputs): number[] {
+  return Array.from(
+    { length: 10 },
+    (_, index) => projectYear(inputs, index + 1).net_cash_flow,
+  );
 }
 
 const DEBT_FUNDING_TYPES: ReadonlySet<FundingSourceType> = new Set([
@@ -188,18 +317,6 @@ export function dealBoxGap(
   requiredPersonalCashFlow: number,
 ): number {
   return netCashFlowYr1 - requiredPersonalCashFlow;
-}
-
-export function proForma(
-  sde: number,
-  annualGrowth: number,
-  debtService: number,
-  years = 10,
-): number[] {
-  return Array.from(
-    { length: years },
-    (_, index) => sde * Math.pow(1 + annualGrowth, index) - debtService,
-  );
 }
 
 export function dscrSensitivity(

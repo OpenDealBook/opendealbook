@@ -1,6 +1,6 @@
 -- A recurring meeting cadence for a deal (Stage 4). A meeting_series is the
 -- template that individual meeting rows are scheduled from. Deal-scoped;
--- managed with deals.manage.
+-- deal workers set it up and edit it, deal managers delete it.
 
 create table if not exists public.meeting_series (
   id uuid primary key default gen_random_uuid(),
@@ -45,12 +45,12 @@ create policy meeting_series_read on public.meeting_series
 
 create policy meeting_series_insert on public.meeting_series
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy meeting_series_update on public.meeting_series
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy meeting_series_delete on public.meeting_series
   for delete to authenticated

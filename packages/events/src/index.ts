@@ -6,4 +6,6 @@ export type {
   DealEventInput,
   AppendDealEventInput,
   AppendDealEventResult,
+  DealMilestoneSetPayload,
+  DealMilestoneRemovedPayload,
 } from './events';

@@ -16,6 +16,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
+import { refuseWhileTeamLocked } from '../actions/team-lock';
 import { downloadObject } from '../uploads/objects';
 import { convertOfficeToPdf } from '../uploads/office-to-pdf';
 import { currentBlankForm } from './blank-form';
@@ -41,7 +42,7 @@ export const requestFormSignature = refusableAction(
     const { data: form } = await client
       .from('lender_ask')
       .select(
-        'id, room_id, title, status, return_route, signatures:lender_form_signature(status)',
+        'id, room_id, account_id, title, status, return_route, signatures:lender_form_signature(status)',
       )
       .eq('id', input.formId)
       .eq('kind', 'form')
@@ -59,6 +60,8 @@ export const requestFormSignature = refusableAction(
     if (!isDealTeam) {
       throw new Refusal('Only the deal team can do that');
     }
+
+    await refuseWhileTeamLocked(form.account_id);
 
     const { data: room } = await client
       .rpc('lender_room_view', { room_id: form.room_id })
@@ -178,13 +181,22 @@ export const cancelFormSignature = refusableAction(
       return { status: signature.status };
     }
 
+    const { data: form } = await getSupabaseServerClient()
+      .from('lender_ask')
+      .select('account_id')
+      .eq('id', signature.ask_id)
+      .single()
+      .throwOnError();
+
+    await refuseWhileTeamLocked(form.account_id);
+
     if (!isDocumensoConfigured()) {
       throw new Refusal(DOCUMENSO_NOT_CONFIGURED);
     }
 
     const admin = getSupabaseServerAdminClient();
     const documenso = createDocumensoClient();
-    const state = await documenso.signatureState(
+    const { state } = await documenso.signatureState(
       signature.documenso_document_id,
     );
 

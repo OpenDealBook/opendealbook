@@ -16,20 +16,26 @@ import {
 } from '@odb/ui/form';
 
 import {
+  inviteeTermsStepSchema,
   termsStepSchema,
+  type InviteeTermsStep,
   type TermsStep,
 } from '../../schema/onboarding.schema';
 
 export function TermsStepForm(props: {
-  value?: TermsStep;
-  onSubmit: (value: TermsStep) => void;
+  withCompPool: boolean;
+  value?: TermsStep | InviteeTermsStep;
+  onSubmit: (value: TermsStep | InviteeTermsStep) => void;
   onBack?: () => void;
 }) {
   const form = useForm({
     resolver: zodResolver(termsStepSchema),
     defaultValues: {
       acceptedTerms: props.value?.acceptedTerms ?? false,
-      compPoolOptin: props.value?.compPoolOptin ?? false,
+      compPoolOptin:
+        props.value && 'compPoolOptin' in props.value
+          ? props.value.compPoolOptin
+          : false,
     },
   });
 
@@ -38,7 +44,12 @@ export function TermsStepForm(props: {
       <form
         className="flex flex-col gap-4"
         onSubmit={form.handleSubmit((values) =>
-          props.onSubmit(termsStepSchema.parse(values)),
+          props.onSubmit(
+            (props.withCompPool
+              ? termsStepSchema
+              : inviteeTermsStepSchema
+            ).parse(values),
+          ),
         )}
       >
         <FormField
@@ -50,7 +61,9 @@ export function TermsStepForm(props: {
                 <FormControl>
                   <Checkbox
                     checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    onCheckedChange={(checked) =>
+                      field.onChange(checked === true)
+                    }
                   />
                 </FormControl>
                 <FormLabel>I accept the hosted terms of service</FormLabel>
@@ -60,29 +73,33 @@ export function TermsStepForm(props: {
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="compPoolOptin"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex items-center gap-2">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={(checked) => field.onChange(checked === true)}
-                  />
-                </FormControl>
-                <FormLabel>
-                  Contribute anonymized deal data to the comparables pool
-                </FormLabel>
-              </div>
-              <FormDescription>
-                Helps improve valuation comparables across the platform.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {props.withCompPool ? (
+          <FormField
+            control={form.control}
+            name="compPoolOptin"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                  </FormControl>
+                  <FormLabel>
+                    Contribute anonymized deal data to the comparables pool
+                  </FormLabel>
+                </div>
+                <FormDescription>
+                  Helps improve valuation comparables across the platform.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : null}
 
         <div className="flex gap-2">
           {props.onBack ? (

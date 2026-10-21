@@ -13,8 +13,12 @@ import {
   type WizardAction,
 } from '../lib/wizard-reducer';
 
-export function useOnboardingWizard() {
-  const [state, dispatch] = useReducer(wizardReducer, initialWizardState);
+export function useOnboardingWizard(steps: readonly OnboardingStepId[]) {
+  const [state, dispatch] = useReducer(
+    wizardReducer,
+    steps,
+    initialWizardState,
+  );
 
   const submitStep = useCallback(
     <K extends OnboardingStepId>(step: K, value: StepValues[K]) =>

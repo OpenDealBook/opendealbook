@@ -24,7 +24,7 @@ export function ConfirmSignInForm({
   if (state === 'expired') {
     return (
       <div className={'flex flex-col gap-4'}>
-        <p>This sign-in link has expired.</p>
+        <p>This link was already used. We&apos;ll email you a fresh one.</p>
         <LenderSignInForm next={next} />
       </div>
     );

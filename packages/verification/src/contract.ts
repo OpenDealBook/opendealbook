@@ -3,7 +3,7 @@ export type ReconciliationSeverity = 'info' | 'warning' | 'error';
 export type ReconciliationStatus = 'reconciled' | 'discrepancy' | 'missing';
 
 export interface ReconciliationLinks {
-  checklistItemId?: string;
+  checklistItemIds?: string[];
   drDocumentId?: string;
 }
 

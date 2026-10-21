@@ -1,3 +1,7 @@
+import type { ReactNode } from 'react';
+
+import Link from 'next/link';
+
 import { z } from 'zod';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -8,15 +12,21 @@ import { lenderView } from '../contents/listing';
 import { loadRoomListing } from '../contents/load-listing';
 import { listLenderMembers } from '../members/actions';
 import type { LenderRoomSummary } from '../members/entry-rules';
-import { LocalTime } from '../requests-ui/local-time';
 import { OpenRequestsSummary } from '../requests-ui/open-requests-summary';
 import { ContactCard } from './contact-card';
 import { headerFacts } from './header-facts';
+import { LenderRoomBrowser } from './lender-room-browser';
+import { LocalDate } from './local-date';
 import { PeopleInRoom } from './people-in-room';
-import { RoomBrowser } from './room-browser';
 import { loadRoomContact } from './room-contact';
 
-export async function RoomPage({ room }: { room: LenderRoomSummary }) {
+export async function RoomPage({
+  room,
+  question,
+}: {
+  room: LenderRoomSummary;
+  question: ReactNode;
+}) {
   const client = getSupabaseServerClient();
   const roomId = z.uuid().parse(room.id);
   const facts = headerFacts(room);
@@ -51,47 +61,63 @@ export async function RoomPage({ room }: { room: LenderRoomSummary }) {
         }
       >
         <div className={'flex min-w-0 flex-col gap-5'}>
-          <div className={'flex items-center gap-4'}>
+          <p
+            className={
+              'text-muted-foreground flex items-center gap-2.5 text-sm'
+            }
+          >
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={''}
                 className={
-                  'bg-card size-14 shrink-0 rounded-xl border object-contain p-1.5'
+                  'bg-card size-8 shrink-0 rounded-md border object-contain p-1'
                 }
               />
             ) : (
               <span
                 aria-hidden
                 className={
-                  'bg-primary text-primary-foreground flex size-14 shrink-0 items-center justify-center rounded-xl font-serif text-xl'
+                  'bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-md font-serif text-sm'
                 }
               >
                 {facts.initials}
               </span>
             )}
-            <h1 className={'flex min-w-0 flex-col'}>
-              <span className={'text-muted-foreground text-sm'}>
-                Prepared for
-              </span>
-              <span
-                className={
-                  'font-serif text-3xl leading-tight font-medium text-balance sm:text-4xl'
-                }
-              >
+            <span>
+              Prepared for{' '}
+              <span className={'text-foreground font-medium'}>
                 {facts.lenderName}
               </span>
-            </h1>
-          </div>
+            </span>
+          </p>
 
-          <div className={'flex max-w-2xl flex-col gap-1'}>
-            {facts.dealName ? (
-              <p className={'text-lg font-medium'}>{facts.dealName}</p>
-            ) : null}
-            {facts.dealDescription ? (
-              <p className={'text-muted-foreground'}>{facts.dealDescription}</p>
-            ) : null}
-          </div>
+          <h1
+            className={
+              'font-serif text-3xl leading-tight font-medium text-balance sm:text-4xl'
+            }
+          >
+            {facts.dealName}
+          </h1>
+
+          <dl
+            className={
+              'grid max-w-2xl grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-base'
+            }
+          >
+            {[
+              ['Buyer', facts.buyerTeam],
+              ['Loan ask', facts.loanAsk],
+              ['Close by', facts.closeBy],
+            ]
+              .filter(([, value]) => value !== null)
+              .map(([term, value]) => (
+                <div key={term} className={'contents'}>
+                  <dt className={'text-muted-foreground'}>{term}</dt>
+                  <dd className={'font-medium tabular-nums'}>{value}</dd>
+                </div>
+              ))}
+          </dl>
 
           {facts.welcomeNote ? (
             <p
@@ -105,7 +131,7 @@ export async function RoomPage({ room }: { room: LenderRoomSummary }) {
 
           {facts.accessEnds ? (
             <p className={'text-muted-foreground text-sm'}>
-              Access through <LocalTime at={facts.accessEnds} />
+              Room open until <LocalDate at={facts.accessEnds} />
             </p>
           ) : null}
         </div>
@@ -116,9 +142,24 @@ export async function RoomPage({ room }: { room: LenderRoomSummary }) {
         </div>
       </header>
 
-      <OpenRequestsSummary roomId={roomId} dealName={facts.dealName} />
+      {question}
 
-      <RoomBrowser
+      <nav aria-label={'Room pages'} className={'grid gap-3 sm:grid-cols-2'}>
+        <OpenRequestsSummary roomId={roomId} dealName={facts.dealName} />
+        <Link
+          href={`/lender/${roomId}/faq`}
+          className={
+            'hover:bg-accent focus-visible:ring-ring/50 flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border px-4 py-3 text-sm outline-none focus-visible:ring-[3px]'
+          }
+        >
+          <span className={'font-medium'}>FAQ</span>
+          <span className={'text-muted-foreground'}>
+            Answers to common questions
+          </span>
+        </Link>
+      </nav>
+
+      <LenderRoomBrowser
         roomId={roomId}
         userId={userId}
         places={{ shared: listing.master, own: listing.private }}

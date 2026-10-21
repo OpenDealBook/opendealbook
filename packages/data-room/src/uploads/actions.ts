@@ -1,5 +1,5 @@
 'use server';
-import { enhanceAction } from '@odb/next/actions';
+import { refusableAction } from '@odb/next/actions/refusable-action';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { assertDealPermission, resolveDealAccountId } from '../permission';
@@ -22,11 +22,11 @@ async function toBytes(body: UploadBody): Promise<Uint8Array> {
   return new Uint8Array(await body.arrayBuffer());
 }
 
-export const stageUpload = enhanceAction(
+export const stageUpload = refusableAction(
   async (input, user) => {
     const client = getSupabaseServerClient();
 
-    await assertDealPermission(client, input.dealId);
+    await assertDealPermission(client, input.dealId, 'deals.work');
     const accountId = await resolveDealAccountId(client, input.dealId);
 
     const files: ZipEntry[] = await Promise.all(
@@ -49,14 +49,19 @@ export const stageUpload = enhanceAction(
       entries,
     });
   },
-  { auth: true, schema: stageUploadSchema },
+  stageUploadSchema,
+  {
+    what: 'upload documents',
+    needs: 'deals.work',
+    dealId: (input) => input.dealId,
+  },
 );
 
-export const expandUploadBatch = enhanceAction(
+export const expandUploadBatch = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
-    await assertDealPermission(client, input.dealId);
+    await assertDealPermission(client, input.dealId, 'deals.work');
 
     return expandBatch(client, {
       dealId: input.dealId,
@@ -64,5 +69,10 @@ export const expandUploadBatch = enhanceAction(
       targetFolderId: input.targetFolderId,
     });
   },
-  { auth: true, schema: expandBatchSchema },
+  expandBatchSchema,
+  {
+    what: 'upload documents',
+    needs: 'deals.work',
+    dealId: (input) => input.dealId,
+  },
 );

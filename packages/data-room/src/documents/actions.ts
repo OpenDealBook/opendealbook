@@ -1,10 +1,14 @@
 import 'server-only';
 import { appendDealEvent, appendDealEvents } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
-import { getSupabaseServerClient } from '@odb/supabase/server';
+import { refusableAction } from '@odb/next/actions/refusable-action';
+import {
+  getSupabaseServerAdminClient,
+  getSupabaseServerClient,
+} from '@odb/supabase/server';
 
 import { assertDealPermission } from '../permission';
-import { uploadToDataRoom } from '../storage';
+import { DATA_ROOM_BUCKET, uploadToDataRoom } from '../storage';
 import {
   bulkDownloadSchema,
   moveDocumentSchema,
@@ -12,11 +16,25 @@ import {
 } from './schema';
 import { nextVersion } from './version';
 
-export const uploadDocument = enhanceAction(
+async function removeStoredFile(storagePath: string): Promise<void> {
+  const { data, error } = await getSupabaseServerAdminClient()
+    .storage.from(DATA_ROOM_BUCKET)
+    .remove([storagePath]);
+
+  if (error) {
+    throw error;
+  }
+
+  if (data.length === 0) {
+    throw new Error(`stored file ${storagePath} was not removed`);
+  }
+}
+
+export const uploadDocument = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
-    await assertDealPermission(client, input.dealId);
+    await assertDealPermission(client, input.dealId, 'deals.work');
 
     const storagePath = await uploadToDataRoom(
       client,
@@ -46,31 +64,44 @@ export const uploadDocument = enhanceAction(
         name: input.name,
         storage_path: storagePath,
         version: nextVersion(existing.data.map((row) => row.version)),
-        checklist_item_id: input.checklistItemId ?? null,
       },
     };
 
-    if (input.checklistItemId) {
-      return appendDealEvents(client, input.dealId, [
-        added,
-        {
-          aggregateType: 'checklist_item',
-          aggregateId: input.checklistItemId,
-          eventType: 'checklist_item.status_changed',
-          payload: {
-            status: 'received',
-            received_at: new Date().toISOString(),
+    const appended = input.checklistItemId
+      ? appendDealEvents(client, input.dealId, [
+          added,
+          {
+            aggregateType: 'checklist_item',
+            aggregateId: input.checklistItemId,
+            eventType: 'checklist_item.document_linked',
+            payload: { document_id: documentId },
           },
-        },
-      ]);
-    }
+          {
+            aggregateType: 'checklist_item',
+            aggregateId: input.checklistItemId,
+            eventType: 'checklist_item.status_changed',
+            payload: {
+              status: 'received',
+              received_at: new Date().toISOString(),
+            },
+          },
+        ])
+      : appendDealEvent(client, { dealId: input.dealId, ...added });
 
-    return appendDealEvent(client, { dealId: input.dealId, ...added });
+    return appended.catch(async (error: unknown) => {
+      await removeStoredFile(storagePath);
+      throw error;
+    });
   },
-  { auth: true, schema: uploadDocumentSchema },
+  uploadDocumentSchema,
+  {
+    what: 'upload documents',
+    needs: 'deals.work',
+    dealId: (input) => input.dealId,
+  },
 );
 
-export const moveDocument = enhanceAction(
+export const moveDocument = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -84,7 +115,12 @@ export const moveDocument = enhanceAction(
       payload: { folder_id: input.folderId },
     });
   },
-  { auth: true, schema: moveDocumentSchema },
+  moveDocumentSchema,
+  {
+    what: 'move documents',
+    needs: 'deals.manage',
+    dealId: (input) => input.dealId,
+  },
 );
 
 export const bulkDownloadZip = enhanceAction(

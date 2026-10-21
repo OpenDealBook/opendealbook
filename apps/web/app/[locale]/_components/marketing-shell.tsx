@@ -4,10 +4,14 @@ import Link from 'next/link';
 
 import { Button } from '@odb/ui/button';
 
+import featureFlagsConfig from '../../../config/feature-flags.config';
+
 const navLinks = [
   { href: '/customers', label: 'Customers' },
   { href: '/security', label: 'Security' },
-  { href: '/pricing', label: 'Pricing' },
+  ...(featureFlagsConfig.enableBilling
+    ? [{ href: '/pricing', label: 'Pricing' }]
+    : []),
   { href: '/blog', label: 'Blog' },
   { href: '/faq', label: 'FAQ' },
   { href: '/contact', label: 'Contact' },

@@ -8,7 +8,11 @@ import {
 } from '../storage';
 import type { DocxTemplateEngine } from '../superdoc';
 import { convertDocxToPdf } from './convert-pdf';
-import { type DealContext, resolveFieldValues } from './resolve-fields';
+import {
+  type DealContext,
+  assertNoBlankFields,
+  resolveFieldValues,
+} from './resolve-fields';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -41,6 +45,7 @@ export async function generateDocument(
     input.deal,
     input.fieldValues,
   );
+  assertNoBlankFields(fields, values);
 
   const source = await deps.storage.downloadTemplate(
     templateDocxPath(row.account_id, row.id, row.version),

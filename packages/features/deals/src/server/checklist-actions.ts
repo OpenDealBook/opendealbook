@@ -2,10 +2,15 @@
 
 import { z } from 'zod';
 
-import { appendDealEvent, appendDealEvents, type DealEventInput } from '@odb/events';
-import { enhanceAction } from '@odb/next/actions';
-import type { Json } from '@odb/supabase';
+import { appendDealEvent } from '@odb/events';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+
+import {
+  checklistImportanceSchema,
+  checklistWaitingOnSchema,
+} from '../schema/enums';
+import { applyChecklistTemplateTo } from './checklist-template';
+import { Refusal, refusableAction } from './refusal';
 
 const applyChecklistTemplateSchema = z.object({
   deal_id: z.uuid(),
@@ -17,83 +22,17 @@ const addChecklistItemSchema = z.object({
   title: z.string().min(1),
 });
 
-const templateItemColumns =
-  'title, category, priority, deal_killer, due_offset_days, owner_role, importance, offer_term_key';
-
-function anchoredDueAt(
-  closeDate: string | null,
-  offsetDays: number | null,
-): string | null {
-  if (closeDate === null || offsetDays === null) {
-    return null;
-  }
-
-  const due = new Date(`${closeDate}T00:00:00.000Z`);
-  due.setUTCDate(due.getUTCDate() + offsetDays);
-  return due.toISOString();
-}
-
-export const applyChecklistTemplate = enhanceAction(
-  async (data) => {
-    const client = getSupabaseServerClient();
-
-    const { data: items } = await client
-      .from('checklist_template_item')
-      .select(templateItemColumns)
-      .eq('template_id', data.template_id)
-      .order('sort_order', { ascending: true })
-      .throwOnError();
-
-    const templateItems = items ?? [];
-
-    if (templateItems.length === 0) {
-      return { count: 0 };
-    }
-
-    const { data: templateRows } = await client
-      .from('checklist_template')
-      .select('kind')
-      .eq('id', data.template_id)
-      .throwOnError();
-
-    const isPostClose = templateRows?.[0]?.kind === 'post_close';
-
-    let closeDate: string | null = null;
-
-    if (isPostClose) {
-      const { data: deal } = await client
-        .from('deal')
-        .select('close_date')
-        .eq('id', data.deal_id)
-        .single()
-        .throwOnError();
-
-      closeDate = deal.close_date;
-    }
-
-    const events: DealEventInput[] = templateItems.map((item) => ({
-      aggregateType: 'checklist_item',
-      aggregateId: crypto.randomUUID(),
-      eventType: 'checklist_item.added',
-      payload: isPostClose
-        ? ({
-            ...item,
-            due_at: anchoredDueAt(
-              closeDate,
-              item.due_offset_days as number | null,
-            ),
-          } as Json)
-        : (item as Json),
-    }));
-
-    await appendDealEvents(client, data.deal_id, events);
-
-    return { count: templateItems.length };
-  },
-  { auth: true, schema: applyChecklistTemplateSchema },
+export const applyChecklistTemplate = refusableAction(
+  (data) =>
+    applyChecklistTemplateTo(getSupabaseServerClient(), {
+      dealId: data.deal_id,
+      templateId: data.template_id,
+    }),
+  applyChecklistTemplateSchema,
+  { what: 'apply checklist templates', needs: 'checklists.manage' },
 );
 
-export const addChecklistItem = enhanceAction(
+export const addChecklistItem = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const itemId = crypto.randomUUID();
@@ -108,5 +47,93 @@ export const addChecklistItem = enhanceAction(
 
     return itemId;
   },
-  { auth: true, schema: addChecklistItemSchema },
+  addChecklistItemSchema,
+  { what: 'add checklist items', needs: 'checklists.manage' },
+);
+
+const setChecklistItemDetailsSchema = z.object({
+  deal_id: z.uuid(),
+  id: z.uuid(),
+  owner_user_id: z.uuid().nullable().optional(),
+  importance: checklistImportanceSchema.nullable().optional(),
+  due_on: z.iso.date().nullable().optional(),
+  use_scheduled_date: z.literal(true).optional(),
+});
+
+export const setChecklistItemDetails = refusableAction(
+  async ({ deal_id, id, due_on, ...details }) => {
+    const client = getSupabaseServerClient();
+
+    await appendDealEvent(client, {
+      dealId: deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: id,
+      eventType: 'checklist_item.details_set',
+      payload:
+        due_on === undefined
+          ? details
+          : { ...details, due_at: due_on && `${due_on}T00:00:00Z` },
+    }).catch((error: { code?: string }) => {
+      if (error.code === '23514') {
+        throw new Refusal('Only members of this team can own checklist items.');
+      }
+
+      throw error;
+    });
+
+    if (details.use_scheduled_date) {
+      await client
+        .rpc('recompute_checklist_due_dates', { p_deal_id: deal_id })
+        .throwOnError();
+    }
+  },
+  setChecklistItemDetailsSchema,
+  { what: 'change checklist items', needs: 'checklists.manage' },
+);
+
+const checklistItemTarget = { deal_id: z.uuid(), id: z.uuid() };
+
+export const setChecklistItemWaitingOn = refusableAction(
+  async ({ deal_id, id, waiting_on }) => {
+    await appendDealEvent(getSupabaseServerClient(), {
+      dealId: deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: id,
+      eventType: 'checklist_item.waiting_on_set',
+      payload: { waiting_on },
+    });
+  },
+  z.object({
+    ...checklistItemTarget,
+    waiting_on: checklistWaitingOnSchema.nullable(),
+  }),
+  { what: 'change checklist items', needs: 'checklists.manage' },
+);
+
+export const postChecklistNote = refusableAction(
+  async ({ deal_id, id, body }) => {
+    await appendDealEvent(getSupabaseServerClient(), {
+      dealId: deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: id,
+      eventType: 'checklist_item.note_posted',
+      payload: { body },
+    });
+  },
+  z.object({ ...checklistItemTarget, body: z.string().trim().min(1) }),
+  { what: 'add notes to checklist items', needs: 'deals.work' },
+);
+
+export const linkChecklistDocument = refusableAction(
+  async ({ deal_id, id, document_id }) => {
+    await appendDealEvent(getSupabaseServerClient(), {
+      dealId: deal_id,
+      aggregateType: 'checklist_item',
+      aggregateId: id,
+      eventType: 'checklist_item.document_linked',
+      payload: { document_id },
+    });
+  },
+  z.object({ ...checklistItemTarget, document_id: z.uuid().nullable() }),
+  { what: 'change checklist items', needs: 'checklists.manage' },
 );

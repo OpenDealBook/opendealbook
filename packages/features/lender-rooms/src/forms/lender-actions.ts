@@ -18,6 +18,7 @@ import {
   assertRoomShowsDocuments,
   saveLenderMove,
 } from '../asks/room-checks';
+import { storedSize } from '../uploads/objects';
 import {
   FORM_COLUMNS,
   FORM_NOT_FOUND,
@@ -207,15 +208,63 @@ export const openForm = refusableAction(
       throw error;
     }
 
-    await notifyOurTeam('lender_form.uploaded', {
-      roomId: input.roomId,
+    await notifyOurTeam({
+      eventType: 'lender_form.uploaded',
       accountId: room.account_id,
+      eventKey: form.id,
       payload: { roomId: input.roomId, askId: form.id, kind: 'form' },
     });
 
     return form.id;
   },
   { auth: true, schema: openFormSchema },
+);
+
+const sentFormTitleSchema = z.object({
+  roomId: z.uuid(),
+  name: z.string(),
+  size: z.number().int().nonnegative(),
+});
+
+export const sentFormTitle = refusableAction(
+  async (input) => {
+    await assertRoomMember(input.roomId);
+
+    const admin = getSupabaseServerAdminClient();
+
+    const { data: forms } = await admin
+      .from('lender_ask')
+      .select('title, files:lender_ask_file(dr_document_id, role)')
+      .eq('room_id', input.roomId)
+      .eq('kind', 'form')
+      .in('status', ['open', 'answered'])
+      .throwOnError();
+
+    const { data: documents } = await admin
+      .from('dr_document')
+      .select('id, storage_path')
+      .eq('name', input.name)
+      .in(
+        'id',
+        forms.flatMap((form) =>
+          form.files
+            .filter((file) => file.role === 'blank_form')
+            .map((file) => file.dr_document_id),
+        ),
+      )
+      .throwOnError();
+
+    for (const document of documents) {
+      if ((await storedSize(admin, document.storage_path)) === input.size) {
+        return forms.find((form) =>
+          form.files.some((file) => file.dr_document_id === document.id),
+        )!.title;
+      }
+    }
+
+    return null;
+  },
+  { auth: true, schema: sentFormTitleSchema },
 );
 
 const replaceBlankFormSchema = z.object({
@@ -337,23 +386,33 @@ export const replyToFormAsLender = refusableAction(
     await assertRoomShowsDocuments(form.room_id, documentIds);
     await saveLenderMove(form, 'reply');
 
-    if (input.body) {
-      await getSupabaseServerAdminClient()
-        .from('lender_ask_message')
-        .insert({
-          ask_id: form.id,
-          author_user_id: user.id,
-          side: 'lender',
-          body: input.body,
-        })
-        .throwOnError();
-    }
+    const message = input.body
+      ? (
+          await getSupabaseServerAdminClient()
+            .from('lender_ask_message')
+            .insert({
+              ask_id: form.id,
+              author_user_id: user.id,
+              side: 'lender',
+              body: input.body,
+            })
+            .select('id')
+            .single()
+            .throwOnError()
+        ).data
+      : null;
 
-    await attachDocuments(form.id, user.id, 'attachment', documentIds);
+    const fileIds = await attachDocuments(
+      form.id,
+      user.id,
+      'attachment',
+      documentIds,
+    );
 
-    await notifyOurTeam('lender_ask.replied', {
-      roomId: form.room_id,
+    await notifyOurTeam({
+      eventType: 'lender_ask.replied',
       accountId: form.account_id,
+      eventKey: message?.id ?? fileIds[0]!,
       payload: { roomId: form.room_id, askId: form.id, kind: 'form' },
     });
   },

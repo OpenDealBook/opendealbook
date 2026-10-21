@@ -12,7 +12,11 @@ import { assertDealsManager } from '../permissions';
 import { createSupabaseTemplateStorage } from '../storage';
 import { createSuperdocEngine } from '../superdoc';
 import { generateDocument, type LoadedTemplate } from './generate-document';
-import type { DealContext } from './resolve-fields';
+import {
+  type DealContext,
+  assertNoBlankFields,
+  resolveFieldValues,
+} from './resolve-fields';
 
 const generateFromTemplateSchema = z.object({
   accountId: z.string(),
@@ -53,6 +57,25 @@ export const generateFromTemplate = enhanceAction(
   { auth: true, schema: generateFromTemplateSchema },
 );
 
+export const checkTemplateFields = enhanceAction(
+  async (input, user) => {
+    const client = getSupabaseServerClient();
+
+    await assertDealsManager(client, input.accountId, user.id);
+
+    const template = await loadTemplate(client, input.templateId);
+    const deal = await loadDealContext(client, input.dealId);
+    const { values } = resolveFieldValues(
+      template.fields,
+      deal,
+      input.fieldValues,
+    );
+
+    assertNoBlankFields(template.fields, values);
+  },
+  { auth: true, schema: generateFromTemplateSchema },
+);
+
 async function loadTemplate(
   client: SupabaseClient<Database>,
   templateId: string,
@@ -86,7 +109,7 @@ async function loadDealContext(
 ): Promise<DealContext> {
   const { data: deal, error } = await client
     .from('deal')
-    .select('*')
+    .select('*, close_date')
     .eq('id', dealId)
     .single();
 

@@ -6,12 +6,17 @@ import {
   type SignatureState,
   handleContractSignatureEvent,
 } from '@odb/contracts/esign';
+import {
+  newVersionFromEditorSave,
+  newVersionFromUpload,
+} from '@odb/contracts/server';
 import type { Database } from '@odb/supabase';
 
 import {
   type IntegrationAccount,
   provisionAccount,
 } from '../../test-support/integration-harness';
+import { createContract } from './create-contract-action';
 
 const holder = vi.hoisted(() => ({
   client: null as unknown,
@@ -40,6 +45,9 @@ const documenso = vi.hoisted(() => {
       deleteDraft: async (documentId: string) => {
         states.delete(documentId);
       },
+      cancelSent: async (documentId: string) => {
+        states.set(documentId, 'cancelled');
+      },
       editorUrl: async (documentId: string) => {
         editorLookup.calls += 1;
 
@@ -49,8 +57,13 @@ const documenso = vi.hoisted(() => {
 
         return editorUrlOf(documentId);
       },
-      signatureState: async (documentId: string) =>
-        (states.get(documentId) ?? 'missing') as SignatureState,
+      signatureState: async (documentId: string) => {
+        const state = (states.get(documentId) ?? 'missing') as SignatureState;
+
+        return state === 'completed'
+          ? { state, completedOn: new Date().toISOString().slice(0, 10) }
+          : { state };
+      },
       downloadSignedPdf: async (documentId: string) =>
         Buffer.from(signedPdf.override ?? `%PDF-1.7 signed ${documentId}`),
     },
@@ -70,6 +83,7 @@ vi.mock('@odb/supabase/server', () => ({
 }));
 
 vi.mock('@odb/templates/server', () => ({
+  checkTemplateFields: vi.fn(async () => undefined),
   generateFromTemplate: vi.fn(
     async (input: {
       accountId: string;
@@ -119,14 +133,15 @@ vi.mock('@odb/contracts/esign', async (importOriginal) => ({
   createDocumensoClient: () => documenso.client,
 }));
 
+import { generateApa } from './apa-actions';
 import {
   adoptCalcVersion,
   createCalcVersion,
   saveDealCalc,
 } from './calc-actions';
-import { generateApa } from './apa-actions';
+import { sendContractForSignature } from './contract-signature-actions';
 import { loadOfferSignatures } from './contract-signature-loader';
-import { createDeal, updateDealStage } from './deal-actions';
+import { createDealCore, updateDealStage } from './deal-actions';
 import { acceptOffer, createOffer, submitOffer } from './offer-actions';
 
 type Action = (
@@ -139,8 +154,12 @@ const SIGNERS = [
   { name: 'Sol Seller', email: 'seller@example.com' },
 ];
 
+const APA_NEEDS_COUNSEL =
+  "An APA needs buyer's counsel and seller's counsel on the deal";
+
 let account: IntegrationAccount;
 let actor: { id: string };
+let counselUserIds: Record<'buyer' | 'seller', string>;
 
 const dealInputs = {
   pl: {
@@ -174,34 +193,100 @@ function firstVersion(price: number) {
 }
 
 async function newDeal(description: string): Promise<string> {
-  return (await (createDeal as unknown as Action)(
+  const dealId = await createDealCore(
+    account.user,
     {
       account_id: account.accountId,
+      business_name: description,
+      industry: 'Accounting',
       description,
       source: 'manual',
       stage: 'sourcing',
     },
-    actor,
-  )) as string;
+    actor.id,
+  );
+  await seedCounsel(dealId, 'buyer');
+  await seedCounsel(dealId, 'seller');
+  return dealId;
+}
+
+async function seedCounsel(
+  dealId: string,
+  side: 'buyer' | 'seller',
+): Promise<void> {
+  await account.admin
+    .from('deal_counsel')
+    .insert({
+      account_id: account.accountId,
+      deal_id: dealId,
+      side,
+      user_id: counselUserIds[side],
+      email: `${side}-counsel@odb.test`,
+    })
+    .throwOnError();
+}
+
+async function removeCounsel(
+  dealId: string,
+  side: 'buyer' | 'seller',
+): Promise<void> {
+  await account.admin
+    .from('deal_counsel')
+    .delete()
+    .eq('deal_id', dealId)
+    .eq('side', side)
+    .throwOnError();
+}
+
+async function createCounselUser(): Promise<string> {
+  const { data, error } = await account.admin.auth.admin.createUser({
+    email: `counsel-${crypto.randomUUID().slice(0, 8)}@odb.test`,
+    email_confirm: true,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data.user.id;
+}
+
+async function apaVersions(dealId: string): Promise<string[]> {
+  const { data } = await account.admin
+    .from('contract_version')
+    .select('id, contract!inner(deal_id, type)')
+    .eq('contract.deal_id', dealId)
+    .eq('contract.type', 'apa')
+    .throwOnError();
+
+  return data.map((version) => version.id);
 }
 
 async function acceptedOffer(dealId: string, price: number): Promise<string> {
-  const offerId = (await (createOffer as unknown as Action)(
-    { deal_id: dealId, first_version: firstVersion(price) },
-    actor,
-  )) as string;
+  const offerId = (
+    (await (createOffer as unknown as Action)(
+      { deal_id: dealId, first_version: firstVersion(price) },
+      actor,
+    )) as { value: string }
+  ).value;
   await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
   await (acceptOffer as unknown as Action)({ offer_id: offerId }, actor);
   return offerId;
 }
 
 async function adoptFinancials(dealId: string): Promise<void> {
-  const calcVersionId = (await (createCalcVersion as unknown as Action)(
-    { deal_id: dealId, type: 'deal' },
-    actor,
-  )) as string;
+  const calcVersionId = (
+    (await (createCalcVersion as unknown as Action)(
+      { deal_id: dealId, type: 'deal' },
+      actor,
+    )) as { value: string }
+  ).value;
   await (saveDealCalc as unknown as Action)(
-    { calc_version_id: calcVersionId, inputs: dealInputs, funding_sources: funding },
+    {
+      calc_version_id: calcVersionId,
+      inputs: dealInputs,
+      funding_sources: funding,
+    },
     actor,
   );
   await (adoptCalcVersion as unknown as Action)(
@@ -257,23 +342,63 @@ function documensoReports(documentId: string, state: SignatureState) {
   });
 }
 
+async function send(dealId: string) {
+  const { id } = await signing(dealId);
+
+  return (sendContractForSignature as unknown as Action)(
+    { contract_version_id: id, signers: SIGNERS },
+    actor,
+  );
+}
+
+async function sendApproved(dealId: string) {
+  const { id } = await signing(dealId);
+
+  for (const side of ['buyer', 'seller'] as const) {
+    await account.admin
+      .from('contract_review_decision')
+      .insert({
+        account_id: account.accountId,
+        contract_version_id: id,
+        side,
+        decision: 'approved',
+        decided_by: counselUserIds[side],
+        without_counsel: false,
+      })
+      .throwOnError();
+  }
+
+  return send(dealId);
+}
+
 beforeAll(async () => {
   account = await provisionAccount();
   holder.client = account.user;
   holder.admin = account.admin;
   holder.userId = account.userId;
   actor = { id: account.userId };
+  counselUserIds = {
+    buyer: await createCounselUser(),
+    seller: await createCounselUser(),
+  };
   process.env.DOCUMENSO_URL = 'https://sign.test';
   process.env.DOCUMENSO_API_KEY = 'api_test';
   await seedApaTemplate();
 });
 
 afterAll(async () => {
+  await account.admin
+    .from('accounts')
+    .delete()
+    .eq('id', account.accountId)
+    .throwOnError();
   await account.cleanup();
+  await account.admin.auth.admin.deleteUser(counselUserIds.buyer);
+  await account.admin.auth.admin.deleteUser(counselUserIds.seller);
 });
 
 describe('generateApa (integration)', () => {
-  it('renders the apa and drafts its signature request in Documenso, leaving the deal at loi_accepted', async () => {
+  it('renders the apa as a new version without drafting a signature request, leaving the deal at loi_accepted', async () => {
     const dealId = await newDeal('Generate APA deal');
     const offerId = await acceptedOffer(dealId, 1_200_000);
     await adoptFinancials(dealId);
@@ -287,9 +412,10 @@ describe('generateApa (integration)', () => {
       .select('current_version_id')
       .eq('id', offerId)
       .single();
+    const draftsBefore = documenso.states.size;
 
     const generated = await (generateApa as unknown as Action)(
-      { offer_id: offerId, signers: SIGNERS },
+      { offer_id: offerId },
       actor,
     );
 
@@ -327,24 +453,157 @@ describe('generateApa (integration)', () => {
       .download(versions?.[0]?.pdf_path as string);
     expect(signable.error).toBeNull();
 
+    expect(generated).toEqual({
+      ok: true,
+      value: { contractVersionId: versions?.[0]?.id },
+    });
+    expect(await signing(dealId)).toMatchObject({
+      signing_document_id: null,
+      signing_status: null,
+      stage: 'loi_accepted',
+    });
+    expect(documenso.states.size).toBe(draftsBefore);
+  });
+
+  it('refuses to send the apa for signature until counsel on both sides approve, drafting nothing', async () => {
+    const dealId = await newDeal('Unapproved APA deal');
+    const offerId = await acceptedOffer(dealId, 1_190_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    const draftsBefore = documenso.states.size;
+
+    expect(await send(dealId)).toEqual({
+      ok: false,
+      refusal:
+        "Waiting on buyer's counsel and seller's counsel to approve version 1.",
+    });
+    expect((await signing(dealId)).signing_document_id).toBeNull();
+    expect(documenso.states.size).toBe(draftsBefore);
+  });
+
+  it('drafts the signature request in Documenso once counsel on both sides approve, and says where to place fields', async () => {
+    const dealId = await newDeal('Approved APA deal');
+    const offerId = await acceptedOffer(dealId, 1_180_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+
+    const sent = await sendApproved(dealId);
+
     const requested = await signing(dealId);
     expect(requested.signing_document_id).toMatch(/^envelope_[0-9a-f]{16}$/);
     expect(documenso.states.get(requested.signing_document_id!)).toBe('draft');
-    expect(generated).toEqual({
+    expect(sent).toEqual({
       ok: true,
       value: {
-        contractVersionId: requested.id,
         editorUrl: documenso.editorUrlOf(requested.signing_document_id!),
       },
     });
+    expect(requested.stage).toBe('loi_accepted');
+  });
 
-    const { data: deal } = await account.admin
-      .from('deal')
-      .select('stage')
-      .eq('id', dealId)
-      .single();
+  it('drafts the signature request when sign-off was overridden', async () => {
+    const dealId = await newDeal('Overridden APA deal');
+    const offerId = await acceptedOffer(dealId, 1_170_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await account.admin
+      .from('contract_signing_override')
+      .insert({
+        account_id: account.accountId,
+        contract_version_id: (await signing(dealId)).id,
+        reason: 'Counsel approved by phone',
+        overridden_by: account.userId,
+      })
+      .throwOnError();
 
-    expect(deal?.stage).toBe('loi_accepted');
+    expect(await send(dealId)).toMatchObject({ ok: true });
+    expect((await signing(dealId)).signing_status).toBe('draft');
+  });
+
+  it('adds a new version to the same contract when generated again before sending, and review starts over on it', async () => {
+    const dealId = await newDeal('Regenerated APA deal');
+    const offerId = await acceptedOffer(dealId, 1_150_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    const [first] = await apaVersions(dealId);
+    for (const side of ['buyer', 'seller'] as const) {
+      await account.admin
+        .from('contract_review_decision')
+        .insert({
+          account_id: account.accountId,
+          contract_version_id: first!,
+          side,
+          decision: 'approved',
+          decided_by: counselUserIds[side],
+          without_counsel: false,
+        })
+        .throwOnError();
+    }
+
+    const regenerated = await (generateApa as unknown as Action)(
+      { offer_id: offerId },
+      actor,
+    );
+
+    const { data: versions } = await account.admin
+      .from('contract_version')
+      .select('id, version, contract_id, contract!inner(deal_id)')
+      .eq('contract.deal_id', dealId)
+      .order('version')
+      .throwOnError();
+    expect(versions.map((version) => version.version)).toEqual([1, 2]);
+    expect(new Set(versions.map((version) => version.contract_id)).size).toBe(
+      1,
+    );
+    expect(regenerated).toEqual({
+      ok: true,
+      value: { contractVersionId: versions[1]!.id },
+    });
+    expect(
+      await (sendContractForSignature as unknown as Action)(
+        { contract_version_id: versions[1]!.id, signers: SIGNERS },
+        actor,
+      ),
+    ).toEqual({
+      ok: false,
+      refusal:
+        "Waiting on buyer's counsel and seller's counsel to approve version 2.",
+    });
+  });
+
+  it('refuses to send a version again while its signature request is in progress', async () => {
+    const dealId = await newDeal('Resent APA deal');
+    const offerId = await acceptedOffer(dealId, 1_160_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
+    const draftsBefore = documenso.states.size;
+
+    expect(await send(dealId)).toEqual({
+      ok: false,
+      refusal: 'A signature request for this APA is already in progress',
+    });
+    expect(documenso.states.size).toBe(draftsBefore);
   });
 
   it('advances the deal to pa_submitted when Documenso reports the envelope sent, then to pa_accepted and signed when it completes', async () => {
@@ -355,10 +614,8 @@ describe('generateApa (integration)', () => {
       { deal_id: dealId, stage: 'loi_accepted' },
       actor,
     );
-    await (generateApa as unknown as Action)(
-      { offer_id: offerId, signers: SIGNERS },
-      actor,
-    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
     const { signing_document_id: documentId } = await signing(dealId);
 
     await documensoReports(documentId!, 'sent');
@@ -391,10 +648,8 @@ describe('generateApa (integration)', () => {
         { deal_id: dealId, stage: 'loi_accepted' },
         actor,
       );
-      await (generateApa as unknown as Action)(
-        { offer_id: offerId, signers: SIGNERS },
-        actor,
-      );
+      await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+      await sendApproved(dealId);
       const first = await signing(dealId);
       expect(first.signing_status).toBe('draft');
       await documensoReports(first.signing_document_id!, 'sent');
@@ -413,10 +668,8 @@ describe('generateApa (integration)', () => {
         stage: 'loi_accepted',
       });
 
-      await (generateApa as unknown as Action)(
-        { offer_id: offerId, signers: SIGNERS },
-        actor,
-      );
+      await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+      await sendApproved(dealId);
       const second = await signing(dealId);
       expect(second.id).not.toBe(first.id);
       expect(second.signing_status).toBe('draft');
@@ -439,10 +692,8 @@ describe('generateApa (integration)', () => {
       { deal_id: dealId, stage: 'loi_accepted' },
       actor,
     );
-    await (generateApa as unknown as Action)({
-      offer_id: offerId,
-      signers: SIGNERS,
-    });
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
     const requested = await signing(dealId);
 
     await documensoReports(requested.signing_document_id!, 'completed');
@@ -468,16 +719,12 @@ describe('generateApa (integration)', () => {
       { deal_id: dealId, stage: 'loi_accepted' },
       actor,
     );
-    await (generateApa as unknown as Action)({
-      offer_id: offerId,
-      signers: SIGNERS,
-    });
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
     const first = await signing(dealId);
     await documensoReports(first.signing_document_id!, 'rejected');
-    await (generateApa as unknown as Action)({
-      offer_id: offerId,
-      signers: SIGNERS,
-    });
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
     const second = await signing(dealId);
     documenso.states.set(first.signing_document_id!, 'completed');
     documenso.states.set(second.signing_document_id!, 'completed');
@@ -527,10 +774,8 @@ describe('generateApa (integration)', () => {
       canGenerate: { loi: true, apa: true },
     });
 
-    await (generateApa as unknown as Action)(
-      { offer_id: offerId, signers: SIGNERS },
-      actor,
-    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
     const requested = await signing(dealId);
 
     expect(await loadOfferSignatures(account.user, offerId)).toEqual({
@@ -544,10 +789,7 @@ describe('generateApa (integration)', () => {
     });
 
     expect(
-      await (generateApa as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      }),
+      await (generateApa as unknown as Action)({ offer_id: offerId }),
     ).toEqual({
       ok: false,
       refusal: 'A signature request for this APA is already in progress',
@@ -568,10 +810,7 @@ describe('generateApa (integration)', () => {
     expect(documenso.editorLookup.calls).toBe(lookupsBeforeSent);
 
     expect(
-      await (generateApa as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      }),
+      await (generateApa as unknown as Action)({ offer_id: offerId }),
     ).toEqual({
       ok: false,
       refusal: 'A signature request for this APA is already in progress',
@@ -580,10 +819,7 @@ describe('generateApa (integration)', () => {
     await documensoReports(requested.signing_document_id!, 'completed');
 
     expect(
-      await (generateApa as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      }),
+      await (generateApa as unknown as Action)({ offer_id: offerId }),
     ).toEqual({ ok: false, refusal: 'This APA has already been signed' });
 
     await documensoReports(requested.signing_document_id!, 'completed');
@@ -609,10 +845,8 @@ describe('generateApa (integration)', () => {
         { deal_id: dealId, stage: 'loi_accepted' },
         actor,
       );
-      await (generateApa as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      });
+      await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+      await sendApproved(dealId);
       const requested = await signing(dealId);
       const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
       documenso.editorLookup.fails = failure;
@@ -635,13 +869,202 @@ describe('generateApa (integration)', () => {
     const offerId = await acceptedOffer(dealId, 950_000);
 
     expect(
-      await (generateApa as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      }),
+      await (generateApa as unknown as Action)({ offer_id: offerId }),
     ).toEqual({
       ok: false,
       refusal: 'An APA can be generated once the LOI is accepted',
     });
+  });
+  it.each(['buyer', 'seller'] as const)(
+    'refuses to generate an APA, and so to send it for signature, without %s counsel',
+    async (side) => {
+      const dealId = await newDeal(`APA without ${side} counsel deal`);
+      const offerId = await acceptedOffer(dealId, 940_000);
+      await adoptFinancials(dealId);
+      await (updateDealStage as unknown as Action)(
+        { deal_id: dealId, stage: 'loi_accepted' },
+        actor,
+      );
+      await removeCounsel(dealId, side);
+      const draftsBefore = documenso.states.size;
+
+      expect(
+        await (generateApa as unknown as Action)({ offer_id: offerId }),
+      ).toEqual({ ok: false, refusal: APA_NEEDS_COUNSEL });
+      expect(await apaVersions(dealId)).toEqual([]);
+      expect(documenso.states.size).toBe(draftsBefore);
+    },
+  );
+
+  it('keeps an existing APA when counsel is removed, and refuses a new one until that side has counsel again', async () => {
+    const dealId = await newDeal('Counsel removed mid-APA deal');
+    const offerId = await acceptedOffer(dealId, 930_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
+    const first = await signing(dealId);
+    await documensoReports(first.signing_document_id!, 'rejected');
+
+    await removeCounsel(dealId, 'seller');
+
+    expect(await apaVersions(dealId)).toEqual([first.id]);
+    expect(
+      await (generateApa as unknown as Action)({ offer_id: offerId }),
+    ).toEqual({ ok: false, refusal: APA_NEEDS_COUNSEL });
+
+    await seedCounsel(dealId, 'seller');
+
+    expect(
+      await (generateApa as unknown as Action)({ offer_id: offerId }),
+    ).toMatchObject({ ok: true });
+    expect(await apaVersions(dealId)).toHaveLength(2);
+  });
+});
+
+describe('createContract (integration)', () => {
+  it('refuses to create an APA without counsel on both sides, and creates one once both are on the deal', async () => {
+    const dealId = await newDeal('Create APA counsel deal');
+    await removeCounsel(dealId, 'buyer');
+
+    expect(
+      await (createContract as unknown as Action)({ dealId, type: 'apa' }, actor),
+    ).toEqual({ ok: false, refusal: APA_NEEDS_COUNSEL });
+
+    const { data: refused } = await account.admin
+      .from('contract')
+      .select('id')
+      .eq('deal_id', dealId)
+      .throwOnError();
+    expect(refused).toEqual([]);
+
+    await seedCounsel(dealId, 'buyer');
+    const contractId = ((await (createContract as unknown as Action)(
+      { dealId, type: 'apa' },
+      actor,
+    )) as { value: string }).value;
+
+    const { data: created } = await account.admin
+      .from('contract')
+      .select('id, type')
+      .eq('deal_id', dealId)
+      .throwOnError();
+    expect(created).toEqual([{ id: contractId, type: 'apa' }]);
+  });
+
+  it('creates an LOI with no counsel on the deal', async () => {
+    const dealId = await newDeal('Create LOI no counsel deal');
+    await removeCounsel(dealId, 'buyer');
+    await removeCounsel(dealId, 'seller');
+
+    const contractId = ((await (createContract as unknown as Action)(
+      { dealId, type: 'loi' },
+      actor,
+    )) as { value: string }).value;
+
+    const { data: created } = await account.admin
+      .from('contract')
+      .select('id, type')
+      .eq('deal_id', dealId)
+      .throwOnError();
+    expect(created).toEqual([{ id: contractId, type: 'loi' }]);
+  });
+});
+
+describe('APA counsel gate after the APA has started', () => {
+  it('completes an APA sent while counsel were on the deal even after counsel are removed: signed, filed, and the deal at pa_accepted', async () => {
+    const dealId = await newDeal('Signed after counsel left deal');
+    const offerId = await acceptedOffer(dealId, 920_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+    await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+    await sendApproved(dealId);
+    const requested = await signing(dealId);
+    await documensoReports(requested.signing_document_id!, 'sent');
+    await removeCounsel(dealId, 'seller');
+
+    await documensoReports(requested.signing_document_id!, 'completed');
+
+    expect(await signing(dealId)).toMatchObject({
+      is_signed: true,
+      signing_status: 'completed',
+      stage: 'pa_accepted',
+    });
+    const { data: filed } = await account.admin
+      .from('dr_document')
+      .select('name')
+      .eq('id', requested.id)
+      .throwOnError();
+    expect(filed).toEqual([{ name: 'APA (signed).pdf' }]);
+  });
+
+  it.each([
+    ['uploaded', newVersionFromUpload],
+    ['saved from the editor', newVersionFromEditorSave],
+  ])(
+    'refuses a new APA version %s while a side has no counsel, keeping the existing versions',
+    async (_label, action) => {
+      const dealId = await newDeal('APA version without counsel deal');
+      const offerId = await acceptedOffer(dealId, 910_000);
+      await adoptFinancials(dealId);
+      await (updateDealStage as unknown as Action)(
+        { deal_id: dealId, stage: 'loi_accepted' },
+        actor,
+      );
+      await (generateApa as unknown as Action)({ offer_id: offerId }, actor);
+      await sendApproved(dealId);
+      const first = await signing(dealId);
+      const { data: version } = await account.admin
+        .from('contract_version')
+        .select('contract_id')
+        .eq('id', first.id)
+        .single()
+        .throwOnError();
+      await removeCounsel(dealId, 'buyer');
+
+      await expect(
+        (action as unknown as Action)(
+          {
+            contractId: version.contract_id,
+            docxBytes: new Uint8Array([80, 75, 3, 4]),
+            party: 'buyer',
+          },
+          actor,
+        ),
+      ).rejects.toThrow(APA_NEEDS_COUNSEL);
+      expect(await apaVersions(dealId)).toEqual([first.id]);
+    },
+  );
+
+  it('adds a new LOI version with no counsel on the deal', async () => {
+    const dealId = await newDeal('LOI version no counsel deal');
+    await removeCounsel(dealId, 'buyer');
+    await removeCounsel(dealId, 'seller');
+    const contractId = ((await (createContract as unknown as Action)(
+      { dealId, type: 'loi' },
+      actor,
+    )) as { value: string }).value;
+
+    await (newVersionFromUpload as unknown as Action)(
+      {
+        contractId,
+        docxBytes: new Uint8Array([80, 75, 3, 4]),
+        party: 'seller',
+      },
+      actor,
+    );
+
+    const { data: versions } = await account.admin
+      .from('contract_version')
+      .select('version, party')
+      .eq('contract_id', contractId)
+      .throwOnError();
+    expect(versions).toEqual([{ version: 1, party: 'seller' }]);
   });
 });

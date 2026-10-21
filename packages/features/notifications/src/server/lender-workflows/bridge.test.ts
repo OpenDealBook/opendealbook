@@ -1,9 +1,9 @@
-import { createHmac } from 'node:crypto';
-
 import { describe, expect, it } from 'vitest';
 
 import { createLenderBridge } from './bridge';
-import type { VisibleDocument } from './digest-content';
+import type { VisibleDocument, VisibleFaqEntry } from './digest-content';
+
+import { createHmac } from 'node:crypto';
 
 const secretKey = 'test-novu-secret';
 const siteUrl = 'https://opendealbook.app';
@@ -12,7 +12,6 @@ const bridgeUrl = `${siteUrl}/api/novu`;
 const lenderPerson = '99999999-9999-4999-8999-999999999999';
 const personWhoseLookupFails = '77777777-7777-4777-8777-777777777777';
 const roomId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const roomOnNamelessDeal = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const unreadableRoom = '12121212-1212-4121-8121-121212121212';
 const unreadableAsk = '34343434-3434-4343-8343-343434343434';
 const dealId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -20,12 +19,16 @@ const askId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const formId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const balanceSheet = '11111111-1111-4111-8111-111111111111';
 const taxReturn = '22222222-2222-4222-8222-222222222222';
+const ebitdaEntry = '44444444-4444-4444-8444-444444444444';
+const hiddenEntry = '55555555-5555-4555-8555-555555555555';
 
 const rooms: Record<
   string,
   {
     name: string;
-    dealName: string | null;
+    dealName: string;
+    outsideName: string;
+    buyerTeam: string;
     dealId: string;
     teamAccountSlug: string;
   }
@@ -33,12 +36,8 @@ const rooms: Record<
   [roomId]: {
     name: 'First Harbor Bank',
     dealName: 'Acme Tooling',
-    dealId,
-    teamAccountSlug: 'acme-capital',
-  },
-  [roomOnNamelessDeal]: {
-    name: 'Second Harbor Bank',
-    dealName: null,
+    outsideName: 'Project Atlas',
+    buyerTeam: 'Acme Capital',
     dealId,
     teamAccountSlug: 'acme-capital',
   },
@@ -48,7 +47,6 @@ const teamRoomUrl = `${siteUrl}/home/acme-capital/deals/${dealId}/lenders/${room
 
 const requestTitles: Record<string, string> = {
   [`${roomId}/${askId}`]: 'Trailing twelve month financials',
-  [`${roomOnNamelessDeal}/${askId}`]: 'Trailing twelve month financials',
   [`${roomId}/${formId}`]: 'Loan application',
 };
 
@@ -60,6 +58,7 @@ const visibleByPerson: Record<string, VisibleDocument[]> = {
       folder_id: 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1',
       room_id: roomId,
       room_name: 'First Harbor Bank',
+      outside_name: 'Project Atlas',
     },
     {
       document_id: taxReturn,
@@ -67,6 +66,19 @@ const visibleByPerson: Record<string, VisibleDocument[]> = {
       folder_id: 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1',
       room_id: roomId,
       room_name: 'First Harbor Bank',
+      outside_name: 'Project Atlas',
+    },
+  ],
+};
+
+const visibleFaqByPerson: Record<string, VisibleFaqEntry[]> = {
+  [lenderPerson]: [
+    {
+      entry_id: ebitdaEntry,
+      question: 'What was 2025 EBITDA?',
+      room_id: roomId,
+      room_name: 'First Harbor Bank',
+      outside_name: 'Project Atlas',
     },
   ],
 };
@@ -79,9 +91,10 @@ function found<T>(value: T | undefined): T {
   return value;
 }
 
-const bridge = createLenderBridge({
+const deps: Parameters<typeof createLenderBridge>[0] = {
   secretKey,
   siteUrl,
+  digestIntervalMinutes: undefined,
   loadRoom: async ({ roomId }) => found(rooms[roomId]),
   loadRequestTitle: async ({ roomId, askId }) =>
     found(requestTitles[`${roomId}/${askId}`]),
@@ -89,7 +102,22 @@ const bridge = createLenderBridge({
     found(visibleByPerson[userId]).filter((document) =>
       documentIds.includes(document.document_id),
     ),
-});
+  loadVisibleFaqEntries: async ({ userId, entryIds }) =>
+    found(visibleFaqByPerson[userId]).filter((entry) =>
+      entryIds.includes(entry.entry_id),
+    ),
+  loadManagedSellerRooms: async () => [],
+  loadSellerDigestItems: async () => [],
+  loadCounselMessage: async () => {
+    throw new Error('not used by lender workflows');
+  },
+  loadManagedCounselDeals: async () => [],
+  loadSubmittedDealUpdate: async () => {
+    throw new Error('not used by lender workflows');
+  },
+};
+
+const bridge = createLenderBridge(deps);
 
 function sign(body: unknown, key = secretKey, timestamp = Date.now()): string {
   const hmac = createHmac('sha256', key)
@@ -107,7 +135,10 @@ async function discover() {
   );
 
   return (await response.json()) as {
-    workflows: { workflowId: string; steps: { stepId: string; type: string }[] }[];
+    workflows: {
+      workflowId: string;
+      steps: { stepId: string; type: string }[];
+    }[];
   };
 }
 
@@ -118,6 +149,7 @@ interface StepState {
 }
 
 async function execute(input: {
+  bridge?: typeof bridge;
   workflowId: string;
   stepId: string;
   payload: Record<string, unknown>;
@@ -130,7 +162,7 @@ async function execute(input: {
     state: input.state ?? [],
     subscriber: input.subscriber ?? { subscriberId: lenderPerson },
   };
-  const response = await bridge(
+  const response = await (input.bridge ?? bridge)(
     new Request(
       `${bridgeUrl}?action=execute&workflowId=${input.workflowId}&stepId=${input.stepId}`,
       {
@@ -161,7 +193,10 @@ function textOf(html: string | undefined): string {
     .replace(/\s+/g, ' ');
 }
 
-function completed(stepId: string, outputs: Record<string, unknown>): StepState {
+function completed(
+  stepId: string,
+  outputs: Record<string, unknown>,
+): StepState {
   return { stepId, outputs, state: { status: 'completed' } };
 }
 
@@ -228,9 +263,7 @@ describe('lender bridge authentication', () => {
   });
 
   it('refuses to list the workflows without a signature', async () => {
-    const response = await bridge(
-      new Request(`${bridgeUrl}?action=discover`),
-    );
+    const response = await bridge(new Request(`${bridgeUrl}?action=discover`));
 
     expect(response.status).toBe(401);
   });
@@ -245,7 +278,7 @@ describe('lender bridge authentication', () => {
         status: 'ok',
         sdkVersion: expect.any(String),
         frameworkVersion: expect.any(String),
-        discovered: { workflows: 10, steps: 12 },
+        discovered: { workflows: 31, steps: 39 },
       });
     },
   );
@@ -256,9 +289,20 @@ describe('lender bridge without a Novu key', () => {
     const unconfigured = createLenderBridge({
       secretKey: undefined,
       siteUrl,
+      digestIntervalMinutes: undefined,
       loadRoom: async ({ roomId }) => found(rooms[roomId]),
       loadRequestTitle: async () => '',
       loadVisibleDocuments: async () => [],
+      loadVisibleFaqEntries: async () => [],
+      loadManagedSellerRooms: async () => [],
+      loadSellerDigestItems: async () => [],
+      loadCounselMessage: async () => {
+        throw new Error('not used without a key');
+      },
+      loadManagedCounselDeals: async () => [],
+      loadSubmittedDealUpdate: async () => {
+        throw new Error('not used without a key');
+      },
     });
 
     const response = await unconfigured(
@@ -270,10 +314,22 @@ describe('lender bridge without a Novu key', () => {
 });
 
 describe('lender workflow definitions', () => {
-  it('defines the ten lender workflows under the ids the triggers use', async () => {
+  it("defines the twelve lender workflows, the two seller digests, the counsel message, the counsel uploads digest, the contract negotiation notice, the contract review reminder and unanswered notice, the deal update approval request, the three seller room notices, the five deal event notices, the to-do assignment, the Seller's counsel folder notice and the seller and counsel thread notice under the ids the triggers use", async () => {
     const { workflows } = await discover();
 
     expect(workflows.map((workflow) => workflow.workflowId).sort()).toEqual([
+      'contract-negotiation',
+      'contract-review.reminder',
+      'contract-review.unanswered',
+      'counsel-message',
+      'counsel-uploads',
+      'deal-update-submitted',
+      'deal.apa_accepted',
+      'deal.loi_accepted',
+      'deal.offer_accepted',
+      'deal.offer_submitted',
+      'deal.resolved',
+      'lender-nudges.daily',
       'lender-room-documents',
       'lender_ask.answered',
       'lender_ask.opened',
@@ -284,6 +340,15 @@ describe('lender workflow definitions', () => {
       'lender_form.signature_expired',
       'lender_form.uploaded',
       'lender_room.access_requested',
+      'lender_room.timeline_answered',
+      'seller-counsel-folder.file-added',
+      'seller-counsel-message.posted',
+      'seller-room-activity',
+      'seller-room-shared',
+      'seller_room.access_requested',
+      'seller_room.closed',
+      'seller_room.reopened',
+      'todo.assigned',
     ]);
   });
 
@@ -291,11 +356,18 @@ describe('lender workflow definitions', () => {
     const { workflows } = await discover();
 
     for (const workflow of workflows) {
-      if (workflow.workflowId === 'lender-room-documents') {
+      if (
+        workflow.workflowId === 'lender-room-documents' ||
+        workflow.workflowId === 'counsel-uploads' ||
+        workflow.workflowId === 'seller-room-activity' ||
+        workflow.workflowId === 'seller-room-shared'
+      ) {
         continue;
       }
 
-      expect(workflow.steps).toMatchObject([{ stepId: 'email', type: 'email' }]);
+      expect(workflow.steps).toMatchObject([
+        { stepId: 'email', type: 'email' },
+      ]);
     }
   });
 
@@ -319,7 +391,7 @@ describe('immediate emails to a lender', () => {
       title: 'an answered request',
       workflowId: 'lender_ask.answered',
       payload: askPayload,
-      subject: "Acme Tooling's team answered your request",
+      subject: 'Acme Capital answered your request on Project Atlas',
       requestTitle: 'Trailing twelve month financials',
       link: `${siteUrl}/lender/${roomId}/requests/asks/${askId}`,
     },
@@ -327,7 +399,7 @@ describe('immediate emails to a lender', () => {
       title: 'a reply about a form',
       workflowId: 'lender_ask.answered',
       payload: formPayload,
-      subject: "Acme Tooling's team replied about your form",
+      subject: 'Acme Capital replied about your form on Project Atlas',
       requestTitle: 'Loan application',
       link: `${siteUrl}/lender/${roomId}/requests/forms/${formId}`,
     },
@@ -335,7 +407,7 @@ describe('immediate emails to a lender', () => {
       title: 'a returned form',
       workflowId: 'lender_form.returned',
       payload: formPayload,
-      subject: "Acme Tooling's team returned your form",
+      subject: 'Acme Capital returned your form on Project Atlas',
       requestTitle: 'Loan application',
       link: `${siteUrl}/lender/${roomId}/requests/forms/${formId}`,
     },
@@ -352,7 +424,7 @@ describe('immediate emails to a lender', () => {
       expect(status).toBe(200);
       expect(result.outputs.subject).toBe(subject);
       expect(result.outputs.body?.split(requestTitle)).toHaveLength(2);
-      expect(copy).toContain("Acme Tooling's team has");
+      expect(copy).toContain('Acme Capital has');
       expect(copy).toContain('First Harbor Bank');
       expect(copy).toContain(`"${requestTitle}"`);
       expect(result.outputs.body).toContain(`href="${link}"`);
@@ -361,18 +433,6 @@ describe('immediate emails to a lender', () => {
       expect(`${subject} ${copy}`).not.toContain(String.fromCharCode(0x2014));
     },
   );
-
-  it('calls the team "the deal team" when the deal has no name', async () => {
-    const { result } = await execute({
-      workflowId: 'lender_ask.answered',
-      stepId: 'email',
-      payload: { ...askPayload, roomId: roomOnNamelessDeal },
-    });
-
-    expect(result.outputs.subject).toBe('The deal team answered your request');
-    expect(textOf(result.outputs.body)).toContain('The deal team has replied');
-    expect(textOf(result.outputs.body)).toContain('Second Harbor Bank');
-  });
 
   it.each([
     {
@@ -425,7 +485,7 @@ describe('immediate emails to a lender', () => {
       expect(result.outputs.subject).toBe(subject);
       expect(copy).toContain(message);
       expect(result.outputs.body).toContain(`href="${link}"`);
-      expect(copy).not.toContain('Acme Tooling');
+      expect(copy).not.toContain('Project Atlas');
       expect(copy).not.toContain('First Harbor Bank');
       expect(copy).not.toContain('Trailing twelve month financials');
     },
@@ -541,6 +601,40 @@ describe('immediate emails to our team', () => {
     expect(copy).not.toContain('Open your deals');
   });
 
+  it.each([
+    { answer: 'yes', phrase: 'can close by the date you asked' },
+    { answer: 'no', phrase: 'cannot close by the date you asked' },
+    { answer: 'need_to_talk', phrase: 'wants to talk about the closing date' },
+  ])(
+    'tells our team a lender answered $answer on the closing timeline',
+    async ({ answer, phrase }) => {
+      const { status, result } = await execute({
+        workflowId: 'lender_room.timeline_answered',
+        stepId: 'email',
+        payload: { roomId, answer },
+      });
+
+      expect(status).toBe(200);
+      expect(result.outputs.subject).toBe(
+        'A lender answered your closing timeline question',
+      );
+      expect(textOf(result.outputs.body)).toContain(
+        `First Harbor Bank ${phrase}`,
+      );
+      expect(result.outputs.body).toContain(`href="${teamRoomUrl}"`);
+    },
+  );
+
+  it('rejects a timeline answer that is not yes, no or need to talk', async () => {
+    const { status } = await execute({
+      workflowId: 'lender_room.timeline_answered',
+      stepId: 'email',
+      payload: { roomId, answer: 'maybe' },
+    });
+
+    expect(status).toBe(400);
+  });
+
   it('names only the person when the room of an access request cannot be read', async () => {
     const { status, result } = await execute({
       workflowId: 'lender_room.access_requested',
@@ -565,15 +659,18 @@ describe('immediate emails to our team', () => {
   it.each([
     { missing: 'email', payload: { roomId } },
     { missing: 'room', payload: { email: 'banker@firstharbor.example' } },
-  ])('rejects an access request that carries no $missing', async ({ payload }) => {
-    const { status } = await execute({
-      workflowId: 'lender_room.access_requested',
-      stepId: 'email',
-      payload,
-    });
+  ])(
+    'rejects an access request that carries no $missing',
+    async ({ payload }) => {
+      const { status } = await execute({
+        workflowId: 'lender_room.access_requested',
+        stepId: 'email',
+        payload,
+      });
 
-    expect(status).toBe(400);
-  });
+      expect(status).toBe(400);
+    },
+  );
 });
 
 describe('form signature outcome emails', () => {
@@ -584,7 +681,7 @@ describe('form signature outcome emails', () => {
     {
       workflowId: 'lender_form.signature_completed',
       audience: 'lender',
-      subject: "Acme Tooling's team: your form has been signed",
+      subject: 'Acme Capital on Project Atlas: your form has been signed',
       message:
         'The signed copy of "Loan application" is in the First Harbor Bank lender room.',
       link: formLink,
@@ -600,9 +697,9 @@ describe('form signature outcome emails', () => {
     {
       workflowId: 'lender_form.signature_declined',
       audience: 'lender',
-      subject: "Acme Tooling's team: signing was declined",
+      subject: 'Acme Capital on Project Atlas: signing was declined',
       message:
-        'The signature request for "Loan application" in the First Harbor Bank lender room was declined or cancelled. Acme Tooling\'s team will follow up in the thread.',
+        'The signature request for "Loan application" in the First Harbor Bank lender room was declined or cancelled. Acme Capital will follow up in the thread.',
       link: formLink,
     },
     {
@@ -616,9 +713,9 @@ describe('form signature outcome emails', () => {
     {
       workflowId: 'lender_form.signature_expired',
       audience: 'lender',
-      subject: "Acme Tooling's team: signing expired",
+      subject: 'Acme Capital on Project Atlas: signing expired',
       message:
-        'The signature request for "Loan application" in the First Harbor Bank lender room expired before everyone signed. Acme Tooling\'s team will follow up in the thread.',
+        'The signature request for "Loan application" in the First Harbor Bank lender room expired before everyone signed. Acme Capital will follow up in the thread.',
       link: formLink,
     },
     {
@@ -656,19 +753,6 @@ describe('form signature outcome emails', () => {
     },
   );
 
-  it('calls the team "the deal team" when the deal has no name', async () => {
-    const { result } = await execute({
-      workflowId: 'lender_form.signature_declined',
-      stepId: 'email',
-      payload: { roomId: roomOnNamelessDeal, askId, audience: 'lender' },
-    });
-
-    expect(result.outputs.subject).toBe('The deal team: signing was declined');
-    expect(textOf(result.outputs.body)).toContain(
-      'The deal team will follow up in the thread.',
-    );
-  });
-
   it.each([
     {
       workflowId: 'lender_form.signature_completed',
@@ -690,7 +774,7 @@ describe('form signature outcome emails', () => {
       audience: 'team',
       subject: 'A lender form signature expired',
       message:
-        'The signature request for a form in a lender room expired before everyone signed. A new signature request can be made from the deal\'s lenders page.',
+        "The signature request for a form in a lender room expired before everyone signed. A new signature request can be made from the deal's lenders page.",
       link: `${siteUrl}/home`,
     },
   ])(
@@ -707,7 +791,7 @@ describe('form signature outcome emails', () => {
       expect(result.outputs.subject).toBe(subject);
       expect(copy).toContain(message);
       expect(result.outputs.body).toContain(`href="${link}"`);
-      expect(copy).not.toContain('Acme Tooling');
+      expect(copy).not.toContain('Project Atlas');
       expect(copy).not.toContain('First Harbor Bank');
       expect(copy).not.toContain('Loan application');
       expect(copy).toContain(
@@ -737,10 +821,10 @@ describe('daily documents digest', () => {
     rooms: [
       {
         roomId,
-        name: 'First Harbor Bank',
-        documents: [
-          { name: 'Balance sheet.xlsx', status: 'new' },
-          { name: 'Tax return 2025.pdf', status: 'updated' },
+        name: 'Project Atlas',
+        items: [
+          { kind: 'document', name: 'Balance sheet.xlsx', status: 'new' },
+          { kind: 'document', name: 'Tax return 2025.pdf', status: 'updated' },
         ],
         moreCount: 0,
       },
@@ -757,6 +841,17 @@ describe('daily documents digest', () => {
     expect(result.outputs).toMatchObject({ type: 'timed', cron: '0 22 * * *' });
   });
 
+  it('batches over the configured number of minutes when an interval is set', async () => {
+    const { result } = await execute({
+      bridge: createLenderBridge({ ...deps, digestIntervalMinutes: 1 }),
+      workflowId: 'lender-room-documents',
+      stepId: 'daily-digest',
+      payload,
+    });
+
+    expect(result.outputs).toEqual({ amount: 1, unit: 'minutes' });
+  });
+
   it('looks up the digested documents for the person the digest is for', async () => {
     const { result } = await execute({
       workflowId: 'lender-room-documents',
@@ -771,6 +866,37 @@ describe('daily documents digest', () => {
     });
 
     expect(result.outputs).toEqual(listed.outputs);
+  });
+
+  it('looks up the digested FAQ entries alongside the documents, dropping the ones no longer shown', async () => {
+    const { result } = await execute({
+      workflowId: 'lender-room-documents',
+      stepId: 'visible-documents',
+      payload,
+      state: [
+        digestOf([
+          { documentId: balanceSheet, isNewVersion: false },
+          { kind: 'faq', entryId: ebitdaEntry },
+          { kind: 'faq', entryId: hiddenEntry },
+          { kind: 'faq', entryId: ebitdaEntry },
+        ]),
+      ],
+    });
+
+    expect(result.outputs).toEqual({
+      checked: true,
+      rooms: [
+        {
+          roomId,
+          name: 'Project Atlas',
+          items: [
+            { kind: 'document', name: 'Balance sheet.xlsx', status: 'new' },
+            { kind: 'faq', question: 'What was 2025 EBITDA?' },
+          ],
+          moreCount: 0,
+        },
+      ],
+    });
   });
 
   it('records that nothing was checked when the lookup fails', async () => {
@@ -828,6 +954,36 @@ describe('daily documents digest', () => {
     expect(result.outputs.body).toContain(`href="${siteUrl}/lender/${roomId}"`);
   });
 
+  it('emails a day of FAQ entries under a neutral subject with a link to the room FAQ', async () => {
+    const { result } = await execute({
+      workflowId: 'lender-room-documents',
+      stepId: 'email',
+      payload,
+      state: [
+        digestOf([{ kind: 'faq', entryId: ebitdaEntry }]),
+        completed('visible-documents', {
+          checked: true,
+          rooms: [
+            {
+              roomId,
+              name: 'First Harbor Bank',
+              items: [{ kind: 'faq', question: 'What was 2025 EBITDA?' }],
+              moreCount: 0,
+            },
+          ],
+        }),
+      ],
+    });
+
+    expect(result.outputs.subject).toBe('Updates in your lender room');
+    expect(result.outputs.body).toContain(
+      `href="${siteUrl}/lender/${roomId}/faq"`,
+    );
+    expect(textOf(result.outputs.body)).toContain(
+      'What was 2025 EBITDA? (FAQ)',
+    );
+  });
+
   it('sends no email when nothing is still visible', async () => {
     const { result } = await execute({
       workflowId: 'lender-room-documents',
@@ -877,5 +1033,113 @@ describe('daily documents digest', () => {
 
     expect(status).toBe(400);
     expect(result.outputs).toBeUndefined();
+  });
+});
+
+describe('deal event email notices', () => {
+  const path = `/home/acme-capital/deals/${dealId}/financials#offer-o-1`;
+  const dealPayload = { dealId, path, firmName: 'Acme Tooling' };
+  const dealLink = `${siteUrl}${path}`;
+
+  it.each([
+    ['deal.offer_submitted', 'Offer submitted on Acme Tooling'],
+    ['deal.offer_accepted', 'Offer accepted on Acme Tooling'],
+    ['deal.loi_accepted', 'LOI accepted on Acme Tooling'],
+    ['deal.apa_accepted', 'APA accepted on Acme Tooling'],
+  ])(
+    '%s emails "%s" with the link the relay chose',
+    async (workflowId, line) => {
+      const { result } = await execute({
+        workflowId,
+        stepId: 'email',
+        payload: dealPayload,
+      });
+
+      expect(result.outputs.subject).toBe(line);
+      expect(textOf(result.outputs.body)).toContain(line);
+      expect(result.outputs.body).toContain(dealLink);
+    },
+  );
+
+  it('names a deal without a firm "your deal"', async () => {
+    const { result } = await execute({
+      workflowId: 'deal.offer_accepted',
+      stepId: 'email',
+      payload: { ...dealPayload, firmName: null },
+    });
+
+    expect(result.outputs.subject).toBe('Offer accepted on your deal');
+  });
+
+  it.each([
+    ['closed', 'Acme Tooling closed'],
+    ['lost', 'Acme Tooling was marked lost'],
+  ])('emails a %s resolution as "%s"', async (outcome, line) => {
+    const { result } = await execute({
+      workflowId: 'deal.resolved',
+      stepId: 'email',
+      payload: { ...dealPayload, outcome },
+    });
+
+    expect(result.outputs.subject).toBe(line);
+    expect(result.outputs.body).toContain(dealLink);
+  });
+});
+
+describe('daily lenders to nudge email', () => {
+  const nudgePayload = {
+    accountSlug: 'acme-capital',
+    lenders: [
+      {
+        lenderName: 'First Harbor Bank',
+        deals: [
+          { dealName: 'Acme Tooling', daysSilent: 12 },
+          { dealName: null, daysSilent: 6 },
+        ],
+      },
+      {
+        lenderName: 'Second Harbor Bank',
+        deals: [{ dealName: 'Acme Tooling', daysSilent: 8 }],
+      },
+    ],
+  };
+
+  it('lists each quiet lender with its deals and days quiet, linking to the team lenders page', async () => {
+    const { status, result } = await execute({
+      workflowId: 'lender-nudges.daily',
+      stepId: 'email',
+      payload: nudgePayload,
+    });
+    const copy = textOf(result.outputs.body);
+
+    expect(status).toBe(200);
+    expect(result.outputs.subject).toBe('2 lenders to nudge today');
+    expect(copy).toContain(
+      'First Harbor Bank: Acme Tooling, quiet 12 days; your deal, quiet 6 days.',
+    );
+    expect(copy).toContain('Second Harbor Bank: Acme Tooling, quiet 8 days.');
+    expect(result.outputs.body).toContain(
+      `href="${siteUrl}/home/acme-capital/lenders"`,
+    );
+  });
+
+  it('says lender, not lenders, when one is due', async () => {
+    const { result } = await execute({
+      workflowId: 'lender-nudges.daily',
+      stepId: 'email',
+      payload: { ...nudgePayload, lenders: nudgePayload.lenders.slice(0, 1) },
+    });
+
+    expect(result.outputs.subject).toBe('1 lender to nudge today');
+  });
+
+  it('rejects a payload that names no team', async () => {
+    const { status } = await execute({
+      workflowId: 'lender-nudges.daily',
+      stepId: 'email',
+      payload: { lenders: nudgePayload.lenders },
+    });
+
+    expect(status).toBe(400);
   });
 });

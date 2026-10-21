@@ -30,7 +30,7 @@ describe('draftFromKey', () => {
   it('maps a dotted deal key to its source and path', () => {
     expect(draftFromKey('deal.asking_price', 3)).toEqual({
       key: 'deal.asking_price',
-      label: 'Asking Price',
+      label: 'Asking price',
       type: 'text',
       source: 'deal',
       source_path: 'asking_price',
@@ -45,8 +45,27 @@ describe('draftFromKey', () => {
 
     expect(draft.source).toBe('manual');
     expect(draft.source_path).toBeNull();
-    expect(draft.label).toBe('Buyer Signature');
+    expect(draft.label).toBe('Buyer signature');
   });
+});
+
+describe('draftFromKey known keys', () => {
+  it.each(['purchase_price', 'cash_at_close', 'real_estate_portion'])(
+    'types %s as currency',
+    (key) => {
+      expect(draftFromKey(key, 0).type).toBe('currency');
+    },
+  );
+
+  it.each(['effective_date', 'target_close_date'])(
+    'types %s as a long date',
+    (key) => {
+      const draft = draftFromKey(key, 0);
+
+      expect(draft.type).toBe('date');
+      expect(draft.format).toBe('long');
+    },
+  );
 });
 
 describe('keysToDrafts', () => {

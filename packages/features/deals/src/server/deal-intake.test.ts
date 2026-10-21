@@ -87,24 +87,32 @@ describe('extractDealIntake', () => {
 });
 
 describe('dealFromIntakeDraft', () => {
-  it('maps screening numbers and profile text to a create payload, dropping null fields', () => {
+  it('maps screening numbers and profile text to a create payload under the given identity, dropping null fields', () => {
     const draft = dealIntakeDraftSchema.parse({
       ...FIXTURE,
       ebitda: null,
       location: null,
     });
 
-    const payload = dealFromIntakeDraft('acct-1', draft);
+    const payload = dealFromIntakeDraft(
+      {
+        account_id: 'acct-1',
+        business_name: 'Brennan Climate Services',
+        industry: 'Home Services',
+      },
+      draft,
+    );
 
     expect(payload).toMatchObject({
       account_id: 'acct-1',
+      business_name: 'Brennan Climate Services',
       description: 'Established HVAC contractor',
       asking_price: 3500000,
       revenue_ttm: 4200000,
       sde_ttm: 900000,
       employee_band: '25-50',
       reason_for_sale: 'retirement',
-      industry: 'HVAC services',
+      industry: 'Home Services',
       business_model: 'Recurring service contracts',
     });
     expect(payload).not.toHaveProperty('ebitda_ttm');

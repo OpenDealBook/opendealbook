@@ -15,6 +15,8 @@ interface RecordActivityInput {
   action: Database['public']['Enums']['lender_activity_action'];
   documentId?: string;
   folderId?: string;
+  faqEntryId?: string;
+  faqFileId?: string;
   payload?: Json;
 }
 
@@ -45,6 +47,8 @@ export async function recordActivity(input: RecordActivityInput): Promise<void> 
       action: input.action,
       dr_document_id: input.documentId,
       dr_folder_id: input.folderId,
+      faq_entry_id: input.faqEntryId,
+      faq_file_id: input.faqFileId,
       payload: input.payload,
     })
     .throwOnError();

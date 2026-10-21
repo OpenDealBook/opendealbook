@@ -42,7 +42,6 @@ export type DocumentKind = Exclude<ViewerKind, 'image' | 'none'>;
 
 export const MAX_SHEET_ROWS = 2000;
 export const MAX_SHEET_COLUMNS = 50;
-const MAX_INFLATED_BYTES = 200 * 1024 * 1024;
 
 const UNSUPPORTED: Preview = { kind: 'none', reason: 'unsupported' };
 const TOO_LARGE: Preview = { kind: 'none', reason: 'too-large' };
@@ -82,13 +81,24 @@ async function parsePdf(bytes: ArrayBuffer): Promise<Preview> {
   }
 }
 
+const PDF_SIGNATURE = '%PDF-';
+
 async function parseWord(bytes: ArrayBuffer): Promise<Preview> {
-  const [{ default: mammoth }, { inertDocument }, { inflatesBeyond }] =
-    await Promise.all([
-      import('mammoth'),
-      import('./untrusted-html'),
-      import('./archive-size'),
-    ]);
+  if (
+    new TextDecoder().decode(bytes.slice(0, PDF_SIGNATURE.length)) ===
+    PDF_SIGNATURE
+  ) {
+    return parsePdf(bytes);
+  }
+  const [
+    { default: mammoth },
+    { inertDocument },
+    { inflatesBeyond, MAX_INFLATED_BYTES },
+  ] = await Promise.all([
+    import('mammoth'),
+    import('./untrusted-html'),
+    import('@odb/shared/archive'),
+  ]);
   return unsupportedIfCorrupt(async () => {
     if (inflatesBeyond(new Uint8Array(bytes), MAX_INFLATED_BYTES)) {
       return TOO_LARGE;
@@ -99,10 +109,8 @@ async function parseWord(bytes: ArrayBuffer): Promise<Preview> {
 }
 
 async function parseSheet(bytes: ArrayBuffer): Promise<Preview> {
-  const [{ read, utils, set_cptable }, { inflatesBeyond }] = await Promise.all([
-    import('xlsx'),
-    import('./archive-size'),
-  ]);
+  const [{ read, utils, set_cptable }, { inflatesBeyond, MAX_INFLATED_BYTES }] =
+    await Promise.all([import('xlsx'), import('@odb/shared/archive')]);
   const signature = new Uint8Array(bytes, 0, Math.min(2, bytes.byteLength));
   const isLegacyOrCsv = !(signature[0] === 0x50 && signature[1] === 0x4b);
   if (isLegacyOrCsv) {

@@ -1,7 +1,7 @@
-import { Link, Section, Text } from 'react-email';
+import { Section, Text } from 'react-email';
 
 import { EmailButton } from '../components/button';
-import { EmailLayout } from '../components/layout';
+import { EmailLayout, FallbackLink } from '../components/layout';
 import { renderTemplate, type RenderedEmail } from '../lib/render-template';
 
 export interface LenderSignInEmailProps {
@@ -27,12 +27,7 @@ export function renderLenderSignInEmail(
       <Section className="my-[24px] text-center">
         <EmailButton href={props.signInLink}>Sign in</EmailButton>
       </Section>
-      <Text className="text-[14px] leading-[24px]">
-        Or paste this link into your browser:{' '}
-        <Link href={props.signInLink} className="text-blue-600">
-          {props.signInLink}
-        </Link>
-      </Text>
+      <FallbackLink href={props.signInLink} />
     </EmailLayout>,
     subject,
   );

@@ -1,24 +1,23 @@
-import { expect, test } from '@playwright/test';
-
-import { signUp } from './fixtures/auth';
+import { completeTeamOnboarding, db, expect, test } from './fixtures';
 
 test.describe('team accounts', () => {
   test('creates a team and opens its members and invite form', async ({
     page,
+    auth,
   }) => {
-    await signUp(page);
+    await auth.signUp(page);
+    await completeTeamOnboarding(page, `First Crew ${Date.now()}`);
 
     await page.goto('/home/create-team');
 
     const teamName = `Crew ${Date.now()}`;
     await page.getByLabel('Team name').fill(teamName);
 
-    // The name field slugifies into the slug field on change; read it back so
-    // navigation targets the slug the server actually created.
-    const slug = await page.getByLabel('Slug').inputValue();
-    expect(slug).not.toEqual('');
-
     await page.getByRole('button', { name: 'Create team' }).click();
+    const { slug } = await db.waitForRow<{ slug: string }>(
+      'accounts',
+      `name=eq.${encodeURIComponent(teamName)}&select=slug`,
+    );
 
     await page.goto(`/home/${slug}`);
     await expect(page).toHaveURL(new RegExp(`/home/${slug}(/|$)`));

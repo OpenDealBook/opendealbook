@@ -12,6 +12,7 @@ import {
 export function TeamBillingPanel(props: {
   accountId: string;
   subscriptionStatus: Enums<'subscription_status'> | null;
+  trialDaysLeft: number | null;
   children?: ReactNode;
 }) {
   return (
@@ -19,7 +20,10 @@ export function TeamBillingPanel(props: {
       <CardHeader>
         <CardTitle>Billing</CardTitle>
         <CardDescription>
-          {props.subscriptionStatus ?? 'No active subscription'}
+          {props.subscriptionStatus ??
+            (props.trialDaysLeft === null
+              ? 'No active subscription'
+              : `Trial: ${props.trialDaysLeft} days left`)}
         </CardDescription>
       </CardHeader>
       <CardContent>{props.children}</CardContent>

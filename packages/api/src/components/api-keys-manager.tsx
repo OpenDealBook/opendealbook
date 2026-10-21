@@ -39,11 +39,22 @@ export function ApiKeysManager({
   const [name, setName] = useState('');
   const [rawKey, setRawKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [refusal, setRefusal] = useState<{
+    control: 'create' | ApiKeySummary['id'];
+    message: string;
+  } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function onCreate() {
     startTransition(async () => {
       const created = await createApiKey({ accountId, name });
+
+      if (!created.ok) {
+        setRefusal({ control: 'create', message: created.refusal });
+        return;
+      }
+
+      setRefusal(null);
       setRawKey(created.rawKey);
       setCopied(false);
       setName('');
@@ -53,7 +64,14 @@ export function ApiKeysManager({
 
   function onRevoke(id: string) {
     startTransition(async () => {
-      await revokeApiKey({ accountId, id });
+      const revoked = await revokeApiKey({ accountId, id });
+
+      if (!revoked.ok) {
+        setRefusal({ control: id, message: revoked.refusal });
+        return;
+      }
+
+      setRefusal(null);
       setKeys(await listApiKeys({ accountId }));
     });
   }
@@ -92,6 +110,11 @@ export function ApiKeysManager({
           >
             Create key
           </Button>
+          {refusal?.control === 'create' ? (
+            <Alert variant={'destructive'}>
+              <AlertDescription>{refusal.message}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -139,6 +162,13 @@ export function ApiKeysManager({
                 </Button>
               )}
             </CardContent>
+            {refusal?.control === key.id ? (
+              <CardContent>
+                <Alert variant={'destructive'}>
+                  <AlertDescription>{refusal.message}</AlertDescription>
+                </Alert>
+              </CardContent>
+            ) : null}
           </Card>
         ))}
       </div>

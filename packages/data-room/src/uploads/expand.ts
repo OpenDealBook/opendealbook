@@ -92,7 +92,6 @@ async function importItem(
         name,
         storage_path: item.storage_path,
         version: nextVersion(existing.data.map((row) => row.version)),
-        checklist_item_id: null,
       },
     });
 
@@ -104,9 +103,34 @@ async function importItem(
   } catch (error) {
     return updateItem(client, item.id, {
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
+      error:
+        (error as { code?: string }).code === '42501'
+          ? `Only deal managers can add documents to counsel folders. Ask ${await dealOwnerName(client, params.dealId)}.`
+          : error instanceof Error
+            ? error.message
+            : String(error),
     });
   }
+}
+
+async function dealOwnerName(client: Client, dealId: string): Promise<string> {
+  const [deal, people] = await Promise.all([
+    client.from('deal').select('owner_user_id').eq('id', dealId).single(),
+    client.rpc('deal_people', { deal_id: dealId }),
+  ]);
+
+  if (deal.error) {
+    throw deal.error;
+  }
+
+  if (people.error) {
+    throw people.error;
+  }
+
+  return (
+    people.data.find((person) => person.user_id === deal.data.owner_user_id)
+      ?.name ?? 'a deal manager'
+  );
 }
 
 async function updateItem(

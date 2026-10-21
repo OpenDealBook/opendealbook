@@ -16,33 +16,49 @@ async function loadSalePrice(
   client: ReturnType<typeof getSupabaseServerAdminClient>,
   dealId: string,
 ): Promise<number | null> {
-  const { data: offers } = await client.from('offer').select('id').eq('deal_id', dealId);
-  const offerIds = (offers ?? []).map((offer) => offer.id);
-  if (offerIds.length === 0) {
+  const { data: accepted } = await client
+    .from('offer')
+    .select('current_version_id')
+    .eq('deal_id', dealId)
+    .eq('status', 'accepted')
+    .maybeSingle()
+    .throwOnError();
+  if (accepted === null) {
     return null;
   }
 
-  const { data: versions } = await client
+  const { data: version } = await client
     .from('offer_version')
     .select('purchase_price')
-    .in('offer_id', offerIds)
-    .order('purchase_price', { ascending: false })
-    .limit(1);
+    .eq('id', accepted.current_version_id!)
+    .single()
+    .throwOnError();
 
-  return versions?.[0]?.purchase_price ?? null;
+  return version.purchase_price;
 }
 
-export async function anonymizeClose(input: AnonymizeCloseInput): Promise<void> {
+export async function anonymizeClose(
+  input: AnonymizeCloseInput,
+): Promise<void> {
   const client = getSupabaseServerAdminClient();
 
   const { data: deal, error } = await client
     .from('deal')
-    .select('account_id, close_date, revenue_ttm, sde_ttm, asking_price, resolution, resolution_reason, outcome_reason, created_at')
+    .select(
+      'account_id, close_date, revenue_ttm, sde_ttm, asking_price, resolution, resolution_reason, outcome_reason, created_at',
+    )
     .eq('id', input.dealId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw error;
+  }
+
+  if (deal === null) {
+    console.info(
+      `[anonymizeClose] skipping relay event; deal ${input.dealId} no longer exists`,
+    );
+    return;
   }
 
   const { data: optin } = await client
@@ -51,7 +67,9 @@ export async function anonymizeClose(input: AnonymizeCloseInput): Promise<void> 
     .eq('account_id', deal.account_id)
     .maybeSingle();
 
-  const closeDate = deal.close_date ?? (deal.created_at ?? new Date().toISOString()).slice(0, 10);
+  const closeDate =
+    deal.close_date ??
+    (deal.created_at ?? new Date().toISOString()).slice(0, 10);
 
   const eligible = compPoolEligible({
     optedIn: optin?.opted_in ?? false,
@@ -63,8 +81,13 @@ export async function anonymizeClose(input: AnonymizeCloseInput): Promise<void> 
     return;
   }
 
-  const salePrice = (await loadSalePrice(client, input.dealId)) ?? deal.asking_price;
-  if (salePrice === null || deal.revenue_ttm === null || deal.sde_ttm === null) {
+  const salePrice =
+    (await loadSalePrice(client, input.dealId)) ?? deal.asking_price;
+  if (
+    salePrice === null ||
+    deal.revenue_ttm === null ||
+    deal.sde_ttm === null
+  ) {
     return;
   }
 
@@ -117,13 +140,13 @@ export async function anonymizeClose(input: AnonymizeCloseInput): Promise<void> 
   if (existingKey) {
     pseudonym = existingKey.pseudonym;
   } else {
-    const { count } = await client
-      .from('comp_pool_key')
-      .select('*', { count: 'exact', head: true });
+    const { data: sequence } = await client
+      .rpc('next_pool_pseudonym_number')
+      .throwOnError();
     pseudonym = generatePseudonym({
       state: anon.region ?? 'US',
       industryShortName: anon.industryShort ?? 'Business',
-      sequence: (count ?? 0) + 1,
+      sequence,
     });
     const { error: keyError } = await client.from('comp_pool_key').insert({
       pseudonym,

@@ -95,8 +95,20 @@ export async function createFolderPaths(
 
 export async function countFoldersInSpace(
   admin: Admin,
-  space: Pick<Space, 'deal_id' | 'roomId'>,
+  space: Pick<
+    Space,
+    | 'deal_id'
+    | 'roomId'
+    | 'sellerRoomId'
+    | 'counselDealId'
+    | 'sellerCounselDealId'
+    | 'containerFolderId'
+  >,
 ): Promise<number> {
+  if (space.sellerRoomId || space.counselDealId || space.sellerCounselDealId) {
+    return countFoldersUnder(admin, space.containerFolderId);
+  }
+
   const count = space.roomId
     ? await admin
         .rpc('lender_room_folder_count', { room_id: space.roomId })
@@ -106,4 +118,15 @@ export async function countFoldersInSpace(
         .throwOnError();
 
   return count.data;
+}
+
+async function countFoldersUnder(
+  admin: Admin,
+  containerFolderId: string,
+): Promise<number> {
+  const { data } = await admin
+    .rpc('dr_folder_count_below', { folder_id: containerFolderId })
+    .throwOnError();
+
+  return data;
 }

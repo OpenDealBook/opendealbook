@@ -9,11 +9,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table';
 
-import {
-  canManageMember,
-  type AppPermission,
-  type Role,
-} from '@odb/policies';
+import { canManageMember, type AppPermission, type Role } from '@odb/policies';
 import {
   Table,
   TableBody,
@@ -29,20 +25,28 @@ import { RemoveMemberDialog } from './remove-member-dialog';
 import { TransferOwnershipDialog } from './transfer-ownership-dialog';
 import { UpdateMemberRoleDialog } from './update-member-role-dialog';
 
+type NamedMember = TeamMember & { name: string; email: string | null };
+
 export function MembersTable(props: {
   accountId: string;
-  members: TeamMember[];
+  members: NamedMember[];
   actorRole: Role;
   permissions: AppPermission[];
-  roles: Role[];
   isOwner: boolean;
   onChange?: () => void;
 }) {
-  const columns = useMemo<ColumnDef<TeamMember>[]>(
+  const columns = useMemo<ColumnDef<NamedMember>[]>(
     () => [
       {
         header: 'Member',
-        accessorKey: 'userId',
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium">{row.original.name}</span>
+            <span className="text-muted-foreground text-sm">
+              {row.original.email}
+            </span>
+          </div>
+        ),
       },
       {
         header: 'Role',
@@ -69,7 +73,6 @@ export function MembersTable(props: {
                   accountId={props.accountId}
                   userId={member.userId}
                   currentRole={member.role}
-                  roles={props.roles}
                   onSuccess={props.onChange}
                 />
               ) : null}
@@ -96,7 +99,6 @@ export function MembersTable(props: {
       props.accountId,
       props.actorRole,
       props.permissions,
-      props.roles,
       props.isOwner,
       props.onChange,
     ],

@@ -12,7 +12,7 @@ function row(overrides: Partial<NormalizedFirmRow>): NormalizedFirmRow {
     website: null,
     employee_band: null,
     established_year: null,
-    owner_name: null,
+    owner_names: [],
     owner_age_estimate: null,
     source_url: null,
     phone: null,

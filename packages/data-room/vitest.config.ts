@@ -1,10 +1,11 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
+    exclude: [...configDefaults.exclude, 'src/**/*.int.test.ts'],
     globals: true,
   },
   resolve: {

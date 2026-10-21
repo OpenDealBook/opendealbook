@@ -20,12 +20,15 @@
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
     "@harbour-enterprises/superdoc": "catalog:",
     "@supabase/supabase-js": "catalog:",
+    "@odb/lender-rooms": "workspace:*",
     "@odb/next": "workspace:*",
+    "@odb/seller-rooms": "workspace:*",
     "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/workflows": "workspace:*",

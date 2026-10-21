@@ -52,7 +52,7 @@ select tests.login_as_service_role();
 select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal',
   'dddddddd-0000-0000-0000-0000000000d1', 'deal.created',
   jsonb_build_object('account_id', tests.account_id('notif-team'), 'owner_user_id', tests.get_uid('notif_owner'),
-    'description', 'A deal', 'stage', 'sourced'), null, 'service');
+    'description', 'A deal', 'stage', 'sourcing'), null, 'service');
 
 select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal_participant',
   gen_random_uuid(), 'deal_participant.added',
@@ -67,29 +67,33 @@ select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal_pa
 -- The owner (a participant) moves the stage; the trigger excludes the actor.
 select tests.login_as('notif_owner');
 select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal',
-  'dddddddd-0000-0000-0000-0000000000d1', 'deal.stage_changed', '{"stage":"diligence"}'::jsonb);
+  'dddddddd-0000-0000-0000-0000000000d1', 'deal.stage_changed', '{"stage":"due_diligence"}'::jsonb);
 
 select tests.login_as_service_role();
 select bag_eq(
-  $$ select recipient_user_id from public.notifications where body = 'Deal moved to diligence' $$,
+  $$ select recipient_user_id from public.notifications where body = 'Deal moved to due_diligence' $$,
   $$ values (tests.get_uid('notif_part_a')), (tests.get_uid('notif_part_b')) $$,
   'a stage move inserts one row per participant, targeted to each and excluding the actor'
 );
 select is_empty(
-  $$ select 1 from public.notifications where body = 'Deal moved to diligence' and account_id <> tests.account_id('notif-team') $$,
+  $$ select 1 from public.notifications where body = 'Deal moved to due_diligence' and link is not null $$,
+  'stage-move rows give participants outside the team no link to team pages'
+);
+select is_empty(
+  $$ select 1 from public.notifications where body = 'Deal moved to due_diligence' and account_id <> tests.account_id('notif-team') $$,
   'stage-move rows carry the deal account_id'
 );
 
 -- Targeting reaches an external participant who is not an account member.
 select tests.login_as('notif_part_a');
 select isnt_empty(
-  $$ select 1 from public.notifications where body = 'Deal moved to diligence' $$,
+  $$ select 1 from public.notifications where body = 'Deal moved to due_diligence' $$,
   'an external participant sees their stage-move notification without account membership'
 );
 
 select tests.login_as('notif_owner');
 select is_empty(
-  $$ select 1 from public.notifications where body = 'Deal moved to diligence' $$,
+  $$ select 1 from public.notifications where body = 'Deal moved to due_diligence' $$,
   'the actor is not notified of their own stage move'
 );
 

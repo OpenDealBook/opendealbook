@@ -57,7 +57,8 @@ export function EnrollForm({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     enrolled: number;
-    skipped: number;
+    noEmail: number;
+    notApproved: number;
   } | null>(null);
 
   const [sequenceId, setSequenceId] = useState(sequences[0]?.id ?? '');
@@ -79,7 +80,11 @@ export function EnrollForm({
         });
         setResult({
           enrolled: outcome.enrolled.length,
-          skipped: outcome.skipped.length,
+          noEmail: outcome.skipped.filter((row) => row.reason === 'no_email')
+            .length,
+          notApproved: outcome.skipped.filter(
+            (row) => row.reason === 'not_approved',
+          ).length,
         });
         setFirmIds(new Set());
         setContactIds(new Set());
@@ -155,8 +160,8 @@ export function EnrollForm({
 
       {result !== null ? (
         <p className={'text-sm'}>
-          Enrolled {result.enrolled}, skipped {result.skipped} (no emailable
-          contact).
+          Enrolled {result.enrolled}. Skipped {result.noEmail} with no emailable
+          contact and {result.notApproved} not approved for outreach.
         </p>
       ) : null}
 

@@ -32,6 +32,7 @@ vi.mock('@odb/lender-rooms/rooms/actions.ts', async () =>
     'setLenderRoomStatus',
     'setLenderRoomExpiry',
     'closeLenderRoom',
+    'prepareLenderRoomClose',
     'reopenLenderRoom',
     'setLenderRoomWelcomeNote',
   ),
@@ -51,6 +52,7 @@ const reviewing: LifecycleRoom = {
   status: 'reviewing',
   access: { kind: 'open', expiresAt: '2027-01-05T23:59:59.999Z' },
   welcomeNote: 'Welcome aboard',
+  closing: { ready: true, hasOwnTodo: true },
 };
 
 beforeEach(() => {
@@ -132,6 +134,35 @@ describe('room status and lifecycle', () => {
 
     expect(fakeServer.inputsTo('closeLenderRoom')).toEqual([{ roomId: ROOM }]);
     expect(fakeServer.refreshes).toBe(1);
+  });
+
+  it('starts a close with a to-do for the person when nobody has told the lender yet', async () => {
+    show(
+      <LenderRoomLifecycle
+        room={{ ...reviewing, closing: { ready: false, hasOwnTodo: false } }}
+      />,
+    );
+
+    await press('Close room');
+
+    expect(fakeServer.inputsTo('prepareLenderRoomClose')).toEqual([
+      { roomId: ROOM },
+    ]);
+    expect(fakeServer.inputsTo('closeLenderRoom')).toEqual([]);
+    expect(fakeServer.refreshes).toBe(1);
+  });
+
+  it('keeps Close disabled until the lender has been told', () => {
+    show(
+      <LenderRoomLifecycle
+        room={{ ...reviewing, closing: { ready: false, hasOwnTodo: true } }}
+      />,
+    );
+
+    expect(button('Close room').disabled).toBe(true);
+    expect(pageText()).toContain(
+      "Tick \"Tell First Bank the room is closing\" in this deal's to-dos, or send an update to someone in this room, to close it.",
+    );
   });
 
   it('reopens a closed room', async () => {

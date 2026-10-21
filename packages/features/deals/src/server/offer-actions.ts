@@ -1,11 +1,12 @@
 'use server';
 
+import type { PostgrestError } from '@supabase/supabase-js';
+
 import {
   type DealEventInput,
   appendDealEvent,
   appendDealEvents,
 } from '@odb/events';
-import { enhanceAction } from '@odb/next/actions';
 import type { Json } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -16,6 +17,7 @@ import {
   type OfferAuthorSide,
   type OfferVersion,
 } from '../schema/offer.schema';
+import { Refusal, refusableAction } from './refusal';
 
 type ServerClient = ReturnType<typeof getSupabaseServerClient>;
 
@@ -66,19 +68,9 @@ function versionAddedPayload(
   };
 }
 
-export const createOffer = enhanceAction(
+export const createOffer = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
-
-    const { data: existing } = await client
-      .from('offer')
-      .select('id')
-      .eq('deal_id', data.deal_id)
-      .maybeSingle();
-
-    if (existing) {
-      throw new Error('Deal already has an offer');
-    }
 
     const offerId = crypto.randomUUID();
     const versionId = crypto.randomUUID();
@@ -96,17 +88,27 @@ export const createOffer = enhanceAction(
         eventType: 'offer.version_added',
         payload: versionAddedPayload(data.first_version, versionId, 1, 'buyer'),
       },
-    ]);
+    ]).catch((error: PostgrestError) => {
+      if (
+        error.code === '23505' &&
+        error.message.includes('"ux_offer_live_per_deal"')
+      ) {
+        throw new Refusal('Deal already has a live offer');
+      }
+      throw error;
+    });
 
     return offerId;
   },
-  { auth: true, schema: createOfferSchema },
+  createOfferSchema,
+  { what: 'draft offers', needs: 'deals.work' },
 );
 
-export const addOfferVersion = enhanceAction(
+export const addOfferVersion = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const offer = await loadOffer(client, data.offer_id);
+    assertOfferOpen(offer.status);
 
     const { data: latest } = await client
       .from('offer_version')
@@ -146,10 +148,11 @@ export const addOfferVersion = enhanceAction(
 
     return versionId;
   },
-  { auth: true, schema: addOfferVersionSchema },
+  addOfferVersionSchema,
+  { what: 'revise offers', needs: 'deals.work' },
 );
 
-export const submitOffer = enhanceAction(
+export const submitOffer = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const offer = await loadOffer(client, data.offer_id);
@@ -172,10 +175,11 @@ export const submitOffer = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: offerIdSchema },
+  offerIdSchema,
+  { what: 'submit offers', needs: 'deals.manage' },
 );
 
-export const acceptOffer = enhanceAction(
+export const acceptOffer = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const offer = await loadOffer(client, data.offer_id);
@@ -191,29 +195,91 @@ export const acceptOffer = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: offerIdSchema },
+  offerIdSchema,
+  { what: 'accept offers', needs: 'deals.manage' },
 );
+
+async function stageBeforeFirstSubmit(
+  client: ServerClient,
+  dealId: string,
+  offerId: string,
+): Promise<string | null> {
+  const { data: submitted } = await client
+    .from('deal_event')
+    .select('deal_seq')
+    .eq('aggregate_type', 'offer')
+    .eq('aggregate_id', offerId)
+    .eq('event_type', 'offer.submitted')
+    .order('deal_seq', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+    .throwOnError();
+
+  if (submitted === null) {
+    return null;
+  }
+
+  const { data: prior } = await client
+    .from('deal_event')
+    .select('payload')
+    .eq('deal_id', dealId)
+    .eq('aggregate_type', 'deal')
+    .in('event_type', ['deal.created', 'deal.stage_changed'])
+    .lt('deal_seq', submitted.deal_seq)
+    .order('deal_seq', { ascending: false })
+    .limit(1)
+    .single()
+    .throwOnError();
+
+  // deal.created without a stage projects as 'sourcing' (project_deal).
+  return (prior.payload as { stage?: string }).stage ?? 'sourcing';
+}
 
 function offerStatusAction(
   eventType: 'offer.rejected' | 'offer.withdrawn' | 'offer.expired',
 ) {
-  return enhanceAction(
+  return refusableAction(
     async (data) => {
       const client = getSupabaseServerClient();
       const offer = await loadOffer(client, data.offer_id);
       assertOfferOpen(offer.status);
 
-      await appendDealEvent(client, {
-        dealId: offer.deal_id,
-        aggregateType: 'offer',
-        aggregateId: data.offer_id,
-        eventType,
-        payload: {},
-      });
+      const { data: deal } = await client
+        .from('deal')
+        .select('stage')
+        .eq('id', offer.deal_id)
+        .single()
+        .throwOnError();
+
+      const events: DealEventInput[] = [
+        {
+          aggregateType: 'offer',
+          aggregateId: data.offer_id,
+          eventType,
+          payload: {},
+        },
+      ];
+
+      const restoredStage =
+        deal.stage === 'loi_submitted'
+          ? await stageBeforeFirstSubmit(client, offer.deal_id, data.offer_id)
+          : null;
+
+      if (restoredStage !== null) {
+        events.push({
+          aggregateType: 'deal',
+          aggregateId: offer.deal_id,
+          eventType: 'deal.stage_changed',
+          payload: { stage: restoredStage },
+        });
+      }
+
+      await appendDealEvents(client, offer.deal_id, events);
 
       return { success: true };
     },
-    { auth: true, schema: offerIdSchema },
+    offerIdSchema,
+    { what: 'update offers', needs: 'deals.manage' },
   );
 }
 

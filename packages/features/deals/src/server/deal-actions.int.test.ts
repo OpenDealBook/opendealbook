@@ -7,10 +7,14 @@ import {
 
 const holder = vi.hoisted(() => ({
   client: null as unknown,
+  userId: '',
 }));
 
 vi.mock('@odb/next/actions', () => ({
-  enhanceAction: (fn: unknown) => fn,
+  enhanceAction:
+    (fn: (data: unknown, user: { id: string }) => unknown) =>
+    (data: unknown, user?: { id: string }) =>
+      fn(data, user ?? { id: holder.userId }),
 }));
 
 vi.mock('@odb/supabase/server', () => ({
@@ -21,6 +25,7 @@ import {
   adoptDealFinancials,
   archiveDeal,
   createDeal,
+  createDealCore,
   setDealResolution,
   starDeal,
   unarchiveDeal,
@@ -36,23 +41,25 @@ type Action = (
 let account: IntegrationAccount;
 let actor: { id: string };
 
-async function newDeal(description: string): Promise<string> {
-  const id = (await (createDeal as unknown as Action)(
+function newDeal(description: string): Promise<string> {
+  return createDealCore(
+    account.user,
     {
       account_id: account.accountId,
+      business_name: description,
+      industry: 'Accounting',
       description,
       source: 'manual',
       stage: 'sourcing',
     },
-    actor,
-  )) as string;
-
-  return id;
+    actor.id,
+  );
 }
 
 beforeAll(async () => {
   account = await provisionAccount();
   holder.client = account.user;
+  holder.userId = account.userId;
   actor = { id: account.userId };
 });
 
@@ -61,25 +68,27 @@ afterAll(async () => {
 });
 
 describe('createDeal (integration)', () => {
-  it('appends deal.created and projects a deal row plus a deal_profile row', async () => {
-    const dealId = (await (createDeal as unknown as Action)(
-      {
-        account_id: account.accountId,
-        description: 'Main Street CPA',
-        source: 'marketplace',
-        stage: 'sourcing',
-        employee_band: '10-24',
-        website: 'https://mainstreetcpa.example',
-        owner_role: 'managing_partner',
-        reason_for_sale: 'retirement',
-        year_established: 1998,
-      },
-      actor,
-    )) as string;
+  it('creates the deal with its business name as a new firm and the picked industry', async () => {
+    const result = await createDeal({
+      account_id: account.accountId,
+      business_name: 'Main Street CPA',
+      industry: 'Accounting',
+      description: 'Tax and bookkeeping practice',
+      source: 'marketplace',
+      stage: 'sourcing',
+      employee_band: '10-24',
+      website: 'https://mainstreetcpa.example',
+      owner_role: 'managing_partner',
+      reason_for_sale: 'retirement',
+      year_established: 1998,
+    });
+
+    expect(result.ok).toBe(true);
+    const dealId = (result as { value: string }).value;
 
     const { data: deal } = await account.admin
       .from('deal')
-      .select('id, account_id, stage, source, description, owner_user_id')
+      .select('id, account_id, stage, source, description, owner_user_id, firm:firm_id(name, account_id)')
       .eq('id', dealId)
       .single();
 
@@ -88,32 +97,74 @@ describe('createDeal (integration)', () => {
       account_id: account.accountId,
       stage: 'sourcing',
       source: 'marketplace',
-      description: 'Main Street CPA',
+      description: 'Tax and bookkeeping practice',
       owner_user_id: account.userId,
+      firm: { name: 'Main Street CPA', account_id: account.accountId },
     });
 
     const { data: profile } = await account.admin
       .from('deal_profile')
-      .select('deal_id, employee_band, website, owner_role, reason_for_sale, year_established')
+      .select('deal_id, industry, employee_band, website, owner_role, reason_for_sale, year_established')
       .eq('deal_id', dealId)
       .single();
 
     expect(profile).toMatchObject({
       deal_id: dealId,
+      industry: 'Accounting',
       employee_band: '10-24',
       website: 'https://mainstreetcpa.example',
       owner_role: 'managing_partner',
       reason_for_sale: 'retirement',
       year_established: 1998,
     });
+  });
 
-    const { data: events } = await account.admin
-      .from('deal_event')
-      .select('event_type')
-      .eq('deal_id', dealId)
-      .eq('event_type', 'deal.created');
+  it('links an industry picked from the team list', async () => {
+    const { data: industry } = await account.admin
+      .from('industry')
+      .insert({ account_id: account.accountId, name: 'Home Services' })
+      .select('id')
+      .single()
+      .throwOnError();
 
-    expect(events).toHaveLength(1);
+    const result = await createDeal({
+      account_id: account.accountId,
+      business_name: 'Coastal HVAC',
+      industry_id: industry.id,
+      source: 'manual',
+      stage: 'sourcing',
+    });
+
+    const { data: profile } = await account.admin
+      .from('deal_profile')
+      .select('industry_id')
+      .eq('deal_id', (result as { value: string }).value)
+      .single();
+
+    expect(profile?.industry_id).toBe(industry.id);
+  });
+
+  it('refuses a deal without a business name', async () => {
+    expect(
+      await createDeal({
+        account_id: account.accountId,
+        business_name: '  ',
+        industry: 'Accounting',
+        source: 'manual',
+        stage: 'sourcing',
+      }),
+    ).toEqual({ ok: false, refusal: 'Enter the business name.' });
+  });
+
+  it('refuses a deal without an industry', async () => {
+    expect(
+      await createDeal({
+        account_id: account.accountId,
+        business_name: 'Main Street CPA',
+        source: 'manual',
+        stage: 'sourcing',
+      }),
+    ).toEqual({ ok: false, refusal: 'Pick an industry.' });
   });
 });
 

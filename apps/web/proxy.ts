@@ -15,6 +15,11 @@ export const config = {
 };
 
 export default async function proxy(request: NextRequest) {
+  request.headers.set(
+    'x-request-path',
+    request.nextUrl.pathname + request.nextUrl.search,
+  );
+
   const response = handleI18nRouting(request);
 
   const supabase = createServerClient(

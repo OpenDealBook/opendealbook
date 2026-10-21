@@ -1,5 +1,7 @@
 import type { Tables } from '@odb/supabase';
 
+import { formatOwnerNames } from './owner-names';
+
 export interface DealContext {
   deal: Tables<'deal'>;
   firm: Tables<'firm'> | null;
@@ -28,6 +30,25 @@ export function resolveFieldValues(
   return { values, valuesJson };
 }
 
+export class MissingFieldsError extends Error {
+  constructor(labels: string[]) {
+    super(`Fill in: ${labels.join(', ')}`);
+  }
+}
+
+export function assertNoBlankFields(
+  fields: Tables<'template_field'>[],
+  values: Record<string, string>,
+): void {
+  const blank = fields.filter((field) => values[field.key]!.trim() === '');
+
+  if (blank.length > 0) {
+    throw new MissingFieldsError(
+      blank.map((field) => field.label ?? field.key),
+    );
+  }
+}
+
 export function formatFieldValue(
   value: unknown,
   type: string | null,
@@ -38,17 +59,31 @@ export function formatFieldValue(
   }
 
   switch (type) {
-    case 'currency':
+    case 'currency': {
+      const amount = Number(value);
+      const fractionDigits = Number.isInteger(amount) ? 0 : 2;
+
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: format ?? 'USD',
-      }).format(Number(value));
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+      }).format(amount);
+    }
     case 'percent':
       return `${Number(value)}%`;
-    case 'date':
-      return new Date(value as string | number | Date)
-        .toISOString()
-        .slice(0, 10);
+    case 'date': {
+      const date = new Date(value as string | number | Date);
+
+      return format === 'long'
+        ? date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            timeZone: 'UTC',
+          })
+        : date.toISOString().slice(0, 10);
+    }
     case 'list':
       return Array.isArray(value) ? value.join(', ') : String(value);
     default:
@@ -69,12 +104,16 @@ function resolveRaw(
     field.source === 'deal'
       ? context.deal
       : field.source === 'firm'
-        ? (context.firm ?? {})
+        ? firmMergeRoot(context.firm)
         : field.source === 'account'
           ? context.account
           : manual;
 
   return readPath(root, field.source_path);
+}
+
+function firmMergeRoot(firm: Tables<'firm'> | null) {
+  return firm && { ...firm, owner_name: formatOwnerNames(firm.owner_names) };
 }
 
 function readPath(root: unknown, path: string): unknown {

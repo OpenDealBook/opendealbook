@@ -8,6 +8,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
+import { recordActivity } from '../activity/record-activity';
 import { notifyOurTeam } from './notify';
 import { replySchemaFor } from './reply-schema';
 import {
@@ -26,7 +27,7 @@ async function attachDocuments(
   userId: string,
   documentIds: string[],
 ) {
-  await getSupabaseServerAdminClient()
+  const { data: files } = await getSupabaseServerAdminClient()
     .from('lender_ask_file')
     .insert(
       documentIds.map((documentId) => ({
@@ -36,7 +37,10 @@ async function attachDocuments(
         added_by: userId,
       })),
     )
+    .select('id')
     .throwOnError();
+
+  return files.map((file) => file.id);
 }
 
 async function loadAskAsRoomMember(askId: string): Promise<LoadedAsk> {
@@ -70,6 +74,7 @@ const openAskSchema = z.object({
   roomId: z.uuid(),
   ...wordingSchema,
   documentIds: z.array(z.uuid()).optional(),
+  afterSuggestion: z.boolean().optional(),
 });
 
 export const openAsk = refusableAction(
@@ -104,9 +109,20 @@ export const openAsk = refusableAction(
 
     await attachDocuments(ask.id, user.id, documentIds);
 
-    await notifyOurTeam('lender_ask.opened', {
-      roomId: input.roomId,
+    if (input.afterSuggestion) {
+      await recordActivity({
+        client: getSupabaseServerClient(),
+        admin,
+        roomId: input.roomId,
+        action: 'request_sent_after_suggestion',
+        payload: { askId: ask.id },
+      });
+    }
+
+    await notifyOurTeam({
+      eventType: 'lender_ask.opened',
       accountId: room.account_id,
+      eventKey: ask.id,
       payload: { roomId: input.roomId, askId: ask.id, kind: 'ask' },
     });
 
@@ -146,23 +162,28 @@ export const replyToAskAsLender = refusableAction(
     await assertRoomShowsDocuments(ask.room_id, documentIds);
     await saveLenderMove(ask, 'reply');
 
-    if (input.body) {
-      await getSupabaseServerAdminClient()
-        .from('lender_ask_message')
-        .insert({
-          ask_id: ask.id,
-          author_user_id: user.id,
-          side: 'lender',
-          body: input.body,
-        })
-        .throwOnError();
-    }
+    const message = input.body
+      ? (
+          await getSupabaseServerAdminClient()
+            .from('lender_ask_message')
+            .insert({
+              ask_id: ask.id,
+              author_user_id: user.id,
+              side: 'lender',
+              body: input.body,
+            })
+            .select('id')
+            .single()
+            .throwOnError()
+        ).data
+      : null;
 
-    await attachDocuments(ask.id, user.id, documentIds);
+    const fileIds = await attachDocuments(ask.id, user.id, documentIds);
 
-    await notifyOurTeam('lender_ask.replied', {
-      roomId: ask.room_id,
+    await notifyOurTeam({
+      eventType: 'lender_ask.replied',
       accountId: ask.account_id,
+      eventKey: message?.id ?? fileIds[0]!,
       payload: { roomId: ask.room_id, askId: ask.id, kind: 'ask' },
     });
   },

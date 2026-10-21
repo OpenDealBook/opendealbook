@@ -52,13 +52,13 @@ select throws_ok(
 
 -- ---- Deal-access member reaches their batch and items ----
 select tests.login_as('ub_ext');
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.upload_batch where deal_id = 'bbbbbbbb-0000-0000-0000-0000000000e2' $$,
-  'a participant reads upload_batch rows on their granted deal'
+  'a participant cannot read upload_batch rows on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.upload_item where batch_id = 'bbbbbbbb-0000-0000-0000-000000000ba1' $$,
-  'a participant reads upload_item rows on their granted deal'
+  'a participant cannot read upload_item rows on their granted deal'
 );
 
 -- ---- Account owner reaches their account's batch ----

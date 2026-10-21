@@ -1,11 +1,11 @@
 'use server';
 
-import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { dealDiscoverySchema } from '../schema/deal-discovery.schema';
+import { refusableAction } from './refusal';
 
-export const saveDealDiscovery = enhanceAction(
+export const saveDealDiscovery = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -30,5 +30,10 @@ export const saveDealDiscovery = enhanceAction(
 
     return row;
   },
-  { auth: true, schema: dealDiscoverySchema },
+  dealDiscoverySchema,
+  {
+    what: 'edit discovery notes',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );

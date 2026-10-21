@@ -10,7 +10,12 @@ const mocks = vi.hoisted(() => {
   const insertSpy = vi.fn();
   const upsertSpy = vi.fn();
   const deleteSpy = vi.fn();
-  const rpcSpy = vi.fn(async () => ({ data: true, error: null }));
+  const rpcSpy = vi.fn((name: string) => {
+    const result = { data: name === 'deal_people' ? [] : true, error: null };
+    return Object.assign(Promise.resolve(result), {
+      throwOnError: async () => result,
+    });
+  });
 
   let stages: Array<{ key: string; sort_order: number }> = [];
 
@@ -23,10 +28,10 @@ const mocks = vi.hoisted(() => {
       return stages;
     }
     if (table === 'deal') {
-      return { id: 'deal-1', account_id: 'account-1', stage: 'sourced' };
+      return { id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', account_id: 'd189aa4d-3d82-46d6-8967-4a2079217dfb', stage: 'sourced' };
     }
     if (table === 'approval' || table === 'checklist_item') {
-      return { deal_id: 'deal-1' };
+      return { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' };
     }
 
     return { id: `${table}-1` };
@@ -76,7 +81,10 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock('@odb/next/actions', () => ({
-  enhanceAction: (fn: unknown) => fn,
+  enhanceAction:
+    (fn: (data: unknown, user: { id: string }) => unknown) =>
+    (data: unknown, user?: { id: string }) =>
+      fn(data, user ?? { id: 'user-1' }),
 }));
 
 vi.mock('@odb/supabase/server', () => ({
@@ -93,7 +101,6 @@ import {
   addDealParticipant,
   adoptDealFinancials,
   archiveDeal,
-  createDeal,
   decideApproval,
   requestApproval,
   setDealListingStatus,
@@ -112,7 +119,6 @@ type Action = (
   user: { id: string },
 ) => Promise<unknown>;
 
-const runCreateDeal = createDeal as unknown as Action;
 const runUpdateDealStage = updateDealStage as unknown as Action;
 const runAddDealParticipant = addDealParticipant as unknown as Action;
 const runRequestApproval = requestApproval as unknown as Action;
@@ -145,99 +151,6 @@ beforeEach(() => {
   );
 });
 
-describe('createDeal', () => {
-  it('appends a deal.created event with the projected payload and returns the new id', async () => {
-    const result = await runCreateDeal(
-      {
-        account_id: 'account-1',
-        firm_id: 'firm-9',
-        description: 'Main Street CPA',
-        source: 'manual',
-        stage: 'sourced',
-      },
-      { id: 'user-1' },
-    );
-
-    expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: GENERATED_ID,
-      aggregateType: 'deal',
-      aggregateId: GENERATED_ID,
-      eventType: 'deal.created',
-      payload: {
-        account_id: 'account-1',
-        owner_user_id: 'user-1',
-        firm_id: 'firm-9',
-        description: 'Main Street CPA',
-        source: 'manual',
-        stage: 'sourced',
-      },
-    });
-    expect(result).toBe(GENERATED_ID);
-  });
-
-  it('carries source_url into the deal.created payload when provided', async () => {
-    await runCreateDeal(
-      {
-        account_id: 'account-1',
-        description: 'Main Street CPA',
-        source: 'marketplace',
-        stage: 'sourced',
-        source_url: 'https://listings.example.com/main-street-cpa',
-      },
-      { id: 'user-1' },
-    );
-
-    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
-      unknown,
-      { payload: Record<string, unknown> },
-    ];
-
-    expect(input.payload.source_url).toBe(
-      'https://listings.example.com/main-street-cpa',
-    );
-  });
-
-  it('carries profile and capture fields into the deal.created payload when provided', async () => {
-    await runCreateDeal(
-      {
-        account_id: 'account-1',
-        description: 'Main Street CPA',
-        source: 'marketplace',
-        stage: 'sourced',
-        industry_id: 'industry-2',
-        location_id: 'location-3',
-        location_raw: 'Austin, TX',
-        employee_band: '10-24',
-        website: 'https://example.com',
-        owner_role: 'managing_partner',
-        reason_for_sale: 'retirement',
-        year_established: 1998,
-        discovered_at: '2026-01-01T00:00:00.000Z',
-        capture_method: 'extension',
-      },
-      { id: 'user-1' },
-    );
-
-    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
-      unknown,
-      { payload: Record<string, unknown> },
-    ];
-
-    expect(input.payload).toMatchObject({
-      industry_id: 'industry-2',
-      location_id: 'location-3',
-      location_raw: 'Austin, TX',
-      employee_band: '10-24',
-      website: 'https://example.com',
-      owner_role: 'managing_partner',
-      reason_for_sale: 'retirement',
-      year_established: 1998,
-      discovered_at: '2026-01-01T00:00:00.000Z',
-      capture_method: 'extension',
-    });
-  });
-});
-
 describe('setDealResolution', () => {
   it('rejects a lost resolution with no reason', () => {
     const result = setDealResolutionSchema.safeParse({
@@ -261,7 +174,7 @@ describe('setDealResolution', () => {
   it('appends deal.resolved with the resolution and reason', async () => {
     await runSetDealResolution(
       {
-        deal_id: 'deal-1',
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
         resolution: 'lost',
         resolution_reason: 'deal_did_not_close',
       },
@@ -269,9 +182,9 @@ describe('setDealResolution', () => {
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal',
-      aggregateId: 'deal-1',
+      aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       eventType: 'deal.resolved',
       payload: {
         resolution: 'lost',
@@ -282,7 +195,7 @@ describe('setDealResolution', () => {
 
   it('defaults a won resolution reason to closed', async () => {
     await runSetDealResolution(
-      { deal_id: 'deal-1', resolution: 'won' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', resolution: 'won' },
       { id: 'user-1' },
     );
 
@@ -300,26 +213,42 @@ describe('setDealResolution', () => {
 
 describe('archiveDeal', () => {
   it('appends a deal.archived event', async () => {
-    await runArchiveDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+    await runArchiveDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal',
-      aggregateId: 'deal-1',
+      aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       eventType: 'deal.archived',
       payload: {},
+    });
+  });
+  it('returns a named refusal to someone who does not manage the deal', async () => {
+    mocks.appendDealEvent.mockRejectedValueOnce({
+      code: '42501',
+      message: 'not authorized to append deal.archived on deal 6221ddef: needs deals.manage',
+    });
+
+    const result = await runArchiveDeal(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can archive deals. Ask a deal manager.',
     });
   });
 });
 
 describe('unarchiveDeal', () => {
   it('appends a deal.unarchived event', async () => {
-    await runUnarchiveDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+    await runUnarchiveDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal',
-      aggregateId: 'deal-1',
+      aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       eventType: 'deal.unarchived',
       payload: {},
     });
@@ -329,14 +258,14 @@ describe('unarchiveDeal', () => {
 describe('setDealListingStatus', () => {
   it('appends a deal.listing_status_changed event with the status', async () => {
     await runSetDealListingStatus(
-      { deal_id: 'deal-1', listing_status: 'sold' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', listing_status: 'sold' },
       { id: 'user-1' },
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal',
-      aggregateId: 'deal-1',
+      aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       eventType: 'deal.listing_status_changed',
       payload: { listing_status: 'sold' },
     });
@@ -346,30 +275,32 @@ describe('setDealListingStatus', () => {
 describe('setEarningsBasis', () => {
   it('appends a deal.earnings_basis_changed event with the basis', async () => {
     await runSetEarningsBasis(
-      { deal_id: 'deal-1', earnings_basis: 'ebitda' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', earnings_basis: 'ebitda' },
       { id: 'user-1' },
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal',
-      aggregateId: 'deal-1',
+      aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       eventType: 'deal.earnings_basis_changed',
       payload: { earnings_basis: 'ebitda' },
     });
   });
 
-  it('rejects when the caller lacks deals.manage', async () => {
-    mocks.rpcSpy.mockResolvedValueOnce({ data: false, error: null });
+  it('returns a named refusal when the caller lacks deals.manage', async () => {
+    mocks.appendDealEvent.mockRejectedValueOnce({ code: '42501' });
 
-    await expect(
-      runSetEarningsBasis(
-        { deal_id: 'deal-1', earnings_basis: 'ebitda' },
-        { id: 'user-1' },
-      ),
-    ).rejects.toThrow();
+    const result = await runSetEarningsBasis(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', earnings_basis: 'ebitda' },
+      { id: 'user-1' },
+    );
 
-    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      ok: false,
+      refusal:
+        'Only deal managers can change the earnings basis. Ask a deal manager.',
+    });
   });
 });
 
@@ -377,26 +308,46 @@ describe('adoptDealFinancials', () => {
   it('appends a deal.financials_adopted event with the adopted figures', async () => {
     await runAdoptDealFinancials(
       {
-        deal_id: 'deal-1',
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
         adopted_revenue: 1000000,
         adopted_sde: 250000,
         adopted_ebitda: 300000,
-        source_calc_version_id: 'calc-9',
+        source_calc_version_id: '4cabc7b9-2dfa-43b1-8665-b393543954c7',
       },
       { id: 'user-1' },
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal',
-      aggregateId: 'deal-1',
+      aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       eventType: 'deal.financials_adopted',
       payload: {
         adopted_revenue: 1000000,
         adopted_sde: 250000,
         adopted_ebitda: 300000,
-        source_calc_version_id: 'calc-9',
+        adopted_years: null,
+        source_calc_version_id: '4cabc7b9-2dfa-43b1-8665-b393543954c7',
       },
+    });
+  });
+});
+
+describe('adoptDealFinancials refusal', () => {
+  it('names who can adopt financials when the caller cannot', async () => {
+    mocks.appendDealEvent.mockRejectedValueOnce({
+      code: '42501',
+      message: 'not authorized to append deal.financials_adopted on deal: needs deals.manage',
+    });
+
+    expect(
+      await runAdoptDealFinancials(
+        { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', adopted_revenue: 1000000 },
+        { id: 'user-1' },
+      ),
+    ).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can adopt financials. Ask a deal manager.',
     });
   });
 });
@@ -405,7 +356,7 @@ describe('upsertDealBox', () => {
   it('persists min_dscr and required_personal_cash_flow alongside the criteria', async () => {
     await runUpsertDealBox(
       {
-        account_id: 'account-1',
+        account_id: 'd189aa4d-3d82-46d6-8967-4a2079217dfb',
         criteria_json: { min_revenue: 500000 },
         min_dscr: 2.25,
         required_personal_cash_flow: 180000,
@@ -429,7 +380,7 @@ describe('upsertDealBox', () => {
 
 describe('starDeal', () => {
   it('inserts a deal_star row scoped to the current user and the deal account', async () => {
-    await runStarDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+    await runStarDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
 
     const [table, payload, options] = mocks.upsertSpy.mock.calls.at(
       -1,
@@ -442,8 +393,8 @@ describe('starDeal', () => {
     expect(table).toBe('deal_star');
     expect(payload).toEqual({
       user_id: 'user-1',
-      deal_id: 'deal-1',
-      account_id: 'account-1',
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      account_id: 'd189aa4d-3d82-46d6-8967-4a2079217dfb',
     });
     expect(options).toMatchObject({ ignoreDuplicates: true });
   });
@@ -451,7 +402,7 @@ describe('starDeal', () => {
 
 describe('unstarDeal', () => {
   it('deletes the deal_star row', async () => {
-    await runUnstarDeal({ deal_id: 'deal-1' }, { id: 'user-1' });
+    await runUnstarDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
 
     expect(mocks.deleteSpy).toHaveBeenCalledWith('deal_star');
   });
@@ -468,17 +419,17 @@ describe('updateDealStage', () => {
 
   it('batches only a deal.stage_changed event when no approval is due', async () => {
     await runUpdateDealStage(
-      { deal_id: 'deal-1', stage: 'qualifying' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', stage: 'qualifying' },
       { id: 'user-1' },
     );
 
     const [, dealId, events] = eventsArg();
 
-    expect(dealId).toBe('deal-1');
+    expect(dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(events).toEqual([
       {
         aggregateType: 'deal',
-        aggregateId: 'deal-1',
+        aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
         eventType: 'deal.stage_changed',
         payload: { stage: 'qualifying' },
       },
@@ -487,7 +438,7 @@ describe('updateDealStage', () => {
 
   it('adds an approval.requested event when the target is past loi', async () => {
     await runUpdateDealStage(
-      { deal_id: 'deal-1', stage: 'diligence' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', stage: 'diligence' },
       { id: 'user-1' },
     );
 
@@ -510,7 +461,7 @@ describe('updateDealStage', () => {
     ]);
 
     await runUpdateDealStage(
-      { deal_id: 'deal-1', stage: 'apa' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', stage: 'apa' },
       { id: 'user-1' },
     );
 
@@ -525,8 +476,8 @@ describe('addDealParticipant', () => {
   it('appends a deal_participant.added event with the mapped payload', async () => {
     await runAddDealParticipant(
       {
-        deal_id: 'deal-1',
-        user_id: 'user-9',
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        user_id: '9b1f7c0e-2a4d-4c3b-8e5f-6a7b8c9d0e1f',
         party: 'buyer',
         role: 'advisor',
         scope: 'deal',
@@ -537,12 +488,12 @@ describe('addDealParticipant', () => {
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'deal_participant',
       aggregateId: GENERATED_ID,
       eventType: 'deal_participant.added',
       payload: {
-        user_id: 'user-9',
+        user_id: '9b1f7c0e-2a4d-4c3b-8e5f-6a7b8c9d0e1f',
         party: 'buyer',
         role: 'advisor',
         scope: 'deal',
@@ -553,15 +504,73 @@ describe('addDealParticipant', () => {
   });
 });
 
+describe('addDealParticipant refusal', () => {
+  it('refuses a caller who cannot manage participants and records nothing', async () => {
+    mocks.rpcSpy.mockResolvedValueOnce({ data: false, error: null });
+
+    const result = await runAddDealParticipant(
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        user_id: '9b1f7c0e-2a4d-4c3b-8e5f-6a7b8c9d0e1f',
+        party: 'buyer',
+      },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can add people to a deal.',
+    });
+    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('approval refusals', () => {
+  function refuseAppend() {
+    mocks.appendDealEvent.mockRejectedValueOnce({
+      code: '42501',
+      message: 'not authorized to append approval.requested on deal: needs deals.manage',
+    });
+  }
+
+  it('names who can request an approval when the caller cannot', async () => {
+    refuseAppend();
+
+    const result = await runRequestApproval(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', subject: 'stage_move' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can request approvals. Ask a deal manager.',
+    });
+  });
+
+  it('names who can decide an approval when the caller cannot', async () => {
+    refuseAppend();
+
+    const result = await runDecideApproval(
+      { id: '7a0c1d2e-3f4a-4b5c-8d6e-7f8a9b0c1d2e', decision: 'approved' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can decide approvals. Ask a deal manager.',
+    });
+  });
+});
+
 describe('requestApproval', () => {
   it('appends an approval.requested event with the subject payload', async () => {
     await runRequestApproval(
-      { deal_id: 'deal-1', subject: 'stage_move' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', subject: 'stage_move' },
       { id: 'user-1' },
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'approval',
       aggregateId: GENERATED_ID,
       eventType: 'approval.requested',
@@ -573,14 +582,14 @@ describe('requestApproval', () => {
 describe('decideApproval', () => {
   it('resolves the deal from the approval and appends approval.decided', async () => {
     await runDecideApproval(
-      { id: 'approval-7', decision: 'approved' },
+      { id: '7a0c1d2e-3f4a-4b5c-8d6e-7f8a9b0c1d2e', decision: 'approved' },
       { id: 'user-1' },
     );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'approval',
-      aggregateId: 'approval-7',
+      aggregateId: '7a0c1d2e-3f4a-4b5c-8d6e-7f8a9b0c1d2e',
       eventType: 'approval.decided',
       payload: { decision: 'approved' },
     });
@@ -590,7 +599,7 @@ describe('decideApproval', () => {
 describe('updateChecklistItemStatus', () => {
   it('appends checklist_item.status_changed and stamps the matching timestamp', async () => {
     await runUpdateChecklistItemStatus(
-      { id: 'item-3', status: 'received' },
+      { id: '5f675954-8b8a-402f-856d-555c3b0635f5', status: 'received' },
       { id: 'user-1' },
     );
 
@@ -605,9 +614,9 @@ describe('updateChecklistItemStatus', () => {
       },
     ];
 
-    expect(input.dealId).toBe('deal-1');
+    expect(input.dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(input.aggregateType).toBe('checklist_item');
-    expect(input.aggregateId).toBe('item-3');
+    expect(input.aggregateId).toBe('5f675954-8b8a-402f-856d-555c3b0635f5');
     expect(input.eventType).toBe('checklist_item.status_changed');
     expect(input.payload.status).toBe('received');
     expect(input.payload.received_at).toBeTruthy();

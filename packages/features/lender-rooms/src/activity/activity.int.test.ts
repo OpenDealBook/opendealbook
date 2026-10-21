@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+
 import { unzipSync } from 'fflate';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -9,7 +10,16 @@ import {
   type IntegrationAccount,
   provisionAccount,
 } from '../../../deals/test-support/integration-harness';
+import { openAsk } from '../asks/lender-actions';
+import { fetchRoomFaq } from '../faq/queries';
+import {
+  recordFaqEntryOpened,
+  recordFaqPageOpened,
+  recordFaqSuggestionOpened,
+  recordFaqSuggestionResolved,
+} from './actions';
 import { respondToDocumentRequest } from './document-access';
+import { respondToFaqFileRequest } from './faq-file-access';
 import { respondToPackageDocumentRequest } from './package-document-access';
 import { fetchRoomActivity, fetchSeenBy } from './queries';
 import { recordActivity, recordFolderActivity } from './record-activity';
@@ -161,7 +171,12 @@ async function addDocumentRow(
     aggregateType: 'dr_document',
     aggregateId: id,
     eventType: 'dr_document.added',
-    payload: { folder_id: folderId, name, storage_path: storagePath, version: 1 },
+    payload: {
+      folder_id: folderId,
+      name,
+      storage_path: storagePath,
+      version: 1,
+    },
   });
 
   return { id, name, storagePath, body };
@@ -230,7 +245,9 @@ async function hide(
 async function activityIn(roomId: string) {
   const { data } = await admin
     .from('lender_room_activity')
-    .select('user_id, side, action, dr_document_id, dr_folder_id, payload, created_at')
+    .select(
+      'user_id, side, action, dr_document_id, dr_folder_id, faq_entry_id, faq_file_id, payload, created_at',
+    )
     .eq('room_id', roomId)
     .order('created_at')
     .throwOnError();
@@ -724,7 +741,10 @@ describe('respondToDocumentRequest', () => {
 
   it('creates the rendition on preview when the file has none yet', async () => {
     const room = await newRoom();
-    const photo = await addDocumentRow(room.privateFolderId, 'from-data-room.heic');
+    const photo = await addDocumentRow(
+      room.privateFolderId,
+      'from-data-room.heic',
+    );
 
     await store(photo.storagePath, HEIC_SAMPLE);
 
@@ -748,7 +768,10 @@ describe('respondToDocumentRequest', () => {
 
   it('records nothing when the file cannot be signed', async () => {
     const room = await newRoom();
-    const missing = await addDocumentRow(room.privateFolderId, 'never-uploaded.pdf');
+    const missing = await addDocumentRow(
+      room.privateFolderId,
+      'never-uploaded.pdf',
+    );
 
     await expect(
       getDocument(room, missing.id, { query: '?disposition=download' }),
@@ -778,7 +801,10 @@ describe('respondToDocumentRequest', () => {
 
   it('answers 404 for another version of a hidden document', async () => {
     const room = await newRoom();
-    const hidden = await addDocument(masterFolderId, `versioned-${room.id}.pdf`);
+    const hidden = await addDocument(
+      masterFolderId,
+      `versioned-${room.id}.pdf`,
+    );
     const newerVersion = await addDocument(masterFolderId, hidden.name);
 
     await hide(room, { dr_document_id: hidden.id });
@@ -914,7 +940,12 @@ describe('respondToPackageDocumentRequest', () => {
       aggregateType: 'dr_document',
       aggregateId: id,
       eventType: 'dr_document.added',
-      payload: { folder_id: folderId, name, storage_path: storagePath, version: 1 },
+      payload: {
+        folder_id: folderId,
+        name,
+        storage_path: storagePath,
+        version: 1,
+      },
     });
 
     return { id, name, storagePath, body };
@@ -1039,7 +1070,9 @@ describe('respondToPackageDocumentRequest', () => {
   });
 
   it('redirects a manager preview to a URL that serves the file as an attachment', async () => {
-    const file = await fetchSignedFile(await getPackageDocument(packageFile.id));
+    const file = await fetchSignedFile(
+      await getPackageDocument(packageFile.id),
+    );
 
     expect([
       await file.text(),
@@ -1081,7 +1114,8 @@ describe('respondToPackageDocumentRequest', () => {
 
   it('answers 404 to a lender of the deal', async () => {
     expect(
-      (await getPackageDocument(packageFile.id, { client: lender.user })).status,
+      (await getPackageDocument(packageFile.id, { client: lender.user }))
+        .status,
     ).toBe(404);
   });
 
@@ -1116,8 +1150,11 @@ describe('respondToPackageDocumentRequest', () => {
 
   it('answers 400 for an unknown disposition', async () => {
     expect(
-      (await getPackageDocument(packageFile.id, { query: '?disposition=inline' }))
-        .status,
+      (
+        await getPackageDocument(packageFile.id, {
+          query: '?disposition=inline',
+        })
+      ).status,
     ).toBe(400);
   });
 
@@ -1249,7 +1286,10 @@ describe('respondToZipRequest', () => {
   it('answers 404 and records nothing when one id is in another room', async () => {
     const room = await newRoom();
     const otherRoom = await newRoom();
-    const inOtherRoom = await addDocument(otherRoom.privateFolderId, 'for-other.pdf');
+    const inOtherRoom = await addDocument(
+      otherRoom.privateFolderId,
+      'for-other.pdf',
+    );
 
     await expectZipRefused(room, [cim.id, inOtherRoom.id]);
   });
@@ -1278,7 +1318,10 @@ describe('respondToZipRequest', () => {
 
   it('answers 404 and records nothing when one file is missing from storage', async () => {
     const room = await newRoom();
-    const missing = await addDocumentRow(room.privateFolderId, 'never-uploaded.pdf');
+    const missing = await addDocumentRow(
+      room.privateFolderId,
+      'never-uploaded.pdf',
+    );
 
     await expectZipRefused(room, [cim.id, missing.id]);
   });
@@ -1300,7 +1343,11 @@ describe('respondToZipRequest', () => {
     const room = await newRoom();
 
     const response = await postZip(room, [], {
-      headers: { origin: ORIGIN, host: HOST, 'content-type': 'application/json' },
+      headers: {
+        origin: ORIGIN,
+        host: HOST,
+        'content-type': 'application/json',
+      },
       body: JSON.stringify({ documentIds: [cim.id] }),
     });
 
@@ -1319,12 +1366,15 @@ describe('respondToZipRequest', () => {
     ['no Origin', { host: HOST }],
     ['an Origin on another host', { origin: 'https://evil.test', host: HOST }],
     ['an opaque Origin', { origin: 'null', host: HOST }],
-  ])('answers 403 to a request with %s and records nothing', async (_case, headers) => {
-    const room = await newRoom();
+  ])(
+    'answers 403 to a request with %s and records nothing',
+    async (_case, headers) => {
+      const room = await newRoom();
 
-    expect((await postZip(room, [cim.id], { headers })).status).toBe(403);
-    expect(await activityIn(room.id)).toEqual([]);
-  });
+      expect((await postZip(room, [cim.id], { headers })).status).toBe(403);
+      expect(await activityIn(room.id)).toEqual([]);
+    },
+  );
 
   it('accepts an https Origin on its own host when the proxy forwards plain http', async () => {
     const room = await newRoom();
@@ -1436,7 +1486,10 @@ describe('fetchRoomActivity', () => {
 
   it('keeps an entry with a null name once its document is removed', async () => {
     const room = await newRoom();
-    const shortLived = await addDocument(room.privateFolderId, 'short-lived.pdf');
+    const shortLived = await addDocument(
+      room.privateFolderId,
+      'short-lived.pdf',
+    );
 
     await getDocument(room, shortLived.id);
     await removeDocument(shortLived);
@@ -1469,8 +1522,14 @@ describe('fetchRoomActivity beyond recorded activity', () => {
     await replyAsTeam(askId);
     await replyAsLender(askId);
     const formId = await openRequest(room, 'form', 'Loan application');
-    const fromLender = await uploadAsLender(room.privateFolderId, 'appraisal.pdf');
-    const fromTeam = await addDocumentRow(room.privateFolderId, 'term-sheet-notes.pdf');
+    const fromLender = await uploadAsLender(
+      room.privateFolderId,
+      'appraisal.pdf',
+    );
+    const fromTeam = await addDocumentRow(
+      room.privateFolderId,
+      'term-sheet-notes.pdf',
+    );
     await getDocument(room, cim.id);
 
     const entries = await fetchRoomActivity(owner.user, room.id);
@@ -1578,7 +1637,10 @@ describe('fetchRoomActivity beyond recorded activity', () => {
   it('gives a thread file entry its request, its file, and its role', async () => {
     const room = await newRoom();
     const askId = await openRequest(room, 'ask', 'Tax returns?');
-    const supporting = await uploadAsLender(room.privateFolderId, 'supporting.pdf');
+    const supporting = await uploadAsLender(
+      room.privateFolderId,
+      'supporting.pdf',
+    );
     const fileId = await attach(askId, supporting, 'attachment');
 
     expect((await composedEntries(room))[0]).toEqual({
@@ -1650,7 +1712,10 @@ describe('fetchRoomActivity beyond recorded activity', () => {
   it('lists a replaced blank form as a thread file', async () => {
     const room = await newRoom();
     const formId = await openFormWithBlank(room);
-    const replacement = await uploadAsLender(room.privateFolderId, 'blank-v2.pdf');
+    const replacement = await uploadAsLender(
+      room.privateFolderId,
+      'blank-v2.pdf',
+    );
 
     await attach(formId, replacement, 'blank_form');
 
@@ -1700,7 +1765,9 @@ describe('fetchRoomActivity beyond recorded activity', () => {
     const room = await newRoom();
     const otherRoom = await newRoom();
 
-    await replyAsLender(await openRequest(otherRoom, 'ask', 'For the other room'));
+    await replyAsLender(
+      await openRequest(otherRoom, 'ask', 'For the other room'),
+    );
     await uploadAsLender(otherRoom.privateFolderId, 'other-room.pdf');
 
     expect(await fetchRoomActivity(owner.user, room.id)).toEqual([]);
@@ -1906,7 +1973,10 @@ describe('fetchSeenBy', () => {
 
   it('keeps an entry with a null name once its document is removed', async () => {
     const room = await newRoom();
-    const shortLived = await addDocument(room.privateFolderId, 'short-lived.pdf');
+    const shortLived = await addDocument(
+      room.privateFolderId,
+      'short-lived.pdf',
+    );
 
     await getDocument(room, shortLived.id);
     await removeDocument(shortLived);
@@ -1922,5 +1992,642 @@ describe('fetchSeenBy', () => {
     await getDocument(room, cim.id);
 
     expect(await fetchSeenBy(lender.user, room.id)).toEqual([]);
+  });
+});
+
+async function addFaqEntry(
+  question: string,
+  answer: string,
+  options: {
+    status?: 'draft' | 'published' | 'unpublished';
+    pinned?: boolean;
+  } = {},
+): Promise<string> {
+  const { data } = await admin
+    .from('lender_faq_entry')
+    .insert({
+      account_id: owner.accountId,
+      deal_id: dealId,
+      question,
+      answer,
+      status: options.status === 'draft' ? 'draft' : 'published',
+      pinned: options.pinned ?? false,
+    })
+    .select('id')
+    .single()
+    .throwOnError();
+
+  if (options.status === 'unpublished') {
+    await owner.user
+      .from('lender_faq_entry')
+      .update({ status: 'unpublished' })
+      .eq('id', data.id)
+      .throwOnError();
+  }
+
+  return data.id;
+}
+
+async function addFaqFile(
+  entryId: string,
+  name: string,
+): Promise<StoredDocument> {
+  const storagePath = `deal/${dealId}/${crypto.randomUUID()}-${name}`;
+  const body = `bytes of FAQ file ${name}`;
+  const { data } = await admin
+    .from('lender_faq_file')
+    .insert({
+      entry_id: entryId,
+      deal_id: dealId,
+      name,
+      storage_path: storagePath,
+    })
+    .select('id')
+    .single()
+    .throwOnError();
+
+  await store(storagePath, body);
+
+  return { id: data.id, name, storagePath, body };
+}
+
+function uniqueWord(): string {
+  return `zq${crypto.randomUUID().replace(/[^a-f]/g, '')}`;
+}
+
+describe('fetchRoomFaq', () => {
+  it('lists the entries a room shows, pinned first then newest, with their files', async () => {
+    const room = await newRoom();
+    const older = await addFaqEntry(
+      'What is the EBITDA?',
+      'About two million.',
+    );
+    const newer = await addFaqEntry('Who are the owners?', 'Two founders.');
+    const pinned = await addFaqEntry('When is the close?', 'In March.', {
+      pinned: true,
+    });
+    const zFile = await addFaqFile(older, 'z-tax-return.pdf');
+    const aFile = await addFaqFile(older, 'a-pnl.xlsx');
+    const ids = [older, newer, pinned];
+
+    const shown = (await fetchRoomFaq(lender.user, room.id)).filter((entry) =>
+      ids.includes(entry.id),
+    );
+
+    expect(shown).toMatchObject([
+      {
+        id: pinned,
+        question: 'When is the close?',
+        answer: 'In March.',
+        pinned: true,
+        files: [],
+      },
+      { id: newer, question: 'Who are the owners?', pinned: false, files: [] },
+      {
+        id: older,
+        files: [
+          { id: aFile.id, name: 'a-pnl.xlsx' },
+          { id: zFile.id, name: 'z-tax-return.pdf' },
+        ],
+      },
+    ]);
+    expect(shown[0]!.firstPublishedAt).toEqual(expect.any(String));
+    expect(shown[0]!.updatedAt).toEqual(expect.any(String));
+  });
+
+  it('leaves out drafts, unpublished entries, and entries hidden from the room', async () => {
+    const room = await newRoom();
+    const draft = await addFaqEntry('Draft?', 'Not yet.', { status: 'draft' });
+    const unpublished = await addFaqEntry('Gone?', 'Yes.', {
+      status: 'unpublished',
+    });
+    const hidden = await addFaqEntry('Hidden?', 'From this room.');
+    const visible = await addFaqEntry('Visible?', 'Here.');
+
+    await admin
+      .from('lender_faq_hidden')
+      .insert({ room_id: room.id, deal_id: dealId, entry_id: hidden })
+      .throwOnError();
+
+    const ids = (await fetchRoomFaq(lender.user, room.id)).map(
+      (entry) => entry.id,
+    );
+
+    expect(ids).toContain(visible);
+    expect(ids).not.toContain(draft);
+    expect(ids).not.toContain(unpublished);
+    expect(ids).not.toContain(hidden);
+  });
+
+  it('with a query, lists only matching entries, best match first', async () => {
+    const room = await newRoom();
+    const word = uniqueWord();
+    const inAnswer = await addFaqEntry(
+      'About the lease',
+      `The ${word} is fine.`,
+    );
+    const inQuestion = await addFaqEntry(
+      `What is the ${word}?`,
+      `The ${word} is ours.`,
+    );
+    await addFaqEntry('Unrelated', 'Nothing here.');
+
+    expect(
+      (await fetchRoomFaq(lender.user, room.id, word)).map((entry) => entry.id),
+    ).toEqual([inQuestion, inAnswer]);
+  });
+
+  it('shows a lender nothing once the room is closed', async () => {
+    const room = await closedRoom();
+    await addFaqEntry('Closed?', 'Yes.');
+
+    expect(await fetchRoomFaq(lender.user, room.id)).toEqual([]);
+  });
+
+  it('shows an outsider nothing', async () => {
+    const room = await newRoom();
+    await addFaqEntry('Outsider?', 'No.');
+
+    expect(await fetchRoomFaq(outsider.user, room.id)).toEqual([]);
+  });
+});
+
+async function hideFaqEntry(room: Room, entryId: string): Promise<void> {
+  await admin
+    .from('lender_faq_hidden')
+    .insert({ room_id: room.id, deal_id: dealId, entry_id: entryId })
+    .throwOnError();
+}
+
+async function renameFaqFile(fileId: string, name: string): Promise<void> {
+  await owner.user
+    .from('lender_faq_file')
+    .update({ name })
+    .eq('id', fileId)
+    .throwOnError();
+}
+
+function getFaqFile(
+  room: Room,
+  fileId: string,
+  {
+    client = lender.user,
+    query = '?disposition=preview',
+    headers = {},
+  }: { client?: Client; query?: string; headers?: Record<string, string> } = {},
+): Promise<Response> {
+  return respondToFaqFileRequest({
+    client,
+    admin,
+    request: new Request(
+      `${ORIGIN}/lender/${room.id}/faq/files/${fileId}${query}`,
+      { headers },
+    ),
+    roomId: room.id,
+    fileId,
+  });
+}
+
+async function expectFaqFileRefused(room: Room, fileId: string): Promise<void> {
+  const statuses = [
+    (await getFaqFile(room, fileId)).status,
+    (await getFaqFile(room, fileId, { query: '?disposition=download' })).status,
+  ];
+
+  expect(statuses).toEqual([404, 404]);
+  expect(await activityIn(room.id)).toEqual([]);
+}
+
+describe('respondToFaqFileRequest', () => {
+  it('redirects a preview to a URL that serves the file and records it against the entry', async () => {
+    const room = await newRoom();
+    const entryId = await addFaqEntry('Tax returns?', 'Attached.');
+    const file = await addFaqFile(entryId, 'tax-return.pdf');
+
+    const response = await getFaqFile(room, file.id);
+
+    expect(response.status).toBe(307);
+    expect(await (await fetchSignedFile(response)).text()).toBe(file.body);
+    expect(await activityIn(room.id)).toMatchObject([
+      {
+        user_id: lender.userId,
+        side: 'lender',
+        action: 'faq_file_previewed',
+        faq_entry_id: entryId,
+        faq_file_id: file.id,
+        dr_document_id: null,
+      },
+    ]);
+  });
+
+  it('records a download under the team member and names the attachment after the file', async () => {
+    const room = await newRoom();
+    const entryId = await addFaqEntry('Lease?', 'Attached.');
+    const file = await addFaqFile(entryId, 'lease.pdf');
+
+    const downloaded = await fetchSignedFile(
+      await getFaqFile(room, file.id, {
+        client: owner.user,
+        query: '?disposition=download',
+      }),
+    );
+
+    expect(downloaded.headers.get('content-disposition')).toBe(
+      "attachment; filename=lease.pdf; filename*=UTF-8''lease.pdf",
+    );
+    expect(await activityIn(room.id)).toMatchObject([
+      {
+        user_id: owner.userId,
+        side: 'internal',
+        action: 'faq_file_downloaded',
+        faq_entry_id: entryId,
+        faq_file_id: file.id,
+      },
+    ]);
+  });
+
+  it('serves a preview URL as an attachment so it never renders inline', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Page?', 'Here.'),
+      'page.html',
+    );
+
+    const served = await fetchSignedFile(await getFaqFile(room, file.id));
+
+    expect(served.headers.get('content-disposition')).toMatch(/^attachment/);
+  });
+
+  it('previews a HEIC file through its JPEG rendition', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Site?', 'Photo.'),
+      'site.heic',
+    );
+
+    await store(`${file.storagePath}.preview.jpg`, 'converted jpeg');
+
+    expect(
+      await (await fetchSignedFile(await getFaqFile(room, file.id))).text(),
+    ).toBe('converted jpeg');
+  });
+
+  it('previews a PowerPoint file through its PDF rendition', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Deck?', 'Here.'),
+      'deck.pptx',
+    );
+
+    await store(`${file.storagePath}.preview.pdf`, 'converted pdf');
+
+    expect(
+      await (await fetchSignedFile(await getFaqFile(room, file.id))).text(),
+    ).toBe('converted pdf');
+  });
+
+  it('previews a renamed PowerPoint file through its PDF rendition', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Board deck?', 'Here.'),
+      'deck.pptx',
+    );
+
+    await renameFaqFile(file.id, 'Board deck');
+    await store(`${file.storagePath}.preview.pdf`, 'converted pdf');
+
+    expect(
+      await (await fetchSignedFile(await getFaqFile(room, file.id))).text(),
+    ).toBe('converted pdf');
+  });
+
+  it('previews a HEIC file renamed with another extension through its JPEG rendition', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Roof?', 'Photo.'),
+      'roof.heic',
+    );
+
+    await renameFaqFile(file.id, 'Roof photo.jpg');
+    await store(`${file.storagePath}.preview.jpg`, 'converted jpeg');
+
+    expect(
+      await (await fetchSignedFile(await getFaqFile(room, file.id))).text(),
+    ).toBe('converted jpeg');
+  });
+
+  it('downloads a renamed file under its display name with the original extension', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Signed lease?', 'Yes.'),
+      'lease.pdf',
+    );
+
+    await renameFaqFile(file.id, 'Signed-lease');
+
+    const downloaded = await fetchSignedFile(
+      await getFaqFile(room, file.id, { query: '?disposition=download' }),
+    );
+
+    expect(downloaded.headers.get('content-disposition')).toBe(
+      "attachment; filename=Signed-lease.pdf; filename*=UTF-8''Signed-lease.pdf",
+    );
+    expect(await downloaded.text()).toBe(file.body);
+  });
+
+  it('answers 404 for a file of an entry hidden from the room', async () => {
+    const room = await newRoom();
+    const entryId = await addFaqEntry('Hidden file?', 'Yes.');
+    const file = await addFaqFile(entryId, 'hidden.pdf');
+
+    await hideFaqEntry(room, entryId);
+
+    await expectFaqFileRefused(room, file.id);
+  });
+
+  it('answers 404 for a file of an unpublished entry', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Unpublished file?', 'Yes.', { status: 'unpublished' }),
+      'gone.pdf',
+    );
+
+    await expectFaqFileRefused(room, file.id);
+  });
+
+  it('answers 404 to a lender once the room is closed', async () => {
+    const room = await closedRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Closed file?', 'Yes.'),
+      'closed.pdf',
+    );
+
+    await expectFaqFileRefused(room, file.id);
+  });
+
+  it('answers 404 to an outsider', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Outsider file?', 'No.'),
+      'private.pdf',
+    );
+
+    expect(
+      (await getFaqFile(room, file.id, { client: outsider.user })).status,
+    ).toBe(404);
+    expect(await activityIn(room.id)).toEqual([]);
+  });
+
+  it('answers 400 for a malformed file id', async () => {
+    const room = await newRoom();
+
+    expect((await getFaqFile(room, 'not-a-uuid')).status).toBe(400);
+  });
+
+  it('sends a signed-out caller to the lender sign-in with the FAQ as next', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Signed out?', 'Yes.'),
+      'a.pdf',
+    );
+
+    const response = await getFaqFile(room, file.id, {
+      client: signedOut.user,
+    });
+
+    expect([response.status, response.headers.get('location')]).toEqual([
+      307,
+      `${ORIGIN}/lender/sign-in?next=%2Flender%2F${room.id}%2Ffaq`,
+    ]);
+  });
+
+  it('sends a cross-site request back to the FAQ page and records nothing', async () => {
+    const room = await newRoom();
+    const file = await addFaqFile(
+      await addFaqEntry('Cross site?', 'No.'),
+      'b.pdf',
+    );
+
+    const response = await getFaqFile(room, file.id, {
+      headers: { 'sec-fetch-site': 'cross-site' },
+    });
+
+    expect([response.status, response.headers.get('location')]).toEqual([
+      307,
+      `${ORIGIN}/lender/${room.id}/faq`,
+    ]);
+    expect(await activityIn(room.id)).toEqual([]);
+  });
+});
+
+describe('FAQ actions', () => {
+  function asCaller(account: IntegrationAccount) {
+    requestClients.client = account.user;
+    requestClients.admin = admin;
+  }
+
+  const NO_LONGER_AVAILABLE = {
+    ok: false,
+    refusal: 'This FAQ entry is no longer available',
+  };
+
+  it('records the FAQ page opened under the lender', async () => {
+    const room = await newRoom();
+    asCaller(lender);
+
+    expect(await recordFaqPageOpened({ roomId: room.id })).toMatchObject({
+      ok: true,
+    });
+    expect(await activityIn(room.id)).toMatchObject([
+      {
+        user_id: lender.userId,
+        side: 'lender',
+        action: 'faq_page_opened',
+        faq_entry_id: null,
+      },
+    ]);
+  });
+
+  it('refuses the FAQ page of a closed room and records nothing', async () => {
+    const room = await closedRoom();
+    asCaller(lender);
+
+    expect(await recordFaqPageOpened({ roomId: room.id })).toMatchObject({
+      ok: false,
+    });
+    expect(await activityIn(room.id)).toEqual([]);
+  });
+
+  it.each([
+    ['recordFaqEntryOpened', recordFaqEntryOpened, 'faq_entry_opened'],
+    [
+      'recordFaqSuggestionOpened',
+      recordFaqSuggestionOpened,
+      'faq_suggestion_opened',
+    ],
+    [
+      'recordFaqSuggestionResolved',
+      recordFaqSuggestionResolved,
+      'faq_suggestion_resolved',
+    ],
+  ] as const)(
+    '%s records its action against the entry',
+    async (_name, action, recorded) => {
+      const room = await newRoom();
+      const entryId = await addFaqEntry('Shown?', 'Yes.');
+      asCaller(lender);
+
+      expect(await action({ roomId: room.id, entryId })).toMatchObject({
+        ok: true,
+      });
+      expect(await activityIn(room.id)).toMatchObject([
+        {
+          user_id: lender.userId,
+          side: 'lender',
+          action: recorded,
+          faq_entry_id: entryId,
+          faq_file_id: null,
+        },
+      ]);
+    },
+  );
+
+  it.each([
+    ['recordFaqEntryOpened', recordFaqEntryOpened],
+    ['recordFaqSuggestionOpened', recordFaqSuggestionOpened],
+    ['recordFaqSuggestionResolved', recordFaqSuggestionResolved],
+  ] as const)(
+    '%s refuses an unpublished or hidden entry and records nothing',
+    async (_name, action) => {
+      const room = await newRoom();
+      const unpublished = await addFaqEntry('Unpublished?', 'Yes.', {
+        status: 'unpublished',
+      });
+      const hidden = await addFaqEntry('Hidden?', 'Yes.');
+      await hideFaqEntry(room, hidden);
+      asCaller(lender);
+
+      expect([
+        await action({ roomId: room.id, entryId: unpublished }),
+        await action({ roomId: room.id, entryId: hidden }),
+      ]).toEqual([NO_LONGER_AVAILABLE, NO_LONGER_AVAILABLE]);
+      expect(await activityIn(room.id)).toEqual([]);
+    },
+  );
+
+  it('records a request sent after a suggestion with the ask id', async () => {
+    const room = await newRoom();
+    asCaller(lender);
+
+    const sent = await openAsk({
+      roomId: room.id,
+      title: 'Rent roll?',
+      afterSuggestion: true,
+    });
+
+    expect(sent).toMatchObject({ ok: true });
+    expect(await activityIn(room.id)).toMatchObject([
+      {
+        user_id: lender.userId,
+        side: 'lender',
+        action: 'request_sent_after_suggestion',
+        payload: { askId: sent.ok ? sent.value : null },
+      },
+    ]);
+  });
+
+  it('records nothing extra for a request sent without a suggestion', async () => {
+    const room = await newRoom();
+    asCaller(lender);
+
+    expect(await openAsk({ roomId: room.id, title: 'Payroll?' })).toMatchObject(
+      { ok: true },
+    );
+    expect(await activityIn(room.id)).toEqual([]);
+  });
+});
+
+describe('fetchRoomActivity for FAQ actions', () => {
+  it('names the FAQ entry and file each FAQ action was about', async () => {
+    const room = await newRoom();
+    const entryId = await addFaqEntry('Is there a lease?', 'Yes.');
+    const file = await addFaqFile(entryId, 'lease.pdf');
+
+    await recordActivity({
+      client: lender.user,
+      admin,
+      roomId: room.id,
+      action: 'faq_page_opened',
+    });
+    await recordActivity({
+      client: lender.user,
+      admin,
+      roomId: room.id,
+      action: 'faq_entry_opened',
+      faqEntryId: entryId,
+    });
+    await getFaqFile(room, file.id);
+
+    expect(await fetchRoomActivity(owner.user, room.id)).toMatchObject([
+      {
+        action: 'faq_file_previewed',
+        faqEntryId: entryId,
+        faqQuestion: 'Is there a lease?',
+        faqFileId: file.id,
+        faqFileName: 'lease.pdf',
+      },
+      {
+        action: 'faq_entry_opened',
+        faqEntryId: entryId,
+        faqQuestion: 'Is there a lease?',
+        faqEntryRemoved: false,
+        faqFileId: null,
+        faqFileName: null,
+      },
+      {
+        action: 'faq_page_opened',
+        faqEntryId: null,
+        faqQuestion: null,
+        faqFileId: null,
+        faqFileName: null,
+      },
+    ]);
+  });
+
+  it('marks an entry unpublished since as removed, but not one hidden from the room', async () => {
+    const room = await newRoom();
+    const unpublished = await addFaqEntry('Was there a lien?', 'Released.');
+    const hidden = await addFaqEntry('Any litigation?', 'None.');
+
+    for (const faqEntryId of [unpublished, hidden]) {
+      await recordActivity({
+        client: lender.user,
+        admin,
+        roomId: room.id,
+        action: 'faq_entry_opened',
+        faqEntryId,
+      });
+    }
+    await owner.user
+      .from('lender_faq_entry')
+      .update({ status: 'unpublished' })
+      .eq('id', unpublished)
+      .throwOnError();
+    await hideFaqEntry(room, hidden);
+
+    expect(await fetchRoomActivity(owner.user, room.id)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          faqEntryId: unpublished,
+          faqQuestion: 'Was there a lien?',
+          faqEntryRemoved: true,
+        }),
+        expect.objectContaining({
+          faqEntryId: hidden,
+          faqQuestion: 'Any litigation?',
+          faqEntryRemoved: false,
+        }),
+      ]),
+    );
   });
 });

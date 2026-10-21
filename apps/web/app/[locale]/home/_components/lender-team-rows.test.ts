@@ -23,6 +23,7 @@ const room = {
   member_count: 2,
   requests_waiting_on_team: 0,
   last_lender_activity_at: '2026-10-01T10:00:00.000Z',
+  last_lender_action_at: '2026-09-30T10:00:00.000Z',
 };
 
 describe('team lender rooms', () => {
@@ -40,6 +41,7 @@ describe('team lender rooms', () => {
         peopleCount: 2,
         waitingOnUs: 0,
         lastActivityAt: '2026-10-01T10:00:00.000Z',
+        lastActionAt: '2026-09-30T10:00:00.000Z',
       },
     ]);
   });

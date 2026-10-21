@@ -27,13 +27,11 @@ export {
   uploadDocumentSchema,
   moveDocumentSchema,
   bulkDownloadSchema,
-  documentSignedUrlSchema,
 } from './documents/schema';
 export type {
   UploadDocumentInput,
   MoveDocumentInput,
   BulkDownloadInput,
-  DocumentSignedUrlInput,
 } from './documents/schema';
 
 export {

@@ -40,19 +40,21 @@ const marketingRoutes: Array<{
 ];
 
 export function marketingSitemap(
-  enableMarketing: boolean,
+  flags: { enableMarketing: boolean; enableBilling: boolean },
   baseUrl: string,
 ): MetadataRoute.Sitemap {
-  if (!enableMarketing) {
+  if (!flags.enableMarketing) {
     return [];
   }
 
   const lastModified = new Date();
 
-  return marketingRoutes.map((route) => ({
-    url: `${baseUrl}${route.path}`,
-    lastModified,
-    changeFrequency: route.changeFrequency,
-    priority: route.priority,
-  }));
+  return marketingRoutes
+    .filter((route) => flags.enableBilling || route.path !== '/pricing')
+    .map((route) => ({
+      url: `${baseUrl}${route.path}`,
+      lastModified,
+      changeFrequency: route.changeFrequency,
+      priority: route.priority,
+    }));
 }

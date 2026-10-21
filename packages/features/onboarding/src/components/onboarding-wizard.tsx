@@ -13,21 +13,23 @@ import {
 import { useOnboardingWizard } from '../hooks/use-onboarding-wizard';
 import type { CompleteOnboarding } from '../lib/complete-onboarding';
 import { assembleSubmission } from '../lib/submission';
-import { ProfileStepForm } from './steps/profile-step';
-import { WorkspaceStepForm } from './steps/workspace-step';
-import { TermsStepForm } from './steps/terms-step';
+import { onboardingSteps } from '../lib/wizard-reducer';
+import type { OnboardingFlow } from '../schema/onboarding.schema';
 import { DealBoxStepForm } from './steps/deal-box-step';
 import { MfaStepForm } from './steps/mfa-step';
+import { ProfileStepForm } from './steps/profile-step';
+import { TermsStepForm } from './steps/terms-step';
+import { WorkspaceStepForm } from './steps/workspace-step';
 
 const stepTitles: Record<string, { title: string; description: string }> = {
   profile: { title: 'Your profile', description: 'Tell us who you are.' },
   workspace: {
-    title: 'Your workspace',
-    description: 'Work on your own or with a team.',
+    title: 'Your team',
+    description: 'Your deals live in a team workspace.',
   },
   terms: {
     title: 'Terms and comparables',
-    description: 'Accept the hosted terms and choose your data preferences.',
+    description: 'Review and accept the hosted terms.',
   },
   dealBox: {
     title: 'Acquisition criteria',
@@ -39,8 +41,11 @@ const stepTitles: Record<string, { title: string; description: string }> = {
   },
 };
 
-export function OnboardingWizard(props: { onComplete: CompleteOnboarding }) {
-  const wizard = useOnboardingWizard();
+export function OnboardingWizard(props: {
+  flow: OnboardingFlow;
+  onComplete: CompleteOnboarding;
+}) {
+  const wizard = useOnboardingWizard(onboardingSteps[props.flow.kind]);
   const { state, currentStep, submitStep, skip, back, isComplete } = wizard;
   const [submitting, setSubmitting] = useState(false);
   const completed = useRef(false);
@@ -51,7 +56,7 @@ export function OnboardingWizard(props: { onComplete: CompleteOnboarding }) {
     }
     completed.current = true;
     setSubmitting(true);
-    void props.onComplete(assembleSubmission(state.data));
+    void props.onComplete(assembleSubmission(props.flow, state.data));
   }, [isComplete, props, state.data]);
 
   const meta = currentStep ? stepTitles[currentStep] : undefined;
@@ -94,6 +99,7 @@ export function OnboardingWizard(props: { onComplete: CompleteOnboarding }) {
 
         {currentStep === 'terms' ? (
           <TermsStepForm
+            withCompPool={props.flow.kind === 'buyer'}
             value={state.data.terms}
             onSubmit={(value) => submitStep('terms', value)}
             onBack={back}

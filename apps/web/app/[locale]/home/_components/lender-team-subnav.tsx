@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export function LenderTeamSubnav({ basePath }: { basePath: string }) {
+export function LenderSubnav({
+  items,
+}: {
+  items: { label: string; href: string }[];
+}) {
   const pathname = usePathname();
-  const items = [
-    { label: 'Rooms', href: basePath },
-    { label: 'Contacts', href: `${basePath}/contacts` },
-  ];
 
   return (
     <nav className={'flex gap-1 border-b pb-2'}>
@@ -31,5 +31,17 @@ export function LenderTeamSubnav({ basePath }: { basePath: string }) {
         );
       })}
     </nav>
+  );
+}
+
+export function LenderTeamSubnav({ basePath }: { basePath: string }) {
+  return (
+    <LenderSubnav
+      items={[
+        { label: 'Rooms', href: basePath },
+        { label: 'Saved lenders', href: `${basePath}/saved` },
+        { label: 'Contacts', href: `${basePath}/contacts` },
+      ]}
+    />
   );
 }

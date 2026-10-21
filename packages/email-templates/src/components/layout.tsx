@@ -7,6 +7,7 @@ import {
   Heading,
   Hr,
   Html,
+  Link,
   Preview,
   Section,
   Tailwind,
@@ -45,5 +46,16 @@ export function EmailLayout({
         </Body>
       </Tailwind>
     </Html>
+  );
+}
+
+export function FallbackLink({ href }: { href: string }) {
+  return (
+    <Text className="text-[14px] leading-[24px]">
+      Or paste this link into your browser:{' '}
+      <Link href={href} className="break-all text-blue-600">
+        {href}
+      </Link>
+    </Text>
   );
 }

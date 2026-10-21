@@ -615,6 +615,11 @@ const entry: RoomActivityEntry = {
   documentName: 'Tax return.pdf',
   folderId: null,
   folderName: null,
+  faqEntryId: null,
+  faqQuestion: null,
+  faqEntryRemoved: false,
+  faqFileId: null,
+  faqFileName: null,
   payload: null,
 };
 
@@ -670,6 +675,40 @@ describe('room activity', () => {
       /zac@buyer\.com.*Internal.*Opened folder.*Financials/,
     );
     expect(rows[2]).toContain('Downloaded a zip');
+  });
+
+  it('shows the FAQ entry or file each FAQ action was about, marking an unpublished entry removed', () => {
+    const faqEntry = {
+      ...entry,
+      documentId: null,
+      documentName: null,
+      faqEntryId: 'faq-1',
+      faqQuestion: 'Is there a lease?',
+    };
+
+    const rows = activityRows([
+      { ...faqEntry, id: 'f1', action: 'faq_entry_opened' },
+      {
+        ...faqEntry,
+        id: 'f2',
+        action: 'faq_file_downloaded',
+        faqFileId: 'faq-file-1',
+        faqFileName: 'Lease.pdf',
+      },
+      {
+        ...faqEntry,
+        id: 'f3',
+        action: 'faq_suggestion_resolved',
+        faqEntryRemoved: true,
+      },
+    ]);
+
+    expect(rows[0]).toMatch(/Opened FAQ entry.*Is there a lease\?/);
+    expect(rows[0]).not.toContain('(removed)');
+    expect(rows[1]).toMatch(/Downloaded FAQ file.*Lease\.pdf/);
+    expect(rows[2]).toMatch(
+      /Said this answered their question.*Is there a lease\? \(removed\)/,
+    );
   });
 
   it('shows requests, replies, forms and uploads, each linked to its thread or file', async () => {

@@ -1,20 +1,20 @@
 import 'server-only';
-
 import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { z } from 'zod';
 
 import { DATA_ROOM_BUCKET } from '@odb/data-room/storage';
+import { isOwnDealStoragePath } from '@odb/data-room/storage-path';
 import type { Database } from '@odb/supabase';
 
-import { ensurePreviewRendition } from '../uploads/renditions';
-import { isOwnDealStoragePath } from './storage-path';
+import { storedSize } from '../uploads/objects';
+import {
+  ensurePreviewRendition,
+  previewRendition,
+} from '../uploads/renditions';
+import { withDownloadName } from './download-name';
 
 const SIGNED_URL_SECONDS = 60;
-
-const PREVIEW_RENDITIONS = [
-  { source: /\.hei[cf]$/i, suffix: '.preview.jpg' },
-  { source: /\.pptx$/i, suffix: '.preview.pdf' },
-];
 
 export const dispositionSchema = z.enum(['preview', 'download']);
 
@@ -29,29 +29,31 @@ export async function signedDocumentUrl(
 
   let signedPath = document.storage_path;
 
-  if (disposition === 'preview') {
-    const rendition = PREVIEW_RENDITIONS.find(({ source }) =>
-      source.test(document.name),
-    );
+  const rendition = previewRendition(document.name);
 
-    if (rendition) {
+  if (disposition === 'preview' && rendition) {
+    const previewPath = `${document.storage_path}${rendition.suffix}`;
+
+    if (rendition.madeOnView) {
       await ensurePreviewRendition(admin, {
         storagePath: document.storage_path,
         name: document.name,
       });
-      signedPath = `${document.storage_path}${rendition.suffix}`;
+      signedPath = previewPath;
+    } else if ((await storedSize(admin, previewPath)) !== null) {
+      signedPath = previewPath;
     }
   }
 
   const { data, error } = await admin.storage
     .from(DATA_ROOM_BUCKET)
-    .createSignedUrl(signedPath, SIGNED_URL_SECONDS, {
-      download: disposition === 'download' ? document.name : true,
-    });
+    .createSignedUrl(signedPath, SIGNED_URL_SECONDS, { download: true });
 
   if (error) {
     throw error;
   }
 
-  return data.signedUrl;
+  return disposition === 'download'
+    ? withDownloadName(data.signedUrl, document.name)
+    : data.signedUrl;
 }

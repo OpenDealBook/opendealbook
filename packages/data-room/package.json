@@ -13,10 +13,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
-    "./documents/actions": "./src/documents/browse-actions.ts",
     "./uploads/actions": "./src/uploads/actions.ts",
     "./hooks": "./src/hooks/index.ts",
-    "./storage": "./src/storage.ts"
+    "./storage": "./src/storage.ts",
+    "./storage-path": "./src/storage-path.ts",
+    "./room-zip": "./src/room-zip.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

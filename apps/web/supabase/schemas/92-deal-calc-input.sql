@@ -38,13 +38,13 @@ create policy deal_calc_input_read on public.deal_calc_input
 
 create policy deal_calc_input_insert on public.deal_calc_input
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy deal_calc_input_update on public.deal_calc_input
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy deal_calc_input_delete on public.deal_calc_input
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'));

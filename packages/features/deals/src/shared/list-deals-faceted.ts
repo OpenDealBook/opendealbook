@@ -1,6 +1,9 @@
 import { daysInStage, sdeMargin, sdeMultiple } from '@odb/calculators';
 import type { getSupabaseBrowserClient } from '@odb/supabase/client';
 
+import { dealDisplayName } from './deal-name';
+import { DEAD_OFFER_STATUSES } from './queries';
+
 type Client = ReturnType<typeof getSupabaseBrowserClient>;
 
 export type DealResolution = 'open' | 'won' | 'lost';
@@ -47,11 +50,23 @@ export interface DealListFilters {
   daysInStageMin?: number;
   daysInStageMax?: number;
   archived?: boolean;
+  examples?: boolean;
+}
+
+export interface NextMilestone {
+  kind: string;
+  label: string | null;
+  targetOn: string;
 }
 
 export interface DealListItem {
   id: string;
-  title: string | null;
+  title: string;
+  isExample: boolean;
+  nextMilestone: NextMilestone | null;
+  openItems: number;
+  overdueItems: number;
+  lastActivityAt: string;
   stage: string;
   stageLabel: string | null;
   stageSortOrder: number | null;
@@ -92,6 +107,7 @@ export interface DealListFacetCounts {
   group: FacetCount[];
   starred: number;
   archived: number;
+  examples: number;
 }
 
 export interface RangeBound {
@@ -141,9 +157,19 @@ export interface DealFacetedRow {
   } | null;
   deal_star: { user_id: string }[];
   offer: {
+    status: string;
     current_version_id: string | null;
     offer_version: { id: string; purchase_price: number }[];
   }[];
+  firm: { name: string };
+  deal_milestone: {
+    kind: string;
+    label: string | null;
+    target_on: string | null;
+    actual_on: string | null;
+  }[];
+  checklist_item: { status: string; due_at: string | null; removed_at: string | null }[];
+  deal_event: { created_at: string }[];
 }
 
 export interface ListDealsFacetedParams {
@@ -164,9 +190,11 @@ interface BuildParams {
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
 const EARLY_FUNNEL_STAGES = new Set(['sourcing', 'pre_nda']);
+const EXAMPLE_TAG = '[Example]';
+const SETTLED_CHECKLIST_STATUSES = ['received', 'reviewed'];
 
 const DEAL_FACETED_SELECT =
-  'id, description, stage, resolution, resolution_reason, listing_status, asking_price, revenue_ttm, sde_ttm, owner_user_id, archived_at, stage_changed_at, created_at, updated_at, capture_method, pipeline_stage(key, label, sort_order), deal_profile(industry_id, location_id, industry(name), location(city, region)), deal_financials(adopted_revenue, adopted_sde), deal_star(user_id), offer(current_version_id, offer_version(id, purchase_price))';
+  'id, description, stage, resolution, resolution_reason, listing_status, asking_price, revenue_ttm, sde_ttm, owner_user_id, archived_at, stage_changed_at, created_at, updated_at, capture_method, pipeline_stage(key, label, sort_order), deal_profile(industry_id, location_id, industry(name), location(city, region)), deal_financials(adopted_revenue, adopted_sde), deal_star(user_id), offer(status, current_version_id, offer_version(id, purchase_price)), firm!inner(name), deal_milestone(kind, label, target_on, actual_on), checklist_item(status, due_at, removed_at), deal_event(created_at)';
 
 function resolutionBucket(resolution: string | null): DealResolution {
   if (resolution === null) {
@@ -189,13 +217,23 @@ function groupOf(resolution: string | null, stage: string, archivedAt: string | 
 }
 
 function currentOfferPrice(offers: DealFacetedRow['offer']): number | null {
-  for (const offer of offers) {
-    const current = offer.offer_version.find((version) => version.id === offer.current_version_id);
-    if (current !== undefined) {
-      return current.purchase_price;
-    }
+  const live = offers.find((offer) => !DEAD_OFFER_STATUSES.includes(offer.status));
+  if (live === undefined) {
+    return null;
   }
-  return null;
+  return live.offer_version.find((version) => version.id === live.current_version_id)!
+    .purchase_price;
+}
+
+function nextMilestone(milestones: DealFacetedRow['deal_milestone']): NextMilestone | null {
+  const upcoming = milestones
+    .filter((milestone) => milestone.actual_on === null && milestone.target_on !== null)
+    .sort((a, b) => a.target_on!.localeCompare(b.target_on!));
+  if (upcoming.length === 0) {
+    return null;
+  }
+  const next = upcoming[0]!;
+  return { kind: next.kind, label: next.label, targetOn: next.target_on! };
 }
 
 function locationLabel(location: { city: string | null; region: string | null } | null): string | null {
@@ -214,10 +252,19 @@ export function mapDealRow(
   const revenue = row.deal_financials?.adopted_revenue ?? row.revenue_ttm;
   const sde = row.deal_financials?.adopted_sde ?? row.sde_ttm;
   const yourOffer = currentOfferPrice(row.offer);
+  const today = now.slice(0, 10);
+  const openItems = row.checklist_item.filter(
+    (item) => item.removed_at === null && !SETTLED_CHECKLIST_STATUSES.includes(item.status),
+  );
 
   return {
     id: row.id,
-    title: row.description,
+    title: dealDisplayName(row),
+    isExample: row.firm.name.startsWith(EXAMPLE_TAG),
+    nextMilestone: nextMilestone(row.deal_milestone),
+    openItems: openItems.length,
+    overdueItems: openItems.filter((item) => item.due_at !== null && item.due_at.slice(0, 10) < today).length,
+    lastActivityAt: row.deal_event[0]!.created_at,
     stage: row.stage,
     stageLabel: row.pipeline_stage?.label ?? null,
     stageSortOrder: row.pipeline_stage?.sort_order ?? null,
@@ -253,6 +300,7 @@ type FacetKey =
   | 'location'
   | 'starred'
   | 'archived'
+  | 'examples'
   | 'asking'
   | 'revenue'
   | 'sde';
@@ -274,6 +322,9 @@ function inRange(
 
 function matches(item: DealListItem, f: DealListFilters, skip: FacetKey | null): boolean {
   if (skip !== 'archived' && f.archived !== true && item.archivedAt !== null) {
+    return false;
+  }
+  if (skip !== 'examples' && (f.examples === true) !== item.isExample) {
     return false;
   }
   if (skip !== 'stage' && f.stage?.length && !f.stage.includes(item.stage)) {
@@ -432,6 +483,7 @@ export function buildDealListResult(candidates: DealListItem[], params: BuildPar
     group: tally(matched, (item) => item.group),
     starred: candidates.filter((item) => matches(item, filters, 'starred') && item.starred).length,
     archived: candidates.filter((item) => matches(item, filters, 'archived') && item.archivedAt !== null).length,
+    examples: candidates.filter((item) => matches(item, filters, 'examples') && item.isExample).length,
   };
 
   const ranges: DealListRanges = {
@@ -457,7 +509,9 @@ export async function listDealsFaceted(
   let query = client
     .from('deal')
     .select(DEAL_FACETED_SELECT)
-    .eq('account_id', params.accountId);
+    .eq('account_id', params.accountId)
+    .order('created_at', { referencedTable: 'deal_event', ascending: false })
+    .limit(1, { referencedTable: 'deal_event' });
 
   if (filters.q) {
     query = query.textSearch('search_tsv', filters.q, { type: 'websearch', config: 'english' });

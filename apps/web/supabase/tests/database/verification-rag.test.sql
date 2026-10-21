@@ -121,12 +121,12 @@ select is(
 -- ---- External participant reaches the granted deal ----
 select tests.login_as('vr_ext');
 
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.verification_finding where deal_id = 'cccccccc-0000-0000-0000-0000000000a1' $$,
-  'a deal participant reads verification_finding rows on their granted deal');
+  'a deal participant cannot read verification_finding rows on their granted deal');
 select is(
   (select count(*)::int from public.match_document_chunks('cccccccc-0000-0000-0000-0000000000a1', pg_temp.unitvec(1), 5)),
-  2, 'a participant retrieves chunks on their granted deal');
+  0, 'a participant retrieves no chunks on their granted deal');
 
 -- ---- Foreign account member is denied ----
 select tests.login_as('vr_b_owner');

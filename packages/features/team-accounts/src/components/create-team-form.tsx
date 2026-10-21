@@ -14,7 +14,6 @@ import {
 } from '@odb/ui/form';
 import { Input } from '@odb/ui/input';
 
-import { slugify } from '../lib/slugify';
 import {
   createTeamSchema,
   type CreateTeamData,
@@ -24,7 +23,7 @@ import { createTeamAccountAction } from '../server/create-team-action';
 export function CreateTeamForm(props: { onSuccess?: (slug: string) => void }) {
   const form = useForm<CreateTeamData>({
     resolver: zodResolver(createTeamSchema),
-    defaultValues: { name: '', slug: '' },
+    defaultValues: { name: '' },
   });
 
   return (
@@ -32,8 +31,8 @@ export function CreateTeamForm(props: { onSuccess?: (slug: string) => void }) {
       <form
         className="flex flex-col gap-4"
         onSubmit={form.handleSubmit(async (values) => {
-          await createTeamAccountAction(values);
-          props.onSuccess?.(values.slug);
+          const account = await createTeamAccountAction(values);
+          props.onSuccess?.(account.slug!);
         })}
       >
         <FormField
@@ -42,28 +41,6 @@ export function CreateTeamForm(props: { onSuccess?: (slug: string) => void }) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Team name</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  onChange={(event) => {
-                    field.onChange(event);
-                    form.setValue('slug', slugify(event.target.value), {
-                      shouldValidate: true,
-                    });
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="slug"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Slug</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>

@@ -11,6 +11,17 @@ const SOURCE_PREFIXES: Record<string, FieldSource> = {
   account: 'account',
 };
 
+const KNOWN_FORMATS: Record<
+  string,
+  Pick<TemplateFieldDraft, 'type' | 'format'>
+> = {
+  purchase_price: { type: 'currency', format: null },
+  cash_at_close: { type: 'currency', format: null },
+  real_estate_portion: { type: 'currency', format: null },
+  effective_date: { type: 'date', format: 'long' },
+  target_close_date: { type: 'date', format: 'long' },
+};
+
 export function extractPlaceholderKeys(text: string): string[] {
   const keys = new Set<string>();
 
@@ -37,9 +48,10 @@ export function draftFromKey(
     key,
     label: humanize(labelFrom),
     type: 'text',
+    format: null,
+    ...KNOWN_FORMATS[key],
     source,
     source_path: sourcePath,
-    format: null,
     required: false,
     sort_order: sortOrder,
   };
@@ -108,9 +120,11 @@ export function draftsToRows(
 }
 
 function humanize(value: string): string {
-  return value
+  const sentence = value
     .split(/[_\s]+/)
     .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .join(' ')
+    .toLowerCase();
+
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }

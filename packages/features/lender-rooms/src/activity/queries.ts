@@ -29,6 +29,11 @@ export type RoomActivityEntry =
       documentName: string | null;
       folderId: string | null;
       folderName: string | null;
+      faqEntryId: string | null;
+      faqQuestion: string | null;
+      faqEntryRemoved: boolean;
+      faqFileId: string | null;
+      faqFileName: string | null;
       payload: Json | null;
     })
   | (EntryOrigin &
@@ -85,7 +90,7 @@ export async function fetchRoomActivity(
       client
         .from('lender_room_activity')
         .select(
-          'id, created_at, user_id, side, action, dr_document_id, dr_folder_id, payload',
+          'id, created_at, user_id, side, action, dr_document_id, dr_folder_id, faq_entry_id, faq_file_id, payload',
         )
         .eq('room_id', roomId)
         .throwOnError(),
@@ -114,8 +119,14 @@ export async function fetchRoomActivity(
     );
   }
 
-  const [{ data: messages }, { data: askFiles }, { data: privateDocuments }, documentNames] =
-    await Promise.all([
+  const [
+    { data: messages },
+    { data: askFiles },
+    { data: privateDocuments },
+    documentNames,
+    { data: faqEntries },
+    faqFileNames,
+  ] = await Promise.all([
       client
         .from('lender_ask_message')
         .select('id, ask_id, author_user_id, side, created_at')
@@ -137,8 +148,21 @@ export async function fetchRoomActivity(
         'dr_document',
         rows.map((row) => row.dr_document_id),
       ),
+      client
+        .from('lender_faq_entry')
+        .select('id, question, status')
+        .in('id', [
+          ...new Set(rows.flatMap((row) => row.faq_entry_id ?? [])),
+        ])
+        .throwOnError(),
+      namesById(
+        client,
+        'lender_faq_file',
+        rows.map((row) => row.faq_file_id),
+      ),
     ]);
 
+  const faqEntriesById = new Map(faqEntries.map((entry) => [entry.id, entry]));
   const attachedIds = new Set(askFiles.map((file) => file.dr_document_id));
   const uploads = privateDocuments.flatMap((document) =>
     document.uploaded_by && !attachedIds.has(document.id)
@@ -188,6 +212,12 @@ export async function fetchRoomActivity(
       documentName: documentNames.get(row.dr_document_id) ?? null,
       folderId: row.dr_folder_id,
       folderName: foldersById.get(String(row.dr_folder_id))?.name ?? null,
+      faqEntryId: row.faq_entry_id,
+      faqQuestion: faqEntriesById.get(String(row.faq_entry_id))?.question ?? null,
+      faqEntryRemoved:
+        faqEntriesById.get(String(row.faq_entry_id))?.status === 'unpublished',
+      faqFileId: row.faq_file_id,
+      faqFileName: faqFileNames.get(row.faq_file_id) ?? null,
       payload: row.payload,
     })),
     ...asks.flatMap((ask) =>
@@ -319,7 +349,7 @@ export async function fetchSeenBy(
 
 async function namesById(
   client: Client,
-  table: 'dr_document' | 'dr_folder',
+  table: 'dr_document' | 'dr_folder' | 'lender_faq_file',
   ids: (string | null)[],
 ): Promise<Map<string | null, string>> {
   const { data } = await client

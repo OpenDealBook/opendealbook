@@ -50,13 +50,13 @@ create policy deal_worksheet_row_read on public.deal_worksheet_row
 
 create policy deal_worksheet_row_insert on public.deal_worksheet_row
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy deal_worksheet_row_update on public.deal_worksheet_row
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy deal_worksheet_row_delete on public.deal_worksheet_row
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'));

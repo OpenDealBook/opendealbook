@@ -13,20 +13,21 @@ export default async function TeamUnderwritingPage({
   params,
 }: TeamUnderwritingPageProps) {
   const { account } = await params;
-  const { team } = await loadTeamWorkspace(account);
+  const { team, permissions } = await loadTeamWorkspace(account);
 
   const client = getSupabaseServerClient();
   const dealBox = await fetchDealBox(client, team.id);
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Underwriting</h1>
+      <h1 className={'text-2xl font-semibold'}>Deal box</h1>
       <UnderwritingForm
         accountId={team.id}
         criteria={(dealBox?.criteria_json ?? {}) as DealBoxCriteria}
         brokerSummary={dealBox?.broker_summary ?? null}
         minDscr={dealBox?.min_dscr ?? null}
         requiredPersonalCashFlow={dealBox?.required_personal_cash_flow ?? null}
+        canManage={permissions.includes('deals.manage')}
       />
     </main>
   );

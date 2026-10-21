@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   dealBoxCriteriaSchema,
+  inviteeTermsStepSchema,
   profileStepSchema,
   termsStepSchema,
   workspaceStepSchema,
@@ -17,17 +18,14 @@ describe('profileStepSchema', () => {
 });
 
 describe('workspaceStepSchema', () => {
-  it('accepts a personal workspace with no team name', () => {
+  it('has no personal option and requires a team name', () => {
     expect(workspaceStepSchema.safeParse({ kind: 'personal' }).success).toBe(
-      true,
+      false,
     );
-  });
-
-  it('requires a team name only when the team workspace is chosen', () => {
-    expect(workspaceStepSchema.safeParse({ kind: 'team' }).success).toBe(false);
-    expect(
-      workspaceStepSchema.safeParse({ kind: 'team', teamName: 'Acme' }).success,
-    ).toBe(true);
+    expect(workspaceStepSchema.safeParse({}).success).toBe(false);
+    expect(workspaceStepSchema.safeParse({ teamName: 'Acme' }).data).toEqual({
+      teamName: 'Acme',
+    });
   });
 });
 
@@ -51,11 +49,25 @@ describe('termsStepSchema', () => {
   });
 });
 
+describe('inviteeTermsStepSchema', () => {
+  it('requires accepted terms and carries no comp-pool choice', () => {
+    expect(
+      inviteeTermsStepSchema.safeParse({ acceptedTerms: false }).success,
+    ).toBe(false);
+    expect(
+      inviteeTermsStepSchema.parse({
+        acceptedTerms: true,
+        compPoolOptin: true,
+      }),
+    ).toEqual({ acceptedTerms: true });
+  });
+});
+
 describe('dealBoxCriteriaSchema', () => {
   it('treats target NAICS and every criterion as optional', () => {
     expect(dealBoxCriteriaSchema.safeParse({}).success).toBe(true);
-    expect(
-      dealBoxCriteriaSchema.safeParse({ naics: ['541211'] }).success,
-    ).toBe(true);
+    expect(dealBoxCriteriaSchema.safeParse({ naics: ['541211'] }).success).toBe(
+      true,
+    );
   });
 });

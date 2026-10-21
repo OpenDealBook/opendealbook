@@ -1,28 +1,21 @@
 import 'server-only';
-
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Zip, ZipPassThrough } from 'fflate';
+
 import { z } from 'zod';
 
-import { downloadFromDataRoom } from '@odb/data-room/storage';
+import {
+  readZipRequest,
+  zipEntryPaths,
+  zipResponse,
+} from '@odb/data-room/room-zip';
+import { isOwnDealStoragePath } from '@odb/data-room/storage-path';
 import type { Database } from '@odb/supabase';
 
 import { storedSize } from '../uploads/objects';
 import { recordActivity } from './record-activity';
 import { signedInUser } from './signed-in-user';
-import { isOwnDealStoragePath } from './storage-path';
 
 type Client = SupabaseClient<Database>;
-
-type Folder = Pick<
-  Database['public']['Tables']['dr_folder']['Row'],
-  'id' | 'parent_id' | 'name'
->;
-
-const FORM_CONTENT_TYPE =
-  /^(multipart\/form-data|application\/x-www-form-urlencoded)/i;
-
-const documentIdsSchema = z.array(z.uuid()).min(1);
 
 interface ZipDownloadInput {
   client: Client;
@@ -31,21 +24,14 @@ interface ZipDownloadInput {
   documentIds: string[];
 }
 
-interface RoomZip {
-  roomName: string;
-  stream: ReadableStream<Uint8Array>;
-}
-
 async function recordZipDownload({
   client,
   admin,
   roomId,
   documentIds,
-}: ZipDownloadInput): Promise<RoomZip | null> {
-  const uniqueIds = [...new Set(documentIds)];
-
+}: ZipDownloadInput): Promise<Response | null> {
   const shown = await Promise.all(
-    uniqueIds.map(async (documentId) => {
+    documentIds.map(async (documentId) => {
       const { data } = await client
         .rpc('lender_room_shows_document', {
           room_id: roomId,
@@ -70,7 +56,7 @@ async function recordZipDownload({
     admin
       .from('dr_document')
       .select('id, deal_id, folder_id, name, storage_path')
-      .in('id', uniqueIds)
+      .in('id', documentIds)
       .throwOnError(),
     admin
       .from('dr_folder')
@@ -91,24 +77,11 @@ async function recordZipDownload({
     return null;
   }
 
-  const foldersById = new Map(folders.map((folder) => [folder.id, folder]));
-  const roots = [room.private_folder_id, room.master_folder_id];
-  const entriesPerPath = new Map<string, number>();
-
-  const entries = uniqueIds.map((documentId) => {
-    const document = documents.find(({ id }) => id === documentId)!;
-    const path = entryPath([
-      ...folderNames(foldersById, roots, document.folder_id),
-      document.name,
-    ]);
-    const copyNumber = (entriesPerPath.get(path) ?? 0) + 1;
-
-    entriesPerPath.set(path, copyNumber);
-
-    return {
-      storagePath: document.storage_path,
-      path: copyNumber === 1 ? path : withCopyNumber(path, copyNumber),
-    };
+  const entries = zipEntryPaths({
+    documentIds,
+    documents,
+    folders,
+    roots: [room.private_folder_id, room.master_folder_id],
   });
 
   await recordActivity({
@@ -116,66 +89,10 @@ async function recordZipDownload({
     admin,
     roomId,
     action: 'zip_downloaded',
-    payload: { document_ids: uniqueIds },
+    payload: { document_ids: documentIds },
   });
 
-  const zip = new Zip();
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      zip.ondata = (error, chunk, final) => {
-        if (error) {
-          controller.error(error);
-          return;
-        }
-
-        controller.enqueue(chunk);
-
-        if (final) {
-          controller.close();
-        }
-      };
-    },
-    async pull() {
-      const entry = entries.shift();
-
-      if (!entry) {
-        zip.end();
-        return;
-      }
-
-      const file = new ZipPassThrough(entry.path);
-      const blob = await downloadFromDataRoom(admin, entry.storagePath);
-
-      zip.add(file);
-      file.push(new Uint8Array(await blob.arrayBuffer()), true);
-    },
-  });
-
-  return { roomName: room.name!, stream };
-}
-
-function folderNames(
-  folders: Map<string, Folder>,
-  roots: (string | null)[],
-  folderId: string,
-): string[] {
-  const folder = folders.get(folderId)!;
-
-  return roots.includes(folder.id)
-    ? [folder.name]
-    : [...folderNames(folders, roots, folder.parent_id!), folder.name];
-}
-
-function entryPath(names: string[]): string {
-  return names
-    .map((name) => name.replace(/[/\\]/g, '_'))
-    .filter((name) => name !== '' && name !== '.' && name !== '..')
-    .join('/');
-}
-
-function withCopyNumber(path: string, copyNumber: number): string {
-  return path.replace(/(\.[^./]+)?$/, ` (${copyNumber})$1`);
+  return zipResponse(admin, entries, room.name!);
 }
 
 interface ZipRequestInput {
@@ -191,22 +108,13 @@ export async function respondToZipRequest({
   request,
   roomId,
 }: ZipRequestInput): Promise<Response> {
-  const ownHost =
-    request.headers.get('x-forwarded-host') ?? request.headers.get('host');
+  const read = await readZipRequest(request);
 
-  if (URL.parse(String(request.headers.get('origin')))?.host !== ownHost) {
-    return new Response(null, { status: 403 });
+  if (read instanceof Response) {
+    return read;
   }
 
-  if (!FORM_CONTENT_TYPE.test(String(request.headers.get('content-type')))) {
-    return new Response(null, { status: 400 });
-  }
-
-  const documentIds = documentIdsSchema.safeParse(
-    (await request.formData()).getAll('documentIds'),
-  );
-
-  if (!documentIds.success || !z.uuid().safeParse(roomId).success) {
+  if (!z.uuid().safeParse(roomId).success) {
     return new Response(null, { status: 400 });
   }
 
@@ -218,17 +126,8 @@ export async function respondToZipRequest({
     client,
     admin,
     roomId,
-    documentIds: documentIds.data,
+    documentIds: read.documentIds,
   });
 
-  if (!zip) {
-    return new Response(null, { status: 404 });
-  }
-
-  return new Response(zip.stream, {
-    headers: {
-      'content-type': 'application/zip',
-      'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(`${zip.roomName}.zip`)}`,
-    },
-  });
+  return zip ?? new Response(null, { status: 404 });
 }

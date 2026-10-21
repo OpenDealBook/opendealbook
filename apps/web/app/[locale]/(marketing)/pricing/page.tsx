@@ -21,6 +21,7 @@ import {
 } from '@odb/ui/table';
 
 import { StructuredData } from '~/components/structured-data';
+import { requireBilling } from '~/config/billing-gate';
 import { pageMetadata } from '~/config/seo';
 
 import { PricingAnalytics } from './pricing-analytics';
@@ -89,6 +90,7 @@ export default async function PricingPage({
 }: {
   params: Promise<{ locale: string }>;
 }) {
+  requireBilling();
   await params;
 
   return (

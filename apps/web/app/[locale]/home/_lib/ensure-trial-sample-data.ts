@@ -1,19 +1,18 @@
-import { hasSampleData, seedSampleDeals } from '@odb/seed';
-import { getSupabaseServerClient } from '@odb/supabase/server';
+import { SAMPLE_DEALS_NOT_LOADED, seedSampleDealsOnce } from '@odb/seed';
+import { getLogger } from '@odb/shared/logger';
 
-type Client = ReturnType<typeof getSupabaseServerClient>;
-
-export async function ensureTrialSampleData(
-  client: Client,
-  { accountId, userId }: { accountId: string; userId: string },
-): Promise<void> {
-  const { data: isActive } = await client.rpc('is_trial_active', {
-    p_account_id: accountId,
-  });
-
-  if (!isActive || (await hasSampleData(accountId))) {
-    return;
+export async function ensureSampleDeals(team: {
+  accountId: string;
+  userId: string;
+}): Promise<string | null> {
+  try {
+    await seedSampleDealsOnce(team);
+    return null;
+  } catch (error) {
+    getLogger().error(
+      { err: error, accountId: team.accountId },
+      'Failed to seed sample deals',
+    );
+    return SAMPLE_DEALS_NOT_LOADED;
   }
-
-  await seedSampleDeals({ accountId, userId });
 }

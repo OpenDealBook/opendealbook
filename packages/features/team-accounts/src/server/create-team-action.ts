@@ -13,7 +13,6 @@ async function createTeamAccount(data: CreateTeamData, user: { id: string }) {
 
   const { data: account, error } = await client.rpc('create_team_account', {
     account_name: data.name,
-    account_slug: data.slug,
     user_id: user.id,
   });
 

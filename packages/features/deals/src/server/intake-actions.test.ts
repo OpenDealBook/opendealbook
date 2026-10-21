@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const GENERATED_ID = '00000000-0000-0000-0000-000000000001';
-
 const mocks = vi.hoisted(() => {
   const appendDealEvent = vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]);
   const generateStructured = vi.fn();
@@ -59,20 +57,13 @@ vi.mock('unpdf', () => ({
   getDocumentProxy: mocks.getDocumentProxy,
 }));
 
-import {
-  createDealFromIntake,
-  createDealFromIntakePdf,
-  rerunDealIntake,
-  rerunDealIntakePdf,
-} from './intake-actions';
+import { rerunDealIntake, rerunDealIntakePdf } from './intake-actions';
 
 type Action = (
   data: Record<string, unknown>,
   user: { id: string },
 ) => Promise<unknown>;
 
-const runCreate = createDealFromIntake as unknown as Action;
-const runCreatePdf = createDealFromIntakePdf as unknown as Action;
 const runRerun = rerunDealIntake as unknown as Action;
 const runRerunPdf = rerunDealIntakePdf as unknown as Action;
 
@@ -95,78 +86,12 @@ beforeEach(() => {
     async (_client: unknown, input: { parse: (raw: unknown) => unknown }) =>
       input.parse(FIXTURE),
   );
-  vi.spyOn(crypto, 'randomUUID').mockReturnValue(
-    GENERATED_ID as ReturnType<typeof crypto.randomUUID>,
-  );
-});
-
-describe('createDealFromIntake', () => {
-  it('extracts the draft and creates a pre-filled deal.created event', async () => {
-    const result = await runCreate(
-      { account_id: 'account-1', text: 'a listing memo' },
-      { id: 'user-1' },
-    );
-
-    expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
-
-    const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
-      unknown,
-      { eventType: string; payload: Record<string, unknown> },
-    ];
-
-    expect(input.eventType).toBe('deal.created');
-    expect(input.payload).toMatchObject({
-      account_id: 'account-1',
-      owner_user_id: 'user-1',
-      source: 'manual',
-      stage: 'sourcing',
-      description: 'Established HVAC contractor',
-      asking_price: 3500000,
-      revenue_ttm: 4200000,
-      sde_ttm: 900000,
-      ebitda_ttm: 750000,
-      employee_band: '25-50',
-      location_raw: 'Austin, TX',
-      reason_for_sale: 'retirement',
-      industry: 'HVAC services',
-      business_model: 'Recurring service contracts',
-    });
-    expect(result).toBe(GENERATED_ID);
-  });
-});
-
-describe('createDealFromIntakePdf', () => {
-  it('extracts text from the PDF and feeds it to the intake extractor', async () => {
-    const pdf = Buffer.from('%PDF-1.4 binary listing').toString('base64');
-
-    const result = await runCreatePdf(
-      { account_id: 'account-1', pdf },
-      { id: 'user-1' },
-    );
-
-    expect(mocks.extractText).toHaveBeenCalledTimes(1);
-    expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
-
-    const [, input] = mocks.generateStructured.mock.calls.at(-1) as unknown as [
-      unknown,
-      { prompt: string },
-    ];
-    expect(input.prompt).toContain(mocks.pdfText);
-
-    const [, event] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
-      unknown,
-      { eventType: string; payload: Record<string, unknown> },
-    ];
-    expect(event.eventType).toBe('deal.created');
-    expect(event.payload).toMatchObject({ account_id: 'account-1' });
-    expect(result).toBe(GENERATED_ID);
-  });
 });
 
 describe('rerunDealIntake', () => {
   it('re-extracts and appends a deal.updated event with the mapped fields', async () => {
     await runRerun(
-      { deal_id: 'deal-1', text: 'an updated memo' },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', text: 'an updated memo' },
       { id: 'user-1' },
     );
 
@@ -182,7 +107,7 @@ describe('rerunDealIntake', () => {
       },
     ];
 
-    expect(input.dealId).toBe('deal-1');
+    expect(input.dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(input.aggregateType).toBe('deal');
     expect(input.eventType).toBe('deal.updated');
     expect(input.payload).toMatchObject({
@@ -206,7 +131,7 @@ describe('rerunDealIntakePdf', () => {
       'base64',
     );
 
-    await runRerunPdf({ deal_id: 'deal-1', pdf }, { id: 'user-1' });
+    await runRerunPdf({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', pdf }, { id: 'user-1' });
 
     expect(mocks.extractText).toHaveBeenCalledTimes(1);
     expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
@@ -221,7 +146,7 @@ describe('rerunDealIntakePdf', () => {
       unknown,
       { dealId: string; eventType: string; payload: Record<string, unknown> },
     ];
-    expect(event.dealId).toBe('deal-1');
+    expect(event.dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(event.eventType).toBe('deal.updated');
     expect(event.payload).toMatchObject({
       asking_price: 3500000,

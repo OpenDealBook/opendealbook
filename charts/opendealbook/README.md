@@ -66,7 +66,7 @@ by separate charts.
 | Audience | hosted OpenDealbook for the world | internal platform |
 | Marketing site | **OFF** | **ON** |
 | `marketing.enabled` | `false` | `true` |
-| Env var rendered | `NEXT_PUBLIC_ENABLE_MARKETING=false` | `NEXT_PUBLIC_ENABLE_MARKETING=true` |
+| Env var rendered | `ENABLE_MARKETING=false` | `ENABLE_MARKETING=true` |
 | Domain / ingress / TLS | public (`opendealbook.com`) | internal host |
 
 `mode` drives `marketing.enabled` (invariant enforced in `values.cue`:
@@ -74,16 +74,16 @@ by separate charts.
 `ingress` block (see [Ingress](#ingress)); the two instances differ by values,
 not by separate charts.
 
-### App-side caveat (surfaced, not resolved here)
+`apps/web` reads `ENABLE_MARKETING` on the server at request time
+(`config/feature-flags.config.ts`), so one image serves both instances.
 
-`apps/web` has **no** marketing-toggle env var today. `config/feature-flags.config.ts`
-is a static object (`enableThemeToggle` / `enableTeamAccounts` /
-`enablePersonalAccountBilling`); the only `NEXT_PUBLIC_*` vars are
-`NEXT_PUBLIC_DEFAULT_LOCALE` and `NEXT_PUBLIC_SITE_URL`. This chart emits
-`NEXT_PUBLIC_ENABLE_MARKETING` (chosen to match the existing `NEXT_PUBLIC_`
-convention), but the app lane must wire `feature-flags.config.ts` (and the
-`[locale]/(marketing)` route group / robots / sitemap) to read it. Until then
-the toggle has no effect. Confirm the final var name with that lane.
+## Billing toggle
+
+`billing.enabled` (default `true`) is rendered into the web pod as
+`ENABLE_BILLING`, which `apps/web` reads on the server at request time. Set it to `false` for a self-hosted install with
+no billing: no trial limits, banner, or trial emails, no billing or pricing
+pages, and no Stripe (the `STRIPE_*` secrets can be left out). It is
+independent of `mode`.
 
 ## Ingress
 

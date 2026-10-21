@@ -63,6 +63,7 @@ create table if not exists public.ai_call_log (
   account_id uuid not null references public.accounts (id) on delete cascade,
   endpoint_id uuid references public.llm_endpoint (id) on delete set null,
   deal_id uuid references public.deal (id) on delete cascade,
+  firm_id uuid references public.firm (id) on delete cascade,
   model text not null,
   prompt_tokens int,
   completion_tokens int,

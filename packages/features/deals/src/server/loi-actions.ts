@@ -3,16 +3,16 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { dealBoxScreenPasses } from '../shared/queries';
+import { offerIdSchema } from '../schema/offer.schema';
 import {
-  contractRequestSchema,
-  countEarlierContractsOrRefuse,
+  nextContractVersionOrRefuse,
   generateContract,
 } from './generate-contract';
 import { Refusal, refusableAction } from './refusal';
 
 export const generateLoi = refusableAction(async (data, user) => {
   const client = getSupabaseServerClient();
-  const earlierContracts = await countEarlierContractsOrRefuse({
+  const slot = await nextContractVersionOrRefuse({
     client,
     offerId: data.offer_id,
     type: 'loi',
@@ -46,10 +46,9 @@ export const generateLoi = refusableAction(async (data, user) => {
     dealId: offer.deal_id,
     accountId: offer.account_id,
     offerId: data.offer_id,
-    earlierContracts,
+    slot,
     offerVersionId: offer.current_version_id as string,
     terms: version.terms as Record<string, unknown>,
     type: 'loi',
-    signers: data.signers,
   });
-}, contractRequestSchema);
+}, offerIdSchema);

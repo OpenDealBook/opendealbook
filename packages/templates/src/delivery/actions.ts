@@ -1,20 +1,16 @@
 'use server';
 
-import { z } from 'zod';
-
 import { enhanceAction } from '@odb/next/actions';
+import { requireEnv } from '@odb/shared/env';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { assertDealsManager } from '../permissions';
-import { sharePermissionSchema } from '../types';
-import { createSellerDeliveryClient, sendToSeller } from './send-to-seller';
-
-const sendToSellerSchema = z.object({
-  generatedDocumentId: z.string(),
-  recipientUserId: z.string(),
-  permission: sharePermissionSchema,
-  expiresAt: z.string().nullable().default(null),
-});
+import {
+  createSellerDeliveryClient,
+  sendToSeller,
+  sendToSellerInputSchema,
+} from './send-to-seller';
 
 export const sendToSellerAction = enhanceAction(
   async (input, user) => {
@@ -34,8 +30,12 @@ export const sendToSellerAction = enhanceAction(
 
     return sendToSeller(input, {
       client,
+      admin: getSupabaseServerAdminClient(),
       workflow: createSellerDeliveryClient(),
+      siteOrigin: requireEnv('NEXT_PUBLIC_SITE_URL'),
+      senderUserId: user.id,
+      sellerFromEmail: process.env.SELLER_DELIVERY_FROM_EMAIL,
     });
   },
-  { auth: true, schema: sendToSellerSchema },
+  { auth: true, schema: sendToSellerInputSchema },
 );

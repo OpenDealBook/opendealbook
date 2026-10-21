@@ -128,6 +128,27 @@ describe('importComps', () => {
     expect(calls.imports[0]!.storage_path).toBe(calls.stored[0]!.path);
   });
 
+  it('stores a file whose name storage keys cannot hold, keeping its name', async () => {
+    const { deps, calls } = makeDeps();
+
+    await importComps(
+      {
+        accountId: 'acc-1',
+        vendor: 'dealstats',
+        filename: '[Q3] comps & more.csv',
+        format: 'csv',
+        content: DEALSTATS_CSV,
+        createdBy: 'user-1',
+      },
+      deps,
+    );
+
+    expect(calls.stored[0]!.path).toMatch(
+      /^acc-1\/dealstats\/[0-9a-f-]+-[A-Za-z0-9._-]+$/,
+    );
+    expect(calls.imports[0]!.filename).toBe('[Q3] comps & more.csv');
+  });
+
   it('maps a BIZCOMPS export under its own source and label', async () => {
     const { deps, calls } = makeDeps();
 

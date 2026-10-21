@@ -23,6 +23,7 @@ export const DEAL_PARAM = {
   sdeUndisclosed: 'sdeUndisc',
   starred: 'starred',
   archived: 'archived',
+  examples: 'examples',
   sort: 'sort',
   cursor: 'cursor',
   view: 'view',
@@ -142,6 +143,7 @@ export function parseDealParams(params: RawSearchParams): ParsedDealParams {
     sdeIncludeUndisclosed: flag(params[DEAL_PARAM.sdeUndisclosed]),
     starred: flag(params[DEAL_PARAM.starred]),
     archived: flag(params[DEAL_PARAM.archived]),
+    examples: flag(params[DEAL_PARAM.examples]),
   };
 
   return {
@@ -194,6 +196,7 @@ export function viewToSearchParams(view: {
   setFlag(DEAL_PARAM.sdeUndisclosed, f.sdeIncludeUndisclosed);
   setFlag(DEAL_PARAM.starred, f.starred);
   setFlag(DEAL_PARAM.archived, f.archived);
+  setFlag(DEAL_PARAM.examples, f.examples);
   setValue(DEAL_PARAM.sort, view.sort);
   setCsv(DEAL_PARAM.cols, view.visibleColumns);
 

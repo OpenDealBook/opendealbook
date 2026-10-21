@@ -87,7 +87,7 @@ export function DealCloseSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Client transitions</CardTitle>
+        <CardTitle>Customer transition</CardTitle>
       </CardHeader>
       <CardContent className={'flex flex-col gap-6'}>
         <form

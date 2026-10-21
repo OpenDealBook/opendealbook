@@ -1,5 +1,6 @@
 import { isValidElement, type ReactElement, type ReactNode } from 'react';
 
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LenderRoomSummary } from '../members/entry-rules';
@@ -50,9 +51,9 @@ vi.mock('../members/actions', () => ({
 vi.mock('../requests-ui/open-requests-summary', () => ({
   OpenRequestsSummary: () => null,
 }));
-vi.mock('./room-browser', () => ({ RoomBrowser: () => null }));
+vi.mock('./lender-room-browser', () => ({ LenderRoomBrowser: () => null }));
 
-import { RoomBrowser } from './room-browser';
+import { LenderRoomBrowser } from './lender-room-browser';
 import { RoomPage } from './room-page';
 
 const ROOM: LenderRoomSummary = {
@@ -67,7 +68,14 @@ const ROOM: LenderRoomSummary = {
   brand_name: null,
   brand_logo_path: null,
   deal_name: 'Dockside',
-  deal_description: null,
+  target_close_date: null,
+  must_close_by: null,
+  must_close_reason: null,
+  buyer_team: null,
+  loan_amount: null,
+  loan_type: null,
+  term_years: null,
+  seller_note_amount: null,
 };
 
 const marks = { direct: false, inherited: false };
@@ -82,7 +90,10 @@ function folder(id: string, hidden?: typeof marks) {
   };
 }
 
-function find(node: ReactNode, matches: (element: ReactElement) => boolean): ReactElement[] {
+function find(
+  node: ReactNode,
+  matches: (element: ReactElement) => boolean,
+): ReactElement[] {
   if (Array.isArray(node)) {
     return node.flatMap((child) => find(child, matches));
   }
@@ -101,14 +112,21 @@ describe('RoomPage', () => {
     Object.assign(server, {
       userId: 'user-ana',
       peopleRefusal: null,
-      loaded: { viewer: 'lender', master: folder('package'), private: folder('own') },
+      loaded: {
+        viewer: 'lender',
+        master: folder('package'),
+        private: folder('own'),
+      },
       logosSigned: [],
     });
   });
 
   it('hands the browser the signed-in person and both places', async () => {
-    const page = await RoomPage({ room: ROOM });
-    const [browser] = find(page, (element) => element.type === RoomBrowser);
+    const page = await RoomPage({ room: ROOM, question: null });
+    const [browser] = find(
+      page,
+      (element) => element.type === LenderRoomBrowser,
+    );
 
     expect(browser!.props).toMatchObject({
       userId: 'user-ana',
@@ -123,9 +141,13 @@ describe('RoomPage', () => {
       private: folder('own', marks),
     };
 
-    const page = await RoomPage({ room: ROOM });
-    const [browser] = find(page, (element) => element.type === RoomBrowser);
-    const places = (browser!.props as { places: Record<string, object> }).places;
+    const page = await RoomPage({ room: ROOM, question: null });
+    const [browser] = find(
+      page,
+      (element) => element.type === LenderRoomBrowser,
+    );
+    const places = (browser!.props as { places: Record<string, object> })
+      .places;
 
     expect(places.shared).not.toHaveProperty('hidden');
     expect(places.own).not.toHaveProperty('hidden');
@@ -134,33 +156,74 @@ describe('RoomPage', () => {
   it('fails loudly when nobody is signed in', async () => {
     server.userId = null;
 
-    await expect(RoomPage({ room: ROOM })).rejects.toThrow();
+    await expect(RoomPage({ room: ROOM, question: null })).rejects.toThrow();
   });
 
   it('fails loudly with the refusal when the people in the room cannot be listed', async () => {
     server.peopleRefusal = 'You do not have access to this room';
 
-    await expect(RoomPage({ room: ROOM })).rejects.toThrow(
+    await expect(RoomPage({ room: ROOM, question: null })).rejects.toThrow(
       'You do not have access to this room',
     );
   });
 
   it('fails loudly when the room has no folder of its own', async () => {
-    server.loaded = { viewer: 'lender', master: folder('package'), private: null };
+    server.loaded = {
+      viewer: 'lender',
+      master: folder('package'),
+      private: null,
+    };
 
-    await expect(RoomPage({ room: ROOM })).rejects.toThrow(
+    await expect(RoomPage({ room: ROOM, question: null })).rejects.toThrow(
       'is missing a root folder',
     );
   });
 
+  it('says until which day the room is open, without a time of day', async () => {
+    const page = await RoomPage({
+      room: { ...ROOM, expires_at: '2026-12-18T05:26:00Z' },
+      question: null,
+    });
+    const text = renderToStaticMarkup(page).replace(/<[^>]+>/g, '');
+
+    expect(text).toContain('Room open until Dec 18, 2026');
+    expect(text).not.toContain('5:26');
+  });
+
+  it('heads the room with the deal, the buyer team, the loan ask and the close-by date, then the question for the lender', async () => {
+    const page = await RoomPage({
+      room: {
+        ...ROOM,
+        buyer_team: 'Harbor Acquisitions',
+        loan_amount: 2240000,
+        loan_type: 'sba_7a',
+        must_close_by: '2027-03-31',
+      },
+      question: <p>Can you close by March 31, 2027?</p>,
+    });
+    const [heading] = find(page, (element) => element.type === 'h1');
+    const text = renderToStaticMarkup(page).replace(/<[^>]+>/g, ' ');
+
+    expect(renderToStaticMarkup(heading!)).toContain('Dockside');
+    expect(renderToStaticMarkup(heading!)).not.toContain('First Harbor Bank');
+    expect(text).toMatch(/Prepared for\s+First Harbor Bank/);
+    expect(text).toMatch(/Buyer\s+Harbor Acquisitions/);
+    expect(text).toMatch(/Loan ask\s+\$2,240,000 SBA 7\(a\)/);
+    expect(text).toMatch(/Close by\s+March 31, 2027/);
+    expect(text.indexOf('Can you close by')).toBeLessThan(
+      text.indexOf('Answers to common questions'),
+    );
+  });
+
   it('signs a logo only when the lender has one', async () => {
-    const withoutLogo = await RoomPage({ room: ROOM });
+    const withoutLogo = await RoomPage({ room: ROOM, question: null });
 
     expect(server.logosSigned).toEqual([]);
     expect(find(withoutLogo, (element) => element.type === 'img')).toEqual([]);
 
     const withLogo = await RoomPage({
       room: { ...ROOM, brand_logo_path: 'firstharbor.test/logo.png' },
+      question: null,
     });
 
     expect(server.logosSigned).toEqual(['firstharbor.test/logo.png']);

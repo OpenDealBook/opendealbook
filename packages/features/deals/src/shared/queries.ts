@@ -1,6 +1,7 @@
-import type { Tables } from '@odb/supabase';
+import type { Enums, Tables } from '@odb/supabase';
 import type { getSupabaseBrowserClient } from '@odb/supabase/client';
 
+import { fetchCalcSources } from './calc-citations';
 import type { DealFilters } from './keys';
 
 type Client = ReturnType<typeof getSupabaseBrowserClient>;
@@ -10,7 +11,10 @@ export async function fetchDeals(
   accountId: string,
   filters?: DealFilters,
 ): Promise<Tables<'deal'>[]> {
-  let query = client.from('deal').select('*').eq('account_id', accountId);
+  let query = client
+    .from('deal')
+    .select('*, close_date')
+    .eq('account_id', accountId);
 
   if (filters?.stage) {
     query = query.eq('stage', filters.stage);
@@ -39,7 +43,7 @@ export async function fetchDeal(
 ): Promise<Tables<'deal'>> {
   const { data, error } = await client
     .from('deal')
-    .select('*')
+    .select('*, close_date')
     .eq('id', dealId)
     .single();
 
@@ -310,65 +314,69 @@ export async function fetchDealValueMarkers(
   return data;
 }
 
-type AssignedChecklistItem = Tables<'checklist_item'> & {
-  deal: { id: string; description: string | null } | null;
-};
-
-export interface AssignedChecklistGroup {
-  deal: { id: string; description: string | null };
-  items: AssignedChecklistItem[];
+interface MyWorkBase {
+  id: string;
+  title: string;
+  deal: { id: string; name: string } | null;
+  due_at: string | null;
+  done: boolean;
 }
 
-export interface MyTodos {
-  assigned: AssignedChecklistGroup[];
-  personal: Tables<'personal_todo'>[];
+export type MyWorkItem = MyWorkBase &
+  ({ kind: 'checklist'; status: Enums<'checklist_status'> } | { kind: 'todo' });
+
+export type MyTodos = MyWorkItem[];
+
+const DEAL_NAME = 'deal:deal_id(id, firm(name))';
+
+function dealOf(deal: { id: string; firm: { name: string } } | null) {
+  return deal && { id: deal.id, name: deal.firm.name };
 }
 
 export async function fetchMyTodos(
   client: Client,
   userId: string,
+  accountId: string,
 ): Promise<MyTodos> {
-  const [assignedResult, personalResult] = await Promise.all([
+  const [{ data: checklist }, { data: todos }] = await Promise.all([
     client
       .from('checklist_item')
-      .select('*, deal:deal_id(id, description)')
+      .select(`id, title, status, due_at, ${DEAL_NAME}`)
       .eq('owner_user_id', userId)
-      .order('due_at', { ascending: true }),
+      .eq('account_id', accountId)
+      .throwOnError(),
     client
       .from('personal_todo')
-      .select('*')
+      .select(`id, title, done, due_at, ${DEAL_NAME}`)
       .eq('user_id', userId)
-      .order('created_at', { ascending: true }),
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: true })
+      .throwOnError(),
   ]);
 
-  if (assignedResult.error) {
-    throw assignedResult.error;
-  }
+  const items: MyWorkItem[] = [
+    ...checklist.map((item) => ({
+      kind: 'checklist' as const,
+      id: item.id,
+      title: item.title,
+      status: item.status,
+      done: item.status === 'received' || item.status === 'reviewed',
+      due_at: item.due_at,
+      deal: dealOf(item.deal),
+    })),
+    ...todos.map((todo) => ({
+      kind: 'todo' as const,
+      id: todo.id,
+      title: todo.title,
+      done: todo.done,
+      due_at: todo.due_at,
+      deal: dealOf(todo.deal),
+    })),
+  ];
 
-  if (personalResult.error) {
-    throw personalResult.error;
-  }
-
-  const groups = new Map<string, AssignedChecklistGroup>();
-
-  for (const item of assignedResult.data as unknown as AssignedChecklistItem[]) {
-    const existing = groups.get(item.deal_id);
-
-    if (existing) {
-      existing.items.push(item);
-      continue;
-    }
-
-    groups.set(item.deal_id, {
-      deal: { id: item.deal_id, description: item.deal?.description ?? null },
-      items: [item],
-    });
-  }
-
-  return {
-    assigned: [...groups.values()],
-    personal: personalResult.data,
-  };
+  return items.toSorted((a, b) =>
+    (a.due_at ?? '\uffff').localeCompare(b.due_at ?? '\uffff'),
+  );
 }
 
 export async function fetchChecklistItems(
@@ -388,45 +396,73 @@ export async function fetchChecklistItems(
   return data;
 }
 
+export const DEAD_OFFER_STATUSES = ['rejected', 'withdrawn', 'expired'];
+
 export interface DealOffer {
   offer: Tables<'offer'>;
   versions: Tables<'offer_version'>[];
   currentVersion: Tables<'offer_version'> | null;
 }
 
-// Diff adjacent entries of `versions` with diffOfferTerms from the offer schema.
-export async function fetchDealOffer(
+interface DealOffers {
+  live: DealOffer | null;
+  history: DealOffer[];
+}
+
+export async function fetchDealOffers(
   client: Client,
   { deal_id }: { deal_id: string },
-): Promise<DealOffer | null> {
-  const { data: offer, error: offerError } = await client
-    .from('offer')
-    .select('*')
-    .eq('deal_id', deal_id)
-    .maybeSingle();
+): Promise<DealOffers> {
+  const [offersResult, draftedResult] = await Promise.all([
+    client
+      .from('offer')
+      .select('*, offer_version(*)')
+      .eq('deal_id', deal_id)
+      .order('number', { referencedTable: 'offer_version', ascending: true }),
+    client
+      .from('deal_event')
+      .select('aggregate_id')
+      .eq('deal_id', deal_id)
+      .eq('event_type', 'offer.drafted')
+      .order('deal_seq', { ascending: false }),
+  ]);
 
-  if (offerError) {
-    throw offerError;
+  if (offersResult.error) {
+    throw offersResult.error;
   }
 
-  if (!offer) {
-    return null;
+  if (draftedResult.error) {
+    throw draftedResult.error;
   }
 
-  const { data: versions, error: versionsError } = await client
-    .from('offer_version')
-    .select('*')
-    .eq('offer_id', offer.id)
-    .order('number', { ascending: true });
+  const offersById = new Map(
+    offersResult.data.map(({ offer_version: versions, ...offer }) => [
+      offer.id,
+      {
+        offer,
+        versions,
+        currentVersion:
+          versions.find((version) => version.id === offer.current_version_id) ??
+          null,
+      },
+    ]),
+  );
+  const offers = draftedResult.data.map(
+    ({ aggregate_id }) => offersById.get(aggregate_id)!,
+  );
 
-  if (versionsError) {
-    throw versionsError;
-  }
+  return {
+    live:
+      offers.find(({ offer }) => !DEAD_OFFER_STATUSES.includes(offer.status)) ??
+      null,
+    history: offers.filter(({ offer }) =>
+      DEAD_OFFER_STATUSES.includes(offer.status),
+    ),
+  };
+}
 
-  const currentVersion =
-    versions.find((version) => version.id === offer.current_version_id) ?? null;
-
-  return { offer, versions, currentVersion };
+export function acceptedOffer({ live }: DealOffers): DealOffer | null {
+  return live?.offer.status === 'accepted' ? live : null;
 }
 
 export async function fetchDealParticipants(
@@ -505,5 +541,6 @@ export async function fetchCalcVersion(
     periods: periods.data,
     input: input.data,
     funding_sources: funding.data,
+    sources: await fetchCalcSources(client, version.data),
   };
 }

@@ -7,16 +7,20 @@ import {
 } from '@odb/email-templates';
 
 import {
-  digestedDocumentSchema,
-  groupVisibleDocuments,
+  digestedEventSchema,
+  groupVisibleItems,
   type VisibleDocument,
+  type VisibleFaqEntry,
 } from './digest-content';
 
 export interface LenderWorkflowDeps {
   siteUrl: string;
+  digestIntervalMinutes: number | undefined;
   loadRoom(input: { roomId: string }): Promise<{
     name: string;
-    dealName: string | null;
+    dealName: string;
+    outsideName: string;
+    buyerTeam: string;
     dealId: string;
     teamAccountSlug: string;
   }>;
@@ -25,6 +29,10 @@ export interface LenderWorkflowDeps {
     userId: string;
     documentIds: string[];
   }): Promise<VisibleDocument[]>;
+  loadVisibleFaqEntries(input: {
+    userId: string;
+    entryIds: string[];
+  }): Promise<VisibleFaqEntry[]>;
 }
 
 const PRODUCT_NAME = 'Open Deal Book';
@@ -37,6 +45,21 @@ const askPayloadSchema = {
     kind: { type: 'string', enum: ['ask', 'form'] },
   },
   required: ['roomId', 'askId', 'kind'],
+} as const;
+
+const timelineAnswerPayloadSchema = {
+  type: 'object',
+  properties: {
+    roomId: { type: 'string' },
+    answer: { type: 'string', enum: ['yes', 'no', 'need_to_talk'] },
+  },
+  required: ['roomId', 'answer'],
+} as const;
+
+const timelineAnswerWording = {
+  yes: 'can close by the date you asked',
+  no: 'cannot close by the date you asked',
+  need_to_talk: 'wants to talk about the closing date',
 } as const;
 
 const signaturePayloadSchema = {
@@ -69,24 +92,66 @@ const documentLookupSchema = {
         properties: {
           roomId: { type: 'string' },
           name: { type: 'string' },
-          documents: {
+          items: {
             type: 'array',
             items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string' },
-                status: { type: 'string', enum: ['new', 'updated'] },
-              },
-              required: ['name', 'status'],
+              anyOf: [
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'document' },
+                    name: { type: 'string' },
+                    status: { type: 'string', enum: ['new', 'updated'] },
+                  },
+                  required: ['kind', 'name', 'status'],
+                },
+                {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', const: 'faq' },
+                    question: { type: 'string' },
+                  },
+                  required: ['kind', 'question'],
+                },
+              ],
             },
           },
           moreCount: { type: 'number' },
         },
-        required: ['roomId', 'name', 'documents', 'moreCount'],
+        required: ['roomId', 'name', 'items', 'moreCount'],
       },
     },
   },
   required: ['checked', 'rooms'],
+} as const;
+
+const lendersToNudgePayloadSchema = {
+  type: 'object',
+  properties: {
+    accountSlug: { type: 'string' },
+    lenders: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lenderName: { type: 'string' },
+          deals: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                dealName: { type: ['string', 'null'] },
+                daysSilent: { type: 'number' },
+              },
+              required: ['dealName', 'daysSilent'],
+            },
+          },
+        },
+        required: ['lenderName', 'deals'],
+      },
+    },
+  },
+  required: ['accountSlug', 'lenders'],
 } as const;
 
 interface AskPayload {
@@ -166,7 +231,8 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
       ]);
 
       return {
-        team: room.dealName ? `${room.dealName}'s team` : 'The deal team',
+        team: room.buyerTeam,
+        outsideName: room.outsideName,
         roomName: room.name,
         teamRoomLink: teamRoomLink(payload.roomId, room),
         title,
@@ -205,7 +271,9 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
           return noticeEmail(
             forLender
               ? {
-                  subject: `${team}: ${outcome.lenderSubject}`,
+                  subject: `${
+                    request ? `${team} on ${request.outsideName}` : team
+                  }: ${outcome.lenderSubject}`,
                   message: `${happened}${outcome.lenderNext(team)}`,
                   actionLabel: 'View the form',
                   actionLink: lenderRequestLink({ ...payload, kind: 'form' }),
@@ -263,7 +331,9 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
 
       return payload.kind === 'ask'
         ? {
-            subject: `${team} answered your request`,
+            subject: request
+              ? `${team} answered your request on ${request.outsideName}`
+              : `${team} answered your request`,
             message: `${
               request
                 ? `${team} has replied to your request "${request.title}" in the ${request.roomName} lender room.`
@@ -273,7 +343,9 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
             actionLink: lenderRequestLink(payload),
           }
         : {
-            subject: `${team} replied about your form`,
+            subject: request
+              ? `${team} replied about your form on ${request.outsideName}`
+              : `${team} replied about your form`,
             message: `${
               request
                 ? `${team} has replied about your form "${request.title}" in the ${request.roomName} lender room.`
@@ -289,7 +361,9 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
       const team = request?.team ?? 'The deal team';
 
       return {
-        subject: `${team} returned your form`,
+        subject: request
+          ? `${team} returned your form on ${request.outsideName}`
+          : `${team} returned your form`,
         message: `${
           request
             ? `${team} has completed your form "${request.title}" in the ${request.roomName} lender room.`
@@ -334,6 +408,25 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
     }),
 
     workflow(
+      'lender_room.timeline_answered',
+      async ({ step, payload }) => {
+        await step.email('email', async () => {
+          const room = await deps.loadRoom(payload).catch(() => null);
+
+          return noticeEmail({
+            subject: 'A lender answered your closing timeline question',
+            message: `${room ? room.name : 'A lender'} ${
+              timelineAnswerWording[payload.answer]
+            }. Open ${room ? 'the lender room' : "the deal's lenders page"} to follow up.`,
+            actionLabel: room ? 'Open the lender room' : 'Open your deals',
+            actionLink: room ? teamRoomLink(payload.roomId, room) : teamLink,
+          });
+        });
+      },
+      { payloadSchema: timelineAnswerPayloadSchema },
+    ),
+
+    workflow(
       'lender_room.access_requested',
       async ({ step, payload }) => {
         await step.email('email', async () => {
@@ -345,9 +438,7 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
               : 'Someone asked for access to a closed lender room',
             message: `${payload.email} asked for access to ${
               room
-                ? `the ${room.name} lender room${
-                    room.dealName ? ` on ${room.dealName}` : ''
-                  }, which is closed or expired.`
+                ? `the ${room.name} lender room on ${room.dealName}, which is closed or expired.`
                 : 'a lender room that is closed or expired.'
             } Reopen the room from ${
               room ? 'its settings' : "the deal's lenders page"
@@ -360,30 +451,67 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
       { payloadSchema: accessRequestPayloadSchema },
     ),
 
+    workflow(
+      'lender-nudges.daily',
+      async ({ step, payload }) => {
+        await step.email('email', async () => {
+          const count = payload.lenders.length;
+
+          return noticeEmail({
+            subject: `${count} ${count === 1 ? 'lender' : 'lenders'} to nudge today`,
+            message: payload.lenders
+              .map(
+                (lender) =>
+                  `${lender.lenderName}: ${lender.deals
+                    .map(
+                      (deal) =>
+                        `${deal.dealName ?? 'your deal'}, quiet ${deal.daysSilent} days`,
+                    )
+                    .join('; ')}.`,
+              )
+              .join(' '),
+            actionLabel: 'Open your lenders',
+            actionLink: `${deps.siteUrl}/home/${payload.accountSlug}/lenders`,
+          });
+        });
+      },
+      { payloadSchema: lendersToNudgePayloadSchema },
+    ),
+
     workflow('lender-room-documents', async ({ step, subscriber }) => {
-      const digest = await step.digest('daily-digest', () => ({
-        type: 'timed' as const,
-        cron: '0 22 * * *',
-      }));
+      const digest = await step.digest('daily-digest', () =>
+        deps.digestIntervalMinutes === undefined
+          ? { type: 'timed' as const, cron: '0 22 * * *' }
+          : { amount: deps.digestIntervalMinutes, unit: 'minutes' as const },
+      );
 
       const lookup = await step.custom(
         'visible-documents',
         async () => {
           const userId = z.string().parse(subscriber.subscriberId);
           const digested = digest.events.map((event) =>
-            digestedDocumentSchema.parse(event.payload),
+            digestedEventSchema.parse(event.payload),
           );
 
           try {
+            const [documents, faqEntries] = await Promise.all([
+              deps.loadVisibleDocuments({
+                userId,
+                documentIds: digested.flatMap((event) =>
+                  'documentId' in event ? [event.documentId] : [],
+                ),
+              }),
+              deps.loadVisibleFaqEntries({
+                userId,
+                entryIds: digested.flatMap((event) =>
+                  'entryId' in event ? [event.entryId] : [],
+                ),
+              }),
+            ]);
+
             return {
               checked: true,
-              rooms: groupVisibleDocuments(
-                digested,
-                await deps.loadVisibleDocuments({
-                  userId,
-                  documentIds: digested.map((document) => document.documentId),
-                }),
-              ),
+              rooms: groupVisibleItems(digested, documents, faqEntries),
             };
           } catch {
             return { checked: false, rooms: [] };
@@ -410,6 +538,7 @@ export function buildLenderWorkflows(deps: LenderWorkflowDeps) {
             rooms: lookup.rooms.map(({ roomId, ...room }) => ({
               ...room,
               link: `${deps.siteUrl}/lender/${roomId}`,
+              faqLink: `${deps.siteUrl}/lender/${roomId}/faq`,
             })),
           });
 

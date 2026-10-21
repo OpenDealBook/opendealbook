@@ -12,6 +12,7 @@ create table if not exists public.document_share (
   first_viewed_at timestamptz,
   expires_at timestamptz,
   workflow_id text,
+  delivered_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -48,3 +49,21 @@ create policy document_share_update on public.document_share
 create policy document_share_delete on public.document_share
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- The recipient opens their own share: it marks the first view and hands back
+-- the PDF path for the server to sign. Anyone else gets null.
+create or replace function public.open_document_share(share_id uuid)
+  returns text
+  language sql security definer
+  set search_path = '' as $$
+  update public.document_share s
+     set first_viewed_at = coalesce(s.first_viewed_at, now())
+    from public.generated_document g
+   where s.id = share_id
+     and s.recipient_user_id = (select auth.uid())
+     and g.id = s.generated_document_id
+  returning g.pdf_path;
+$$;
+
+revoke all on function public.open_document_share(uuid) from public, anon;
+grant execute on function public.open_document_share(uuid) to authenticated;

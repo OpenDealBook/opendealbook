@@ -38,7 +38,7 @@ revoke all on public.accounts from authenticated, service_role;
 -- authenticated never inserts directly: rows are born through the new-user
 -- trigger or create_team_account (both security definer).
 grant select, delete on public.accounts to authenticated;
-grant update (name, slug, picture_url, public_data) on public.accounts to authenticated;
+grant update (name, picture_url, public_data) on public.accounts to authenticated;
 grant select, insert, update, delete on public.accounts to service_role;
 
 create trigger accounts_timestamps
@@ -82,27 +82,39 @@ create or replace function tuckin.slugify(value text)
   );
 $$ language sql strict immutable;
 
--- Derive a unique slug from the team name, suffixing a counter on collision.
+-- A team slug is unique among live slugs and other teams' former slugs, never
+-- a static route under /home, at most 64 characters including its counter suffix.
 create or replace function tuckin.assign_team_slug()
   returns trigger
+  language plpgsql security definer
   set search_path = '' as $$
 declare
-  base text := tuckin.slugify(new.name);
-  candidate text := base;
-  suffix int := 1;
+  base text := case when tg_op = 'INSERT' then coalesce(new.slug, tuckin.slugify(new.name)) else tuckin.slugify(new.name) end;
+  candidate text := rtrim(left(base, 64), '-');
+  suffix int := 0;
 begin
-  while exists (select 1 from public.accounts where slug = candidate) loop
-    candidate := base || '-' || suffix;
+  if base = '' then
+    raise exception 'team name must contain a letter or number';
+  end if;
+  while candidate in ('settings', 'create-team', 'deals', 'billing', 'todos', 'outreach', 'underwriting', 'counsel')
+    or exists (select 1 from public.accounts where slug = candidate and id <> new.id)
+    or exists (select 1 from public.account_slug_history where slug = candidate and account_id <> new.id) loop
     suffix := suffix + 1;
+    candidate := rtrim(left(base, 63 - length(suffix::text)), '-') || '-' || suffix;
   end loop;
   new.slug := candidate;
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 create trigger accounts_slug_on_insert
   before insert on public.accounts
-  for each row when (new.name is not null and new.slug is null and not new.is_personal_account)
+  for each row when (not new.is_personal_account)
+  execute function tuckin.assign_team_slug();
+
+create trigger accounts_slug_on_rename
+  before update on public.accounts
+  for each row when (new.name is distinct from old.name and not new.is_personal_account)
   execute function tuckin.assign_team_slug();
 
 -- Create a personal account for every new auth user.
@@ -209,8 +221,8 @@ create or replace function public.transfer_team_account_ownership(target_account
   language plpgsql security definer
   set search_path = '' as $$
 begin
-  if current_user <> 'service_role' then
-    raise exception 'ownership transfer is restricted to the service role';
+  if not public.is_account_owner(target_account_id) then
+    raise exception 'only the owner can transfer this team' using errcode = 'insufficient_privilege';
   end if;
 
   if not exists (
@@ -230,12 +242,7 @@ begin
 end;
 $$;
 
-grant execute on function public.transfer_team_account_ownership(uuid, uuid) to service_role;
-
-create policy accounts_update on public.accounts
-  for update to authenticated
-  using ((select auth.uid()) = primary_owner_user_id)
-  with check ((select auth.uid()) = primary_owner_user_id);
+grant execute on function public.transfer_team_account_ownership(uuid, uuid) to authenticated;
 
 create policy accounts_delete_team on public.accounts
   for delete to authenticated

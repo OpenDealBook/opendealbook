@@ -2,11 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 
-import type { SharePermission } from '@odb/templates';
-import {
-  generateFromTemplate,
-  sendToSellerAction,
-} from '@odb/templates/server';
+import { generateFromTemplate } from '@odb/templates/server';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
@@ -24,6 +20,7 @@ import {
 } from '@odb/ui/template-field';
 
 import { createGeneratedLinks } from '../actions';
+import { SendToSellerPanel } from './send-to-seller-panel';
 
 export interface TemplateFieldOption {
   key: string;
@@ -56,8 +53,6 @@ interface GeneratedResult {
   pdfUrl: string | null;
 }
 
-const PERMISSIONS: SharePermission[] = ['view', 'comment', 'edit'];
-
 export function GenerateForm({
   accountId,
   templates,
@@ -67,11 +62,7 @@ export function GenerateForm({
   const [dealId, setDealId] = useState('');
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<GeneratedResult | null>(null);
-  const [recipient, setRecipient] = useState('');
-  const [permission, setPermission] = useState<SharePermission>('view');
-  const [sent, setSent] = useState(false);
   const [isGenerating, startGenerating] = useTransition();
-  const [isSending, startSending] = useTransition();
 
   const template = useMemo(
     () => templates.find((entry) => entry.id === templateId) ?? null,
@@ -110,23 +101,6 @@ export function GenerateForm({
         docxUrl: links.docxUrl,
         pdfUrl: links.pdfUrl,
       });
-      setSent(false);
-    });
-  }
-
-  function onSend() {
-    if (!result || recipient.trim().length === 0) {
-      return;
-    }
-
-    startSending(async () => {
-      await sendToSellerAction({
-        generatedDocumentId: result.id,
-        recipientUserId: recipient,
-        permission,
-        expiresAt: null,
-      });
-      setSent(true);
     });
   }
 
@@ -241,51 +215,10 @@ export function GenerateForm({
               ) : null}
             </div>
 
-            <div className={'flex flex-col gap-2'}>
-              <Label htmlFor={'seller-recipient'}>
-                Seller recipient (user id)
-              </Label>
-              <Input
-                id={'seller-recipient'}
-                value={recipient}
-                onChange={(event) => setRecipient(event.target.value)}
-              />
-            </div>
-            <div className={'flex flex-col gap-2'}>
-              <Label>Permission</Label>
-              <Select
-                value={permission}
-                onValueChange={(value) =>
-                  setPermission(value as SharePermission)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERMISSIONS.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className={'flex items-center gap-3'}>
-              <Button
-                type={'button'}
-                variant={'outline'}
-                onClick={onSend}
-                disabled={isSending || recipient.trim().length === 0}
-              >
-                {isSending ? 'Sending' : 'Send to seller'}
-              </Button>
-              {sent ? (
-                <span className={'text-muted-foreground text-sm'}>
-                  Sent to seller
-                </span>
-              ) : null}
-            </div>
+            <SendToSellerPanel
+              key={result.id}
+              generatedDocumentId={result.id}
+            />
           </CardContent>
         </Card>
       ) : null}

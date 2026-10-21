@@ -12,6 +12,8 @@ import {
   type UpdateTeamData,
 } from '../schema/update-team.schema';
 
+const TEAM_RENAMED_RECENTLY = 'ODB01';
+
 async function assertSettingsManager(
   client: ReturnType<typeof getSupabaseServerClient>,
   accountId: string,
@@ -37,16 +39,26 @@ async function updateTeam(data: UpdateTeamData, user: { id: string }) {
 
   await assertSettingsManager(client, data.accountId, user.id);
 
-  const { error } = await client
+  const { data: team, error } = await client
     .from('accounts')
-    .update({ name: data.name, slug: data.slug })
-    .eq('id', data.accountId);
+    .update({
+      name: data.name,
+      legal_entity_name: data.legalEntityName,
+      team_phone: data.teamPhone === '' ? null : data.teamPhone,
+    })
+    .eq('id', data.accountId)
+    .select('slug')
+    .single();
+
+  if (error?.code === TEAM_RENAMED_RECENTLY) {
+    return { success: false as const, renameAllowedAt: error.details };
+  }
 
   if (error) {
     throw error;
   }
 
-  return { success: true };
+  return { success: true as const, slug: team.slug! };
 }
 
 async function deleteTeam(data: DeleteTeamData) {

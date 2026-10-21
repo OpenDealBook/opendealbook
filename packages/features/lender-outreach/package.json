@@ -1,0 +1,41 @@
+{
+  "name": "@odb/lender-outreach",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
+  },
+  "dependencies": {
+    "@odb/deals": "workspace:*",
+    "@odb/lender-rooms": "workspace:*",
+    "@odb/mailbox": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/shared": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "server-only": "^0.0.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@odb/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "@types/react": "catalog:",
+    "pg": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,11 +1,11 @@
 'use server';
 
-import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { worksheetRowIdSchema, worksheetRowSchema } from '../schema/worksheet.schema';
+import { refusableAction } from './refusal';
 
-export const saveWorksheetRow = enhanceAction(
+export const saveWorksheetRow = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -39,10 +39,11 @@ export const saveWorksheetRow = enhanceAction(
 
     return row;
   },
-  { auth: true, schema: worksheetRowSchema },
+  worksheetRowSchema,
+  { what: 'edit worksheets', needs: 'deals.work' },
 );
 
-export const deleteWorksheetRow = enhanceAction(
+export const deleteWorksheetRow = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -54,5 +55,6 @@ export const deleteWorksheetRow = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: worksheetRowIdSchema },
+  worksheetRowIdSchema,
+  { what: 'edit worksheets', needs: 'deals.work' },
 );

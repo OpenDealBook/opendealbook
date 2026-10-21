@@ -35,12 +35,16 @@ export type FileViewerProps = {
   fileName: string;
   previewUrl: string;
   downloadUrl: string;
+  initialPage?: number;
+  initialSheet?: string;
 };
 
 export function FileViewer({
   fileName,
   previewUrl,
   downloadUrl,
+  initialPage,
+  initialSheet,
 }: FileViewerProps) {
   const kind = viewerKind(fileName);
 
@@ -68,6 +72,8 @@ export function FileViewer({
               kind={kind}
               fileName={fileName}
               previewUrl={previewUrl}
+              initialPage={initialPage}
+              initialSheet={initialSheet}
             />
           </LoadFailureBoundary>
         )}
@@ -150,10 +156,14 @@ function DocumentPreview({
   kind,
   fileName,
   previewUrl,
+  initialPage,
+  initialSheet,
 }: {
   kind: DocumentKind;
   fileName: string;
   previewUrl: string;
+  initialPage: number | undefined;
+  initialSheet: string | undefined;
 }) {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
 
@@ -183,11 +193,13 @@ function DocumentPreview({
   const { preview } = load;
   switch (preview.kind) {
     case 'pdf':
-      return <PdfPreview pdf={preview.document} />;
+      return <PdfPreview pdf={preview.document} initialPage={initialPage} />;
     case 'word':
       return <InertFrame title={fileName} srcDoc={preview.srcDoc} />;
     case 'sheet':
-      return <SheetPreview sheets={preview.sheets} />;
+      return (
+        <SheetPreview sheets={preview.sheets} initialSheet={initialSheet} />
+      );
     case 'email':
       return <EmailPreview fileName={fileName} email={preview} />;
     case 'text':
@@ -214,29 +226,47 @@ function InertFrame({ title, srcDoc }: { title: string; srcDoc: string }) {
 
 const CSS_PIXELS_PER_POINT = 96 / 72;
 
-function PdfPreview({ pdf }: { pdf: PDFDocumentProxy }) {
-  const [pageNumber, setPageNumber] = useState(1);
+function PdfPreview({
+  pdf,
+  initialPage,
+}: {
+  pdf: PDFDocumentProxy;
+  initialPage: number | undefined;
+}) {
+  const [pageNumber, setPageNumber] = useState(
+    Math.min(initialPage ?? 1, pdf.numPages),
+  );
   const [zoom, setZoom] = useState<number | null>(null);
+  const [zoomedByHand, setZoomedByHand] = useState(false);
   const [fitScale, setFitScale] = useState(1);
   const paneRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (zoomedByHand) return;
+    const pane = paneRef.current!;
+    const observer = new ResizeObserver(() => {
+      void pdf.getPage(pageNumber).then((page) => {
+        const fit = fitZoom(
+          pane.clientWidth,
+          page.getViewport({ scale: 1 }).width,
+        );
+        setFitScale(fit);
+        setZoom(fit);
+      });
+    });
+    observer.observe(pane);
+    return () => observer.disconnect();
+  }, [pdf, pageNumber, zoomedByHand]);
+
+  useEffect(() => {
+    if (zoom === null) return;
     let mounted = true;
     void (async () => {
       try {
         const page = await pdf.getPage(pageNumber);
         if (!mounted) return;
-        if (zoom === null) {
-          const fit = fitZoom(
-            paneRef.current!.clientWidth,
-            page.getViewport({ scale: 1 }).width,
-          );
-          setFitScale(fit);
-          setZoom(fit);
-          return;
-        }
         const viewport = page.getViewport({
           scale: zoom * CSS_PIXELS_PER_POINT * window.devicePixelRatio,
         });
@@ -298,7 +328,10 @@ function PdfPreview({ pdf }: { pdf: PDFDocumentProxy }) {
             className="size-8 rounded-full"
             aria-label="Zoom out"
             disabled={zoomOut(zoom, fitScale) === zoom}
-            onClick={() => setZoom(zoomOut(zoom, fitScale))}
+            onClick={() => {
+              setZoomedByHand(true);
+              setZoom(zoomOut(zoom, fitScale));
+            }}
           >
             <ZoomOutIcon aria-hidden />
           </Button>
@@ -311,7 +344,10 @@ function PdfPreview({ pdf }: { pdf: PDFDocumentProxy }) {
             className="size-8 rounded-full"
             aria-label="Zoom in"
             disabled={zoomIn(zoom) === zoom}
-            onClick={() => setZoom(zoomIn(zoom))}
+            onClick={() => {
+              setZoomedByHand(true);
+              setZoom(zoomIn(zoom));
+            }}
           >
             <ZoomInIcon aria-hidden />
           </Button>
@@ -332,9 +368,18 @@ function clippingNotice(sheet: Sheet): string | null {
   return null;
 }
 
-function SheetPreview({ sheets }: { sheets: Sheet[] }) {
+function SheetPreview({
+  sheets,
+  initialSheet,
+}: {
+  sheets: Sheet[];
+  initialSheet: string | undefined;
+}) {
+  const opening =
+    sheets.find((sheet) => sheet.name === initialSheet) ?? sheets[0]!;
+
   return (
-    <Tabs defaultValue={sheets[0]!.name} className="h-full gap-0">
+    <Tabs defaultValue={opening.name} className="h-full gap-0">
       {sheets.map((sheet) => (
         <TabsContent
           key={sheet.name}

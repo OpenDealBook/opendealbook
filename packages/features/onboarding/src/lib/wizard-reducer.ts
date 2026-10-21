@@ -1,20 +1,27 @@
 import type {
   DealBoxStep,
+  InviteeTermsStep,
   MfaStep,
+  OnboardingFlow,
   ProfileStep,
   TermsStep,
   WorkspaceStep,
 } from '../schema/onboarding.schema';
 
-export const onboardingStepOrder = [
-  'profile',
-  'workspace',
-  'terms',
-  'dealBox',
-  'mfa',
-] as const;
+export type OnboardingStepId =
+  | 'profile'
+  | 'workspace'
+  | 'terms'
+  | 'dealBox'
+  | 'mfa';
 
-export type OnboardingStepId = (typeof onboardingStepOrder)[number];
+export const onboardingSteps = {
+  buyer: ['profile', 'workspace', 'terms', 'dealBox', 'mfa'],
+  invitee: ['profile', 'terms', 'mfa'],
+} as const satisfies Record<
+  OnboardingFlow['kind'],
+  readonly OnboardingStepId[]
+>;
 
 const skippableStepIds: ReadonlySet<OnboardingStepId> = new Set([
   'dealBox',
@@ -24,7 +31,7 @@ const skippableStepIds: ReadonlySet<OnboardingStepId> = new Set([
 export type StepValues = {
   profile: ProfileStep;
   workspace: WorkspaceStep;
-  terms: TermsStep;
+  terms: TermsStep | InviteeTermsStep;
   dealBox: DealBoxStep;
   mfa: MfaStep;
 };
@@ -32,6 +39,7 @@ export type StepValues = {
 export type WizardData = Partial<StepValues>;
 
 export type WizardState = {
+  steps: readonly OnboardingStepId[];
   stepIndex: number;
   data: WizardData;
 };
@@ -49,9 +57,11 @@ export type WizardAction =
   | { type: 'skipStep' }
   | { type: 'back' };
 
-export const initialWizardState: WizardState = { stepIndex: 0, data: {} };
-
-const lastIndex = onboardingStepOrder.length;
+export function initialWizardState(
+  steps: readonly OnboardingStepId[],
+): WizardState {
+  return { steps, stepIndex: 0, data: {} };
+}
 
 function withStep<K extends OnboardingStepId>(
   data: WizardData,
@@ -68,16 +78,21 @@ export function wizardReducer(
   switch (action.type) {
     case 'submitStep':
       return {
+        ...state,
         data: withStep(state.data, action.step, action.value),
-        stepIndex: Math.min(state.stepIndex + 1, lastIndex),
+        stepIndex: Math.min(state.stepIndex + 1, state.steps.length),
       };
     case 'skipStep': {
-      const current = onboardingStepOrder[state.stepIndex];
+      const current = state.steps[state.stepIndex];
       const data = { ...state.data };
       if (current) {
         delete data[current];
       }
-      return { data, stepIndex: Math.min(state.stepIndex + 1, lastIndex) };
+      return {
+        ...state,
+        data,
+        stepIndex: Math.min(state.stepIndex + 1, state.steps.length),
+      };
     }
     case 'back':
       return { ...state, stepIndex: Math.max(state.stepIndex - 1, 0) };
@@ -85,15 +100,15 @@ export function wizardReducer(
 }
 
 export function currentStepId(state: WizardState): OnboardingStepId | null {
-  return onboardingStepOrder[state.stepIndex] ?? null;
+  return state.steps[state.stepIndex] ?? null;
 }
 
 export function isComplete(state: WizardState): boolean {
-  return state.stepIndex >= lastIndex;
+  return state.stepIndex >= state.steps.length;
 }
 
 export function progress(state: WizardState): number {
-  return state.stepIndex / lastIndex;
+  return state.stepIndex / state.steps.length;
 }
 
 export function isStepSkippable(step: OnboardingStepId): boolean {

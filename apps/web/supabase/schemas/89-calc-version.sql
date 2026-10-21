@@ -37,22 +37,54 @@ create trigger calc_version_user_tracking
   before insert or update on public.calc_version
   for each row execute function public.set_user_tracking();
 
+-- Choosing the primary version is the deal managers' call; deal work edits
+-- everything else. The service role is let through.
+create or replace function public.refuse_primary_calc_change_without_manage()
+  returns trigger
+  language plpgsql
+  set search_path = '' as $$
+begin
+  if (select auth.uid()) is not null
+    and new.is_primary is distinct from (case when tg_op = 'UPDATE' then old.is_primary else false end)
+    and not public.has_permission((select auth.uid()), new.account_id, 'deals.manage') then
+    raise exception 'choosing the primary calculator needs deals.manage' using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger calc_version_primary_needs_manage
+  before insert or update of is_primary on public.calc_version
+  for each row execute function public.refuse_primary_calc_change_without_manage();
+
 create policy calc_version_read on public.calc_version
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
 create policy calc_version_insert on public.calc_version
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy calc_version_update on public.calc_version
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
+-- Deal workers delete only their own scratch versions; the primary and the
+-- adopted one are shared, so only the deal's managers delete those.
 create policy calc_version_delete on public.calc_version
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (
+    public.has_permission((select auth.uid()), account_id, 'deals.manage')
+    or (
+      public.has_permission((select auth.uid()), account_id, 'deals.work')
+      and created_by = (select auth.uid())
+      and not is_primary
+      and not exists (
+        select 1 from public.deal_financials f where f.source_calc_version_id = calc_version.id
+      )
+    )
+  );
 
 -- The deferred link from deal_financials (86) back to the calc version a deal's
 -- adopted figures came from. Declared here, not inline in 86, because schema

@@ -1,19 +1,17 @@
-import { DealDetail } from '../../../_components/deal-detail';
+import { DealOverview } from '../../../_components/deal-detail';
 import { loadTeamWorkspace } from '../../layout';
 
-interface TeamDealDetailPageProps {
-  params: Promise<{ locale: string; account: string; id: string }>;
-}
-
-export default async function TeamDealDetailPage({
+export default async function TeamDealOverviewPage({
   params,
-}: TeamDealDetailPageProps) {
+}: {
+  params: Promise<{ locale: string; account: string; id: string }>;
+}) {
   const { account, id } = await params;
   const { team } = await loadTeamWorkspace(account);
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
-      <DealDetail accountId={team.id} dealId={id} />
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
+      <DealOverview accountId={team.id} dealId={id} />
     </main>
   );
 }

@@ -1,6 +1,9 @@
-import type { NavigationItem } from '~/config/personal-account-navigation.config';
+import featureFlagsConfig from './feature-flags.config';
 
-export interface TeamNavigationItem extends NavigationItem {
+export interface TeamNavigationItem {
+  group: 'work' | 'settings';
+  label: string;
+  path: string;
   requires?: string;
 }
 
@@ -10,44 +13,80 @@ export function getTeamAccountNavigationConfig(
   const prefix = `/home/${slug}`;
 
   return [
-    { label: 'common.home', path: prefix, icon: 'home' },
-    { label: 'common.todos', path: `${prefix}/todos`, icon: 'check-square' },
-    { label: 'common.deals', path: `${prefix}/deals`, icon: 'briefcase' },
+    { group: 'work', label: 'common.home', path: prefix },
+    { group: 'work', label: 'common.todos', path: `${prefix}/todos` },
+    { group: 'work', label: 'common.deals', path: `${prefix}/deals` },
     {
+      group: 'work',
       label: 'common.lenders',
       path: `${prefix}/lenders`,
-      icon: 'landmark',
       requires: 'deals.manage',
     },
-    { label: 'common.reports', path: `${prefix}/reports`, icon: 'bar-chart' },
-    { label: 'common.outreach', path: `${prefix}/outreach`, icon: 'send' },
+    { group: 'work', label: 'common.outreach', path: `${prefix}/outreach` },
+    { group: 'work', label: 'common.reports', path: `${prefix}/reports` },
     {
-      label: 'common.underwriting',
+      group: 'settings',
+      label: 'account.dealBox',
       path: `${prefix}/underwriting`,
-      icon: 'calculator',
+    },
+    { group: 'settings', label: 'account.members', path: `${prefix}/members` },
+    {
+      group: 'settings',
+      label: 'account.teamSettings',
+      path: `${prefix}/settings`,
+    },
+    ...(featureFlagsConfig.enableBilling
+      ? [
+          {
+            group: 'settings' as const,
+            label: 'billing.title',
+            path: `${prefix}/billing`,
+          },
+        ]
+      : []),
+    {
+      group: 'settings',
+      label: 'account.lenderSettings',
+      path: `${prefix}/settings/lenders`,
+      requires: 'deals.manage',
     },
     {
-      label: 'common.compsImport',
-      path: `${prefix}/comps/import`,
-      icon: 'upload',
-    },
-    { label: 'account.settings', path: `${prefix}/settings`, icon: 'settings' },
-    {
-      label: 'account.apiKeys',
-      path: `${prefix}/settings/api-keys`,
-      icon: 'key',
+      group: 'settings',
+      label: 'account.contractReview',
+      path: `${prefix}/settings/contract-review`,
+      requires: 'deals.manage',
     },
     {
+      group: 'settings',
       label: 'account.templates',
       path: `${prefix}/settings/templates`,
-      icon: 'file-text',
     },
     {
+      group: 'settings',
+      label: 'account.checklists',
+      path: `${prefix}/settings/checklists`,
+    },
+    {
+      group: 'settings',
       label: 'account.buyerProfile',
       path: `${prefix}/settings/buyer-profile`,
-      icon: 'user',
     },
-    { label: 'billing.title', path: `${prefix}/billing`, icon: 'credit-card' },
+    {
+      group: 'settings',
+      label: 'account.dealCalcDefaults',
+      path: `${prefix}/settings/deal-calc`,
+    },
+    {
+      group: 'settings',
+      label: 'common.compsImport',
+      path: `${prefix}/comps/import`,
+    },
+    {
+      group: 'settings',
+      label: 'account.apiKeys',
+      path: `${prefix}/settings/api-keys`,
+      requires: 'api_keys.manage',
+    },
   ];
 }
 

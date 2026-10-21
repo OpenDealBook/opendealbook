@@ -9,9 +9,21 @@ export async function CalculatorsSection(props: {
   accountId: string;
 }) {
   const client = getSupabaseServerClient();
-  const versions = await fetchDealCalcVersions(client, {
-    deal_id: props.dealId,
-  });
+  const [versions, { data: canManage }, { data: team }] = await Promise.all([
+    fetchDealCalcVersions(client, { deal_id: props.dealId }),
+    client
+      .rpc('manages_deal_in_account', {
+        deal_id: props.dealId,
+        account_id: props.accountId,
+      })
+      .throwOnError(),
+    client
+      .from('accounts')
+      .select('slug')
+      .eq('id', props.accountId)
+      .single()
+      .throwOnError(),
+  ]);
 
   return (
     <Card>
@@ -19,7 +31,12 @@ export async function CalculatorsSection(props: {
         <CardTitle>Calculators</CardTitle>
       </CardHeader>
       <CardContent>
-        <CalculatorsPanel dealId={props.dealId} versions={versions} />
+        <CalculatorsPanel
+          dealId={props.dealId}
+          versions={versions}
+          canManage={canManage}
+          calcsHref={`/home/${team.slug}/deals/${props.dealId}/financials/calcs`}
+        />
       </CardContent>
     </Card>
   );

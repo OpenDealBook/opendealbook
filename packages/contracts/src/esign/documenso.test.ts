@@ -117,6 +117,10 @@ function replay(received: Received): {
     return json(createEnvelopeResponse);
   }
 
+  if (route === 'POST /api/v2/envelope/cancel') {
+    return json({ success: true });
+  }
+
   if (route === 'POST /api/v2/envelope/delete') {
     return documenso.refusesToDelete
       ? json({ message: 'no' }, 500)
@@ -306,6 +310,29 @@ describe('removing a draft from Documenso', () => {
   });
 });
 
+describe('cancelling a document Documenso has sent', () => {
+  it('cancels the envelope, which tells its signers it was voided', async () => {
+    await client().cancelSent(ENVELOPE_ID);
+
+    expect(documenso.received).toEqual([
+      {
+        method: 'POST',
+        path: '/api/v2/envelope/cancel',
+        authorization: API_KEY,
+        json: { envelopeId: ENVELOPE_ID },
+      },
+    ]);
+  });
+
+  it('throws when Documenso returns a non-2xx status', async () => {
+    documenso.isDown = true;
+
+    await expect(client().cancelSent(ENVELOPE_ID)).rejects.toThrow(
+      'Documenso responded with 500',
+    );
+  });
+});
+
 describe('where a document is edited in Documenso', () => {
   it("gives the editor page of the envelope under its team's address", async () => {
     expect(await client().editorUrl(ENVELOPE_ID)).toBe(
@@ -318,20 +345,33 @@ describe('what Documenso says the state of a document is', () => {
   it.each([
     ['a draft', envelopeDraft, 'draft'],
     ['sent and waiting for signatures', envelopePending, 'sent'],
-    ['completed', envelopeCompleted, 'completed'],
     ['rejected by a signer', envelopeRejected, 'rejected'],
     ['cancelled', envelopeCancelled, 'cancelled'],
     ['waiting on a signer whose deadline passed', envelopeExpired, 'expired'],
   ])('reads an envelope that is %s', async (_label, envelope, state) => {
     documensoReports(envelope);
 
-    expect(await client().signatureState(ENVELOPE_ID)).toBe(state);
+    expect(await client().signatureState(ENVELOPE_ID)).toEqual({ state });
+  });
+
+  it('reads a completed envelope with the UTC day Documenso completed it', async () => {
+    documensoReports({
+      ...envelopeCompleted,
+      completedAt: '2026-10-13T23:45:50.444-05:00',
+    });
+
+    expect(await client().signatureState(ENVELOPE_ID)).toEqual({
+      state: 'completed',
+      completedOn: '2026-10-14',
+    });
   });
 
   it('reads an envelope Documenso no longer has as missing', async () => {
     documenso.envelopes.clear();
 
-    expect(await client().signatureState(ENVELOPE_ID)).toBe('missing');
+    expect(await client().signatureState(ENVELOPE_ID)).toEqual({
+      state: 'missing',
+    });
   });
 
   it('throws when Documenso fails, so nobody mistakes an outage for a state', async () => {
@@ -454,25 +494,45 @@ describe('which document a Documenso webhook is about', () => {
 const VERSION_ID = '0b0f5a0e-58a5-4a40-9d4e-6f0f3f3c8a11';
 const STALE = { code: '40001', message: 'stale aggregate deal/deal-1' };
 
+interface Milestone {
+  id: string;
+  kind: string;
+  label: string | null;
+  target_on: string | null;
+  actual_on: string | null;
+  shared: boolean;
+}
+
 function contractsDatabase(
   contractType: 'loi' | 'apa',
   {
     stage = contractType === 'loi' ? 'loi_submitted' : 'pa_submitted',
     signingDocumentId = ENVELOPE_ID as string | null,
+    milestone = null as Milestone | null,
+    pdfBucket = 'contracts',
   } = {},
 ) {
+  const milestones: Milestone[] = milestone === null ? [] : [{ ...milestone }];
+  const milestoneEventActors: (string | undefined)[] = [];
+  const eventsVia: [string, string | undefined][] = [];
   const version = {
     id: VERSION_ID,
     contract_id: 'contract-1',
     version: 2,
+    seller_number: null as number | null,
     pdf_path: 'acc-1/contract-1/v2.pdf',
+    pdf_bucket: pdfBucket,
     is_signed: false,
     signing_document_id: signingDocumentId,
     signing_status: (signingDocumentId === null ? null : 'draft') as
       | string
       | null,
   };
-  const contract = { type: contractType, deal_id: 'deal-1' };
+  const contract = {
+    type: contractType,
+    deal_id: 'deal-1',
+    deal: { firm: { name: 'Acme Plumbing' } },
+  };
   const deal = { stage, head: 7 };
   const stageEvents: string[] = [];
   const stageEventActors: (string | undefined)[] = [];
@@ -515,7 +575,7 @@ function contractsDatabase(
       single: async () => ({ data: { ...version }, error: null }),
       then: (
         resolve: (value: {
-          data: { id: string }[] | null;
+          data: { id: string; seller_number?: number }[] | null;
           error: Error | null;
         }) => void,
       ) => {
@@ -530,7 +590,11 @@ function contractsDatabase(
         }
 
         Object.assign(version, patch);
-        resolve({ data: [{ id: version.id }], error: null });
+        version.seller_number ??= 1;
+        resolve({
+          data: [{ id: version.id, seller_number: version.seller_number }],
+          error: null,
+        });
       },
     };
     return chain;
@@ -547,17 +611,43 @@ function contractsDatabase(
     return chain;
   }
 
+  function milestoneTable() {
+    const filters: Record<string, string> = {};
+    const chain = {
+      select: () => chain,
+      eq: (column: string, value: string) => {
+        filters[column] = value;
+        return chain;
+      },
+      maybeSingle: async () => {
+        const { deal_id: dealId, ...columns } = filters;
+        const row = milestones.find((candidate) =>
+          Object.entries(columns).every(
+            ([column, value]) => candidate[column as keyof Milestone] === value,
+          ),
+        );
+
+        return {
+          data: dealId === 'deal-1' ? (row ?? null) : null,
+          error: null,
+        };
+      },
+    };
+    return chain;
+  }
+
   const tables: Record<string, () => unknown> = {
     contract: () => rowTable(() => contract),
     deal: () => rowTable(() => ({ stage: deal.stage })),
     deal_event: () => rowTable(() => ({ aggregate_seq: deal.head })),
     contract_version: versionTable,
+    deal_milestone: milestoneTable,
   };
 
   const supabase = {
     from: (table: string) => tables[table]!(),
     rpc: async (
-      _fn: 'append_deal_event',
+      fn: 'append_deal_event' | 'contract_version_signing_ready',
       args: {
         p_deal_id: string;
         p_aggregate_id: string;
@@ -565,8 +655,15 @@ function contractsDatabase(
         p_payload: Record<string, string>;
         p_expected_aggregate_seq?: number;
         p_actor_kind?: string;
+        p_actor_via?: string;
       },
     ) => {
+      if (fn === 'contract_version_signing_ready') {
+        return { data: true, error: null };
+      }
+
+      eventsVia.push([args.p_event_type, args.p_actor_via]);
+
       if (args.p_event_type === 'deal.stage_changed') {
         if (failures.anotherDeliveryAdvancesFirst) {
           failures.anotherDeliveryAdvancesFirst = false;
@@ -578,6 +675,17 @@ function contractsDatabase(
         }
 
         advance(args.p_payload.stage!, args.p_actor_kind);
+      }
+
+      if (args.p_event_type === 'deal_milestone.set') {
+        const row = {
+          label: null,
+          ...(args.p_payload as unknown as Omit<Milestone, 'id' | 'label'>),
+          id: args.p_aggregate_id,
+        };
+        const at = milestones.findIndex((each) => each.id === row.id);
+        milestones.splice(at === -1 ? milestones.length : at, 1, row);
+        milestoneEventActors.push(args.p_actor_kind);
       }
 
       if (args.p_event_type === 'contract.signature_requested') {
@@ -621,15 +729,21 @@ function contractsDatabase(
     stageEventActors,
     statusEvents,
     failures,
+    milestones,
+    milestoneEventActors,
+    eventsVia,
   };
 }
 
+const STORED: Record<string, number[]> = {
+  'contracts/acc-1/contract-1/v2.pdf': [9, 9, 9],
+  'generated/acc-1/contract-1/v2.pdf': [7, 7, 7],
+};
+
 const storage: ContractStorage = {
   uploadVersion: async () => undefined,
-  downloadVersion: async (path) =>
-    path === 'acc-1/contract-1/v2.pdf'
-      ? new Uint8Array([9, 9, 9])
-      : new Uint8Array(),
+  downloadVersion: async (bucket, path) =>
+    new Uint8Array(STORED[`${bucket}/${path}`] ?? []),
 };
 
 describe('requesting a signature for a contract version', () => {
@@ -647,11 +761,24 @@ describe('requesting a signature for a contract version', () => {
     expect(requestsTo('/api/v2/envelope/create')).toMatchObject([
       {
         payload: {
-          title: 'Contract contract-1 version 2',
+          title: 'Acme Plumbing LOI',
           externalId: VERSION_ID,
         },
         pdf: [9, 9, 9],
       },
+    ]);
+  });
+
+  it('drafts the PDF from the bucket the version was stored in', async () => {
+    const { deps } = contractsDatabase('apa', {
+      signingDocumentId: null,
+      pdfBucket: 'generated',
+    });
+
+    await requestContractSignature(request, { ...deps, storage });
+
+    expect(requestsTo('/api/v2/envelope/create')).toMatchObject([
+      { pdf: [7, 7, 7] },
     ]);
   });
 
@@ -741,6 +868,41 @@ describe('a signature event for a contract', () => {
     await handleContractSignatureEvent(ENVELOPE_ID, deps);
 
     expect(stageEvents).toEqual(['loi_accepted']);
+  });
+
+  it('hands a signed LOI to the diligence setup with its deal and signed day', async () => {
+    const { deps } = contractsDatabase('loi');
+    const signed: unknown[] = [];
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, {
+      ...deps,
+      onLoiSigned: async (loi) => {
+        signed.push(loi);
+      },
+    });
+
+    expect(signed).toEqual([
+      {
+        dealId: 'deal-1',
+        signedOn: envelopeCompleted.completedAt.slice(0, 10),
+      },
+    ]);
+  });
+
+  it('hands nothing to the diligence setup when a signed APA completes', async () => {
+    const { deps } = contractsDatabase('apa');
+    const signed: unknown[] = [];
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, {
+      ...deps,
+      onLoiSigned: async (loi) => {
+        signed.push(loi);
+      },
+    });
+
+    expect(signed).toEqual([]);
   });
 
   it('advances the deal as the service, since a webhook has no signed-in user', async () => {
@@ -849,7 +1011,7 @@ describe('a signature event for a contract', () => {
 
     expect(version.is_signed).toBe(true);
     expect(deal.stage).toBe('pa_submitted');
-    expect(stageEvents).toEqual(['loi_accepted']);
+    expect(stageEvents).toEqual([]);
   });
 
   it.each([
@@ -1028,6 +1190,248 @@ describe('a signature event for a contract', () => {
     expect(stageEvents).toEqual([]);
     expect(documenso.received).toEqual([]);
   });
+});
+
+describe('filing a signed contract while another completion of the deal files too', () => {
+  const LOST_FOLDER_RACE = {
+    code: '23505',
+    message:
+      'duplicate key value violates unique constraint "dr_folder_id_deal_id_key"',
+  };
+
+  function racedAdmin() {
+    const added: Record<string, unknown>[] = [];
+    const lost = {
+      throwOnError: async () => {
+        throw LOST_FOLDER_RACE;
+      },
+      then: (resolve: (value: { error: typeof LOST_FOLDER_RACE }) => void) =>
+        resolve({ error: LOST_FOLDER_RACE }),
+    };
+    const nothingYet = {
+      select: () => nothingYet,
+      eq: () => nothingYet,
+      is: () => nothingYet,
+      ilike: () => nothingYet,
+      order: () => nothingYet,
+      limit: () => nothingYet,
+      maybeSingle: () => ({ throwOnError: async () => ({ data: null }) }),
+      throwOnError: async () => ({ data: [] }),
+      insert: () => lost,
+      upsert: () => lost,
+    };
+    const admin = {
+      from: () => nothingYet,
+      storage: { from: () => ({ upload: async () => ({ error: null }) }) },
+      rpc: async (
+        _fn: string,
+        args: { p_payload: Record<string, unknown>; p_actor_via?: string },
+      ) => {
+        added.push({ ...args.p_payload, via: args.p_actor_via });
+        return { data: null, error: null };
+      },
+    } as unknown as SupabaseClient<Database>;
+
+    return { admin, added };
+  }
+
+  it('files into the folder the other completion created a moment earlier', async () => {
+    const { deps } = contractsDatabase('apa');
+    const { admin, added } = racedAdmin();
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, { ...deps, admin });
+
+    expect(added).toMatchObject([
+      { name: 'APA (signed).pdf', version: 1, via: 'documenso' },
+    ]);
+  });
+});
+
+describe('the timeline milestone a completed signature sets', () => {
+  const COMPLETED_ON = envelopeCompleted.completedAt.slice(0, 10);
+  const fixed = (milestones: Milestone[]) =>
+    milestones.filter((milestone) => milestone.kind !== 'custom');
+
+  it.each([
+    ['APA', 'apa', 'apa_signing'],
+    ['LOI', 'loi', 'loi_signed'],
+  ] as const)(
+    "sets the %s milestone's actual to the day Documenso completed it, keeping its target, sharing and label",
+    async (_label, contractType, kind) => {
+      const existing = {
+        id: 'milestone-1',
+        kind,
+        label: null,
+        target_on: '2026-10-20',
+        actual_on: null,
+        shared: true,
+      };
+      const { deps, milestones } = contractsDatabase(contractType, {
+        milestone: existing,
+      });
+      documensoReports(envelopeCompleted);
+
+      await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+      expect(fixed(milestones)).toEqual([
+        { ...existing, actual_on: COMPLETED_ON },
+      ]);
+    },
+  );
+
+  it('leaves the LOI deadline as it was when the LOI is signed', async () => {
+    const deadline = {
+      id: 'milestone-1',
+      kind: 'loi_deadline',
+      label: null,
+      target_on: '2026-10-20',
+      actual_on: null,
+      shared: false,
+    };
+    const { deps, milestones } = contractsDatabase('loi', {
+      milestone: deadline,
+    });
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+    expect(fixed(milestones)).toEqual([
+      deadline,
+      {
+        id: expect.any(String),
+        kind: 'loi_signed',
+        label: null,
+        target_on: null,
+        actual_on: COMPLETED_ON,
+        shared: false,
+      },
+    ]);
+  });
+
+  it.each([
+    ['APA', 'apa'],
+    ['LOI', 'loi'],
+  ] as const)(
+    'adds an unshared, dated milestone naming the signed %s version',
+    async (name, contractType) => {
+      const { deps, milestones } = contractsDatabase(contractType);
+      documensoReports(envelopeCompleted);
+
+      await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+      expect(
+        milestones.filter((milestone) => milestone.kind === 'custom'),
+      ).toEqual([
+        {
+          id: expect.any(String),
+          kind: 'custom',
+          label: `${name} v1 signed`,
+          target_on: null,
+          actual_on: COMPLETED_ON,
+          shared: false,
+        },
+      ]);
+    },
+  );
+
+  it('creates an unshared APA signing milestone with no target when the deal has none', async () => {
+    const { deps, milestones } = contractsDatabase('apa');
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+    expect(fixed(milestones)).toEqual([
+      {
+        id: expect.any(String),
+        kind: 'apa_signing',
+        label: null,
+        target_on: null,
+        actual_on: COMPLETED_ON,
+        shared: false,
+      },
+    ]);
+  });
+
+  it('overwrites an actual that differs from the completion day', async () => {
+    const existing = {
+      id: 'milestone-1',
+      kind: 'apa_signing',
+      label: null,
+      target_on: '2026-10-20',
+      actual_on: '2026-10-01',
+      shared: false,
+    };
+    const { deps, milestones } = contractsDatabase('apa', {
+      milestone: existing,
+    });
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+    expect(fixed(milestones)).toEqual([
+      { ...existing, actual_on: COMPLETED_ON },
+    ]);
+  });
+
+  it('records the milestones once when the completion is delivered again', async () => {
+    const { deps, milestones, milestoneEventActors } = contractsDatabase('apa');
+    documensoReports(envelopeCompleted);
+
+    await handleContractSignatureEvent(ENVELOPE_ID, deps);
+    await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+    expect(milestones).toHaveLength(2);
+    expect(milestoneEventActors).toEqual(['service', 'service']);
+  });
+
+  it('records the milestone as the person who checked the signature status', async () => {
+    const { deps, milestoneEventActors } = contractsDatabase('apa');
+    documensoReports(envelopeCompleted);
+
+    await checkContractSignature(VERSION_ID, deps);
+
+    expect(milestoneEventActors).toEqual([undefined, undefined]);
+  });
+
+  it.each([
+    ['sent', envelopePending],
+    ['rejected', envelopeRejected],
+  ])(
+    'leaves the timeline alone when the APA is %s',
+    async (_label, envelope) => {
+      const { deps, milestones } = contractsDatabase('apa', {
+        stage: 'loi_accepted',
+      });
+      documensoReports(envelope);
+
+      await handleContractSignatureEvent(ENVELOPE_ID, deps);
+
+      expect(milestones).toEqual([]);
+    },
+  );
+});
+
+describe('where the events of a Documenso signature came from', () => {
+  it.each([
+    ['a webhook', handleContractSignatureEvent, ENVELOPE_ID],
+    ['a status check', checkContractSignature, VERSION_ID],
+  ] as const)(
+    'records every event of a completion reported through %s as made via Documenso',
+    async (_label, apply, id) => {
+      const { deps, eventsVia } = contractsDatabase('apa');
+      documensoReports(envelopeCompleted);
+
+      await apply(id, deps);
+
+      expect(eventsVia).toEqual([
+        ['deal.stage_changed', 'documenso'],
+        ['deal_milestone.set', 'documenso'],
+        ['deal_milestone.set', 'documenso'],
+        ['contract.signature_status_changed', 'documenso'],
+      ]);
+    },
+  );
 });
 
 describe('checking the signature status of a contract version', () => {

@@ -11,10 +11,10 @@ select public.create_team_account('Invite Co', tests.get_uid('inv_owner'), 'invi
 insert into public.accounts_memberships (account_id, user_id, account_role)
 values (tests.account_id('invite-co'), tests.get_uid('inv_member'), 'member');
 
+select tests.login_as('inv_owner');
 select public.add_invitations_to_account(
   'invite-co',
-  array[row('invitee@tuckin.test', 'member')]::public.invitation[],
-  tests.get_uid('inv_owner')
+  array[row('invitee@tuckin.test', 'member')]::public.invitation[]
 );
 
 -- Members of the account can see pending invitations.

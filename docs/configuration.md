@@ -11,6 +11,7 @@ keyed by the feature it unlocks. Names below are the actual variables referenced
 | `NEXT_PUBLIC_SUPABASE_URL` | Public; **must be a build argument** so it is inlined into the browser bundle |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public; **also a build argument**. If the image is built without real values, the browser auth UI throws |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side; used by service-role paths (seeders, webhooks, projectors' callers) |
+| `TEAM_RENAME_LIMIT` | `monthly` (the default when unset) allows one team rename per 30 days; `off` removes the limit. Any other value stops the server at boot. The web app writes it to the database at boot and the database enforces it, so it also covers direct API calls. Super-admins are exempt |
 
 Multi-factor recovery also needs a Postgres GUC, `app.mfa_recovery_pepper`, set in production
 (it is the HMAC pepper for recovery codes).
@@ -90,8 +91,10 @@ uses is a tenant setting rather than a single global key.
 
 | Variable | Notes |
 | --- | --- |
-| `STRIPE_SECRET_KEY` | Stripe API key |
-| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe webhooks |
+| `ENABLE_BILLING` | Default on; set to `false` to run with no billing: no trial limits, banner, or trial emails, no billing or pricing pages, and no Stripe. Read on the server at request time, so one image serves every install |
+| `STRIPE_SECRET_KEY` | Stripe API key. Needed when billing is on; unset is allowed when billing is off |
+| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe webhooks. Needed when billing is on; unset is allowed when billing is off |
+| `STRIPE_API_BASE` | Optional. Sends Stripe API calls to this base URL, such as an e2e Stripe stand-in. Must use http or https, include an explicit port, and have no username, password, path, query, or fragment, for example `http://127.0.0.1:12111`. Leave unset or empty in production to use `api.stripe.com` |
 
 Price ids are placeholders to swap for real ones ($99/mo and $990/yr starter).
 
@@ -105,17 +108,24 @@ Unlocks the deal-event notification relay and the trial drip (see
 | `NOVU_API_KEY` | The secret key of one Novu environment (Novu dashboard, API Keys). The app triggers workflows with it, and Novu signs its calls to the app's bridge at `/api/novu` with the same key. When it is unset the bridge refuses every call with 401 |
 | `NOVU_API_URL` | Novu host |
 | `NOVU_OWNED_CHANNELS` | Which channels Novu owns |
+| `LENDER_DIGEST_INTERVAL_MINUTES` | Optional. A positive whole number of minutes the lender new-documents digest batches over, such as `1` in e2e. Leave unset in production to batch until 22:00 UTC |
 | `NOVU_SAFE_OUTBOUND_ALLOW` | Set on Novu's own `api` and `worker` services, not on the app. Novu refuses to call a bridge or an SMTP host that resolves to a private address unless the hostname, `.suffix`, IP, or CIDR is listed here, comma separated. `docker-compose.yml` defaults it to `host.docker.internal`; in a cluster list the web Service's full hostname, `<fullname>-web.<namespace>.svc.cluster.local` |
 
 ### Lender room workflows
 
 The lender room emails (`lender_ask.opened`, `lender_ask.replied`, `lender_ask.answered`,
 `lender_form.uploaded`, `lender_form.returned`, `lender_form.signature_completed`,
-`lender_form.signature_declined`, `lender_form.signature_expired`, `lender_room.access_requested`, and the daily
+`lender_form.signature_declined`, `lender_form.signature_expired`, `lender_room.access_requested`, `lender_room.timeline_answered`, and the daily
 `lender-room-documents` digest) are defined in `packages/features/notifications/src/server/lender-workflows`
 and served to Novu by the bridge at `/api/novu`. Nothing is built in the Novu dashboard. Novu
 calls the bridge to run each step, so names are read when an email is sent: the digest, sent
 daily at 22:00 UTC, lists only the files the person can still see at that moment.
+
+The deal event notices (`deal.offer_submitted`, `deal.offer_accepted`, `deal.loi_accepted`,
+`deal.apa_accepted`, `deal.resolved`) are defined in
+`packages/features/notifications/src/server/deal-event-workflows`. Each one emails the team
+members who can manage deals on the deal's account, and the relay writes the matching in-app
+notification for the same people.
 
 Register the workflows with Novu after the app is running. The call replaces what Novu holds
 for this bridge, so repeating it is safe:
@@ -164,6 +174,7 @@ not just the worker connected.
 | `EMAIL_SENDER` | The from address of Novu's emails |
 | `EMAIL_SENDER_NAME` | The sender name of Novu's emails |
 | `EMAIL_TEMPLATE_RENDERERS` | Template renderer selection |
+| `SELLER_DELIVERY_FROM_EMAIL` | The from address of the email that delivers a document to a seller, and of the email that tells the sender a delivery failed or was refused, read by `apps/workers` and the web app. Unset, Send to seller refuses with "Seller email is not set up" and queues nothing, and a delivery already queued fails without retrying |
 
 This is the transactional mailer, separate from the send-as-user outreach mailbox.
 
@@ -178,7 +189,7 @@ This is the transactional mailer, separate from the send-as-user outreach mailbo
 
 | Variable | Notes |
 | --- | --- |
-| `NEXT_PUBLIC_ENABLE_MARKETING` | Default on; set to `false` to disable the public marketing surface. Must be a literal so it is inlined at build time |
+| `ENABLE_MARKETING` | Default on; set to `false` to disable the public marketing surface. Read on the server at request time, so one image serves every install |
 
 With marketing off, the app boots straight to auth and the app, and the public pages, robots,
 and sitemap are gated off. This is the difference between the public hosted instance (on) and a

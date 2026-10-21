@@ -5,11 +5,13 @@ const BOUNDARY = 'odb-mailbox-alternative';
 export function buildMimeMessage(
   connection: MailboxConnection,
   email: OutboundEmail,
+  threadHeaders: string[] = [],
 ): string {
   const headers = [
     `From: ${connection.emailAddress}`,
     `To: ${email.to}`,
     `Subject: ${email.subject}`,
+    ...threadHeaders,
     'MIME-Version: 1.0',
   ];
   if (email.replyTo) {

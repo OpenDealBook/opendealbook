@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@odb/supabase';
+import { storageKeyName } from '@odb/supabase/storage-key';
 
 export const DATA_ROOM_BUCKET = 'data-room';
 
@@ -9,7 +10,7 @@ type Client = SupabaseClient<Database>;
 export type UploadBody = Blob | File | ArrayBuffer | Uint8Array;
 
 export function dataRoomObjectPath(dealId: string, name: string): string {
-  return `deal/${dealId}/${crypto.randomUUID()}-${name}`;
+  return `deal/${dealId}/${crypto.randomUUID()}-${storageKeyName(name)}`;
 }
 
 export function basename(path: string): string {

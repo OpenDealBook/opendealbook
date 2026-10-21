@@ -7,6 +7,8 @@ import dealstats from './vendors/dealstats-v1.json';
 import peercomps from './vendors/peercomps-v1.json';
 import { loadColumnMap, mapRow, type ColumnMap, type ParsedValue } from './vendors/column-map';
 
+const UNSAFE_IN_STORAGE_KEY = /[^A-Za-z0-9._-]/g;
+
 export type VendorKey = 'dealstats' | 'bizcomps' | 'peercomps';
 export type ImportFormat = 'csv' | 'xlsx';
 
@@ -256,7 +258,7 @@ export async function importComps(
     input.format === 'xlsx' ? await parseXlsx(input.content) : parseCsv(input.content);
   const rows = records.map((record) => toProprietaryCompRow(config, input, record));
 
-  const storagePath = `${input.accountId}/${input.vendor}/${randomUUID()}-${input.filename}`;
+  const storagePath = `${input.accountId}/${input.vendor}/${randomUUID()}-${input.filename.replace(UNSAFE_IN_STORAGE_KEY, '_')}`;
   await deps.storeRawFile(storagePath, input.content);
 
   if (rows.length > 0) {

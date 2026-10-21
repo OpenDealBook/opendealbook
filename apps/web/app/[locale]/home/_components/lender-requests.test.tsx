@@ -56,6 +56,18 @@ vi.mock('@odb/lender-rooms/uploads/actions.ts', async () =>
     'cancelUpload',
   ),
 );
+vi.mock('@odb/seller-rooms/questions/actions.ts', async () =>
+  (await import('./lender-test-kit')).fakeActions(
+    'askSeller',
+    'askSellerAboutLenderAsk',
+  ),
+);
+vi.mock('@odb/lender-rooms/faq/publish.ts', async () =>
+  (await import('./lender-test-kit')).fakeActions('saveNewFaqEntry'),
+);
+vi.mock('@odb/lender-rooms/faq/manage.ts', async () =>
+  (await import('./lender-test-kit')).fakeActions('findSimilarFaqEntries'),
+);
 vi.mock(
   '@odb/supabase/client',
   async () =>
@@ -135,7 +147,20 @@ const packageFolders = [
   { id: 'financials', path: 'Lender package / Financials' },
 ];
 
-function showAsk(status: 'open' | 'answered' | 'closed' = 'open') {
+const faq = {
+  dealId: 'deal-1',
+  faqPath: '/home/team-one/deals/deal-1/lenders/faq',
+  prefill: {
+    question: 'Please share the rent roll.',
+    answer: 'Here it is.',
+    files: [{ askFileId: 'ask-file-1', name: 'Rent roll.pdf' }],
+  },
+};
+
+function showAsk(
+  status: 'open' | 'answered' | 'closed' = 'open',
+  addToFaq: typeof faq | null = null,
+) {
   show(
     <LenderRequestThread
       roomId={ROOM}
@@ -145,6 +170,7 @@ function showAsk(status: 'open' | 'answered' | 'closed' = 'open') {
       fulfilmentFileIds={{ 'doc-rent-roll': 'ask-file-1' }}
       packageFolders={packageFolders}
       signatures={[]}
+      faq={addToFaq}
     />,
   );
 }
@@ -167,6 +193,7 @@ function showForm(
       fulfilmentFileIds={{}}
       packageFolders={packageFolders}
       signatures={signatures}
+      faq={null}
     />,
   );
 }
@@ -331,6 +358,21 @@ describe('a request thread', () => {
       { askFileId: 'ask-file-1', folderId: 'financials' },
     ]);
     expect(pageText()).toContain('Rent roll.pdf is now in the lender package');
+  });
+
+  it('offers to add an answered ask to the FAQ, filled in from the thread', async () => {
+    showAsk('answered', faq);
+
+    await press('Add to FAQ');
+
+    expect(dialogText()).toContain('Add to the FAQ');
+    expect(fields('Question')[0]?.value).toBe('Please share the rent roll.');
+  });
+
+  it('does not offer the FAQ for an ask that is not answered', () => {
+    showAsk('open');
+
+    expect(buttonNames()).not.toContain('Add to FAQ');
   });
 
   it('shows a refusal as given', async () => {

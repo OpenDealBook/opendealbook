@@ -61,11 +61,11 @@ select is(
   'a team owner has a role on the team account'
 );
 
--- ---- team member on the member role: belongs, but lacks the deal permissions ----
+-- ---- team member on the member role: does deal work, manages nothing ----
 select is(
   public.has_permission(tests.get_uid('limited_member'), tests.account_id('perm-team'), 'settings.manage'),
-  true,
-  'a member holds the settings.manage the member role is seeded with'
+  false,
+  'a member does not hold settings.manage'
 );
 select is(
   public.has_permission(tests.get_uid('limited_member'), tests.account_id('perm-team'), 'deals.manage'),
@@ -73,14 +73,19 @@ select is(
   'a member does not hold deals.manage'
 );
 select is(
+  public.has_permission(tests.get_uid('limited_member'), tests.account_id('perm-team'), 'deals.work'),
+  true,
+  'a member holds deals.work'
+);
+select is(
   public.has_permission(tests.get_uid('limited_member'), tests.account_id('perm-team'), 'deals.create'),
-  false,
-  'a member does not hold deals.create'
+  true,
+  'a member holds deals.create'
 );
 select is(
   public.has_permission(tests.get_uid('limited_member'), tests.account_id('perm-team'), 'checklists.manage'),
-  false,
-  'a member does not hold checklists.manage'
+  true,
+  'a member holds checklists.manage'
 );
 select tests.login_as('limited_member');
 select is(

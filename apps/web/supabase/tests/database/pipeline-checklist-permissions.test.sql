@@ -1,9 +1,9 @@
 begin;
 select no_plan();
 
--- One account; its owner holds the managing permissions, a member on the member
--- role does not. pipeline_stage is gated on deals.manage, checklist_template on
--- checklists.manage. Reads are open to any account member.
+-- One account; its owner manages deals, a member on the member role does deal
+-- work only. pipeline_stage and the checklist_template library are gated on
+-- deals.manage. Reads are open to any account member.
 select tests.create_user('pc_owner');
 select tests.create_user('pc_member');
 
@@ -62,11 +62,11 @@ select lives_ok(
   'an owner with deals.manage can delete a pipeline stage'
 );
 
--- ---- checklist_template writes gated on checklists.manage ----
+-- ---- checklist_template writes gated on deals.manage ----
 select tests.login_as('pc_member');
 select throws_ok(
   $$ insert into public.checklist_template (account_id, name) values (tests.account_id('pc-acct'), 'Member Tmpl') $$,
-  '42501', null, 'a member without checklists.manage cannot insert a checklist template'
+  '42501', null, 'a member who does not manage deals cannot insert a checklist template'
 );
 select lives_ok(
   $$ update public.checklist_template set name = 'Hijacked' where id = 'cccccccc-0000-0000-0000-0000000000a1' $$,
@@ -80,11 +80,11 @@ select is(
 select tests.login_as('pc_owner');
 select lives_ok(
   $$ insert into public.checklist_template (account_id, name) values (tests.account_id('pc-acct'), 'Owner Tmpl') $$,
-  'an owner with checklists.manage can insert a checklist template'
+  'an owner with deals.manage can insert a checklist template'
 );
 select lives_ok(
   $$ update public.checklist_template set name = 'Renamed' where id = 'cccccccc-0000-0000-0000-0000000000a1' $$,
-  'an owner with checklists.manage can update a checklist template'
+  'an owner with deals.manage can update a checklist template'
 );
 select is(
   (select name from public.checklist_template where id = 'cccccccc-0000-0000-0000-0000000000a1'),

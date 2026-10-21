@@ -21,7 +21,7 @@ export interface NormalizedFirmRow {
   website: string | null;
   employee_band: string | null;
   established_year: number | null;
-  owner_name: string | null;
+  owner_names: string[];
   owner_age_estimate: number | null;
   source_url: string | null;
   phone: string | null;

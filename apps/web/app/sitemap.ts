@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { connection } from 'next/server';
 
 import { createCmsClient } from '@odb/keystatic';
 
@@ -7,10 +8,9 @@ import featureFlagsConfig from '~/config/feature-flags.config';
 import { marketingSitemap } from '~/config/marketing-gate';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const routes = marketingSitemap(
-    featureFlagsConfig.enableMarketing,
-    appConfig.url,
-  );
+  await connection();
+
+  const routes = marketingSitemap(featureFlagsConfig, appConfig.url);
 
   if (!featureFlagsConfig.enableMarketing) {
     return routes;

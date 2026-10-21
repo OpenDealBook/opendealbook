@@ -1,3 +1,4 @@
+import { multipleText } from '@odb/deals/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
@@ -32,7 +33,7 @@ function dateOrNotSet(value: string | null): string {
 }
 
 function multipleOrNotSet(value: number | null): string {
-  return value === null ? 'Not set' : `${value.toFixed(1)}x`;
+  return value === null ? 'Not set' : multipleText(value);
 }
 
 interface CompRow {
@@ -272,7 +273,7 @@ export async function CompsSection(props: { dealId: string; accountId: string })
                 <dd className={'text-sm'}>
                   {expectations.multipleLow === null
                     ? 'Not set'
-                    : `${expectations.multipleLow.toFixed(1)}x to ${expectations.multipleHigh?.toFixed(1)}x`}
+                    : `${multipleText(expectations.multipleLow)} to ${multipleText(expectations.multipleHigh!)}`}
                 </dd>
               </div>
               <div className={'flex flex-col gap-0.5'}>

@@ -24,13 +24,13 @@ select is(
   'no seeded stage is terminal'
 );
 
--- A personal account created through the auth trigger is seeded too.
+-- A personal account holds no deal work, so it gets no pipeline.
 select is(
   (select count(*)::int from public.pipeline_stage ps
      join public.accounts a on a.id = ps.account_id
      where a.primary_owner_user_id = tests.get_uid('ps_member') and a.is_personal_account),
-  10,
-  'a new personal account is also seeded with the default pipeline stages'
+  0,
+  'a new personal account has no pipeline'
 );
 
 -- ---- deal.stage validated against the account pipeline ----

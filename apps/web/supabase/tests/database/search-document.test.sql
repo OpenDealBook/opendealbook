@@ -73,13 +73,12 @@ select tests.login_as('sd_ext');
 
 select is(
   (select count(*)::int from public.search_document where account_id = tests.account_id('sd-acct-a')),
-  1,
-  'a participant sees only the deal-scoped row on their granted deal'
+  0,
+  'a participant sees no search rows on their granted deal'
 );
-select is(
-  (select entity_id from public.search_documents(tests.account_id('sd-acct-a'), 'financials workpapers')),
-  'aaaaaaaa-0000-0000-0000-0000000000c1'::uuid,
-  'search_documents returns the granted deal row to a participant'
+select is_empty(
+  $$ select entity_id from public.search_documents(tests.account_id('sd-acct-a'), 'financials workpapers') $$,
+  'search_documents returns nothing to a participant on their granted deal'
 );
 select is_empty(
   $$ select 1 from public.search_documents(tests.account_id('sd-acct-a'), 'Acme') $$,

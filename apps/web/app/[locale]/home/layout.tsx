@@ -2,8 +2,13 @@ import type { ReactNode } from 'react';
 
 import { redirect } from 'next/navigation';
 
+import { counselHomeDestination } from '@odb/deal-counsel/entry-rules.ts';
 import { notOnboardedDestination } from '@odb/lender-rooms/members/entry-rules.ts';
+import { sellerHomeDestination } from '@odb/seller-rooms/members/entry-rules.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+
+import { TimezoneDetection } from '../_components/timezone-detection';
+import { openCounselDealIds } from './_lib/counsel-deals';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,10 +39,24 @@ export default async function HomeLayout({
   }
 
   if (!account.onboarded) {
-    const { data: rooms } = await client.rpc('my_lender_rooms').throwOnError();
+    const [{ data: rooms }, { data: sellerRooms }, counselDealIds] =
+      await Promise.all([
+        client.rpc('my_lender_rooms').throwOnError(),
+        client.rpc('my_seller_rooms').throwOnError(),
+        openCounselDealIds(client, user.id),
+      ]);
 
-    redirect(notOnboardedDestination(rooms));
+    redirect(
+      sellerHomeDestination(sellerRooms, rooms) ??
+        counselHomeDestination(counselDealIds) ??
+        notOnboardedDestination(rooms),
+    );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <TimezoneDetection />
+      {children}
+    </>
+  );
 }

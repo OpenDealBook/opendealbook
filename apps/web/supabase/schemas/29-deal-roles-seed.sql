@@ -12,22 +12,31 @@ insert into public.roles (name, hierarchy_level) values
   ('broker', 9),
   ('viewer', 10);
 
--- owner and admin keep full deal control alongside their existing permissions.
+-- owner, admin and deal_lead manage deals; member and analyst do the same deal
+-- work without managing.
 insert into public.role_permissions (role, permission) values
   ('owner', 'deals.create'),
   ('owner', 'deals.manage'),
+  ('owner', 'deals.work'),
   ('owner', 'checklists.manage'),
   ('owner', 'participants.manage'),
   ('owner', 'buyer_profile.manage'),
   ('admin', 'deals.create'),
   ('admin', 'deals.manage'),
+  ('admin', 'deals.work'),
   ('admin', 'checklists.manage'),
   ('admin', 'participants.manage'),
   ('admin', 'buyer_profile.manage'),
   ('deal_lead', 'deals.create'),
   ('deal_lead', 'deals.manage'),
+  ('deal_lead', 'deals.work'),
   ('deal_lead', 'checklists.manage'),
   ('deal_lead', 'participants.manage'),
+  ('deal_lead', 'deal_updates.approve'),
   ('analyst', 'deals.create'),
+  ('analyst', 'deals.work'),
   ('analyst', 'checklists.manage'),
+  ('member', 'deals.create'),
+  ('member', 'deals.work'),
+  ('member', 'checklists.manage'),
   ('counsel', 'checklists.manage');

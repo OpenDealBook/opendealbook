@@ -18,7 +18,12 @@ class ResendMailer implements Mailer {
     const { data, error } = await resend.emails.send({
       from: config.from,
       to: config.to,
+      replyTo: config.replyTo,
       subject: config.subject,
+      attachments: config.attachments?.map((attachment) => ({
+        ...attachment,
+        content: Buffer.from(attachment.content),
+      })),
       ...content,
     });
 

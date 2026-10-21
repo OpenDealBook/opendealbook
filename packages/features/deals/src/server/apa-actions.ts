@@ -1,17 +1,18 @@
 'use server';
 
+import { APA_NEEDS_COUNSEL } from '@odb/contracts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+import { offerIdSchema } from '../schema/offer.schema';
 import {
-  contractRequestSchema,
-  countEarlierContractsOrRefuse,
+  nextContractVersionOrRefuse,
   generateContract,
 } from './generate-contract';
 import { Refusal, refusableAction } from './refusal';
 
 export const generateApa = refusableAction(async (data, user) => {
   const client = getSupabaseServerClient();
-  const earlierContracts = await countEarlierContractsOrRefuse({
+  const slot = await nextContractVersionOrRefuse({
     client,
     offerId: data.offer_id,
     type: 'apa',
@@ -35,6 +36,14 @@ export const generateApa = refusableAction(async (data, user) => {
     throw new Refusal('An APA can be generated once the LOI is accepted');
   }
 
+  const { data: counselReady } = await client
+    .rpc('apa_counsel_ready', { deal_id: offer.deal_id })
+    .throwOnError();
+
+  if (!counselReady) {
+    throw new Refusal(APA_NEEDS_COUNSEL);
+  }
+
   const { data: version } = await client
     .from('offer_version')
     .select('terms')
@@ -48,10 +57,9 @@ export const generateApa = refusableAction(async (data, user) => {
     dealId: offer.deal_id,
     accountId: offer.account_id,
     offerId: data.offer_id,
-    earlierContracts,
+    slot,
     offerVersionId: offer.current_version_id as string,
     terms: version.terms as Record<string, unknown>,
     type: 'apa',
-    signers: data.signers,
   });
-}, contractRequestSchema);
+}, offerIdSchema);

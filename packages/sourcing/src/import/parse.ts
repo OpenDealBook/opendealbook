@@ -29,7 +29,10 @@ export function parseFirmCsv(
     website: normalizeText(cell(record, mapping.website)),
     employee_band: normalizeText(cell(record, mapping.employee_band)),
     established_year: normalizeInteger(cell(record, mapping.established_year)),
-    owner_name: normalizeText(cell(record, mapping.owner_name)),
+    owner_names: (cell(record, mapping.owner_name) ?? '')
+      .split(';')
+      .map((name) => name.trim())
+      .filter((name) => name !== ''),
     owner_age_estimate: normalizeInteger(
       cell(record, mapping.owner_age_estimate),
     ),

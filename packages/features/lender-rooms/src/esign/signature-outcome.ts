@@ -5,7 +5,7 @@ type SignatureStatus = Enums<'lender_signature_status'>;
 
 interface Transition {
   from: readonly SignatureStatus[];
-  to: Exclude<SignatureStatus, 'draft'>;
+  to: Exclude<SignatureStatus, 'draft' | 'cancelled'>;
 }
 
 const OPEN = ['draft', 'sent'] as const;

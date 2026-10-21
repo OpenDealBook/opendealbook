@@ -15,6 +15,12 @@ export {
   fetchDealNotificationEvents,
   notifyDealEvent,
 } from '../notifications/relay';
+export {
+  loadRelayCursor,
+  recordRelayFailedEvent,
+  saveRelayCursor,
+  startRelayCursorAtLatest,
+} from '../relayCursor/activities';
 export { recordDealActivity } from '../comps/recordDealActivity';
 export { detectDuplicates } from '../comps/detectDuplicates';
 export { anonymizeClose } from '../comps/anonymizeClose';
@@ -22,6 +28,36 @@ export {
   fetchDueOutreachAccounts,
   dispatchAccountOutreach,
 } from '../outreach/dispatch';
+export { isTeamLocked } from '../teamLock';
+export {
+  executeWorkflowStep,
+  failWorkflowStep,
+  loadWorkflowRun,
+  transitionWorkflowRun,
+} from '../builder/activities';
+export { syncLenderReplies } from '../lender-replies/activities';
+export { failStaleSendingOutreach } from '../lender-replies/failStaleSending';
+export { failStaleSendingOutreachMessages } from '../outreach/failStaleSending';
+export {
+  emailLendersToNudgeDue,
+  syncLenderNudgeTodos,
+} from '../lender-nudges/activities';
+export {
+  emailContractReviewRemindersDue,
+  syncContractReviewTodosForTeams,
+} from '../contract-review/activities';
+export { deleteUnfinishedUploads } from '../uploadCleanup/activities';
+export { deleteOrphanedDealObjects } from '../storageSweep/activities';
+export { notifyOverdueMilestones } from '@odb/deal-timeline/overdue.ts';
+export { deliverDocumentToSeller } from '../sellerDelivery/activities';
+export {
+  deliverDealUpdate,
+  finishDealUpdateDelivery,
+} from '../dealUpdateDelivery/activities';
+export {
+  emailSenderOfSellerDeliveryProblem,
+  notifyTeamOfSellerDeliveryProblem,
+} from '../sellerDelivery/notify';
 export {
   sendTrialDripEmail,
   checkTrialDripEligibility,

@@ -1,7 +1,7 @@
 'use server';
 
-import { DEFAULT_OUTREACH_SEQUENCES } from '@odb/outreach';
 import { enhanceAction } from '@odb/next/actions';
+import { DEFAULT_OUTREACH_SEQUENCES } from '@odb/outreach';
 import type { TablesInsert, TablesUpdate } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -187,7 +187,18 @@ export const enrollTargets = enhanceAction(
     const now = new Date().toISOString();
 
     const inserts: TablesInsert<'outreach_enrollment'>[] = [];
-    const skipped: Array<{ type: 'firm' | 'contact'; id: string }> = [];
+    const skipped: Array<{
+      type: 'firm' | 'contact';
+      id: string;
+      reason: 'no_email' | 'not_approved';
+    }> = [];
+
+    const firmOutreachApproved = async (firmId: string) => {
+      const { data: approved } = await client
+        .rpc('firm_outreach_approved', { p_firm_id: firmId })
+        .throwOnError();
+      return approved;
+    };
 
     for (const contactId of data.contactIds ?? []) {
       const { data: contact } = await client
@@ -198,7 +209,19 @@ export const enrollTargets = enhanceAction(
         .maybeSingle();
 
       if (!contact?.email) {
-        skipped.push({ type: 'contact', id: contactId });
+        skipped.push({ type: 'contact', id: contactId, reason: 'no_email' });
+        continue;
+      }
+
+      if (
+        contact.firm_id !== null &&
+        !(await firmOutreachApproved(contact.firm_id))
+      ) {
+        skipped.push({
+          type: 'contact',
+          id: contactId,
+          reason: 'not_approved',
+        });
         continue;
       }
 
@@ -224,7 +247,12 @@ export const enrollTargets = enhanceAction(
       const reachable = (contacts ?? []).find((contact) => contact.email);
 
       if (!reachable?.email) {
-        skipped.push({ type: 'firm', id: firmId });
+        skipped.push({ type: 'firm', id: firmId, reason: 'no_email' });
+        continue;
+      }
+
+      if (!(await firmOutreachApproved(firmId))) {
+        skipped.push({ type: 'firm', id: firmId, reason: 'not_approved' });
         continue;
       }
 

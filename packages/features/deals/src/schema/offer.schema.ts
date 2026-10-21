@@ -1,5 +1,6 @@
-import { fundingSourceSchema } from '@odb/calculators';
 import { z } from 'zod';
+
+import { fundingSourceSchema } from '@odb/calculators';
 
 export const OFFER_TERMS_SCHEMA_VERSION = 1;
 
@@ -39,9 +40,9 @@ export const offerContingencySchema = z.object({
 });
 
 export const offerTermsSchema = z.object({
-  schema_version: z.literal(OFFER_TERMS_SCHEMA_VERSION).default(
-    OFFER_TERMS_SCHEMA_VERSION,
-  ),
+  schema_version: z
+    .literal(OFFER_TERMS_SCHEMA_VERSION)
+    .default(OFFER_TERMS_SCHEMA_VERSION),
 
   purchase_price: z.number().positive(),
   real_estate_portion: z.number().optional(),
@@ -94,6 +95,9 @@ export const offerTermsSchema = z.object({
   exclusivity_days: z.number().int().optional(),
   diligence_days: z.number().int().optional(),
   target_close_date: z.iso.date().optional(),
+  effective_date: z.iso.date().optional(),
+  buyer_name: z.string().optional(),
+  seller_name: z.string().optional(),
   offer_expires_at: z.iso.datetime().optional(),
 
   contingencies: z.array(offerContingencySchema).optional(),
@@ -208,8 +212,4 @@ const collectDiffs = (
 };
 
 export const diffOfferTerms = (a: OfferTerms, b: OfferTerms): OfferTermDiff[] =>
-  collectDiffs(
-    a as Record<string, unknown>,
-    b as Record<string, unknown>,
-    '',
-  );
+  collectDiffs(a as Record<string, unknown>, b as Record<string, unknown>, '');

@@ -49,11 +49,7 @@ import {
 
 import { SignatureState } from './signature-state';
 import type { ContractSignatures } from './signature-wording';
-import {
-  type Signer,
-  SignerInputs,
-  oneBlankSigner,
-} from './signer-inputs';
+import { useRefusableAction } from './use-refusable-action';
 
 const INVENTORY_UNSET = 'none';
 
@@ -79,6 +75,9 @@ interface EditorState {
   exclusivity_days: string;
   diligence_days: string;
   target_close_date: string;
+  effective_date: string;
+  buyer_name: string;
+  seller_name: string;
   offer_expires_at: string;
   contingencies: string[];
   non_compete_years: string;
@@ -103,6 +102,9 @@ function emptyState(): EditorState {
     exclusivity_days: '',
     diligence_days: '',
     target_close_date: '',
+    effective_date: '',
+    buyer_name: '',
+    seller_name: '',
     offer_expires_at: '',
     contingencies: [],
     non_compete_years: '',
@@ -132,6 +134,15 @@ function buildTerms(state: EditorState): unknown {
   }
   if (state.target_close_date !== '') {
     terms.target_close_date = state.target_close_date;
+  }
+  if (state.effective_date !== '') {
+    terms.effective_date = state.effective_date;
+  }
+  if (state.buyer_name.trim() !== '') {
+    terms.buyer_name = state.buyer_name.trim();
+  }
+  if (state.seller_name.trim() !== '') {
+    terms.seller_name = state.seller_name.trim();
   }
   if (state.offer_expires_at !== '') {
     terms.offer_expires_at = new Date(state.offer_expires_at).toISOString();
@@ -285,6 +296,7 @@ function OfferEditorDialog({
   const [pending, startTransition] = useTransition();
   const inventoryLabelId = useId();
   const targetCloseId = useId();
+  const effectiveId = useId();
   const offerExpiresId = useId();
   const trainingId = useId();
 
@@ -344,14 +356,16 @@ function OfferEditorDialog({
     const version = versionFromTerms(parsed.data, authorSide, number);
 
     startTransition(async () => {
-      if (offerId) {
-        await addOfferVersion({
-          offer_id: offerId,
-          author_side: authorSide,
-          version,
-        });
-      } else {
-        await createOffer({ deal_id: dealId, first_version: version });
+      const result = offerId
+        ? await addOfferVersion({
+            offer_id: offerId,
+            author_side: authorSide,
+            version,
+          })
+        : await createOffer({ deal_id: dealId, first_version: version });
+      if (!result.ok) {
+        setError(result.refusal);
+        return;
       }
       setOpen(false);
       setState(emptyState());
@@ -441,15 +455,14 @@ function OfferEditorDialog({
                 </Button>
               </div>
               {state.funding.map((row, index) => (
-                <div
-                  key={index}
-                  className={'grid grid-cols-6 items-end gap-2'}
-                >
+                <div key={index} className={'grid grid-cols-6 items-end gap-2'}>
                   <div className={'col-span-2 flex flex-col gap-1'}>
                     <Label className={'text-xs'}>Type</Label>
                     <Select
                       value={row.type}
-                      onValueChange={(value) => setFunding(index, 'type', value)}
+                      onValueChange={(value) =>
+                        setFunding(index, 'type', value)
+                      }
                     >
                       <SelectTrigger
                         aria-label={`Financing source ${index + 1} type`}
@@ -506,7 +519,11 @@ function OfferEditorDialog({
                         aria-label={`Financing source ${index + 1} standby months`}
                         value={row.standby_months}
                         onChange={(event) =>
-                          setFunding(index, 'standby_months', event.target.value)
+                          setFunding(
+                            index,
+                            'standby_months',
+                            event.target.value,
+                          )
                         }
                       />
                     </div>
@@ -560,6 +577,19 @@ function OfferEditorDialog({
                 />
               </div>
               <div className={'flex flex-col gap-1'}>
+                <Label htmlFor={effectiveId} className={'text-xs'}>
+                  Effective date
+                </Label>
+                <Input
+                  id={effectiveId}
+                  type={'date'}
+                  value={state.effective_date}
+                  onChange={(event) =>
+                    set('effective_date', event.target.value)
+                  }
+                />
+              </div>
+              <div className={'flex flex-col gap-1'}>
                 <Label htmlFor={offerExpiresId} className={'text-xs'}>
                   Offer expires at
                 </Label>
@@ -595,6 +625,16 @@ function OfferEditorDialog({
             </div>
 
             <Section title={'Seller'}>
+              <TextField
+                label={'Buyer name'}
+                value={state.buyer_name}
+                onChange={(value) => set('buyer_name', value)}
+              />
+              <TextField
+                label={'Seller name'}
+                value={state.seller_name}
+                onChange={(value) => set('seller_name', value)}
+              />
               <NumberField
                 label={'Non-compete years'}
                 value={state.non_compete_years}
@@ -671,7 +711,7 @@ export function CreateOfferButton({ dealId }: { dealId: string }) {
   );
 }
 
-function RequestContractSignature({
+function GenerateContract({
   contract,
   disabled,
   signature,
@@ -680,23 +720,20 @@ function RequestContractSignature({
   contract: 'LOI' | 'APA';
   disabled: boolean;
   signature: ContractSignatures['loi'];
-  generate: (signers: Signer[]) => Promise<ActionResult<unknown>>;
+  generate: () => Promise<ActionResult<unknown>>;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [signers, setSigners] = useState(oneBlankSigner);
-  const requesting = useAttempt();
+  const generating = useAttempt();
   const checking = useAttempt();
-  const requestWording = `Request ${contract} signature`;
 
   return (
     <>
       <Button
         size={'sm'}
-        disabled={requesting.isPending || disabled}
-        onClick={() => setOpen(true)}
+        disabled={generating.isPending || disabled}
+        onClick={() => generating.attempt(generate, () => router.refresh())}
       >
-        {requestWording}
+        Generate {contract}
       </Button>
       {signature?.signingStatus ? (
         <SignatureState
@@ -717,49 +754,8 @@ function RequestContractSignature({
           {contract}:{' '}
         </SignatureState>
       ) : null}
+      <ProblemNote problem={generating.problem} signInPath={'/auth/sign-in'} />
       <ProblemNote problem={checking.problem} signInPath={'/auth/sign-in'} />
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{requestWording}</DialogTitle>
-          </DialogHeader>
-          <form
-            className={'flex flex-col gap-4'}
-            onSubmit={(event) => {
-              event.preventDefault();
-              requesting.attempt(
-                () => generate(signers),
-                () => {
-                  setOpen(false);
-                  setSigners(oneBlankSigner);
-                  router.refresh();
-                },
-              );
-            }}
-          >
-            <p className={'text-muted-foreground text-sm'}>
-              This generates the {contract} and creates a draft in Documenso.
-              You place the signature fields there and it goes out to the
-              signers from Documenso.
-            </p>
-            <SignerInputs signers={signers} onChange={setSigners} />
-            <ProblemNote problem={requesting.problem} signInPath={'/auth/sign-in'} />
-            <DialogFooter>
-              <Button
-                type={'button'}
-                variant={'outline'}
-                onClick={() => setOpen(false)}
-                disabled={requesting.isPending}
-              >
-                Cancel
-              </Button>
-              <Button type={'submit'} disabled={requesting.isPending}>
-                {requestWording}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }
@@ -783,37 +779,32 @@ export function OfferLifecycleActions({
   loiAccepted: boolean;
   signatures: ContractSignatures;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { refusal, pending, run } = useRefusableAction();
 
   if (CLOSED_OFFER_STATUSES.includes(status)) {
     return null;
   }
 
-  function run(action: () => Promise<unknown>) {
-    startTransition(async () => {
-      await action();
-      router.refresh();
-    });
-  }
-
   if (status === 'accepted') {
     return (
       <div className={'flex flex-wrap items-center gap-2'}>
-        <RequestContractSignature
+        <GenerateContract
           contract={'LOI'}
           disabled={!loiGatePassed || !signatures.canGenerate.loi}
           signature={signatures.loi}
-          generate={(signers) => generateLoi({ offer_id: offerId, signers })}
+          generate={() => generateLoi({ offer_id: offerId })}
         />
         {loiAccepted ? (
-          <RequestContractSignature
+          <GenerateContract
             contract={'APA'}
             disabled={!signatures.canGenerate.apa}
             signature={signatures.apa}
-            generate={(signers) => generateApa({ offer_id: offerId, signers })}
+            generate={() => generateApa({ offer_id: offerId })}
           />
         ) : null}
+        <p className={'text-muted-foreground w-full text-sm'}>
+          Review and send it for signature under Contracts.
+        </p>
       </div>
     );
   }
@@ -876,6 +867,11 @@ export function OfferLifecycleActions({
       >
         Expire
       </Button>
+      {refusal ? (
+        <p role={'alert'} className={'text-destructive text-sm'}>
+          {refusal}
+        </p>
+      ) : null}
     </div>
   );
 }

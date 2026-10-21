@@ -9,15 +9,18 @@ const mocks = vi.hoisted(() => {
   let singles: Record<string, unknown> = {};
   let rows: Record<string, unknown[]> = {};
   let insertId = 'generated-id';
+  let unapprovedFirms: string[] = [];
 
   function configure(next: {
     singles?: Record<string, unknown>;
     rows?: Record<string, unknown[]>;
     insertId?: string;
+    unapprovedFirms?: string[];
   }) {
     singles = next.singles ?? {};
     rows = next.rows ?? {};
     insertId = next.insertId ?? 'generated-id';
+    unapprovedFirms = next.unapprovedFirms ?? [];
   }
 
   function makeBuilder(table: string) {
@@ -59,7 +62,16 @@ const mocks = vi.hoisted(() => {
 
   const from = vi.fn((table: string) => makeBuilder(table));
 
-  return { insertSpy, upsertSpy, updateSpy, deleteSpy, from, configure };
+  const rpc = (fn: string, args: { p_firm_id: string }) => ({
+    throwOnError: async () => ({
+      data:
+        fn === 'firm_outreach_approved' &&
+        !unapprovedFirms.includes(args.p_firm_id),
+      error: null,
+    }),
+  });
+
+  return { insertSpy, upsertSpy, updateSpy, deleteSpy, from, rpc, configure };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -67,7 +79,7 @@ vi.mock('@odb/next/actions', () => ({
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ from: mocks.from }),
+  getSupabaseServerClient: () => ({ from: mocks.from, rpc: mocks.rpc }),
 }));
 
 import {
@@ -260,7 +272,7 @@ describe('enrollTargets', () => {
 
     const result = await run<{
       enrolled: string[];
-      skipped: Array<{ type: string; id: string }>;
+      skipped: Array<{ type: string; id: string; reason: string }>;
     }>(enrollTargets)(
       {
         accountId: ACCOUNT,
@@ -287,7 +299,9 @@ describe('enrollTargets', () => {
     });
     expect(payloads[0]!.next_send_at).toBeTruthy();
     expect(result.enrolled).toEqual(['enr-1']);
-    expect(result.skipped).toEqual([{ type: 'contact', id: 'c-bad' }]);
+    expect(result.skipped).toEqual([
+      { type: 'contact', id: 'c-bad', reason: 'no_email' },
+    ]);
   });
 
   it('resolves a firm target through its first emailable contact', async () => {
@@ -303,7 +317,7 @@ describe('enrollTargets', () => {
 
     const result = await run<{
       enrolled: string[];
-      skipped: Array<{ type: string; id: string }>;
+      skipped: Array<{ type: string; id: string; reason: string }>;
     }>(enrollTargets)(
       { accountId: ACCOUNT, sequenceId: SEQUENCE, firmIds: ['f-9'] },
       { id: 'user-1' },
@@ -322,12 +336,99 @@ describe('enrollTargets', () => {
     expect(result.skipped).toEqual([]);
   });
 
+  it('skips a contact whose firm outreach is not approved', async () => {
+    mocks.configure({
+      rows: { outreach_enrollment: [{ id: 'enr-4' }] },
+      unapprovedFirms: ['f-unapproved'],
+    });
+    const contactById: Record<string, unknown> = {
+      'c-gated': {
+        id: 'c-gated',
+        email: 'gated@firm.com',
+        firm_id: 'f-unapproved',
+      },
+      'c-free': { id: 'c-free', email: 'free@person.com', firm_id: null },
+    };
+    const fromImpl = mocks.from.getMockImplementation()!;
+    mocks.from.mockImplementation((table: string) => {
+      const builder = fromImpl(table) as Record<string, unknown>;
+      if (table === 'contact') {
+        let lookupId: string | undefined;
+        builder.eq = (column: string, value: string) => {
+          if (column === 'id') {
+            lookupId = value;
+          }
+          return builder;
+        };
+        builder.maybeSingle = async () => ({
+          data: lookupId ? contactById[lookupId] : null,
+          error: null,
+        });
+      }
+      return builder;
+    });
+
+    const result = await run<{
+      enrolled: string[];
+      skipped: Array<{ type: string; id: string; reason: string }>;
+    }>(enrollTargets)(
+      {
+        accountId: ACCOUNT,
+        sequenceId: SEQUENCE,
+        contactIds: ['c-gated', 'c-free'],
+      },
+      { id: 'user-1' },
+    );
+
+    const enrollmentInsert = mocks.insertSpy.mock.calls.find(
+      ([table]) => table === 'outreach_enrollment',
+    )!;
+    const payloads = enrollmentInsert[1] as Record<string, unknown>[];
+
+    expect(payloads.map((payload) => payload.contact_id)).toEqual(['c-free']);
+    expect(result.skipped).toEqual([
+      { type: 'contact', id: 'c-gated', reason: 'not_approved' },
+    ]);
+  });
+
+  it('skips a firm whose outreach is not approved', async () => {
+    mocks.configure({
+      rows: {
+        outreach_enrollment: [{ id: 'enr-3' }],
+        contact: [{ id: 'c-2', email: 'reachable@firm.com' }],
+      },
+      unapprovedFirms: ['f-unapproved'],
+    });
+
+    const result = await run<{
+      enrolled: string[];
+      skipped: Array<{ type: string; id: string; reason: string }>;
+    }>(enrollTargets)(
+      {
+        accountId: ACCOUNT,
+        sequenceId: SEQUENCE,
+        firmIds: ['f-unapproved', 'f-approved'],
+      },
+      { id: 'user-1' },
+    );
+
+    const enrollmentInsert = mocks.insertSpy.mock.calls.find(
+      ([table]) => table === 'outreach_enrollment',
+    )!;
+    const payloads = enrollmentInsert[1] as Record<string, unknown>[];
+
+    expect(payloads.map((payload) => payload.firm_id)).toEqual(['f-approved']);
+    expect(result.skipped).toEqual([
+      { type: 'firm', id: 'f-unapproved', reason: 'not_approved' },
+    ]);
+  });
+
   it('reports a firm with no emailable contact and inserts nothing', async () => {
     mocks.configure({ rows: { contact: [{ id: 'c-1', email: null }] } });
 
     const result = await run<{
       enrolled: string[];
-      skipped: Array<{ type: string; id: string }>;
+      skipped: Array<{ type: string; id: string; reason: string }>;
     }>(enrollTargets)(
       { accountId: ACCOUNT, sequenceId: SEQUENCE, firmIds: ['f-9'] },
       { id: 'user-1' },
@@ -339,7 +440,9 @@ describe('enrollTargets', () => {
       ),
     ).toBe(false);
     expect(result.enrolled).toEqual([]);
-    expect(result.skipped).toEqual([{ type: 'firm', id: 'f-9' }]);
+    expect(result.skipped).toEqual([
+      { type: 'firm', id: 'f-9', reason: 'no_email' },
+    ]);
   });
 });
 

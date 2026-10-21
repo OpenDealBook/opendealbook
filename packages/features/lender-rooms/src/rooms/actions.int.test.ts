@@ -12,11 +12,15 @@ const caller = vi.hoisted(() => ({
 vi.mock('@odb/next/actions', () => ({
   enhanceAction:
     (
-      fn: (input: unknown) => unknown,
+      fn: (input: unknown, user: unknown) => unknown,
       config: { schema: { parse: (input: unknown) => unknown } },
     ) =>
     async (input: unknown) =>
-      fn(config.schema.parse(input)),
+      fn(
+        config.schema.parse(input),
+        (await (caller.client as SupabaseClient<Database>).auth.getUser()).data
+          .user,
+      ),
 }));
 
 vi.mock('@odb/supabase/server', () => ({
@@ -31,6 +35,7 @@ import { unwrap } from '../actions/test-support/unwrap';
 import {
   closeLenderRoom,
   createLenderRoom,
+  prepareLenderRoomClose,
   listLenderRooms,
   reopenLenderRoom,
   setLenderRoomExpiry,
@@ -58,7 +63,6 @@ const PAST_EXPIRY_DAY = { date: '2020-01-15', timeZone: 'UTC' };
 interface Person {
   client: SupabaseClient<Database>;
   userId: string;
-  accountId: string;
   email: string;
 }
 
@@ -97,14 +101,6 @@ async function provisionPerson(): Promise<Person> {
     throw error;
   }
 
-  const { data: account } = await admin
-    .from('accounts')
-    .select('id')
-    .eq('primary_owner_user_id', created.user.id)
-    .eq('is_personal_account', true)
-    .single()
-    .throwOnError();
-
   const client = createClient<Database>(SUPABASE_URL, ANON_KEY, clientOptions);
   const signedIn = await client.auth.signInWithPassword({ email, password });
 
@@ -115,7 +111,6 @@ async function provisionPerson(): Promise<Person> {
   const person = {
     client,
     userId: created.user.id,
-    accountId: account.id,
     email,
   };
   people.push(person);
@@ -123,7 +118,9 @@ async function provisionPerson(): Promise<Person> {
   return person;
 }
 
-async function newDeal(accountId = teamAccountId): Promise<string> {
+const defaultFolderIds = new Map<string, string[]>();
+
+async function newDeal(): Promise<string> {
   const dealId = crypto.randomUUID();
 
   await admin
@@ -133,12 +130,19 @@ async function newDeal(accountId = teamAccountId): Promise<string> {
       p_aggregate_id: dealId,
       p_event_type: 'deal.created',
       p_payload: {
-        account_id: accountId,
+        account_id: teamAccountId,
         description: 'Lender room deal',
       },
       p_actor_kind: 'service',
     })
     .throwOnError();
+
+  const { data: defaults } = await admin
+    .from('dr_folder')
+    .select('id')
+    .eq('deal_id', dealId)
+    .throwOnError();
+  defaultFolderIds.set(dealId, defaults.map((folder) => folder.id));
 
   return dealId;
 }
@@ -166,7 +170,10 @@ function replayedAfter(before: () => Promise<void>, start: () => Chain) {
         return (resolve: () => void, reject: () => void) =>
           before()
             .then(() =>
-              calls.reduce((chain, [name, args]) => chain[name]!(...args), start()),
+              calls.reduce(
+                (chain, [name, args]) => chain[name]!(...args),
+                start(),
+              ),
             )
             .then(resolve, reject);
       }
@@ -211,8 +218,47 @@ function insertingRoomsAfter(
   };
 }
 
+async function closingTodos(roomId: string) {
+  const { data } = await admin
+    .from('personal_todo')
+    .select('user_id, title, done')
+    .eq('title', 'Tell First Bank the room is closing')
+    .in(
+      'id',
+      (
+        await admin
+          .from('room_closing_todo')
+          .select('todo_id')
+          .eq('room_id', roomId)
+          .throwOnError()
+      ).data.map((link) => link.todo_id),
+    )
+    .throwOnError();
+
+  return data;
+}
+
+async function toldLender(roomId: string) {
+  await unwrap(prepareLenderRoomClose({ roomId }));
+  const { data: links } = await admin
+    .from('room_closing_todo')
+    .select('todo_id')
+    .eq('room_kind', 'lender')
+    .eq('room_id', roomId)
+    .throwOnError();
+  await admin
+    .from('personal_todo')
+    .update({ done: true })
+    .in(
+      'id',
+      links.map((link) => link.todo_id),
+    )
+    .throwOnError();
+}
+
 async function newClosedRoom(dealId: string) {
   const roomId = await newRoom(dealId);
+  await toldLender(roomId);
   await unwrap(closeLenderRoom({ roomId }));
 
   return roomId;
@@ -247,7 +293,9 @@ async function readDealFolders(dealId: string) {
     .eq('deal_id', dealId)
     .throwOnError();
 
-  return data;
+  const defaults = defaultFolderIds.get(dealId)!;
+
+  return data.filter((folder) => !defaults.includes(folder.id));
 }
 
 async function readPackages(dealId: string) {
@@ -313,9 +361,8 @@ afterAll(async () => {
   await admin
     .from('lender_room')
     .delete()
-    .in('account_id', [teamAccountId, owner.accountId])
+    .eq('account_id', teamAccountId)
     .throwOnError();
-
   for (const person of people) {
     const { error } = await admin.auth.admin.deleteUser(person.userId);
 
@@ -462,7 +509,11 @@ describe('createLenderRoom (integration)', () => {
     const dealId = await newDeal();
 
     expect(
-      await newBrandedRoom(dealId, 'First Bank', `unknown-${cachedBrandDomain}`),
+      await newBrandedRoom(
+        dealId,
+        'First Bank',
+        `unknown-${cachedBrandDomain}`,
+      ),
     ).toEqual({
       ok: false,
       refusal: 'Look the website up before creating the room',
@@ -601,19 +652,6 @@ describe('startLenderPackage (integration)', () => {
     expect(await readDealFolders(dealId)).toEqual([]);
   });
 
-  it('refuses a deal owned by a personal account, creating nothing', async () => {
-    const dealId = await newDeal(owner.accountId);
-    caller.client = owner.client;
-
-    expect(await startLenderPackage({ dealId })).toEqual({
-      ok: false,
-      refusal: 'The lender package is only available on team deals',
-    });
-
-    expect(await readPackages(dealId)).toEqual([]);
-    expect(await readDealFolders(dealId)).toEqual([]);
-  });
-
   it('refuses a lender in a room on the deal', async () => {
     const dealId = await newDeal();
     const roomId = await newRoom(dealId);
@@ -661,22 +699,6 @@ describe('createLenderRoom by a team member who cannot manage deals (integration
   });
 });
 
-describe('createLenderRoom on a personal account (integration)', () => {
-  it('refuses a deal owned by a personal account, creating nothing', async () => {
-    const dealId = await newDeal(owner.accountId);
-    caller.client = owner.client;
-
-    expect(await createLenderRoom({ dealId, name: 'First Bank' })).toEqual({
-      ok: false,
-      refusal: 'Lender rooms can only be created on team deals',
-    });
-
-    expect(await readDealRooms(dealId)).toEqual([]);
-    expect(await readDealFolders(dealId)).toEqual([]);
-    expect(await readPackages(dealId)).toEqual([]);
-  });
-});
-
 describe('createLenderRoom, one room per website on a deal (integration)', () => {
   const alreadyThere = {
     ok: false,
@@ -705,6 +727,7 @@ describe('createLenderRoom, one room per website on a deal (integration)', () =>
     const roomId = await unwrap(
       newBrandedRoom(dealId, 'First Bank', cachedBrandDomain),
     );
+    await toldLender(roomId);
     await unwrap(closeLenderRoom({ roomId }));
 
     expect(
@@ -885,7 +908,8 @@ describe('setLenderRoomExpiry (integration)', () => {
       }),
     ).toEqual({
       ok: false,
-      refusal: 'Your time zone could not be read. Reload the page and try again',
+      refusal:
+        'Your time zone could not be read. Reload the page and try again',
     });
 
     expect((await readRoom(roomId)).expires_at).toBe(before);
@@ -914,9 +938,68 @@ describe('setLenderRoomExpiry (integration)', () => {
 });
 
 describe('closeLenderRoom (integration)', () => {
+  it('will not close until the team has told the lender', async () => {
+    const roomId = await newRoom(await newDeal());
+
+    await expect(unwrap(closeLenderRoom({ roomId }))).rejects.toThrow(
+      'Tell First Bank the room is closing first',
+    );
+    expect((await readRoom(roomId)).closed_at).toBeNull();
+  });
+
+  it('gives the person starting a close one to-do on the deal, however often they start', async () => {
+    const roomId = await newRoom(await newDeal());
+
+    await unwrap(prepareLenderRoomClose({ roomId }));
+    await unwrap(prepareLenderRoomClose({ roomId }));
+
+    expect(await closingTodos(roomId)).toEqual([
+      {
+        user_id: owner.userId,
+        title: 'Tell First Bank the room is closing',
+        done: false,
+      },
+    ]);
+  });
+
+  it('refuses to start a close while the team is read-only', async () => {
+    const roomId = await newRoom(await newDeal());
+    const lockFor = async (days: number) =>
+      admin
+        .from('accounts')
+        .update({
+          trial_ends_at: new Date(Date.now() + days * 86_400_000).toISOString(),
+        })
+        .eq('id', teamAccountId)
+        .throwOnError();
+
+    await lockFor(-1);
+
+    try {
+      await expect(unwrap(prepareLenderRoomClose({ roomId }))).rejects.toThrow(
+        'This team is read-only until billing is updated.',
+      );
+      expect(await closingTodos(roomId)).toEqual([]);
+    } finally {
+      await lockFor(30);
+    }
+  });
+
+  it('closes once a closing to-do is ticked, and the next close needs a new one', async () => {
+    const roomId = await newRoom(await newDeal());
+    await toldLender(roomId);
+    await unwrap(closeLenderRoom({ roomId }));
+    await unwrap(reopenLenderRoom({ roomId }));
+
+    await expect(unwrap(closeLenderRoom({ roomId }))).rejects.toThrow(
+      'Tell First Bank the room is closing first',
+    );
+  });
+
   it('closes an open room as of now', async () => {
     const roomId = await newRoom(await newDeal());
 
+    await toldLender(roomId);
     await unwrap(closeLenderRoom({ roomId }));
 
     expectWithinAMinuteOf((await readRoom(roomId)).closed_at, Date.now());
@@ -926,6 +1009,7 @@ describe('closeLenderRoom (integration)', () => {
     const roomId = await newRoom(await newDeal());
     await unwrap(setLenderRoomExpiry({ roomId, ...CHOSEN_EXPIRY_DAY }));
 
+    await toldLender(roomId);
     await unwrap(closeLenderRoom({ roomId }));
 
     expect(isoInstant((await readRoom(roomId)).expires_at)).toBe(CHOSEN_EXPIRY);
@@ -955,6 +1039,7 @@ describe('reopenLenderRoom (integration)', () => {
   it('gives a reopened closed room a fresh 60 days', async () => {
     const roomId = await newRoom(await newDeal());
     await unwrap(setLenderRoomExpiry({ roomId, ...CHOSEN_EXPIRY_DAY }));
+    await toldLender(roomId);
     await unwrap(closeLenderRoom({ roomId }));
 
     await unwrap(reopenLenderRoom({ roomId }));
@@ -976,6 +1061,7 @@ describe('reopenLenderRoom (integration)', () => {
   it('reopens a selected room without giving it an expiry', async () => {
     const roomId = await newRoom(await newDeal());
     await unwrap(setLenderRoomStatus({ roomId, status: 'selected' }));
+    await toldLender(roomId);
     await unwrap(closeLenderRoom({ roomId }));
 
     await unwrap(reopenLenderRoom({ roomId }));
@@ -1113,7 +1199,9 @@ describe('callers who do not manage the deal (integration)', () => {
     {
       action: 'set an expiry',
       run: ({ openRoomId }) =>
-        unwrap(setLenderRoomExpiry({ roomId: openRoomId, ...CHOSEN_EXPIRY_DAY })),
+        unwrap(
+          setLenderRoomExpiry({ roomId: openRoomId, ...CHOSEN_EXPIRY_DAY }),
+        ),
     },
     {
       action: 'close a room',

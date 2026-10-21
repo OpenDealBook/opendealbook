@@ -9,7 +9,9 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
+import { refuseWhileTeamLocked } from '../actions/team-lock';
 import { brandDomain } from '../brand/domain';
+import { closeState, forgetRoomClosing, prepareRoomClose } from './closing';
 import { endOfDayIn, isTimeZone } from './end-of-day';
 
 const roomIdInput = z.object({ roomId: z.uuid() });
@@ -31,7 +33,7 @@ async function updateRoom(roomId: string, changes: TablesUpdate<'lender_room'>) 
 async function readRoom(roomId: string) {
   const { data: room } = await getSupabaseServerClient()
     .from('lender_room')
-    .select('status, closed_at, expires_at')
+    .select('status, closed_at, expires_at, name')
     .eq('id', roomId)
     .single()
     .throwOnError();
@@ -106,19 +108,6 @@ async function readManagedDeal(dealId: string) {
   return deal;
 }
 
-async function refuseUnlessTeamAccount(accountId: string, refusal: string) {
-  const { data: account } = await getSupabaseServerClient()
-    .from('accounts')
-    .select('is_personal_account')
-    .eq('id', accountId)
-    .single()
-    .throwOnError();
-
-  if (account.is_personal_account) {
-    throw new Refusal(refusal);
-  }
-}
-
 async function ensureLenderPackage(dealOwnership: {
   account_id: string;
   deal_id: string;
@@ -163,11 +152,6 @@ export const startLenderPackage = refusableAction(
   async (input) => {
     const deal = await readManagedDeal(input.dealId);
 
-    await refuseUnlessTeamAccount(
-      deal.account_id,
-      'The lender package is only available on team deals',
-    );
-
     return ensureLenderPackage({
       account_id: deal.account_id,
       deal_id: input.dealId,
@@ -180,11 +164,6 @@ export const createLenderRoom = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
     const deal = await readManagedDeal(input.dealId);
-
-    await refuseUnlessTeamAccount(
-      deal.account_id,
-      'Lender rooms can only be created on team deals',
-    );
 
     const dealOwnership = {
       account_id: deal.account_id,
@@ -215,6 +194,7 @@ export const createLenderRoom = refusableAction(
         ...dealOwnership,
         name: input.name,
         brand_domain: roomBrandDomain,
+        lender_id: input.lenderId,
         welcome_note: input.welcomeNote,
         private_folder_id: privateFolder.id,
       })
@@ -240,6 +220,7 @@ export const createLenderRoom = refusableAction(
       dealId: z.uuid(),
       name: z.string().trim().min(1, "Enter the lender's name"),
       brandDomain: z.string().optional(),
+      lenderId: z.uuid().optional(),
       welcomeNote: z.string().optional(),
     }),
   },
@@ -296,15 +277,57 @@ export const setLenderRoomExpiry = refusableAction(
   },
 );
 
+function lenderClosingTodo(roomName: string) {
+  return `Tell ${roomName} the room is closing`;
+}
+
+export const prepareLenderRoomClose = refusableAction(
+  async (input, user) => {
+    const { data: room } = await getSupabaseServerClient()
+      .from('lender_room')
+      .select('account_id, deal_id, name, closed_at')
+      .eq('id', input.roomId)
+      .single()
+      .throwOnError();
+
+    if (room.closed_at !== null) {
+      throw new Refusal('This room is already closed');
+    }
+
+    await refuseWhileTeamLocked(room.account_id);
+
+    await prepareRoomClose(
+      getSupabaseServerAdminClient(),
+      {
+        kind: 'lender',
+        roomId: input.roomId,
+        accountId: room.account_id,
+        dealId: room.deal_id,
+        title: lenderClosingTodo(room.name),
+      },
+      user.id,
+    );
+  },
+  { auth: true, schema: roomIdInput },
+);
+
 export const closeLenderRoom = refusableAction(
-  async (input) => {
+  async (input, user) => {
     const room = await readRoom(input.roomId);
 
     if (room.closed_at !== null) {
       throw new Refusal('This room is already closed');
     }
 
-    return updateRoom(input.roomId, { closed_at: new Date().toISOString() });
+    const admin = getSupabaseServerAdminClient();
+    const closing = { kind: 'lender' as const, roomId: input.roomId };
+
+    if (!(await closeState(admin, closing, user.id)).ready) {
+      throw new Refusal(`${lenderClosingTodo(room.name)} first`);
+    }
+
+    await updateRoom(input.roomId, { closed_at: new Date().toISOString() });
+    await forgetRoomClosing(admin, closing);
   },
   { auth: true, schema: roomIdInput },
 );

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test.describe('marketing pages', () => {
   test('pricing renders plans', async ({ page }) => {
@@ -8,7 +8,10 @@ test.describe('marketing pages', () => {
       page.getByRole('heading', { name: 'Pricing', level: 1 }),
     ).toBeVisible();
     await expect(
-      page.getByRole('link', { name: 'Get started' }).first(),
+      page.getByRole('link', { name: 'Start 30-day trial' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Talk to sales' }).first(),
     ).toBeVisible();
   });
 

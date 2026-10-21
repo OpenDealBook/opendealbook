@@ -1,5 +1,5 @@
 import 'server-only';
-import { enhanceAction } from '@odb/next/actions';
+import { refusableAction } from '@odb/next/actions/refusable-action';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { assertDealPermission, resolveDealAccountId } from '../permission';
@@ -10,7 +10,7 @@ import {
   reorderFoldersSchema,
 } from './schema';
 
-export const createFolder = enhanceAction(
+export const createFolder = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -34,10 +34,15 @@ export const createFolder = enhanceAction(
 
     return data;
   },
-  { auth: true, schema: createFolderSchema },
+  createFolderSchema,
+  {
+    what: 'create folders',
+    needs: 'deals.manage',
+    dealId: (input) => input.dealId,
+  },
 );
 
-export const renameFolder = enhanceAction(
+export const renameFolder = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -57,10 +62,15 @@ export const renameFolder = enhanceAction(
 
     return data;
   },
-  { auth: true, schema: renameFolderSchema },
+  renameFolderSchema,
+  {
+    what: 'rename folders',
+    needs: 'deals.manage',
+    dealId: (input) => input.dealId,
+  },
 );
 
-export const moveFolder = enhanceAction(
+export const moveFolder = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -80,12 +90,17 @@ export const moveFolder = enhanceAction(
 
     return data;
   },
-  { auth: true, schema: moveFolderSchema },
+  moveFolderSchema,
+  {
+    what: 'move folders',
+    needs: 'deals.manage',
+    dealId: (input) => input.dealId,
+  },
 );
 
 // dr_folder.sort_order has no unique constraint, so positions are assigned
 // directly by index; no temp-slot shuffle is needed to avoid a collision.
-export const reorderFolders = enhanceAction(
+export const reorderFolders = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -109,5 +124,10 @@ export const reorderFolders = enhanceAction(
 
     return input.orderedIds;
   },
-  { auth: true, schema: reorderFoldersSchema },
+  reorderFoldersSchema,
+  {
+    what: 'reorder folders',
+    needs: 'deals.manage',
+    dealId: (input) => input.dealId,
+  },
 );

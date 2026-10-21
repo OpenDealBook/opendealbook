@@ -41,7 +41,7 @@ export default async function DealMeetingsPage({
   ]);
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <h1 className={'text-2xl font-semibold'}>Meetings</h1>
       <MeetingsManager
         accountId={team.id}

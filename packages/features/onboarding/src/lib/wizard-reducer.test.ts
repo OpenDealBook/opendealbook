@@ -5,19 +5,31 @@ import {
   initialWizardState,
   isComplete,
   isStepSkippable,
-  onboardingStepOrder,
+  onboardingSteps,
   progress,
   wizardReducer,
 } from './wizard-reducer';
 
+const buyer = initialWizardState(onboardingSteps.buyer);
+
+function walk(steps: readonly string[]) {
+  let state = initialWizardState(onboardingSteps.invitee);
+  const seen = [currentStepId(state)];
+  for (let i = 0; i < steps.length; i++) {
+    state = wizardReducer(state, { type: 'skipStep' });
+    seen.push(currentStepId(state));
+  }
+  return seen;
+}
+
 describe('wizardReducer', () => {
   it('starts on the first step with no data', () => {
-    expect(currentStepId(initialWizardState)).toBe('profile');
-    expect(initialWizardState.data).toEqual({});
+    expect(currentStepId(buyer)).toBe('profile');
+    expect(buyer.data).toEqual({});
   });
 
   it('advances and records the submitted step value', () => {
-    const next = wizardReducer(initialWizardState, {
+    const next = wizardReducer(buyer, {
       type: 'submitStep',
       step: 'profile',
       value: { name: 'Ada Lovelace', pictureUrl: undefined },
@@ -27,8 +39,17 @@ describe('wizardReducer', () => {
     expect(next.data.profile).toEqual({ name: 'Ada Lovelace' });
   });
 
+  it('walks an invitee through profile, terms, then mfa with no team or deal box step', () => {
+    expect(walk(onboardingSteps.invitee)).toEqual([
+      'profile',
+      'terms',
+      'mfa',
+      null,
+    ]);
+  });
+
   it('goes back without discarding recorded data', () => {
-    const advanced = wizardReducer(initialWizardState, {
+    const advanced = wizardReducer(buyer, {
       type: 'submitStep',
       step: 'profile',
       value: { name: 'Ada Lovelace', pictureUrl: undefined },
@@ -40,13 +61,14 @@ describe('wizardReducer', () => {
   });
 
   it('does not go back past the first step', () => {
-    const back = wizardReducer(initialWizardState, { type: 'back' });
+    const back = wizardReducer(buyer, { type: 'back' });
     expect(back.stepIndex).toBe(0);
   });
 
   it('skips a step and clears any value it held', () => {
-    const atDealBox: typeof initialWizardState = {
-      stepIndex: onboardingStepOrder.indexOf('dealBox'),
+    const atDealBox = {
+      ...buyer,
+      stepIndex: onboardingSteps.buyer.indexOf('dealBox'),
       data: { dealBox: { criteria: { naics: ['541211'] } } },
     };
     const skipped = wizardReducer(atDealBox, { type: 'skipStep' });
@@ -56,10 +78,7 @@ describe('wizardReducer', () => {
   });
 
   it('reports completion after the final step and clamps the index', () => {
-    const atLast: typeof initialWizardState = {
-      stepIndex: onboardingStepOrder.length - 1,
-      data: {},
-    };
+    const atLast = { ...buyer, stepIndex: onboardingSteps.buyer.length - 1 };
     const done = wizardReducer(atLast, { type: 'skipStep' });
 
     expect(isComplete(done)).toBe(true);
@@ -68,13 +87,13 @@ describe('wizardReducer', () => {
       step: 'mfa',
       value: { enroll: false },
     });
-    expect(past.stepIndex).toBe(onboardingStepOrder.length);
+    expect(past.stepIndex).toBe(onboardingSteps.buyer.length);
   });
 
   it('tracks progress from zero to one across the steps', () => {
-    expect(progress(initialWizardState)).toBe(0);
+    expect(progress(buyer)).toBe(0);
     expect(
-      progress({ stepIndex: onboardingStepOrder.length, data: {} }),
+      progress({ ...buyer, stepIndex: onboardingSteps.buyer.length }),
     ).toBe(1);
   });
 

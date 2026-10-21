@@ -5,14 +5,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => ({
-  saved: [] as string[],
+  saved: [] as { name: string; phone?: string }[],
   skipped: 0,
   refreshed: 0,
 }));
 
 vi.mock('./actions', () => ({
-  setMyLenderName: async ({ name }: { name: string }) => {
-    server.saved.push(name);
+  setMyLenderName: async (input: { name: string; phone?: string }) => {
+    server.saved.push(input);
 
     return { ok: true, value: undefined };
   },
@@ -68,11 +68,13 @@ describe('LenderNameForm', () => {
     expect(container.querySelector('label')?.textContent).toBe('Your name');
 
     input.value = 'Sam Ortiz';
+    container.querySelector<HTMLInputElement>('input[name="phone"]')!.value =
+      '+1 555 0100';
     await act(async () => {
       button('Save')!.click();
     });
 
-    expect(server.saved).toEqual(['Sam Ortiz']);
+    expect(server.saved).toEqual([{ name: 'Sam Ortiz', phone: '+1 555 0100' }]);
     expect(server.refreshed).toBe(1);
   });
 
@@ -93,5 +95,19 @@ describe('LenderNameForm', () => {
 
     expect(container.querySelector('input')!.value).toBe('Dana Lee');
     expect(button('Skip')).toBeUndefined();
+  });
+
+  it('asks for an optional phone alongside the name on first entry only', () => {
+    render({ initialName: null, allowSkip: true });
+    const phone = container.querySelector<HTMLInputElement>(
+      'input[name="phone"]',
+    )!;
+
+    expect(phone.required).toBe(false);
+    expect(phone.maxLength).toBe(50);
+
+    render({ initialName: 'Dana Lee', allowSkip: false });
+
+    expect(container.querySelector('input[name="phone"]')).toBeNull();
   });
 });

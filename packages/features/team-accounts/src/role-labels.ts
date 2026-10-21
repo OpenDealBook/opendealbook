@@ -1,0 +1,16 @@
+export const ROLE_LABELS: Record<string, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  deal_lead: 'Deal lead',
+  member: 'Team member',
+  analyst: 'Team member',
+  counsel: 'In-house counsel',
+  viewer: 'Read only',
+  principal: 'Principal',
+  attorney: 'Attorney',
+  broker: 'Broker',
+  cpa: 'CPA',
+  other: 'Other',
+  lender: 'Lender',
+  seller: 'Seller',
+};

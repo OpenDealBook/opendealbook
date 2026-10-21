@@ -2,7 +2,7 @@ export * from './components';
 export * from './hooks';
 export * from './schema';
 export {
-  onboardingStepOrder,
+  onboardingSteps,
   isStepSkippable,
   type OnboardingStepId,
   type WizardState,

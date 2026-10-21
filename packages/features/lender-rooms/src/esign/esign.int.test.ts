@@ -96,8 +96,12 @@ const documenso = {
   },
   signatureState: async (documentId: string) => {
     reachDocumenso();
-    return (harness.documenso.states.get(documentId) ??
+    const state = (harness.documenso.states.get(documentId) ??
       'missing') as SignatureState;
+
+    return state === 'completed'
+      ? { state, completedOn: new Date().toISOString().slice(0, 10) }
+      : { state };
   },
   downloadSignedPdf: async () => {
     reachDocumenso();
@@ -821,6 +825,47 @@ describe('Documenso reporting a lender form as completed', () => {
     expect(await stored.data?.text()).toBe(SIGNED_PDF);
   });
 
+  async function signedFormMilestones() {
+    const { data: milestones } = await admin
+      .from('deal_milestone')
+      .select('kind, label, target_on, actual_on, shared')
+      .eq('deal_id', deal.dealId)
+      .like('label', '%signed (Bank A)')
+      .throwOnError();
+    const { count: events } = await admin
+      .from('deal_event')
+      .select('id', { count: 'exact', head: true })
+      .eq('deal_id', deal.dealId)
+      .eq('event_type', 'deal_milestone.set')
+      .throwOnError();
+
+    return { milestones, events };
+  }
+
+  it('puts the signing on the deal timeline, unshared, once however often it is reported', async () => {
+    const before = (await signedFormMilestones()).events;
+    const { documensoDocumentId } = await sentForm('timeline.pdf');
+
+    await report('completed', documensoDocumentId);
+    await deliver(documensoDocumentId);
+
+    const { milestones, events } = await signedFormMilestones();
+    expect(
+      milestones.filter((milestone) =>
+        milestone.label?.startsWith('Please complete timeline.pdf'),
+      ),
+    ).toEqual([
+      {
+        kind: 'custom',
+        label: 'Please complete timeline.pdf signed (Bank A)',
+        target_on: null,
+        actual_on: new Date().toISOString().slice(0, 10),
+        shared: false,
+      },
+    ]);
+    expect(events! - before!).toBe(1);
+  });
+
   it('lets the lender see the signed PDF in their room', async () => {
     const { formId, documensoDocumentId } = await sentForm('disclosure.pdf');
 
@@ -1121,6 +1166,47 @@ describe('Documenso reporting a lender form as declined, expired or gone', () =>
 
     expect(await statusesOf(formId)).toEqual(['completed']);
   });
+});
+
+describe('Documenso reporting the outcome of a lender form signature', () => {
+  it.each([
+    ['completed', 'completed', 'A form for Bank A was signed on Lender asks deal'],
+    ['rejected', 'declined', 'A form signature for Bank A was declined on Lender asks deal'],
+    ['expired', 'expired', 'A form signature for Bank A expired on Lender asks deal'],
+  ] as const)(
+    'rings our bell once per member when it is %s, linking to the form',
+    async (state, status, body) => {
+      const { formId, signatureId, documensoDocumentId } = await sentForm();
+
+      await report(state, documensoDocumentId);
+
+      const { data: team } = await admin
+        .from('accounts')
+        .select('slug')
+        .eq('id', deal.accountId)
+        .single()
+        .throwOnError();
+      const eventType = `lender_form.signature_${status}`;
+      const eventKey = `${signatureId}:${status}`;
+      const { data: rung } = await admin
+        .from('notifications')
+        .select('recipient_user_id, deal_id, body, link, dedupe_key')
+        .eq('account_id', deal.accountId)
+        .like('dedupe_key', `${eventType}:${eventKey}:%`)
+        .order('recipient_user_id')
+        .throwOnError();
+
+      expect(rung).toEqual(
+        [us.userId, colleague.userId].toSorted().map((userId) => ({
+          recipient_user_id: userId,
+          deal_id: deal.dealId,
+          body,
+          link: `/home/${team.slug}/deals/${deal.dealId}/lenders/${room.roomId}/requests/forms/${formId}`,
+          dedupe_key: `${eventType}:${eventKey}:${userId}`,
+        })),
+      );
+    },
+  );
 });
 
 describe('a Documenso event that is not about a lender form', () => {

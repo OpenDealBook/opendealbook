@@ -1,7 +1,6 @@
 import Link from 'next/link';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
-import { AcceptInvitation } from '@odb/team-accounts';
 import { Alert, AlertDescription, AlertTitle } from '@odb/ui/alert';
 import { Button } from '@odb/ui/button';
 import {
@@ -11,6 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@odb/ui/card';
+
+import { ExpiredInvite } from './_components/expired-invite';
+import { JoinTeam } from './_components/join-team';
+import { liveInvitation } from './_lib/live-invitation';
 
 export default async function JoinPage({
   searchParams,
@@ -32,35 +35,46 @@ export default async function JoinPage({
     );
   }
 
+  const invitation = await liveInvitation(token);
+
+  if (!invitation) {
+    return (
+      <main className={'flex min-h-screen items-center justify-center p-8'}>
+        <ExpiredInvite />
+      </main>
+    );
+  }
+
   const supabase = getSupabaseServerClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    const next = encodeURIComponent(`/join?token=${token}`);
+  const next = encodeURIComponent(`/join?token=${token}`);
 
-    return (
-      <main className={'flex min-h-screen items-center justify-center p-8'}>
-        <Card className={'w-full max-w-sm'}>
-          <CardHeader>
-            <CardTitle>Accept invitation</CardTitle>
-            <CardDescription>
-              Sign in to accept this invitation.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+  return (
+    <main className={'flex min-h-screen items-center justify-center p-8'}>
+      <Card className={'w-full max-w-sm'}>
+        <CardHeader>
+          <CardTitle>Join {invitation.teamName}</CardTitle>
+          <CardDescription>
+            {invitation.inviterName} invited you to join {invitation.teamName}{' '}
+            on Open Deal Book.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user ? (
+            <JoinTeam token={token} />
+          ) : (
             <Button asChild>
               <Link href={`/auth/sign-in?next=${next}`}>
                 Sign in to continue
               </Link>
             </Button>
-          </CardContent>
-        </Card>
-      </main>
-    );
-  }
-
-  return <AcceptInvitation token={token} />;
+          )}
+        </CardContent>
+      </Card>
+    </main>
+  );
 }

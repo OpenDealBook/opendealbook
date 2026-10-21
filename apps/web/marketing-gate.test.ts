@@ -1,27 +1,33 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveEnableMarketing } from './config/feature-flags.config';
 import {
   marketingGateRedirect,
   marketingRobots,
   marketingSitemap,
 } from './config/marketing-gate';
+import { stubBootEnv } from './test-env';
 
-describe('resolveEnableMarketing', () => {
-  it('enables marketing when the env var is unset', () => {
-    expect(resolveEnableMarketing(undefined)).toBe(true);
+describe('featureFlagsConfig', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it('enables marketing for the string "true"', () => {
-    expect(resolveEnableMarketing('true')).toBe(true);
+  it('turns marketing and billing off from the server env at runtime', async () => {
+    stubBootEnv({ ENABLE_MARKETING: 'false', ENABLE_BILLING: 'false' });
+    const { featureFlagsConfig } =
+      await import('./config/feature-flags.config');
+
+    expect(featureFlagsConfig.enableMarketing).toBe(false);
+    expect(featureFlagsConfig.enableBilling).toBe(false);
   });
 
-  it('enables marketing for any value other than "false"', () => {
-    expect(resolveEnableMarketing('platform')).toBe(true);
-  });
+  it('reads both flags as the env contract parsed them', async () => {
+    stubBootEnv({ ENABLE_MARKETING: 'False', ENABLE_BILLING: 'FALSE' });
+    const { featureFlagsConfig } =
+      await import('./config/feature-flags.config');
 
-  it('disables marketing only for the exact string "false"', () => {
-    expect(resolveEnableMarketing('false')).toBe(false);
+    expect(featureFlagsConfig.enableMarketing).toBe(false);
+    expect(featureFlagsConfig.enableBilling).toBe(false);
   });
 });
 
@@ -52,9 +58,10 @@ describe('marketingRobots', () => {
 
 describe('marketingSitemap', () => {
   it('lists every static marketing route under the base host when enabled', () => {
-    const urls = marketingSitemap(true, 'https://example.com').map(
-      (entry) => entry.url,
-    );
+    const urls = marketingSitemap(
+      { enableMarketing: true, enableBilling: true },
+      'https://example.com',
+    ).map((entry) => entry.url);
 
     expect(urls).toEqual([
       'https://example.com',
@@ -72,6 +79,21 @@ describe('marketingSitemap', () => {
   });
 
   it('returns an empty sitemap when disabled', () => {
-    expect(marketingSitemap(false, 'https://example.com')).toEqual([]);
+    expect(
+      marketingSitemap(
+        { enableMarketing: false, enableBilling: true },
+        'https://example.com',
+      ),
+    ).toEqual([]);
+  });
+
+  it('drops pricing and keeps every other route when billing is off', () => {
+    const urls = marketingSitemap(
+      { enableMarketing: true, enableBilling: false },
+      'https://example.com',
+    ).map((entry) => entry.url);
+
+    expect(urls).not.toContain('https://example.com/pricing');
+    expect(urls).toHaveLength(10);
   });
 });

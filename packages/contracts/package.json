@@ -19,20 +19,23 @@
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
+    "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
-    "@odb/templates": "workspace:*",
+    "mammoth": "1.13.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "fflate": "0.8.2",
     "vitest": "catalog:"
   },
   "peerDependencies": {

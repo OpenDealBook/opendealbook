@@ -1,4 +1,6 @@
-import { build } from 'esbuild';
+import { build, context } from 'esbuild';
+
+import { spawn } from 'node:child_process';
 
 // Bundle the worker entry and the first-party @odb/* workspace sources into one
 // plain-JS file so the runtime image needs no tsx and no TypeScript loader.
@@ -26,7 +28,7 @@ const keepExternal = {
   },
 };
 
-await build({
+const options = {
   entryPoints: ['src/worker.ts'],
   outfile: 'dist/worker.js',
   bundle: true,
@@ -36,4 +38,29 @@ await build({
   sourcemap: true,
   logLevel: 'info',
   plugins: [keepExternal],
-});
+};
+
+// Dev mode restarts a plain `node dist/worker.js` after every rebuild. node
+// --watch is avoided because it crashes Temporal's workflow worker threads
+// (RangeError: Invalid atomic access index). The worker shares this process
+// group, so Ctrl+C and run-dev's group SIGTERM stop both.
+let worker;
+const restartWorker = {
+  name: 'restart-worker',
+  setup(pluginBuild) {
+    pluginBuild.onEnd(() => {
+      worker?.kill();
+      worker = spawn(process.execPath, ['dist/worker.js'], { stdio: 'inherit' });
+    });
+  },
+};
+
+if (process.argv.includes('--watch')) {
+  const watcher = await context({
+    ...options,
+    plugins: [keepExternal, restartWorker],
+  });
+  await watcher.watch();
+} else {
+  await build(options);
+}

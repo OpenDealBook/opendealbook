@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import type { DealCalcInputs } from '@odb/deals/schema';
-import { fetchCalcVersion } from '@odb/deals/shared';
 import {
   adoptCalcVersion,
   createCalcVersion,
@@ -13,10 +12,24 @@ import {
   duplicateCalcVersion,
   markPrimaryCalcVersion,
 } from '@odb/deals/server';
+import { outputsSaved } from '@odb/deals/shared';
 import type { Tables } from '@odb/supabase';
-import { getSupabaseBrowserClient } from '@odb/supabase/client';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@odb/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@odb/ui/dropdown-menu';
 import {
   Table,
   TableBody,
@@ -26,28 +39,10 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
-import { CalcDealEditor } from './calc-deal-editor';
-import {
-  type DealDraft,
-  type SdePeriodDraft,
-  type WorkingCapitalDraft,
-  dealDraftFromInputs,
-  emptyDealDraft,
-  emptyWorkingCapitalDraft,
-  money,
-  periodDraftsFromRows,
-  ratio,
-  workingCapitalDraftFromInputs,
-} from './calc-shared';
-import { CalcSdeEditor } from './calc-sde-editor';
-import { CalcWorkingCapitalEditor } from './calc-working-capital-editor';
+import { TYPE_LABELS, money, ratio, versionName } from './calc-shared';
+import { useRefusableAction } from './use-refusable-action';
 
 type CalcVersion = Tables<'calc_version'>;
-
-type OpenEditor =
-  | { kind: 'sde'; id: string; periods: SdePeriodDraft[] }
-  | { kind: 'deal'; id: string; draft: DealDraft }
-  | { kind: 'working_capital'; id: string; draft: WorkingCapitalDraft };
 
 interface Snapshot {
   weighted_sde?: number;
@@ -56,26 +51,13 @@ interface Snapshot {
   working_capital?: number;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  sde: 'SDE',
-  deal: 'Deal',
-  working_capital: 'Working capital',
-};
-
-function versionName(version: CalcVersion): string {
-  if (version.name != null && version.name.trim() !== '') {
-    return version.name;
-  }
-  return `${TYPE_LABELS[version.type ?? ''] ?? 'Calculator'} version`;
-}
-
 function keyOutputs(version: CalcVersion): string {
   const snapshot = version.outputs_snapshot as unknown as Snapshot;
   if (version.type === 'sde') {
     return `Weighted SDE ${money(snapshot.weighted_sde ?? null)}`;
   }
   if (version.type === 'deal') {
-    return `DSCR ${ratio(snapshot.dscr ?? null)} · Multiple ${ratio(
+    return `DSCR ${ratio(snapshot.dscr ?? null)} · Purchase multiple incl. closing costs ${ratio(
       snapshot.purchase_multiple ?? null,
     )}`;
   }
@@ -85,97 +67,70 @@ function keyOutputs(version: CalcVersion): string {
   return 'n/a';
 }
 
+function adoptable(version: CalcVersion): boolean {
+  return (
+    version.type !== 'working_capital' && outputsSaved(version.outputs_snapshot)
+  );
+}
+
 export function CalculatorsPanel(props: {
   dealId: string;
   versions: CalcVersion[];
+  canManage: boolean;
+  calcsHref: string;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState<OpenEditor | null>(null);
+  const { refusal, pending, run } = useRefusableAction();
+  const [deleting, setDeleting] = useState<CalcVersion | null>(null);
+  const primaries = new Map(
+    props.versions
+      .filter((version) => version.is_primary)
+      .map((version) => [version.type, version.id]),
+  );
 
-  const sdeVersions = props.versions
-    .filter((version) => version.type === 'sde')
-    .map((version) => ({ id: version.id, name: versionName(version) }));
-
-  function run(action: () => Promise<unknown>) {
-    startTransition(async () => {
-      await action();
-      router.refresh();
-    });
-  }
-
-  async function openVersion(version: CalcVersion) {
-    setLoading(true);
-    const detail = await fetchCalcVersion(getSupabaseBrowserClient(), {
-      calc_version_id: version.id,
-    });
-    if (version.type === 'sde') {
-      setOpen({
-        kind: 'sde',
-        id: version.id,
-        periods: periodDraftsFromRows(detail.periods ?? []),
-      });
-    } else if (version.type === 'deal') {
-      const inputs = (detail.input?.inputs ?? null) as DealCalcInputs | null;
-      setOpen({
-        kind: 'deal',
-        id: version.id,
-        draft:
-          inputs == null
-            ? emptyDealDraft()
-            : dealDraftFromInputs(
-                inputs,
-                detail.funding_sources ?? [],
-                detail.input?.imported_from_version_id ?? null,
-              ),
-      });
-    } else if (version.type === 'working_capital') {
-      const inputs = (detail.input?.inputs ?? {}) as {
-        current_assets?: number;
-        current_liabilities?: number;
-        avg_monthly_revenue?: number;
-      };
-      setOpen({
-        kind: 'working_capital',
-        id: version.id,
-        draft: workingCapitalDraftFromInputs(inputs),
-      });
-    }
-    setLoading(false);
-  }
-
-  async function newVersion(type: 'sde' | 'deal' | 'working_capital') {
-    setLoading(true);
-    const id = await createCalcVersion({ deal_id: props.dealId, type });
-    router.refresh();
-    if (type === 'sde') {
-      setOpen({ kind: 'sde', id, periods: [] });
-    } else if (type === 'deal') {
-      setOpen({ kind: 'deal', id, draft: emptyDealDraft() });
-    } else {
-      setOpen({ kind: 'working_capital', id, draft: emptyWorkingCapitalDraft() });
-    }
-    setLoading(false);
+  function newVersion(type: 'sde' | 'deal' | 'working_capital') {
+    run(
+      () => createCalcVersion({ deal_id: props.dealId, type }),
+      (id) => router.push(`${props.calcsHref}/${id}`),
+    );
   }
 
   return (
     <div className={'flex flex-col gap-4'}>
       <div className={'flex flex-wrap gap-2'}>
-        <Button size={'sm'} disabled={loading} onClick={() => newVersion('sde')}>
+        <Button
+          size={'sm'}
+          disabled={pending}
+          onClick={() => newVersion('sde')}
+        >
           New SDE
         </Button>
-        <Button size={'sm'} disabled={loading} onClick={() => newVersion('deal')}>
+        <Button
+          size={'sm'}
+          disabled={pending}
+          onClick={() => newVersion('deal')}
+        >
           New Deal
         </Button>
         <Button
           size={'sm'}
-          disabled={loading}
+          disabled={pending}
           onClick={() => newVersion('working_capital')}
         >
           New Working capital
         </Button>
       </div>
+      {refusal ? (
+        <p role={'alert'} className={'text-destructive text-sm'}>
+          {refusal}
+        </p>
+      ) : null}
+
+      {props.canManage ? null : (
+        <p className={'text-muted-foreground text-sm'}>
+          Only deal managers can mark a calc primary or adopt it.
+        </p>
+      )}
 
       {props.versions.length === 0 ? (
         <p className={'text-muted-foreground text-sm'}>No calculators yet</p>
@@ -194,76 +149,98 @@ export function CalculatorsPanel(props: {
             <TableBody>
               {props.versions.map((version) => (
                 <TableRow key={version.id}>
-                  <TableCell>{versionName(version)}</TableCell>
-                  <TableCell>{TYPE_LABELS[version.type ?? ''] ?? version.type}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`${props.calcsHref}/${version.id}`}
+                      className={
+                        'font-medium underline-offset-4 hover:underline'
+                      }
+                    >
+                      {versionName(version, props.versions)}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    {TYPE_LABELS[version.type ?? ''] ?? version.type}
+                  </TableCell>
                   <TableCell>
                     {version.is_primary ? <Badge>Primary</Badge> : null}
                   </TableCell>
                   <TableCell>{keyOutputs(version)}</TableCell>
                   <TableCell>
-                    <div className={'flex flex-wrap gap-1'}>
-                      <Button
-                        variant={'outline'}
-                        size={'sm'}
-                        disabled={loading}
-                        onClick={() => openVersion(version)}
-                      >
-                        Open
+                    <div className={'flex gap-1'}>
+                      <Button variant={'outline'} size={'sm'} asChild>
+                        <Link href={`${props.calcsHref}/${version.id}`}>
+                          Open
+                        </Link>
                       </Button>
-                      <Button
-                        variant={'outline'}
-                        size={'sm'}
-                        disabled={pending}
-                        onClick={() =>
-                          run(() =>
-                            duplicateCalcVersion({ calc_version_id: version.id }),
-                          )
-                        }
-                      >
-                        Duplicate
-                      </Button>
-                      <Button
-                        variant={'outline'}
-                        size={'sm'}
-                        disabled={pending || version.is_primary}
-                        onClick={() =>
-                          run(() =>
-                            markPrimaryCalcVersion({ calc_version_id: version.id }),
-                          )
-                        }
-                      >
-                        Mark primary
-                      </Button>
-                      <Button
-                        variant={'outline'}
-                        size={'sm'}
-                        disabled={pending}
-                        onClick={() =>
-                          run(() =>
-                            adoptCalcVersion({
-                              deal_id: props.dealId,
-                              calc_version_id: version.id,
-                            }),
-                          )
-                        }
-                      >
-                        Adopt
-                      </Button>
-                      <Button
-                        variant={'destructive'}
-                        size={'sm'}
-                        disabled={pending}
-                        onClick={() => {
-                          if (open?.id === version.id) {
-                            setOpen(null);
-                          }
-                          run(() =>
-                            deleteCalcVersion({ calc_version_id: version.id }),
-                          );
-                        }}
-                      >
-                        Delete
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant={'ghost'}
+                            size={'sm'}
+                            aria-label={'More actions'}
+                            disabled={pending}
+                          >
+                            ...
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align={'end'}>
+                          <DropdownMenuItem
+                            disabled={!props.canManage || version.is_primary}
+                            onSelect={() =>
+                              run(() =>
+                                markPrimaryCalcVersion({
+                                  calc_version_id: version.id,
+                                }),
+                              )
+                            }
+                          >
+                            Mark primary
+                          </DropdownMenuItem>
+                          {adoptable(version) ? (
+                            <DropdownMenuItem
+                              disabled={!props.canManage}
+                              onSelect={() =>
+                                run(() =>
+                                  adoptCalcVersion({
+                                    deal_id: props.dealId,
+                                    calc_version_id: version.id,
+                                  }),
+                                )
+                              }
+                            >
+                              Adopt
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              run(() =>
+                                duplicateCalcVersion({
+                                  calc_version_id: version.id,
+                                }),
+                              )
+                            }
+                          >
+                            Duplicate
+                          </DropdownMenuItem>
+                          {primaries.has(version.type) &&
+                          !version.is_primary ? (
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`${props.calcsHref}/compare?a=${version.id}&b=${primaries.get(version.type)}`}
+                              >
+                                Compare
+                              </Link>
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem
+                            variant={'destructive'}
+                            onSelect={() => setDeleting(version)}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -273,40 +250,39 @@ export function CalculatorsPanel(props: {
         </div>
       )}
 
-      {open !== null && (
-        <div className={'flex flex-col gap-3 rounded-md border p-4'}>
-          <div className={'flex items-center justify-between'}>
-            <h3 className={'text-sm font-semibold'}>
-              {TYPE_LABELS[open.kind]} editor
-            </h3>
-            <Button variant={'ghost'} size={'sm'} onClick={() => setOpen(null)}>
-              Close
+      <Dialog
+        open={deleting !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setDeleting(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {deleting === null ? null : versionName(deleting, props.versions)}?
+            </DialogTitle>
+            <DialogDescription>You can't undo this.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant={'outline'} onClick={() => setDeleting(null)}>
+              Keep it
             </Button>
-          </div>
-          {open.kind === 'sde' && (
-            <CalcSdeEditor
-              calcVersionId={open.id}
-              initialPeriods={open.periods}
-              onClose={() => setOpen(null)}
-            />
-          )}
-          {open.kind === 'deal' && (
-            <CalcDealEditor
-              calcVersionId={open.id}
-              initial={open.draft}
-              sdeVersions={sdeVersions}
-              onClose={() => setOpen(null)}
-            />
-          )}
-          {open.kind === 'working_capital' && (
-            <CalcWorkingCapitalEditor
-              calcVersionId={open.id}
-              initial={open.draft}
-              onClose={() => setOpen(null)}
-            />
-          )}
-        </div>
-      )}
+            <Button
+              variant={'destructive'}
+              disabled={pending}
+              onClick={() => {
+                const id = deleting!.id;
+                setDeleting(null);
+                run(() => deleteCalcVersion({ calc_version_id: id }));
+              }}
+            >
+              Delete version
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

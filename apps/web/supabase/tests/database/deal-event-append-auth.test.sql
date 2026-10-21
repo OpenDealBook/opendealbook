@@ -42,9 +42,9 @@ select throws_ok(
   'a non-member cannot append a deal.updated event to a foreign deal'
 );
 
--- ---- a member on the member role lacks the aggregate permission ----
--- deal.updated needs deals.manage; checklist_item needs checklists.manage;
--- the member role holds neither.
+-- ---- a member on the member role does deal work but does not manage ----
+-- deal.updated needs deals.manage, which the member role lacks; checklist_item
+-- needs checklists.manage, which it holds.
 select tests.login_as('ap_member');
 select throws_ok(
   $$ select public.append_deal_event('a9a9a9a9-0000-0000-0000-0000000000d1', 'deal',
@@ -52,11 +52,10 @@ select throws_ok(
   '42501', null,
   'a member without deals.manage cannot append a deal.updated event'
 );
-select throws_ok(
+select lives_ok(
   $$ select public.append_deal_event('a9a9a9a9-0000-0000-0000-0000000000d1', 'checklist_item',
        'a9a9a9a9-0000-0000-0000-0000000000c2', 'checklist_item.added', '{"title":"member item"}'::jsonb) $$,
-  '42501', null,
-  'a member without checklists.manage cannot append a checklist_item event'
+  'a member with checklists.manage can append a checklist_item event'
 );
 
 -- ---- the owner holds deals.manage and checklists.manage and is allowed ----

@@ -38,7 +38,7 @@ export function toFindingRow(
       status: finding.status,
       message: message(finding),
     } as Json,
-    checklist_item_id: finding.links.checklistItemId ?? null,
+    checklist_item_ids: finding.links.checklistItemIds ?? [],
     dr_document_id: finding.links.drDocumentId ?? null,
   };
 }

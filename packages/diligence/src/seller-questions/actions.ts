@@ -101,18 +101,15 @@ export const answerSellerQuestion = enhanceAction(
       .single()
       .throwOnError();
 
-    const { data: deal } = await client
-      .from('deal')
-      .select('owner_user_id')
-      .eq('id', question.deal_id)
-      .single()
+    const { data: ownerUserId } = await client
+      .rpc('seller_deal_owner', { deal_id: question.deal_id })
       .throwOnError();
 
     await triggerNotification(
       { novu: createNovuClient(), client },
       {
         eventType: 'seller_question.answered',
-        recipientUserId: deal.owner_user_id!,
+        recipientUserId: ownerUserId,
         payload: { dealId: question.deal_id, questionId: input.questionId },
       },
     );

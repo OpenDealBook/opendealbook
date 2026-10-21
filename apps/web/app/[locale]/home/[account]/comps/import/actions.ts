@@ -8,6 +8,7 @@ import {
   type ProprietaryCompRow,
   type VendorKey,
 } from '@odb/comps';
+import { TEAM_READ_ONLY } from '@odb/next';
 import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -49,6 +50,19 @@ export const importCompsAction = enhanceAction(
 
     if (!allowed) {
       throw new Error('Not permitted to import comps for this account');
+    }
+
+    const { data: locked, error: lockError } = await client.rpc(
+      'is_account_locked',
+      { target_account_id: input.accountId },
+    );
+
+    if (lockError) {
+      throw lockError;
+    }
+
+    if (locked) {
+      throw new Error(TEAM_READ_ONLY);
     }
 
     const admin = getSupabaseServerAdminClient();

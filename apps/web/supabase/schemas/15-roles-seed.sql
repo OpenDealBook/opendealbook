@@ -11,7 +11,11 @@ insert into public.role_permissions (role, permission) values
   ('owner', 'settings.manage'),
   ('owner', 'members.manage'),
   ('owner', 'invites.manage'),
+  ('owner', 'api_keys.manage'),
+  ('owner', 'deal_updates.approve'),
+  ('admin', 'roles.manage'),
   ('admin', 'settings.manage'),
   ('admin', 'members.manage'),
   ('admin', 'invites.manage'),
-  ('member', 'settings.manage');
+  ('admin', 'api_keys.manage'),
+  ('admin', 'deal_updates.approve');

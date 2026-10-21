@@ -1,12 +1,11 @@
 'use server';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 import { after } from 'next/server';
+
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { z } from 'zod';
 
-import { createNovuClient, triggerNotification } from '@odb/notifications/server';
 import { getLogger } from '@odb/shared/logger';
 import type { Database } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
@@ -14,76 +13,21 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
+import { notifyOurTeam } from '../asks/notify';
+import { refuseAnotherSide } from './another-side';
 import { safeNextPath } from './entry-rules';
+import { findOrCreateUserId } from './find-or-create-user-id';
+import { giveNameIfNone } from './give-name-if-none';
 import { lenderNames } from './person-name';
-import { claimSignInLinkWindow, sendSignInLink } from './sign-in-link';
+import {
+  claimSignInLinkWindow,
+  sendLenderInvite,
+  sendSignInLink,
+} from './sign-in-link';
 
 const ROOM_MEMBER_LIMIT = 25;
 const DAILY_INVITE_LIMIT = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-async function findUserId(
-  admin: SupabaseClient<Database>,
-  email: string,
-): Promise<string | undefined> {
-  const { data: account } = await admin
-    .from('accounts')
-    .select('primary_owner_user_id')
-    .eq('email', email)
-    .eq('is_personal_account', true)
-    .maybeSingle()
-    .throwOnError();
-
-  return account?.primary_owner_user_id;
-}
-
-async function findOrCreateUserId(
-  admin: SupabaseClient<Database>,
-  email: string,
-): Promise<string> {
-  const existing = await findUserId(admin, email);
-
-  if (existing) {
-    return existing;
-  }
-
-  const { data: created, error } = await admin.auth.admin.createUser({
-    email,
-    email_confirm: true,
-  });
-
-  if (!error) {
-    return created.user.id;
-  }
-
-  const createdMeanwhile = await findUserId(admin, email);
-
-  if (!createdMeanwhile) {
-    throw error;
-  }
-
-  return createdMeanwhile;
-}
-
-// Service role: the deal team names a person they invite, but only a person
-// with no name yet; the caller has been verified as able to manage the room.
-async function giveNameIfNone(
-  admin: SupabaseClient<Database>,
-  userId: string,
-  name: string,
-) {
-  await admin
-    .from('lender_person')
-    .upsert({ user_id: userId, name }, { ignoreDuplicates: true })
-    .throwOnError();
-
-  await admin
-    .from('lender_person')
-    .update({ name })
-    .eq('user_id', userId)
-    .is('name', null)
-    .throwOnError();
-}
 
 export const inviteLenderMember = refusableAction(
   async (input, user) => {
@@ -97,6 +41,21 @@ export const inviteLenderMember = refusableAction(
       throw new Refusal('You cannot invite people to this room');
     }
 
+    const admin = getSupabaseServerAdminClient();
+
+    const { data: room } = await client
+      .from('lender_room')
+      .select('deal_id')
+      .eq('id', input.roomId)
+      .single()
+      .throwOnError();
+
+    await refuseAnotherSide(admin, {
+      dealId: room.deal_id,
+      email: input.email,
+      side: 'lender',
+    });
+
     const { data: roomMembers } = await client
       .from('lender_room_member')
       .select('email, user_id')
@@ -107,8 +66,6 @@ export const inviteLenderMember = refusableAction(
       (member) => member.email === input.email,
     );
     const alreadyInRoom = Boolean(memberAlready);
-
-    const admin = getSupabaseServerAdminClient();
 
     let userId = memberAlready?.user_id;
 
@@ -161,9 +118,10 @@ export const inviteLenderMember = refusableAction(
     }
 
     try {
-      await sendSignInLink(admin, {
+      await sendLenderInvite(admin, {
         email: input.email,
-        next: `/lender/${input.roomId}`,
+        roomId: input.roomId,
+        sentBy: user.id,
       });
     } catch (error) {
       getLogger().error({ err: error }, 'Lender invite email was not sent');
@@ -270,58 +228,21 @@ export const requestLenderRoomAccess = refusableAction(
       return;
     }
 
-    // Notifications are skipped, never thrown, when Novu is not configured.
-    if (!process.env.NOVU_API_KEY || !process.env.NOVU_API_URL) {
-      return;
-    }
+    // Service role: a lender cannot read the room's account.
+    // The caller was verified above as a member of this room.
+    const { data: roomAccount } = await admin
+      .from('lender_room')
+      .select('account_id')
+      .eq('id', input.roomId)
+      .single()
+      .throwOnError();
 
-    try {
-      // Service role: a lender cannot read the room's account or its people.
-      // The caller was verified above as a member of this room.
-      const { data: roomAccount } = await admin
-        .from('lender_room')
-        .select('account_id, accounts(primary_owner_user_id)')
-        .eq('id', input.roomId)
-        .single()
-        .throwOnError();
-
-      const { data: teamMemberships } = await admin
-        .from('accounts_memberships')
-        .select('user_id')
-        .eq('account_id', roomAccount.account_id)
-        .throwOnError();
-
-      const { data: recipients } = await admin
-        .from('accounts')
-        .select('primary_owner_user_id, email')
-        .eq('is_personal_account', true)
-        .in('primary_owner_user_id', [
-          roomAccount.accounts.primary_owner_user_id,
-          ...teamMemberships.map((membership) => membership.user_id),
-        ])
-        .throwOnError();
-
-      const novu = createNovuClient();
-
-      await Promise.all(
-        recipients.map((recipient) =>
-          triggerNotification(
-            { novu, client: admin },
-            {
-              eventType: 'lender_room.access_requested',
-              recipientUserId: recipient.primary_owner_user_id,
-              email: recipient.email ?? undefined,
-              payload: { roomId: input.roomId, email: user.email },
-            },
-          ),
-        ),
-      );
-    } catch (error) {
-      getLogger().error(
-        { err: error },
-        'Lender room access request notification failed',
-      );
-    }
+    await notifyOurTeam({
+      eventType: 'lender_room.access_requested',
+      accountId: roomAccount.account_id,
+      eventKey: `${input.roomId}:${user.id}:${new Date().toISOString().slice(0, 10)}`,
+      payload: { roomId: input.roomId, email: z.string().parse(user.email) },
+    });
   },
   { auth: true, schema: z.object({ roomId: z.uuid() }) },
 );
@@ -420,6 +341,17 @@ export const listRemovedLenderMembers = refusableAction(
 
 // Service role for both: a person writes only their own row, keyed by the
 // session's user id, and lenders have no write grant on the table.
+async function recordPhoneAnswer(
+  userId: string,
+  phone: { phone: string | null } | Record<string, never>,
+) {
+  await getSupabaseServerAdminClient()
+    .from('accounts')
+    .update({ ...phone, phone_asked_at: new Date().toISOString() })
+    .eq('id', userId)
+    .throwOnError();
+}
+
 export const setMyLenderName = refusableAction(
   async (input, user) => {
     await getSupabaseServerAdminClient()
@@ -430,8 +362,23 @@ export const setMyLenderName = refusableAction(
         name_asked_at: new Date().toISOString(),
       })
       .throwOnError();
+
+    if (input.phone !== undefined) {
+      await recordPhoneAnswer(user.id, { phone: input.phone });
+    }
   },
-  { auth: true, schema: z.object({ name: z.string().trim().min(1) }) },
+  {
+    auth: true,
+    schema: z.object({
+      name: z.string().trim().min(1),
+      phone: z
+        .string()
+        .trim()
+        .max(50)
+        .transform((phone) => phone || null)
+        .optional(),
+    }),
+  },
 );
 
 export const skipLenderNamePrompt = refusableAction(
@@ -443,6 +390,7 @@ export const skipLenderNamePrompt = refusableAction(
         name_asked_at: new Date().toISOString(),
       })
       .throwOnError();
+    await recordPhoneAnswer(user.id, {});
   },
   { auth: true, schema: z.object({}) },
 );

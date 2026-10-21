@@ -30,6 +30,9 @@ export function createSuperdocEngine(): DocxTemplateEngine {
 
       editor.prepareForAnnotations(annotationValues);
       editor.annotate(annotationValues);
+      editor.commands.replaceFieldAnnotationsWithLabel!(
+        annotationValues.map((value) => value.input_id),
+      );
 
       return editor.exportDocx<Buffer>();
     },

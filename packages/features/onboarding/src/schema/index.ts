@@ -2,6 +2,7 @@ export {
   profileStepSchema,
   workspaceStepSchema,
   termsStepSchema,
+  inviteeTermsStepSchema,
   dealBoxCriteriaSchema,
   dealBoxStepSchema,
   mfaStepSchema,
@@ -9,8 +10,10 @@ export {
   type ProfileStep,
   type WorkspaceStep,
   type TermsStep,
+  type InviteeTermsStep,
   type DealBoxCriteria,
   type DealBoxStep,
   type MfaStep,
   type OnboardingSubmission,
+  type OnboardingFlow,
 } from './onboarding.schema';

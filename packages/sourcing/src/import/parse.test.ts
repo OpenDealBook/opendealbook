@@ -34,6 +34,22 @@ describe('parseFirmCsv', () => {
     expect(row?.established_year).toBeNull();
   });
 
+  it('splits the owner cell into owner names on semicolons', () => {
+    const csv = 'Company,Owners\nAcme,Pat Owner; Sam Owner;;';
+
+    const [row] = parseFirmCsv(csv, { name: 'Company', owner_name: 'Owners' });
+
+    expect(row?.owner_names).toEqual(['Pat Owner', 'Sam Owner']);
+  });
+
+  it('gives an empty owner list when the owner cell is blank', () => {
+    const csv = 'Company,Owners\nAcme,';
+
+    const [row] = parseFirmCsv(csv, { name: 'Company', owner_name: 'Owners' });
+
+    expect(row?.owner_names).toEqual([]);
+  });
+
   it('returns null for non-numeric integer cells', () => {
     const csv = 'Company,Owner Age\nAcme,retiring soon';
 

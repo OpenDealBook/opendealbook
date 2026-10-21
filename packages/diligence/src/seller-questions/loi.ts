@@ -7,12 +7,8 @@ export async function isLoiSigned(
   dealId: string,
 ): Promise<boolean> {
   const { data } = await client
-    .from('contract')
-    .select('id, contract_version!inner(is_signed)')
-    .eq('deal_id', dealId)
-    .eq('type', 'loi')
-    .eq('contract_version.is_signed', true)
+    .rpc('deal_loi_signed', { deal_id: dealId })
     .throwOnError();
 
-  return data.length > 0;
+  return data;
 }

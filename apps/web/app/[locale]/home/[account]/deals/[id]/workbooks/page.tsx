@@ -34,7 +34,7 @@ export default async function DealWorkbooksPage({
   ]);
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <h1 className={'text-2xl font-semibold'}>Workbooks</h1>
       <DealWorkbooks
         accountId={team.id}

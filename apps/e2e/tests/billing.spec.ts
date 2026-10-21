@@ -1,22 +1,24 @@
-import { expect, test } from '@playwright/test';
-
-import { completeTeamOnboarding, signUp } from './fixtures/team';
+import { completeTeamOnboarding, expect, test } from './fixtures';
 
 test('team billing renders the plan and checkout entry point', async ({
   page,
+  auth,
 }) => {
-  test.setTimeout(240 * 1000);
+  test.setTimeout(120 * 1000);
 
-  await signUp(page);
-  const slug = await completeTeamOnboarding(page, `Vantage Group ${Date.now()}`);
+  await auth.signUp(page);
+  const slug = await completeTeamOnboarding(
+    page,
+    `Vantage Group ${Date.now()}`,
+  );
 
   await page.goto(`/home/${slug}/billing`);
 
   await expect(page.getByRole('heading', { name: 'Billing' })).toBeVisible();
-  await expect(page.getByText('No active subscription')).toBeVisible();
+  await expect(page.getByText(/Trial: \d+ days left/)).toBeVisible();
 
   // The product/plan from billing.config renders a Checkout entry point.
-  const checkout = page.getByRole('button', { name: 'Checkout' });
+  const checkout = page.getByRole('button', { name: 'Checkout' }).first();
   await expect(checkout).toBeVisible();
   await expect(checkout).toBeEnabled();
 });

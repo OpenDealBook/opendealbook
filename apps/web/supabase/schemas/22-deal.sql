@@ -8,6 +8,7 @@ create table if not exists public.deal (
   firm_id uuid references public.firm (id) on delete set null,
   owner_user_id uuid references auth.users,
   description text,
+  code_name text check (char_length(code_name) between 2 and 40),
   asking_price numeric,
   revenue_ttm numeric,
   sde_ttm numeric,
@@ -16,7 +17,6 @@ create table if not exists public.deal (
   stage text not null default 'sourcing',
   notes text,
   deal_box_version int,
-  close_date date,
   broker_contact_id uuid references public.contact (id) on delete set null,
   outcome_reason text,
   -- resolution is the structured lifecycle outcome, set by deal.resolved; a
@@ -49,6 +49,7 @@ alter table public.deal enable row level security;
 create index ix_deal_account_stage on public.deal (account_id, stage);
 create index ix_deal_firm on public.deal (firm_id);
 create index ix_deal_owner on public.deal (owner_user_id);
+create unique index ux_deal_account_code_name on public.deal (account_id, lower(code_name));
 
 -- List and search indexes for the deals list. The list query is always
 -- account-scoped, so the range indexes lead with account_id to stay useful
@@ -88,3 +89,68 @@ $$ language plpgsql;
 create trigger deal_search_tsv
   before insert or update on public.deal
   for each row execute function public.deal_search_tsv();
+
+-- deal.close_date as PostgREST reads it: the closing milestone's actual, else its
+-- target. plpgsql defers binding deal_milestone, which 99k creates later.
+create or replace function public.close_date(public.deal)
+  returns date
+  language plpgsql stable set search_path = '' as $$
+begin
+  return (
+    select coalesce(m.actual_on, m.target_on)
+    from public.deal_milestone m
+    where m.deal_id = $1.id and m.kind = 'closing'
+  );
+end;
+$$;
+
+grant execute on function public.close_date(public.deal) to authenticated, service_role;
+
+-- A code name stands in for the business name with outside parties, so it must
+-- never contain it, whichever of the two changes.
+create or replace function public.code_name_contains_business_name(code_name text, business_name text)
+  returns boolean
+  language sql immutable
+  set search_path = '' as $$
+  select strpos(lower(code_name), lower(business_name)) > 0;
+$$;
+
+grant execute on function public.code_name_contains_business_name(text, text) to authenticated, service_role;
+
+create or replace function public.refuse_deal_code_name_containing_business_name()
+  returns trigger
+  language plpgsql
+  set search_path = '' as $$
+begin
+  if exists (
+    select 1 from public.firm f
+    where f.id = new.firm_id and public.code_name_contains_business_name(new.code_name, f.name)
+  ) then
+    raise exception 'a code name must not contain the business name' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger deal_code_name_not_business_name
+  before insert or update of code_name, firm_id on public.deal
+  for each row execute function public.refuse_deal_code_name_containing_business_name();
+
+create or replace function public.refuse_firm_name_inside_code_name()
+  returns trigger
+  language plpgsql
+  set search_path = '' as $$
+begin
+  if exists (
+    select 1 from public.deal d
+    where d.firm_id = new.id and public.code_name_contains_business_name(d.code_name, new.name)
+  ) then
+    raise exception 'a code name must not contain the business name' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger firm_name_not_inside_code_name
+  before update of name on public.firm
+  for each row execute function public.refuse_firm_name_inside_code_name();

@@ -28,6 +28,36 @@ insert into public.dr_folder (id, account_id, deal_id, name) values
   ('f1f1f1f1-0000-0000-0000-000000000001', tests.account_id('es-acct'), 'd1d1d1d1-0000-0000-0000-000000000001', 'Root'),
   ('f1f1f1f1-0000-0000-0000-0000000000b2', tests.account_id('es-acct'), 'd1d1d1d1-0000-0000-0000-000000000001', 'Financials');
 
+-- ---- lender_room.went_quiet ----
+select throws_ok(
+  $$ select public.append_deal_event('d4d4d4d4-0000-0000-0000-000000000004', 'lender_room',
+       'e7e7e7e7-0000-0000-0000-000000000001', 'lender_room.went_quiet', '{}'::jsonb) $$,
+  '42501', null,
+  'a person cannot record that a lender went quiet'
+);
+select tests.login_as_service_role();
+select lives_ok(
+  $$ select public.append_deal_event('d4d4d4d4-0000-0000-0000-000000000004', 'lender_room',
+       'e7e7e7e7-0000-0000-0000-000000000001', 'lender_room.went_quiet', '{"quiet_days":5}'::jsonb, null, 'service') $$,
+  'the service records that a lender went quiet'
+);
+select throws_ok(
+  $$ select public.append_deal_event('d4d4d4d4-0000-0000-0000-000000000004', 'lender_room',
+       'e7e7e7e7-0000-0000-0000-000000000001', 'lender_room.renamed', '{}'::jsonb, null, 'service') $$,
+  'P0001', null,
+  'a lender room records no other events'
+);
+select lives_ok(
+  $$ select public.replay_deal('d4d4d4d4-0000-0000-0000-000000000004') $$,
+  'a deal whose lender went quiet replays'
+);
+select is(
+  (select count(*)::int from public.deal_event where event_type = 'lender_room.went_quiet'),
+  1,
+  'replay leaves the quiet lender event in the log once'
+);
+select tests.login_as('es_owner');
+
 -- ---- append + projection ----
 select lives_ok(
   $$ select public.append_deal_event(
@@ -213,7 +243,7 @@ select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal_pa
   'aaaaaaaa-0000-0000-0000-0000000000aa', 'deal_participant.added',
   ('{"party":"buyer","user_id":"' || tests.get_uid('es_other')::text || '"}')::jsonb);
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal',
-  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.stage_changed', '{"stage":"diligence"}'::jsonb);
+  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.stage_changed', '{"stage":"due_diligence"}'::jsonb);
 select tests.login_as_service_role();
 select is(
   (select count(*) from public.notifications where recipient_user_id = tests.get_uid('es_other')),
@@ -222,7 +252,7 @@ select is(
 );
 select set_config('odb.replay', 'on', true);
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal',
-  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.stage_changed', '{"stage":"loi"}'::jsonb, null, 'service');
+  'd1d1d1d1-0000-0000-0000-000000000001', 'deal.stage_changed', '{"stage":"loi_submitted"}'::jsonb, null, 'service');
 select is(
   (select count(*) from public.notifications where recipient_user_id = tests.get_uid('es_other')),
   1::bigint,

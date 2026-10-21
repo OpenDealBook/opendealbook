@@ -11,9 +11,11 @@ import {
 import {
   AccountIdSchema,
   ListAccountsSchema,
+  SellerSendLimitSchema,
   UserIdSchema,
   type AccountIdInput,
   type ListAccountsInput,
+  type SellerSendLimitInput,
   type UserIdInput,
 } from './schemas';
 import { recordAdminAction } from './utils/audit';
@@ -69,7 +71,18 @@ export const getAccountDetailAction = enhanceAction(
       .eq('account_id', input.accountId)
       .maybeSingle();
 
-    return { account, memberships: memberships ?? [], subscription };
+    const { data: sellerSendLimit } = await client
+      .from('seller_send_limit')
+      .select('daily_limit')
+      .eq('account_id', input.accountId)
+      .maybeSingle();
+
+    return {
+      account,
+      memberships: memberships ?? [],
+      subscription,
+      sellerSendLimit: sellerSendLimit?.daily_limit ?? null,
+    };
   },
   { schema: AccountIdSchema },
 );
@@ -140,4 +153,34 @@ export const reactivateUserAction = enhanceAction(
     });
   },
   { schema: UserIdSchema },
+);
+
+export const setSellerSendLimitAction = enhanceAction(
+  async (input: SellerSendLimitInput, user: User) => {
+    await assertSuperAdmin(getSupabaseServerClient());
+
+    const client = getSupabaseServerAdminClient();
+
+    if (input.dailyLimit === null) {
+      await client
+        .from('seller_send_limit')
+        .delete()
+        .eq('account_id', input.accountId)
+        .throwOnError();
+    } else {
+      await client
+        .from('seller_send_limit')
+        .upsert({ account_id: input.accountId, daily_limit: input.dailyLimit })
+        .throwOnError();
+    }
+
+    await recordAdminAction(client, {
+      actorUserId: user.id,
+      action: 'account.seller_send_limit',
+      targetType: 'account',
+      targetId: input.accountId,
+      detail: { dailyLimit: input.dailyLimit },
+    });
+  },
+  { schema: SellerSendLimitSchema },
 );

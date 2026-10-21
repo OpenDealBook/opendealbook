@@ -6,3 +6,4 @@ export type {
   TablesUpdate,
   Enums,
 } from './database.types';
+export { Constants } from './database.types';

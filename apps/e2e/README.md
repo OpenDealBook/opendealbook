@@ -1,35 +1,105 @@
 # e2e
 
-Playwright end-to-end smoke suite for the Open Deal Book web app.
+Playwright end-to-end suite for the Open Deal Book web app. It runs against the
+real local stack and reads real email from Mailpit.
 
-## What it covers
+## The stack a run needs
 
-- `tests/auth.spec.ts`: sign up a fresh faker user at `/auth/sign-up` and land
-  in `/home`, then clear cookies and sign the same user back in.
-- `tests/account.spec.ts`: from the personal account settings page update the
-  display name and confirm the change sticks.
-- `tests/team.spec.ts`: create a team at `/home/create-team`, open the team
-  workspace at `/home/{slug}`, then open its members page and the invite form.
-- `tests/marketing.spec.ts`: `/pricing` shows plans and `/blog` renders.
+The global setup (`tests/global-setup.ts`) checks every service first. If any is
+missing, the run fails and lists what to start. It never starts, stops, or
+resets a service.
 
-`tests/fixtures/auth.ts` holds the shared sign-up and sign-in helpers; each run
-mints a unique email with `@faker-js/faker`, so the suite does not depend on a
-particular seeded account.
+- Supabase from `apps/web` (`pnpm supabase start`), with `enable_confirmations = true`
+  applied. The setup reads `/auth/v1/settings` to confirm sign-up waits for email.
+- Mailpit, the Supabase mail catcher: API on 54324, SMTP on 54325.
+- The compose `core` and `notifications` profiles: Gotenberg (3009), Documenso
+  (3005), Novu (3006), Temporal (7233, UI on 8233).
+- Temporal workers polling the `opendealbook` task queue.
+- `infra/documenso/cert.p12`, which Documenso needs to seal signed documents; signing tests never complete without it. Generate it with the recipe in `infra/documenso/README.md`.
 
-## Running locally
+Stripe, Nango, and the LLM are local stand-ins the global setup starts:
 
-These specs run against a locally running web app backed by a local Supabase
-stack. They are not hermetic; they exercise real routes and real auth.
+- LLM on 4510, an OpenAI-compatible `/v1/chat/completions`.
+- Nango on 4511: `/connect/sessions` and `/proxy/*`.
+- Stripe on 4512: checkout sessions, portal sessions, subscriptions, and signed
+  webhooks sent to `/api/billing/webhook`.
 
-1. Start Supabase for the web app (from `apps/web`): `pnpm supabase start`.
-2. Start the web app: `pnpm --filter web dev` (serves `http://localhost:3000`).
-3. Run the suite: `pnpm --filter e2e test` (or `test:ui` for the runner UI).
+After the checks, the global setup:
 
-Override the target with `PLAYWRIGHT_BASE_URL`. To let Playwright boot the web
-app itself, uncomment the `webServer` block in `playwright.config.ts`.
+1. Starts the stand-ins.
+2. Signs in to Novu as a fixed e2e user, registering it on the first run, and
+   reads its API key. It points Novu's email integration at Mailpit SMTP.
+3. Writes the workers' env to `apps/e2e/.e2e-workers.env` and checks a worker
+   polls the task queue. If none does, the run fails and prints the command
+   that starts the workers with that env:
+   `set -a && . apps/e2e/.e2e-workers.env && set +a && pnpm --filter workers dev`
+4. Signs in to Documenso as a fixed e2e user through its UI, signing up on the
+   first run. It adds the app's webhook and mints an API token. Set
+   `E2E_DOCUMENSO_API_KEY` to reuse a token instead of minting one.
+5. Starts two web servers and syncs the Novu bridge:
+   - `chromium` tests run against `http://localhost:3000` with the full e2e env.
+   - `variant` tests (`*.variant.spec.ts`) run against `http://localhost:3110`
+     (set `E2E_VARIANT_PORT` to move it)
+     with `ENABLE_MARKETING=false`, `ENABLE_BILLING=false`,
+     and no `DOCUMENSO_*`.
 
-## Seeded accounts
+Each server builds into its own `NEXT_DIST_DIR` under `apps/web/.next`, so a
+developer's own `next dev` keeps its dev lock. Ports 3000 and 3110 must be free.
+Server output goes to `apps/e2e/.stack-logs/`.
 
-Pre-seeded, already-confirmed users live in `apps/web/supabase/seed.sql`. The
-smoke specs create their own users rather than reusing those, but the seed is
-the source of truth if a test needs a known confirmed account.
+## Writing a test
+
+Import `test` and `expect` from `tests/fixtures`, not from `@playwright/test`.
+
+- `auth.signUp(page, user?)` signs up and confirms through the real
+  confirmation email. `auth.signIn(page, user)` and `auth.signOut(page, user)`
+  cover the rest.
+- `completePersonalOnboarding(page, choices?)` and
+  `completeTeamOnboarding(page, teamName, choices?)` run the wizard. `choices`
+  takes a `name`, a `dealBox`, and `compPoolOptIn`.
+- `lender.invite(roomPage, { email, name? })` invites from a room's People tab.
+  `lender.signIn(page, { email, roomId })` opens the invite email's link.
+- `db.rows`, `db.insert`, `db.remove`, `db.rpc`, `db.waitForRow`, and
+  `db.userIdByEmail` use the service role.
+- `waitForMessage({ to, subject? })` returns the newest matching email.
+  `firstLink(message, pattern)` returns its first link that matches.
+- `standIns.llm`, `standIns.nango`, and `standIns.stripe` set stand-in replies
+  and read what the app sent them.
+
+Every user that `auth` or `lender` creates is tracked. Track anything else with
+`cleanup.track({ kind: 'storage', bucket, prefix })`. After a passing test the
+cleanup deletes storage objects, rate-limit rows, the users' team accounts, and
+the users. After a failing test it keeps everything and attaches the list to the
+report.
+
+## Running
+
+Stop `pnpm run-dev` first. From the repo root:
+
+```sh
+pnpm run-e2e                  # the whole suite
+pnpm run-e2e auth.spec --headed   # extra args go to `playwright test`
+```
+
+`pnpm run-e2e` refuses to start while port 3000 or the variant port is in use. It brings up
+the compose profiles and Supabase, and mints `apps/e2e/.e2e-workers.env` with a
+global-setup-only run when the file is missing. It then starts a worker with
+that env and waits for it to poll `opendealbook`. Last, it runs Playwright, stops
+the worker, and exits with Playwright's code.
+
+`tests/fixtures.spec.ts` smoke-tests each fixture against the running stack.
+
+## Speed and fix loops
+
+- The web servers run a production build (`next build`, then `next start`) into
+  `apps/web/.next/e2e-main` and `.next/e2e-variant`. The build is skipped when
+  nothing under `apps/web`, `packages` or `tests/stack` is newer than the last
+  build. `E2E_SKIP_BUILD=1` reuses the last build regardless; `E2E_DEV=1` falls
+  back to `next dev` for debugging. Build output is in `.stack-logs/*-build.log`.
+- Workers default to 3 locally (full-deal holds one of them for its whole run) (1 on CI); override with `E2E_WORKERS=n`. Every
+  spec makes its own users and emails and filters Mailpit and the Gmail
+  stand-in by recipient, so specs do not share state.
+- `full-deal` runs as its own Playwright project (`--project=full-deal`), in
+  parallel with the rest. Run everything but it with `--project=chromium`.
+- Fix loops: `pnpm run-e2e --last-failed` reruns only what failed last time;
+  `pnpm run-e2e --only-changed` runs the specs affected by uncommitted changes.

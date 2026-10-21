@@ -17,7 +17,7 @@ vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => holder.client,
 }));
 
-import { createDeal } from './deal-actions';
+import { createDealCore } from './deal-actions';
 import { deleteWorksheetRow, saveWorksheetRow } from './worksheet-actions';
 
 type Action = (
@@ -31,15 +31,18 @@ let actor: { id: string };
 
 async function newDeal(description: string): Promise<string> {
   holder.client = account.user;
-  return (await (createDeal as unknown as Action)(
+  return await createDealCore(
+    account.user,
     {
       account_id: account.accountId,
+      business_name: description,
+      industry: 'Accounting',
       description,
       source: 'manual',
       stage: 'sourcing',
     },
-    actor,
-  )) as string;
+    actor.id,
+  );
 }
 
 beforeAll(async () => {
@@ -58,7 +61,7 @@ describe('saveWorksheetRow (integration)', () => {
     const dealId = await newDeal('Worksheet insert deal');
     holder.client = account.user;
 
-    const saved = (await (saveWorksheetRow as unknown as Action)(
+    const saved = ((await (saveWorksheetRow as unknown as Action)(
       {
         deal_id: dealId,
         worksheet_type: 'margin_analysis',
@@ -66,7 +69,7 @@ describe('saveWorksheetRow (integration)', () => {
         sort_order: 0,
       },
       actor,
-    )) as Record<string, unknown>;
+    )) as { value: Record<string, unknown> }).value;
 
     expect(saved).toMatchObject({
       deal_id: dealId,
@@ -81,7 +84,7 @@ describe('saveWorksheetRow (integration)', () => {
     const dealId = await newDeal('Worksheet update deal');
     holder.client = account.user;
 
-    const inserted = (await (saveWorksheetRow as unknown as Action)(
+    const inserted = ((await (saveWorksheetRow as unknown as Action)(
       {
         deal_id: dealId,
         worksheet_type: 'process_sop',
@@ -89,9 +92,9 @@ describe('saveWorksheetRow (integration)', () => {
         sort_order: 0,
       },
       actor,
-    )) as Record<string, unknown>;
+    )) as { value: Record<string, unknown> }).value;
 
-    const updated = (await (saveWorksheetRow as unknown as Action)(
+    const updated = ((await (saveWorksheetRow as unknown as Action)(
       {
         id: inserted.id,
         deal_id: dealId,
@@ -100,7 +103,7 @@ describe('saveWorksheetRow (integration)', () => {
         sort_order: 0,
       },
       actor,
-    )) as Record<string, unknown>;
+    )) as { value: Record<string, unknown> }).value;
 
     expect(updated.id).toBe(inserted.id);
     expect(updated.data).toMatchObject({ status: 'documented' });
@@ -177,7 +180,7 @@ describe('deleteWorksheetRow (integration)', () => {
     const dealId = await newDeal('Worksheet delete deal');
     holder.client = account.user;
 
-    const inserted = (await (saveWorksheetRow as unknown as Action)(
+    const inserted = ((await (saveWorksheetRow as unknown as Action)(
       {
         deal_id: dealId,
         worksheet_type: 'margin_analysis',
@@ -185,7 +188,7 @@ describe('deleteWorksheetRow (integration)', () => {
         sort_order: 0,
       },
       actor,
-    )) as Record<string, unknown>;
+    )) as { value: Record<string, unknown> }).value;
 
     await (deleteWorksheetRow as unknown as Action)(
       { id: inserted.id },

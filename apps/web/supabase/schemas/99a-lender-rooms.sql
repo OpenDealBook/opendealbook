@@ -15,7 +15,11 @@ create type public.lender_ask_status as enum ('open', 'answered', 'closed', 'wit
 create type public.lender_return_route as enum ('upload', 'esign');
 create type public.lender_ask_file_role as enum ('attachment', 'fulfilment', 'blank_form', 'completed_form', 'signed_form');
 create type public.lender_side as enum ('lender', 'internal');
-create type public.lender_activity_action as enum ('room_opened', 'folder_opened', 'document_previewed', 'document_downloaded', 'zip_downloaded', 'folder_created');
+create type public.lender_activity_action as enum (
+  'room_opened', 'folder_opened', 'document_previewed', 'document_downloaded', 'zip_downloaded', 'folder_created',
+  'faq_page_opened', 'faq_entry_opened', 'faq_file_previewed', 'faq_file_downloaded',
+  'faq_suggestion_opened', 'faq_suggestion_resolved', 'request_sent_after_suggestion'
+);
 create type public.lender_signature_status as enum ('draft', 'sent', 'completed', 'declined', 'expired', 'cancelled');
 
 -- Global across accounts so one lookup serves every tenant, which is why no
@@ -199,6 +203,19 @@ create or replace function public.can_manage_lender_room(room_id uuid)
 $$;
 
 grant execute on function public.can_manage_lender_room(uuid) to authenticated, service_role;
+
+create or replace function public.can_work_lender_room(room_id uuid)
+  returns boolean
+  language sql security definer
+  set search_path = '' as $$
+  select exists (
+    select 1 from public.lender_room r
+    where r.id = can_work_lender_room.room_id
+      and public.has_deal_permission(r.deal_id, 'deals.work')
+  );
+$$;
+
+grant execute on function public.can_work_lender_room(uuid) to authenticated, service_role;
 
 create or replace function public.is_lender_room_member(room_id uuid)
   returns boolean
@@ -391,7 +408,7 @@ create or replace function public.lender_room_shows_document(room_id uuid, docum
   set search_path = '' as $$
   select (
       public.is_lender_room_member(lender_room_shows_document.room_id)
-      or public.can_manage_lender_room(lender_room_shows_document.room_id)
+      or public.can_work_lender_room(lender_room_shows_document.room_id)
     )
     and public.lender_room_shows_document_unchecked(lender_room_shows_document.room_id, lender_room_shows_document.document_id);
 $$;
@@ -414,8 +431,8 @@ $$;
 
 grant execute on function public.lender_can_read_document(uuid) to authenticated, service_role;
 
--- All a lender ever learns about a room and its deal. Status, account, and
--- people are left out on purpose.
+-- All a lender ever learns about a room and its deal: the buyer team by name
+-- and the loan it asks for, never its status, description, or people.
 create type public.lender_room_summary as (
   id uuid,
   deal_id uuid,
@@ -428,8 +445,47 @@ create type public.lender_room_summary as (
   brand_name text,
   brand_logo_path text,
   deal_name text,
-  deal_description text
+  target_close_date date,
+  must_close_by date,
+  must_close_reason text,
+  buyer_team text,
+  loan_amount numeric,
+  loan_type text,
+  term_years numeric,
+  seller_note_amount numeric
 );
+
+-- Plpgsql so the deadline table, made in a later file, binds at call time.
+-- Called only from lender_room_view, which owns the check on who may ask.
+create or replace function public.lender_room_deadline(deal_id uuid)
+  returns table (must_close_by date, must_close_reason text)
+  language plpgsql stable security definer
+  set search_path = '' as $$
+begin
+  return query
+  select c.must_close_by, c.must_close_reason
+  from public.deal_close_deadline c
+  where c.deal_id = lender_room_deadline.deal_id;
+end;
+$$;
+
+revoke all on function public.lender_room_deadline(uuid) from public, anon, authenticated;
+
+-- Plpgsql so the terms table, made in a later file, binds at call time.
+-- Called only from lender_room_view, which owns the check on who may ask.
+create or replace function public.lender_room_terms_sought(deal_id uuid)
+  returns table (loan_amount numeric, loan_type text, term_years numeric, seller_note_amount numeric)
+  language plpgsql stable security definer
+  set search_path = '' as $$
+begin
+  return query
+  select t.loan_amount, t.loan_type, t.term_years, t.seller_note_amount
+  from public.deal_terms_sought t
+  where t.deal_id = lender_room_terms_sought.deal_id;
+end;
+$$;
+
+revoke all on function public.lender_room_terms_sought(uuid) from public, anon, authenticated;
 
 -- Members keep this after the room closes so the closed page can name it, but
 -- a room that is not open gives them neither its folders nor its welcome note.
@@ -449,8 +505,15 @@ create or replace function public.lender_room_view(room_id uuid)
     case when a.full_row then p.master_folder_id end,
     b.name,
     b.logo_path,
-    f.name::text,
-    d.description
+    coalesce(d.code_name, f.name::text),
+    case when a.full_row then public.close_date(d) end,
+    case when a.full_row then dl.must_close_by end,
+    case when a.full_row then dl.must_close_reason end,
+    acc.name::text,
+    case when a.full_row then t.loan_amount end,
+    case when a.full_row then t.loan_type end,
+    case when a.full_row then t.term_years end,
+    case when a.full_row then t.seller_note_amount end
   from public.lender_room r
   cross join lateral (
     select
@@ -458,12 +521,16 @@ create or replace function public.lender_room_view(room_id uuid)
       public.can_manage_lender_room(r.id) or public.lender_room_is_open(r) as full_row
   ) a
   join public.deal d on d.id = r.deal_id
+  join public.accounts acc on acc.id = r.account_id
   left join public.firm f on f.id = d.firm_id
   left join public.lender_package p on p.deal_id = r.deal_id
   left join public.lender_brand b on b.domain = r.brand_domain
+  left join lateral public.lender_room_deadline(r.deal_id) dl on true
+  left join lateral public.lender_room_terms_sought(r.deal_id) t on true
   where r.id = lender_room_view.room_id
     and (
-      a.manages
+      (select auth.role()) = 'service_role'
+      or a.manages
       or exists (
         select 1 from public.lender_room_member m
         where m.room_id = r.id and m.user_id = (select auth.uid())
@@ -484,6 +551,70 @@ create or replace function public.my_lender_rooms()
 $$;
 
 grant execute on function public.my_lender_rooms() to authenticated, service_role;
+
+-- The signed-in lender's rooms list, those needing attention first, then the most
+-- recently active. New counts the files the room shows and the team's request
+-- answers since the lender last opened it, all of them before a first visit,
+-- leaving out the lender's own uploads. Your turn counts requests the team
+-- answered back to the lender. A closed room counts neither.
+create or replace function public.my_lender_room_list()
+  returns table (
+    room public.lender_room_summary,
+    new_count integer,
+    your_turn_count integer,
+    last_activity_at timestamptz
+  )
+  language sql stable security definer
+  set search_path = '' as $$
+  with mine as (
+    select r.id, r.deal_id, r.created_at, v as summary,
+      (
+        select max(a.created_at) from public.lender_room_activity a
+        where a.room_id = r.id and a.user_id = m.user_id and a.action = 'room_opened'
+      ) as last_visit
+    from public.lender_room_member m
+    join public.lender_room r on r.id = m.room_id
+    cross join lateral public.lender_room_view(m.room_id) v
+    where m.user_id = (select auth.uid())
+  ),
+  item as (
+    select mine.id as room_id, d.created_at
+    from mine
+    join public.dr_document d on d.deal_id = mine.deal_id
+    where public.lender_room_shows_document_unchecked(mine.id, d.id)
+      and not exists (
+        select 1 from public.lender_upload u
+        where u.room_id = mine.id
+          and u.uploaded_by = (select auth.uid())
+          and d.id = any(u.document_ids)
+      )
+    union all
+    select k.room_id, msg.created_at
+    from mine
+    join public.lender_ask k on k.room_id = mine.id
+    join public.lender_ask_message msg on msg.ask_id = k.id
+    where msg.side = 'internal'
+  ),
+  counted as (
+    select mine.summary,
+      case when (mine.summary).is_open then (
+        select count(*)::integer from item
+        where item.room_id = mine.id
+          and (mine.last_visit is null or item.created_at > mine.last_visit)
+      ) else 0 end as new_count,
+      case when (mine.summary).is_open then (
+        select count(*)::integer from public.lender_ask k
+        where k.room_id = mine.id and k.status = 'answered'
+      ) else 0 end as your_turn_count,
+      greatest(mine.created_at, (select max(item.created_at) from item where item.room_id = mine.id)) as last_activity_at
+    from mine
+  )
+  select summary, new_count, your_turn_count, last_activity_at
+  from counted
+  order by new_count + your_turn_count > 0 desc, last_activity_at desc;
+$$;
+
+grant execute on function public.my_lender_room_list() to authenticated, service_role;
 
 -- For the notification relay, which has no user session: whom to tell about a
 -- document. Service role only, since it answers for every room at once.
@@ -563,7 +694,7 @@ grant execute on function public.lender_package_folder_count(uuid) to service_ro
 
 create policy lender_room_read on public.lender_room
   for select to authenticated
-  using (public.manages_deal_in_account(deal_id, account_id));
+  using (public.has_deal_permission(deal_id, 'deals.work'));
 
 create policy lender_room_insert on public.lender_room
   for insert to authenticated
@@ -642,14 +773,14 @@ grant select, insert, update, delete on public.lender_ask to service_role;
 create policy lender_ask_read on public.lender_ask
   for select to authenticated
   using (
-    public.can_manage_lender_room(room_id)
+    public.can_work_lender_room(room_id)
     or public.is_lender_room_member(room_id)
   );
 
 create policy lender_ask_update on public.lender_ask
   for update to authenticated
-  using (public.can_manage_lender_room(room_id))
-  with check (public.can_manage_lender_room(room_id));
+  using (public.can_work_lender_room(room_id))
+  with check (public.can_work_lender_room(room_id));
 
 create table if not exists public.lender_ask_message (
   id uuid primary key default gen_random_uuid(),
@@ -673,7 +804,7 @@ create policy lender_ask_message_read on public.lender_ask_message
       select 1 from public.lender_ask a
       where a.id = lender_ask_message.ask_id
         and (
-          public.can_manage_lender_room(a.room_id)
+          public.can_work_lender_room(a.room_id)
           or public.is_lender_room_member(a.room_id)
         )
     )
@@ -687,7 +818,7 @@ create policy lender_ask_message_insert on public.lender_ask_message
     and exists (
       select 1 from public.lender_ask a
       where a.id = lender_ask_message.ask_id
-        and public.can_manage_lender_room(a.room_id)
+        and public.can_work_lender_room(a.room_id)
     )
   );
 
@@ -713,7 +844,7 @@ create policy lender_ask_file_read on public.lender_ask_file
       select 1 from public.lender_ask a
       where a.id = lender_ask_file.ask_id
         and (
-          public.can_manage_lender_room(a.room_id)
+          public.can_work_lender_room(a.room_id)
           or public.is_lender_room_member(a.room_id)
         )
     )
@@ -726,7 +857,7 @@ create policy lender_ask_file_insert on public.lender_ask_file
     and exists (
       select 1 from public.lender_ask a
       where a.id = lender_ask_file.ask_id
-        and public.can_manage_lender_room(a.room_id)
+        and public.can_work_lender_room(a.room_id)
         and public.lender_room_shows_document(a.room_id, lender_ask_file.dr_document_id)
     )
   );
@@ -792,9 +923,19 @@ create table if not exists public.lender_room_activity (
   action public.lender_activity_action not null,
   dr_document_id uuid,
   dr_folder_id uuid,
+  faq_entry_id uuid,
+  faq_file_id uuid,
   payload jsonb,
   created_at timestamptz not null default now(),
-  foreign key (room_id, account_id) references public.lender_room (id, account_id) on delete cascade
+  foreign key (room_id, account_id) references public.lender_room (id, account_id) on delete cascade,
+  constraint lender_room_activity_faq_entry check (
+    (faq_entry_id is not null) = (action::text in (
+      'faq_entry_opened', 'faq_file_previewed', 'faq_file_downloaded', 'faq_suggestion_opened', 'faq_suggestion_resolved'
+    ))
+  ),
+  constraint lender_room_activity_faq_file check (
+    (faq_file_id is not null) = (action::text in ('faq_file_previewed', 'faq_file_downloaded'))
+  )
 );
 
 alter table public.lender_room_activity enable row level security;
@@ -965,7 +1106,8 @@ create or replace function public.team_lender_rooms(account_id uuid)
     brand_logo_path text,
     member_count integer,
     requests_waiting_on_team integer,
-    last_lender_activity_at timestamptz
+    last_lender_activity_at timestamptz,
+    last_lender_action_at timestamptz
   )
   language sql stable security definer
   set search_path = '' as $$
@@ -991,18 +1133,18 @@ create or replace function public.team_lender_rooms(account_id uuid)
     ) s on true
   ),
   lender_touch as (
-    select a.room_id, a.created_at from public.lender_room_activity a
+    select a.room_id, a.created_at, a.action = 'room_opened' as is_open_only from public.lender_room_activity a
     join room on room.id = a.room_id
     where a.side = 'lender'
     union all
-    select ask.room_id, ask.created_at from ask
+    select ask.room_id, ask.created_at, false from ask
     union all
-    select k.room_id, msg.created_at from public.lender_ask_message msg
+    select k.room_id, msg.created_at, false from public.lender_ask_message msg
     join public.lender_ask k on k.id = msg.ask_id
     join room on room.id = k.room_id
     where msg.side = 'lender'
     union all
-    select u.room_id, u.registered_at from public.lender_upload u
+    select u.room_id, u.registered_at, false from public.lender_upload u
     join room on room.id = u.room_id
     where u.registered_at is not null
   )
@@ -1011,7 +1153,8 @@ create or replace function public.team_lender_rooms(account_id uuid)
     room.expires_at, room.closed_at, room.is_open, room.brand_domain, b.name, b.logo_path,
     (select count(*)::integer from public.lender_room_member m where m.room_id = room.id),
     (select count(*)::integer from ask where ask.room_id = room.id and ask.waiting_on_team),
-    (select max(t.created_at) from lender_touch t where t.room_id = room.id)
+    (select max(t.created_at) from lender_touch t where t.room_id = room.id),
+    (select max(t.created_at) from lender_touch t where t.room_id = room.id and not t.is_open_only)
   from room
   left join public.lender_brand b on b.domain = room.brand_domain;
 $$;

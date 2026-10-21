@@ -3,12 +3,20 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { appendDealEvent } from '@odb/events';
 import type { Database, Tables, TablesInsert } from '@odb/supabase';
 
+import { convertDocxToPdf } from '../docx-to-pdf';
 import {
   type ContractStorage,
   DOCX_CONTENT_TYPE,
+  PDF_CONTENT_TYPE,
   contractDocxPath,
+  contractPdfPath,
 } from '../storage';
-import type { ContractParty, ContractSource, ContractType } from '../types';
+import type {
+  ContractBucket,
+  ContractParty,
+  ContractSource,
+  ContractType,
+} from '../types';
 
 const GENERATED_PARTY: ContractParty = 'buyer';
 const FIRST_VERSION = 1;
@@ -81,16 +89,20 @@ export async function createContractRecord(
     contractId,
   );
 
-  await insertVersion(deps.client, {
+  const first = await insertVersion(deps.client, {
     contract_id: contractId,
     account_id: accountId,
     version: FIRST_VERSION,
     source: 'generated' satisfies ContractSource,
     party: GENERATED_PARTY,
     docx_path: generated.docxPath,
+    docx_bucket: bucketOf(generated.docxPath, 'generated'),
     pdf_path: generated.pdfPath,
+    pdf_bucket: bucketOf(generated.pdfPath, 'generated'),
     author_user_id: deps.createdByUserId,
   });
+
+  await announceNewVersion(deps.client, input.dealId, contractId, first.id);
 
   await advanceCurrentVersion(
     deps.client,
@@ -107,18 +119,43 @@ export async function appendContractVersion(
   deps: AppendVersionDeps,
   source: ContractSource,
 ): Promise<Tables<'contract_version'>> {
+  const { version, dealId } = await addContractVersion(input, deps, source);
+
+  await announceNewVersion(deps.client, dealId, input.contractId, version.id);
+
+  await advanceCurrentVersion(
+    deps.client,
+    dealId,
+    input.contractId,
+    version.version,
+  );
+
+  return version;
+}
+
+export async function addContractVersion(
+  input: AppendVersionInput,
+  deps: AppendVersionDeps,
+  source: ContractSource,
+): Promise<{ version: Tables<'contract_version'>; dealId: string }> {
   const { accountId, dealId } = await loadContractContext(
     deps.client,
     input.contractId,
   );
   const nextVersion = (await maxVersion(deps.client, input.contractId)) + 1;
   const docxPath = contractDocxPath(accountId, input.contractId, nextVersion);
+  const pdf = await convertDocxToPdf(input.docxBytes);
+  const pdfPath = contractPdfPath(accountId, input.contractId, nextVersion);
 
   await deps.storage.uploadVersion(
     docxPath,
     input.docxBytes,
     DOCX_CONTENT_TYPE,
   );
+
+  if (pdf) {
+    await deps.storage.uploadVersion(pdfPath, pdf, PDF_CONTENT_TYPE);
+  }
 
   const version = await insertVersion(deps.client, {
     contract_id: input.contractId,
@@ -128,12 +165,37 @@ export async function appendContractVersion(
     party: input.party,
     change_summary: input.changeSummary ?? null,
     docx_path: docxPath,
+    docx_bucket: 'contracts',
+    pdf_path: pdf && pdfPath,
+    pdf_bucket: bucketOf(pdf && pdfPath, 'contracts'),
     author_user_id: deps.authorUserId,
   });
 
-  await advanceCurrentVersion(deps.client, dealId, input.contractId, nextVersion);
+  return { version, dealId };
+}
 
-  return version;
+export async function announceNewVersion(
+  client: SupabaseClient<Database>,
+  dealId: string,
+  contractId: string,
+  versionId: string,
+  actorKind?: 'service',
+): Promise<void> {
+  await appendDealEvent(client, {
+    dealId,
+    aggregateType: 'contract',
+    aggregateId: contractId,
+    eventType: 'contract.version_added',
+    payload: { version_id: versionId },
+    actorKind,
+  });
+}
+
+function bucketOf(
+  path: string | null,
+  bucket: ContractBucket,
+): ContractBucket | null {
+  return path === null ? null : bucket;
 }
 
 async function loadDealAccountId(

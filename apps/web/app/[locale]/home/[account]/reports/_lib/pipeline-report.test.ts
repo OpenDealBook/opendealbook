@@ -104,6 +104,42 @@ describe('buildPipelineReport', () => {
     expect(terminal.conversion).toBeNull();
   });
 
+  it('counts a deal that skipped stages as advancing from the stages it reached, never as a negative drop', () => {
+    const input = baseInput();
+    input.reach = new Map([
+      ['d1', new Set(['sourcing'])],
+      ['d2', new Set(['sourcing', 'offer'])],
+      ['d3', new Set(['nda', 'offer'])],
+    ]);
+
+    const report = buildPipelineReport(input);
+
+    expect(
+      report.funnel.map(({ key, reached, advanced, dropped }) => ({
+        key,
+        reached,
+        advanced,
+        dropped,
+      })),
+    ).toEqual([
+      { key: 'sourcing', reached: 2, advanced: 1, dropped: 1 },
+      { key: 'nda', reached: 1, advanced: 1, dropped: 0 },
+      { key: 'offer', reached: 2, advanced: 0, dropped: 0 },
+    ]);
+  });
+
+  it('leaves out stages no deal has reached', () => {
+    const input = baseInput();
+    input.reach = new Map([
+      ['d1', new Set(['sourcing', 'offer'])],
+      ['d2', new Set(['sourcing'])],
+    ]);
+
+    const report = buildPipelineReport(input);
+
+    expect(report.funnel.map((step) => step.key)).toEqual(['sourcing', 'offer']);
+  });
+
   it('summarizes resolutions with a win rate', () => {
     const report = buildPipelineReport(baseInput());
 

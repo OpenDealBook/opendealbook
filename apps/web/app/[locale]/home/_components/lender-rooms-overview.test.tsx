@@ -49,6 +49,7 @@ const firstBank: LenderRoomRow = {
   peopleCount: 3,
   waitingOnUs: 2,
   lastActivityAt: '2026-10-12T10:00:00.000Z',
+  lastActionAt: null,
 };
 
 const harbor: LenderRoomRow = {
@@ -61,6 +62,7 @@ const harbor: LenderRoomRow = {
   peopleCount: 1,
   waitingOnUs: 0,
   lastActivityAt: null,
+  lastActionAt: null,
 };
 
 function showOverview(rows: LenderRoomRow[]) {

@@ -3,12 +3,12 @@
 import { extractText, getDocumentProxy } from 'unpdf';
 
 import { appendDealEvent } from '@odb/events';
-import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
-  createDealFromIntakePdfSchema,
   createDealFromIntakeSchema,
+  extractDealIntakeFromPdfSchema,
+  extractDealIntakeFromTextSchema,
   rerunDealIntakePdfSchema,
   rerunDealIntakeSchema,
 } from '../schema/deal-intake.schema';
@@ -18,16 +18,7 @@ import {
   dealUpdateFromIntakeDraft,
   extractDealIntake,
 } from './deal-intake';
-
-export const createDealFromIntake = enhanceAction(
-  async (data, user) => {
-    const client = getSupabaseServerClient();
-    const draft = await extractDealIntake(client, data.account_id, data.text);
-
-    return createDealCore(client, dealFromIntakeDraft(data.account_id, draft), user.id);
-  },
-  { auth: true, schema: createDealFromIntakeSchema },
-);
+import { Refusal, refusableAction } from './refusal';
 
 async function pdfToText(base64: string): Promise<string> {
   const pdf = await getDocumentProxy(Uint8Array.from(Buffer.from(base64, 'base64')));
@@ -36,15 +27,47 @@ async function pdfToText(base64: string): Promise<string> {
   return text;
 }
 
-export const createDealFromIntakePdf = enhanceAction(
-  async (data, user) => {
-    const client = getSupabaseServerClient();
-    const text = await pdfToText(data.pdf);
-    const draft = await extractDealIntake(client, data.account_id, text);
+async function extractForCreator(
+  accountId: string,
+  userId: string,
+  text: () => Promise<string>,
+) {
+  const client = getSupabaseServerClient();
+  const { data: mayCreate } = await client
+    .rpc('has_permission', {
+      account_id: accountId,
+      user_id: userId,
+      permission_name: 'deals.create',
+    })
+    .throwOnError();
 
-    return createDealCore(client, dealFromIntakeDraft(data.account_id, draft), user.id);
-  },
-  { auth: true, schema: createDealFromIntakePdfSchema },
+  if (!mayCreate) {
+    throw new Refusal("Read-only members can't create deals. Ask a deal manager.");
+  }
+
+  return extractDealIntake(client, accountId, await text());
+}
+
+export const extractDealIntakeFromText = refusableAction(
+  async (data, user) =>
+    extractForCreator(data.account_id, user.id, async () => data.text),
+  extractDealIntakeFromTextSchema,
+);
+
+export const extractDealIntakeFromPdf = refusableAction(
+  async (data, user) =>
+    extractForCreator(data.account_id, user.id, () => pdfToText(data.pdf)),
+  extractDealIntakeFromPdfSchema,
+);
+
+export const createDealFromIntake = refusableAction(
+  async (data, user) =>
+    createDealCore(
+      getSupabaseServerClient(),
+      dealFromIntakeDraft(data, data.draft),
+      user.id,
+    ),
+  createDealFromIntakeSchema,
 );
 
 async function rerunFromText(
@@ -72,17 +95,27 @@ async function rerunFromText(
   return { success: true };
 }
 
-export const rerunDealIntake = enhanceAction(
+export const rerunDealIntake = refusableAction(
   async (data) => rerunFromText(getSupabaseServerClient(), data.deal_id, data.text),
-  { auth: true, schema: rerunDealIntakeSchema },
+  rerunDealIntakeSchema,
+  {
+    what: 'rerun intake',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const rerunDealIntakePdf = enhanceAction(
+export const rerunDealIntakePdf = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const text = await pdfToText(data.pdf);
 
     return rerunFromText(client, data.deal_id, text);
   },
-  { auth: true, schema: rerunDealIntakePdfSchema },
+  rerunDealIntakePdfSchema,
+  {
+    what: 'rerun intake',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );

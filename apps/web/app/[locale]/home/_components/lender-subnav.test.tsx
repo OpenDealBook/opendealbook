@@ -34,6 +34,6 @@ describe('the Lenders tab', () => {
     show(createElement(DealSubnav));
 
     expect(linkTo('Lenders')).toBeUndefined();
-    expect(linkTo('Todos')).toBe(BASE.replace('/lenders', '/todos'));
+    expect(linkTo('Parties')).toBe(BASE.replace('/lenders', '/parties'));
   });
 });

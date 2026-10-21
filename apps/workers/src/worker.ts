@@ -2,7 +2,18 @@ import { NativeConnection, Worker } from '@temporalio/worker';
 
 import {
   ensureCompEventRelay,
+  ensureContractReviewReminderEmailSchedule,
+  ensureContractReviewTodoSyncSchedule,
   ensureDealEventNotificationRelay,
+  ensureLenderNudgeEmailSchedule,
+  ensureLenderNudgeTodoSyncSchedule,
+  ensureLenderOutreachStaleSweepSchedule,
+  ensureLenderReplySyncSchedule,
+  ensureMilestoneOverdueSchedule,
+  ensureOrphanDealFileSweepSchedule,
+  ensureOutreachDispatchSchedule,
+  ensureOutreachStaleSweepSchedule,
+  ensureUploadCleanupSchedule,
 } from '@odb/workflows';
 import * as activities from '@odb/workflows/activities';
 import { getTemporalClient, TASK_QUEUE } from '@odb/workflows/client';
@@ -11,7 +22,9 @@ import { env } from './env.ts';
 
 import { fileURLToPath } from 'node:url';
 
-const workflowsPath = fileURLToPath(import.meta.resolve('@odb/workflows'));
+const workflowsPath = fileURLToPath(
+  new URL('./workflows/index.ts', import.meta.resolve('@odb/workflows')),
+);
 
 const connection = await NativeConnection.connect({
   address: env.TEMPORAL_ADDRESS,
@@ -27,7 +40,21 @@ const worker = await Worker.create({
 
 const client = await getTemporalClient();
 
-for (const ensure of [ensureCompEventRelay, ensureDealEventNotificationRelay]) {
+for (const ensure of [
+  ensureCompEventRelay,
+  ensureDealEventNotificationRelay,
+  ensureUploadCleanupSchedule,
+  ensureOrphanDealFileSweepSchedule,
+  ensureMilestoneOverdueSchedule,
+  ensureLenderReplySyncSchedule,
+  ensureLenderOutreachStaleSweepSchedule,
+  ensureLenderNudgeTodoSyncSchedule,
+  ensureLenderNudgeEmailSchedule,
+  ensureContractReviewTodoSyncSchedule,
+  ensureContractReviewReminderEmailSchedule,
+  ensureOutreachDispatchSchedule,
+  ensureOutreachStaleSweepSchedule,
+]) {
   try {
     await ensure(client);
   } catch (error) {

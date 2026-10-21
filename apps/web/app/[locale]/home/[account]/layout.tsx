@@ -1,17 +1,22 @@
 import type { ReactNode } from 'react';
 
-import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 
 import { getTranslations } from 'next-intl/server';
 
-import { isAccountOwner, type Role } from '@odb/policies';
 import { hasLenderRooms } from '@odb/lender-rooms/members/room-gate.ts';
+import { NotificationsPopover } from '@odb/notifications/components';
+import { isAccountOwner, type Role } from '@odb/policies';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { rememberLastTeam } from '@odb/team-accounts/last-team';
 
 import pathsConfig from '~/config/paths.config';
 import { teamNavigationFor } from '~/config/team-account-navigation.config';
 
+import { AccountDropdown } from '../(user)/_components/account-dropdown';
+import { BillingBanner } from '../_components/billing-banner';
+import { TeamMenuButton, TeamSidebar } from '../_components/team-sidebar';
 import { TrialBanner } from '../_components/trial-banner';
 import { loadTrialState } from '../_lib/trial';
 
@@ -38,7 +43,18 @@ export async function loadTeamWorkspace(slug: string) {
   const workspace = workspaceRows?.[0];
 
   if (!workspace) {
-    notFound();
+    const { data: currentSlug } = await client.rpc(
+      'team_account_current_slug',
+      { former_slug: slug },
+    );
+
+    if (!currentSlug) {
+      notFound();
+    }
+
+    const requestPath = (await headers()).get('x-request-path')!;
+
+    redirect(requestPath.replace(`/home/${slug}`, `/home/${currentSlug}`));
   }
 
   const actorRole: Role = {
@@ -84,65 +100,67 @@ export default async function TeamAccountLayout({
   const t = await getTranslations({ locale });
 
   const { user, team, permissions } = await loadTeamWorkspace(account);
+  await rememberLastTeam(getSupabaseServerClient(), user.id, team.id);
   const teams = await loadTeamAccounts(user.id);
   const navigation = teamNavigationFor(account, permissions);
   const trial = await loadTrialState(team.id);
+  const { data: standing } = await getSupabaseServerClient()
+    .rpc('team_billing_standing', { target_account_id: team.id })
+    .throwOnError();
 
   const showLenderRooms = await hasLenderRooms(getSupabaseServerClient());
 
+  const linksIn = (group: 'work' | 'settings') =>
+    navigation
+      .filter((item) => item.group === group)
+      .map((item) => ({ label: t(item.label), path: item.path }));
+
+  const groups = [
+    {
+      heading: t('common.work'),
+      links: [
+        ...linksIn('work'),
+        ...(showLenderRooms
+          ? [{ label: t('common.lenderRooms'), path: '/lender' }]
+          : []),
+      ],
+    },
+    {
+      heading: t('account.settings'),
+      links: linksIn('settings'),
+    },
+  ];
+
   return (
     <div className={'flex min-h-screen'}>
-      <aside className={'flex w-64 flex-col gap-6 border-r p-4'}>
-        <section className={'flex flex-col gap-1'}>
-          <span className={'text-muted-foreground text-xs uppercase'}>
-            {team.name}
-          </span>
+      <TeamSidebar team={team} teams={teams} groups={groups} />
 
-          {teams.map((entry) => (
-            <Link
-              key={entry.id}
-              href={`/home/${entry.slug}`}
-              className={'rounded px-3 py-1.5 text-sm'}
-            >
-              {entry.name}
-            </Link>
-          ))}
-
-          <Link
-            href={'/home/create-team'}
-            className={'rounded px-3 py-1.5 text-sm font-medium'}
-          >
-            Create team
-          </Link>
-        </section>
-
-        <nav className={'flex flex-col gap-1'}>
-          {navigation.map((item) => (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={'rounded px-3 py-2 text-sm'}
-            >
-              {t(item.label)}
-            </Link>
-          ))}
-
-          {showLenderRooms && (
-            <Link href={'/lender'} className={'rounded px-3 py-2 text-sm'}>
-              {t('common.lenderRooms')}
-            </Link>
-          )}
-        </nav>
-      </aside>
-
-      <main className={'flex flex-1 flex-col'}>
-        <TrialBanner
-          accountId={team.id}
-          isActive={trial.isActive}
-          endsAt={trial.endsAt}
-          billingHref={`/home/${account}/billing`}
-        />
-        <div className={'flex-1'}>{children}</div>
+      <main className={'flex min-w-0 flex-1 flex-col'}>
+        <header
+          className={'flex items-center gap-2 border-b px-4 py-3 lg:px-6'}
+        >
+          <TeamMenuButton team={team} teams={teams} groups={groups} />
+          <div className={'ml-auto flex items-center gap-2'}>
+            <NotificationsPopover accountId={team.id} />
+            <AccountDropdown email={user.email!} />
+          </div>
+        </header>
+        {standing === 'good' ? (
+          <TrialBanner
+            isActive={trial.isActive}
+            endsAt={trial.endsAt}
+            billingHref={`/home/${account}/billing`}
+          />
+        ) : (
+          <BillingBanner
+            standing={standing}
+            canManageBilling={permissions.includes('billing.manage')}
+            billingHref={`/home/${account}/billing`}
+          />
+        )}
+        <div id={'main-content'} tabIndex={-1} className={'flex-1'}>
+          {children}
+        </div>
       </main>
     </div>
   );

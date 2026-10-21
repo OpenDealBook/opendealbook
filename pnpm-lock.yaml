@@ -87,6 +87,9 @@ catalogs:
     '@types/papaparse':
       specifier: ^5.3.16
       version: 5.5.2
+    '@types/pg':
+      specifier: ^8.23.1
+      version: 8.23.1
     '@types/react':
       specifier: 19.2.14
       version: 19.2.14
@@ -129,6 +132,9 @@ catalogs:
     papaparse:
       specifier: 5.5.3
       version: 5.5.3
+    pg:
+      specifier: ^8.23.1
+      version: 8.23.1
     pino:
       specifier: 10.3.1
       version: 10.3.1
@@ -346,6 +352,18 @@ importers:
       '@odb/database-webhooks':
         specifier: workspace:*
         version: link:../../packages/database-webhooks
+      '@odb/deal-counsel':
+        specifier: workspace:*
+        version: link:../../packages/features/deal-counsel
+      '@odb/deal-people':
+        specifier: workspace:*
+        version: link:../../packages/features/deal-people
+      '@odb/deal-timeline':
+        specifier: workspace:*
+        version: link:../../packages/features/deal-timeline
+      '@odb/deal-updates':
+        specifier: workspace:*
+        version: link:../../packages/features/deal-updates
       '@odb/deals':
         specifier: workspace:*
         version: link:../../packages/features/deals
@@ -364,6 +382,9 @@ importers:
       '@odb/keystatic':
         specifier: workspace:*
         version: link:../../packages/cms/keystatic
+      '@odb/lender-outreach':
+        specifier: workspace:*
+        version: link:../../packages/features/lender-outreach
       '@odb/lender-rooms':
         specifier: workspace:*
         version: link:../../packages/features/lender-rooms
@@ -394,6 +415,9 @@ importers:
       '@odb/seed':
         specifier: workspace:*
         version: link:../../packages/seed
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../../packages/features/seller-rooms
       '@odb/sentry':
         specifier: workspace:*
         version: link:../../packages/monitoring/sentry
@@ -519,6 +543,9 @@ importers:
         specifier: 'catalog:'
         version: 1.24.0
       '@temporalio/client':
+        specifier: 'catalog:'
+        version: 1.24.0
+      '@temporalio/common':
         specifier: 'catalog:'
         version: 1.24.0
       '@temporalio/worker':
@@ -834,15 +861,18 @@ importers:
       '@odb/next':
         specifier: workspace:*
         version: link:../next
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
-      '@odb/templates':
-        specifier: workspace:*
-        version: link:../templates
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      mammoth:
+        specifier: 1.13.0
+        version: 1.13.0
       next:
         specifier: 'catalog:'
         version: 16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -862,6 +892,9 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -1182,6 +1215,178 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/features/deal-counsel:
+    dependencies:
+      '@odb/email-templates':
+        specifier: workspace:*
+        version: link:../../email-templates
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../lender-rooms
+      '@odb/mailers':
+        specifier: workspace:*
+        version: link:../../mailers/core
+      '@odb/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../seller-rooms
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      next:
+        specifier: 'catalog:'
+        version: 16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/features/deal-people:
+    dependencies:
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../lender-rooms
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../seller-rooms
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/features/deal-timeline:
+    dependencies:
+      '@odb/events':
+        specifier: workspace:*
+        version: link:../../events
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../lender-rooms
+      '@odb/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../seller-rooms
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.1
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/features/deal-updates:
+    dependencies:
+      '@odb/deal-people':
+        specifier: workspace:*
+        version: link:../deal-people
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../lender-rooms
+      '@odb/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      '@odb/workflows':
+        specifier: workspace:*
+        version: link:../../workflows
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../seller-rooms
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/features/deals:
     dependencies:
       '@odb/ai':
@@ -1199,9 +1404,15 @@ importers:
       '@odb/next':
         specifier: workspace:*
         version: link:../../next
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@odb/policies':
         specifier: workspace:*
         version: link:../../policies
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
@@ -1252,6 +1463,55 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/features/lender-outreach:
+    dependencies:
+      '@odb/deals':
+        specifier: workspace:*
+        version: link:../deals
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../lender-rooms
+      '@odb/mailbox':
+        specifier: workspace:*
+        version: link:../../mailbox
+      '@odb/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.1
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -1349,6 +1609,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+      '@types/pg':
+        specifier: 'catalog:'
+        version: 8.23.1
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
@@ -1358,6 +1621,9 @@ importers:
       jsdom:
         specifier: 30.1.2
         version: 30.1.2
+      pg:
+        specifier: 'catalog:'
+        version: 8.23.1
       react-dom:
         specifier: 'catalog:'
         version: 19.2.6(react@19.2.6)
@@ -1438,6 +1704,15 @@ importers:
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.14)
+      jsdom:
+        specifier: 30.1.2
+        version: 30.1.2
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.6(react@19.2.6)
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -1498,17 +1773,81 @@ importers:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/features/seller-rooms:
+    dependencies:
+      '@odb/data-room':
+        specifier: workspace:*
+        version: link:../../data-room
+      '@odb/email-templates':
+        specifier: workspace:*
+        version: link:../../email-templates
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../lender-rooms
+      '@odb/mailers':
+        specifier: workspace:*
+        version: link:../../mailers/core
+      '@odb/next':
+        specifier: workspace:*
+        version: link:../../next
+      '@odb/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
+      next:
+        specifier: 'catalog:'
+        version: 16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@odb/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.14
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@25.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@25.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/features/team-accounts:
     dependencies:
       '@hookform/resolvers':
         specifier: 'catalog:'
         version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.75.0(react@19.2.6))(superstruct@1.0.4)(zod@4.4.3)
+      '@odb/email-templates':
+        specifier: workspace:*
+        version: link:../../email-templates
+      '@odb/mailers':
+        specifier: workspace:*
+        version: link:../../mailers/core
       '@odb/next':
         specifier: workspace:*
         version: link:../../next
       '@odb/policies':
         specifier: workspace:*
         version: link:../../policies
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../../shared
       '@odb/supabase':
         specifier: workspace:*
         version: link:../../supabase
@@ -1531,12 +1870,27 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../seller-rooms
       '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
+      '@supabase/supabase-js':
+        specifier: 'catalog:'
+        version: 2.105.4
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.14
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.14)
+      jsdom:
+        specifier: 30.1.2
+        version: 30.1.2
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.6(react@19.2.6)
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -1800,6 +2154,9 @@ importers:
 
   packages/policies:
     dependencies:
+      '@odb/supabase':
+        specifier: workspace:*
+        version: link:../supabase
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -1841,6 +2198,9 @@ importers:
 
   packages/shared:
     dependencies:
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
       pino:
         specifier: 'catalog:'
         version: 10.3.1
@@ -1943,9 +2303,15 @@ importers:
       '@harbour-enterprises/superdoc':
         specifier: 'catalog:'
         version: 1.46.3(@hocuspocus/provider@2.15.3(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-transform@1.12.2)(prosemirror-view@1.42.6)(react@19.2.6)(supports-color@8.1.1)(typescript@6.0.3)(y-prosemirror@1.3.7(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.6)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(yjs@13.6.33)
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../features/lender-rooms
       '@odb/next':
         specifier: workspace:*
         version: link:../next
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../features/seller-rooms
       '@odb/shared':
         specifier: workspace:*
         version: link:../shared
@@ -2121,9 +2487,15 @@ importers:
       '@odb/comps':
         specifier: workspace:*
         version: link:../comps
+      '@odb/deal-timeline':
+        specifier: workspace:*
+        version: link:../features/deal-timeline
       '@odb/email-templates':
         specifier: workspace:*
         version: link:../email-templates
+      '@odb/lender-rooms':
+        specifier: workspace:*
+        version: link:../features/lender-rooms
       '@odb/mailbox':
         specifier: workspace:*
         version: link:../mailbox
@@ -2136,6 +2508,9 @@ importers:
       '@odb/outreach':
         specifier: workspace:*
         version: link:../outreach
+      '@odb/seller-rooms':
+        specifier: workspace:*
+        version: link:../features/seller-rooms
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
@@ -2167,6 +2542,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 'catalog:'
         version: 2.105.4
+      '@temporalio/worker':
+        specifier: 'catalog:'
+        version: 1.24.0(@swc/helpers@0.5.23)(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.28)(sharp@0.35.4(@types/node@25.6.2))(uglify-js@3.19.3)
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
@@ -6502,6 +6880,9 @@ packages:
   '@types/pg@8.15.6':
     resolution: {integrity: sha512-NoaMtzhxOrubeL/7UZuNTrejB4MPAJ0RpxZqXQf2qXuVlTPuG6Y8p4u9dKRaue4yjmC7ZhzVO2/Yyyn25znrPQ==}
 
+  '@types/pg@8.23.1':
+    resolution: {integrity: sha512-fKVHpikPdg4GKks3JuLEhvwSyvwzF23hnabPy6DD8ljVbC7+6J5dQzdv4arV6jqq57djnMgs1HKBxX4P8aBI3A==}
+
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
     peerDependencies:
@@ -8815,16 +9196,39 @@ packages:
   peberminta@0.9.0:
     resolution: {integrity: sha512-XIxfHpEuSJbITd1H3EeQwpcZbTLHc+VVr8ANI9t5sit565tsI4/xK3KWTUFE2e6QiangUkh3B0jihzmGnNrRsQ==}
 
+  pg-cloudflare@1.4.1:
+    resolution: {integrity: sha512-6PQbsFWZcp9EmJEwy5cGQ2La+AMWpP46lgbb8X+U/XsHIUweYDNCpeuKck5RxL2MdVFi7krbbEi5nX4Zh7JhrQ==}
+
+  pg-connection-string@2.14.1:
+    resolution: {integrity: sha512-qR3kGNPBLpCNtz0evbKA0Y/MRFXwSSdT+pTJvYp/bXTcReZbvX1kzF0IyTc1QnxqF7AZbOeBhNL8R5mYQZV/MA==}
+
   pg-int8@1.0.1:
     resolution: {integrity: sha512-WCtabS6t3c8SkpDBUlb1kjOs7l66xsGdKpIPZsg4wR+B3+u9UAum2odSsF9tnvxg80h4ZxLWMy4pRjOsFIqQpw==}
     engines: {node: '>=4.0.0'}
 
-  pg-protocol@1.16.0:
-    resolution: {integrity: sha512-sILXutLVjCLjcDuOmvhX5e2Z4cS5qG/6Bu3VkpFwdf/633ElGLpEh9bgmuI5I4sqKqkifQiGyiCcx1HdtrK7tg==}
+  pg-pool@3.14.0:
+    resolution: {integrity: sha512-gKtPkFdQPU3DksooVLi9LsjZxrsBUZIpa+7aVx+LV5pNh0KzP4Zleud2po+ConrxbuXGBJ6Hfer6hdgpIBpBaw==}
+    peerDependencies:
+      pg: '>=8.0'
+
+  pg-protocol@1.16.1:
+    resolution: {integrity: sha512-p9VOFMiHB/ZbJATetbg+99PxssTVSQRnyuPSQ67mN1+1KBOjZaZ83ZQzltnxPhJwSsC3nwVjJ10DVJlerbFzLg==}
 
   pg-types@2.2.0:
     resolution: {integrity: sha512-qTAAlrEsl8s4OiEQY69wDvcMIdQN6wdz5ojQiOy6YRMuynxenON0O5oCpJI6lshc6scgAY8qvJ2On/p+CXY0GA==}
     engines: {node: '>=4'}
+
+  pg@8.23.1:
+    resolution: {integrity: sha512-aL96AHANtWjPLDOLqnhx+ngp9+UK7ETEU8VJrDCGvsSSi/mGLcWYsS6Herg7lmaBJe4uwrfqsa7gTEFaSizDoQ==}
+    engines: {node: '>= 16.0.0'}
+    peerDependencies:
+      pg-native: '>=3.0.1'
+    peerDependenciesMeta:
+      pg-native:
+        optional: true
+
+  pgpass@1.0.5:
+    resolution: {integrity: sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -14614,12 +15018,18 @@ snapshots:
 
   '@types/pg-pool@2.0.7':
     dependencies:
-      '@types/pg': 8.15.6
+      '@types/pg': 8.23.1
 
   '@types/pg@8.15.6':
     dependencies:
       '@types/node': 26.6.2
-      pg-protocol: 1.16.0
+      pg-protocol: 1.16.1
+      pg-types: 2.2.0
+
+  '@types/pg@8.23.1':
+    dependencies:
+      '@types/node': 26.6.2
+      pg-protocol: 1.16.1
       pg-types: 2.2.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
@@ -17320,9 +17730,18 @@ snapshots:
 
   peberminta@0.9.0: {}
 
+  pg-cloudflare@1.4.1:
+    optional: true
+
+  pg-connection-string@2.14.1: {}
+
   pg-int8@1.0.1: {}
 
-  pg-protocol@1.16.0: {}
+  pg-pool@3.14.0(pg@8.23.1):
+    dependencies:
+      pg: 8.23.1
+
+  pg-protocol@1.16.1: {}
 
   pg-types@2.2.0:
     dependencies:
@@ -17331,6 +17750,20 @@ snapshots:
       postgres-bytea: 1.0.1
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
+
+  pg@8.23.1:
+    dependencies:
+      pg-connection-string: 2.14.1
+      pg-pool: 3.14.0(pg@8.23.1)
+      pg-protocol: 1.16.1
+      pg-types: 2.2.0
+      pgpass: 1.0.5
+    optionalDependencies:
+      pg-cloudflare: 1.4.1
+
+  pgpass@1.0.5:
+    dependencies:
+      split2: 4.2.0
 
   picocolors@1.1.1: {}
 

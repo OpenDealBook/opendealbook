@@ -87,7 +87,7 @@ describe('payrollTaxVsW2Check.evaluate', () => {
       period: '2024',
       w2WagesTotal: 1_006_000,
       payrollTaxWagesTotal: 1_000_000,
-      links: { drDocumentId: 'doc-1', checklistItemId: 'item-1' },
+      links: { drDocumentId: 'doc-1', checklistItemIds: ['item-1'] },
     });
 
     expect(finding?.checkKey).toBe('payroll_tax_vs_w2');
@@ -97,7 +97,10 @@ describe('payrollTaxVsW2Check.evaluate', () => {
       actual: 1_006_000,
       deltaPct: 0.006,
     });
-    expect(finding?.links).toEqual({ drDocumentId: 'doc-1', checklistItemId: 'item-1' });
+    expect(finding?.links).toEqual({
+      drDocumentId: 'doc-1',
+      checklistItemIds: ['item-1'],
+    });
   });
 
   it('defaults links to an empty object', () => {

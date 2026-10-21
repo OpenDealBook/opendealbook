@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation';
+
 import { ApiKeysManager } from '@odb/api/components';
 import { listApiKeys } from '@odb/api/server';
 
@@ -11,7 +13,11 @@ export default async function TeamApiKeysPage({
   params,
 }: TeamApiKeysPageProps) {
   const { account } = await params;
-  const { team } = await loadTeamWorkspace(account);
+  const { team, permissions } = await loadTeamWorkspace(account);
+
+  if (!permissions.includes('api_keys.manage')) {
+    notFound();
+  }
 
   const initialKeys = await listApiKeys({ accountId: team.id });
 

@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+import { z } from 'zod';
+
 import { enhanceAction } from '@odb/next/actions';
 import {
   getSupabaseServerAdminClient,
@@ -12,6 +14,8 @@ import {
 import { UpdateAccountNameSchema } from '../schema/update-account-name.schema';
 import { UpdateEmailSchema } from '../schema/update-email.schema';
 import { UpdatePasswordSchema } from '../schema/update-password.schema';
+import { UpdatePhoneSchema } from '../schema/update-phone.schema';
+import { UpdateTimezoneSchema } from '../schema/update-timezone.schema';
 
 export const updatePersonalAccountNameAction = enhanceAction(
   async (data, user) => {
@@ -29,6 +33,73 @@ export const updatePersonalAccountNameAction = enhanceAction(
     return { success: true };
   },
   { auth: true, schema: UpdateAccountNameSchema },
+);
+
+export const rememberDetectedTimezoneAction = enhanceAction(
+  async (data, user) => {
+    await getSupabaseServerClient()
+      .from('accounts')
+      .update({ timezone: data.timezone })
+      .eq('primary_owner_user_id', user.id)
+      .eq('is_personal_account', true)
+      .is('timezone', null)
+      .throwOnError();
+  },
+  { auth: true, schema: UpdateTimezoneSchema },
+);
+
+export const updatePersonalTimezoneAction = enhanceAction(
+  async (data, user) => {
+    await getSupabaseServerClient()
+      .from('accounts')
+      .update({ timezone: data.timezone })
+      .eq('primary_owner_user_id', user.id)
+      .eq('is_personal_account', true)
+      .throwOnError();
+
+    return { success: true };
+  },
+  { auth: true, schema: UpdateTimezoneSchema },
+);
+
+function updateMyPersonalAccount(
+  userId: string,
+  values: { phone?: string | null; phone_asked_at?: string },
+) {
+  return getSupabaseServerClient()
+    .from('accounts')
+    .update(values)
+    .eq('primary_owner_user_id', userId)
+    .eq('is_personal_account', true)
+    .throwOnError();
+}
+
+export const updatePersonalPhoneAction = enhanceAction(
+  async (data, user) => {
+    await updateMyPersonalAccount(user.id, { phone: data.phone });
+
+    return { success: true };
+  },
+  { auth: true, schema: UpdatePhoneSchema },
+);
+
+export const answerPhonePrompt = enhanceAction(
+  async (data, user) => {
+    await updateMyPersonalAccount(user.id, {
+      phone: data.phone,
+      phone_asked_at: new Date().toISOString(),
+    });
+  },
+  { auth: true, schema: UpdatePhoneSchema },
+);
+
+export const skipPhonePrompt = enhanceAction(
+  async (_data, user) => {
+    await updateMyPersonalAccount(user.id, {
+      phone_asked_at: new Date().toISOString(),
+    });
+  },
+  { auth: true, schema: z.object({}) },
 );
 
 export const updateEmailAction = enhanceAction(

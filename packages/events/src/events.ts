@@ -18,7 +18,9 @@ export type AggregateType =
   | 'meeting'
   | 'meeting_action_item'
   | 'contract'
-  | 'offer';
+  | 'offer'
+  | 'deal_milestone'
+  | 'deal_update';
 
 export type EventType =
   | 'deal.created'
@@ -32,11 +34,16 @@ export type EventType =
   | 'deal.listing_status_changed'
   | 'deal.financials_adopted'
   | 'deal.earnings_basis_changed'
+  | 'deal.close_deadline_set'
   | 'deal_box.set'
   | 'checklist_item.added'
   | 'checklist_item.removed'
   | 'checklist_item.status_changed'
   | 'checklist_item.rescheduled'
+  | 'checklist_item.details_set'
+  | 'checklist_item.waiting_on_set'
+  | 'checklist_item.note_posted'
+  | 'checklist_item.document_linked'
   | 'approval.requested'
   | 'approval.decided'
   | 'deal_participant.added'
@@ -50,6 +57,9 @@ export type EventType =
   | 'meeting_action_item.updated'
   | 'contract.created'
   | 'contract.version_set'
+  | 'contract.version_added'
+  | 'contract.version_shown_to_seller_side'
+  | 'contract.comment_posted'
   | 'contract.signature_requested'
   | 'contract.signature_status_changed'
   | 'offer.drafted'
@@ -59,7 +69,25 @@ export type EventType =
   | 'offer.accepted'
   | 'offer.rejected'
   | 'offer.withdrawn'
-  | 'offer.expired';
+  | 'offer.expired'
+  | 'deal_milestone.set'
+  | 'deal_milestone.removed'
+  | 'deal_update.sent';
+
+type MilestoneKind = Database['public']['Enums']['milestone_kind'];
+
+// The projector writes both dates from every set, so an omitted date would
+// clear it; sharing alone keeps its value when left out.
+export type DealMilestoneSetPayload = {
+  target_on: string | null;
+  actual_on: string | null;
+  shared?: boolean;
+} & (
+  | { kind: Exclude<MilestoneKind, 'custom'>; label?: never }
+  | { kind: 'custom'; label: string }
+);
+
+export type DealMilestoneRemovedPayload = Record<string, never>;
 
 export type AppendDealEventResult = Functions['append_deal_event']['Returns'];
 
@@ -70,6 +98,7 @@ export interface DealEventInput {
   payload: Json;
   expectedAggregateSeq?: number;
   actorKind?: ActorKind;
+  actorVia?: string;
 }
 
 export type AppendDealEventInput = DealEventInput & { dealId: string };
@@ -89,6 +118,9 @@ export async function appendDealEvent(
     }),
     ...(input.actorKind !== undefined && {
       p_actor_kind: input.actorKind,
+    }),
+    ...(input.actorVia !== undefined && {
+      p_actor_via: input.actorVia,
     }),
   });
 
@@ -116,6 +148,9 @@ export async function appendDealEvents(
       }),
       ...(event.actorKind !== undefined && {
         actor_kind: event.actorKind,
+      }),
+      ...(event.actorVia !== undefined && {
+        actor_via: event.actorVia,
       }),
     })),
   });

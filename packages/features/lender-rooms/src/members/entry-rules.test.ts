@@ -44,6 +44,7 @@ describe('safeNextPath', () => {
     ['the rooms list', '/lender'],
     ['a room', ROOM_PATH],
     ["a room's requests", `${ROOM_PATH}/requests`],
+    ["a room's FAQ", `${ROOM_PATH}/faq`],
     [
       'an ask thread',
       `${ROOM_PATH}/requests/asks/0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22`,
@@ -91,6 +92,12 @@ describe('safeNextPath', () => {
       `${ROOM_PATH}/requests/asks/0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22\\evil`,
     ],
     ['asks with no thread id', `${ROOM_PATH}/requests/asks`],
+    [
+      'a file under the FAQ',
+      `${ROOM_PATH}/faq/files/0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22`,
+    ],
+    ['a FAQ path with a trailing newline', `${ROOM_PATH}/faq\n`],
+    ['the FAQ under requests', `${ROOM_PATH}/requests/faq`],
   ])('falls back to the rooms list for %s', (_label, next) => {
     expect(safeNextPath(next)).toBe('/lender');
   });

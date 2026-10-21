@@ -5,10 +5,15 @@ import { loadClosedRoomContactEmail } from '@odb/lender-rooms/members/closed-roo
 import { ClosedRoomNotice } from '@odb/lender-rooms/members/closed-room-notice.tsx';
 import { enterLenderRoom } from '@odb/lender-rooms/members/enter-room.ts';
 import { LenderNameForm } from '@odb/lender-rooms/members/lender-name-form.tsx';
-import { shouldAskLenderName } from '@odb/lender-rooms/members/person-name.ts';
+import {
+  shouldAskLenderName,
+  shouldAskLenderPhone,
+} from '@odb/lender-rooms/members/person-name.ts';
 import { myOpenRoomIds } from '@odb/lender-rooms/members/room-gate.ts';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+
+import { PhonePrompt } from '../../_components/phone-prompt';
 
 export default async function LenderRoomLayout({
   children,
@@ -25,6 +30,14 @@ export default async function LenderRoomLayout({
     return (
       <main>
         <LenderNameForm initialName={null} allowSkip />
+      </main>
+    );
+  }
+
+  if (await shouldAskLenderPhone(getSupabaseServerClient())) {
+    return (
+      <main>
+        <PhonePrompt />
       </main>
     );
   }

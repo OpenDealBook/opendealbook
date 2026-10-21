@@ -18,7 +18,18 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "NEXT_PUBLIC_ENABLE_MARKETING toggle. Must be false when mode=public, true when mode=internal."
+          "description": "ENABLE_MARKETING toggle. Must be false when mode=public, true when mode=internal."
+        }
+      }
+    },
+    "billing": {
+      "type": "object",
+      "required": ["enabled"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "ENABLE_BILLING toggle. false runs with no billing, trial limits, or Stripe."
         }
       }
     },

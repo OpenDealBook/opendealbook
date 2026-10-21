@@ -70,27 +70,44 @@ create policy invitations_delete on public.invitations
     and public.has_permission((select auth.uid()), account_id, 'invites.manage')
   );
 
--- Insert invitations for a team, one per (email, role) pair. Service-role only.
-create or replace function public.add_invitations_to_account(account_slug text, invites public.invitation[], invited_by uuid)
+-- Insert invitations for a team, one per (email, role) pair, from the caller.
+-- The caller needs invites.manage and may not grant a role above their own;
+-- the owner may grant any role.
+create or replace function public.add_invitations_to_account(account_slug text, invites public.invitation[])
   returns setof public.invitations
   language plpgsql security definer
   set search_path = '' as $$
 declare
   target_account_id uuid;
+  inviter_level int;
   invite public.invitation;
 begin
   select id into target_account_id from public.accounts where slug = account_slug;
 
+  select r.hierarchy_level into inviter_level
+  from public.accounts_memberships m
+  join public.roles r on r.name = m.account_role
+  where m.account_id = target_account_id and m.user_id = auth.uid();
+
+  if not public.has_permission(auth.uid(), target_account_id, 'invites.manage')
+    or exists (
+      select 1 from unnest(invites) i
+      join public.roles r on r.name = i.role
+      where r.hierarchy_level < inviter_level
+    ) then
+    raise exception 'not allowed to invite to this team' using errcode = 'insufficient_privilege';
+  end if;
+
   foreach invite in array invites loop
     return query
     insert into public.invitations (email, account_id, invited_by, role)
-    values (invite.email, target_account_id, add_invitations_to_account.invited_by, invite.role)
+    values (invite.email, target_account_id, auth.uid(), invite.role)
     returning *;
   end loop;
 end;
 $$;
 
-grant execute on function public.add_invitations_to_account(text, public.invitation[], uuid) to service_role;
+grant execute on function public.add_invitations_to_account(text, public.invitation[]) to authenticated;
 
 -- Consume a valid token: create the membership and drop the invitation.
 create or replace function public.accept_invitation(token text, user_id uuid)

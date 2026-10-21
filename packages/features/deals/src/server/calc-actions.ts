@@ -10,23 +10,21 @@ import {
   annualizeSde,
   cashOnCash,
   dealBoxGap,
-  debtServiceYear1,
   deriveBuyerEquity,
-  dscr,
   dscrSensitivity,
   ebitda,
-  netCashFlow,
   netIncome,
   paybackYears,
-  proForma,
   purchaseMultiple,
   recastPeriod,
   sdeFromPl,
+  scenarioPaths,
   sdePeriodsSchema,
+  tenYearProForma,
+  threeYearProjection,
   weightedSde,
   workingCapital,
 } from '@odb/calculators';
-import { enhanceAction } from '@odb/next/actions';
 import type { Json } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -40,7 +38,9 @@ import {
   saveSdeCalcSchema,
   saveWorkingCapitalCalcSchema,
 } from '../schema/calc.schema';
-import { adoptDealFinancials } from './deal-actions';
+import { figuresToAdopt, outputsSaved } from '../shared/adopted-figures';
+import { adoptDealFinancialsCore } from './deal-actions';
+import { Refusal, refusableAction } from './refusal';
 
 type Client = ReturnType<typeof getSupabaseServerClient>;
 
@@ -95,7 +95,10 @@ function toSdePeriod(period: SaveSdeCalcPayload['periods'][number]): SdePeriod {
     } else if (line.line_code === 'opex') {
       opex += line.amount;
     } else if (line.line_code === 'custom') {
-      minor.custom.push({ label: line.custom_label ?? '', amount: line.amount });
+      minor.custom.push({
+        label: line.custom_label ?? '',
+        amount: line.amount,
+      });
     } else if (PRIMARY_CODES.has(line.line_code as keyof PrimaryAddbacks)) {
       primary[line.line_code as keyof PrimaryAddbacks] += line.amount;
     } else {
@@ -155,7 +158,21 @@ async function writeSnapshot(
     .throwOnError();
 }
 
-export const createCalcVersion = enhanceAction(
+function partitionById<Row extends { id: string }>(
+  savedIds: string[],
+  rows: Row[],
+): { removed: string[]; existing: Row[]; fresh: Row[] } {
+  const saved = new Set(savedIds);
+  const kept = new Set(rows.map((row) => row.id));
+
+  return {
+    removed: savedIds.filter((id) => !kept.has(id)),
+    existing: rows.filter((row) => saved.has(row.id)),
+    fresh: rows.filter((row) => !saved.has(row.id)),
+  };
+}
+
+export const createCalcVersion = refusableAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
     const id = crypto.randomUUID();
@@ -182,10 +199,11 @@ export const createCalcVersion = enhanceAction(
 
     return id;
   },
-  { auth: true, schema: createCalcVersionSchema },
+  createCalcVersionSchema,
+  { what: 'create calculators', needs: 'deals.work' },
 );
 
-export const saveSdeCalc = enhanceAction(
+export const saveSdeCalc = refusableAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
     const { account_id } = await calcVersionContext(
@@ -200,44 +218,109 @@ export const saveSdeCalc = enhanceAction(
         sdePeriod,
         recast: recastPeriod(sdePeriod),
         row: {
-          id: crypto.randomUUID(),
+          id: period.id,
           account_id,
           calc_version_id: data.calc_version_id,
           label: period.label ?? null,
           weight: period.weight,
           months: period.months ?? null,
-          created_by: user.id,
         },
       };
     });
 
     const sdePeriods = sdePeriodsSchema.parse(prepared.map((p) => p.sdePeriod));
 
+    const { data: savedPeriods } = await client
+      .from('sde_period')
+      .select('id')
+      .eq('calc_version_id', data.calc_version_id)
+      .throwOnError();
+    const periods = partitionById(
+      savedPeriods.map((period) => period.id),
+      prepared.map((p) => p.row),
+    );
     await client
       .from('sde_period')
       .delete()
-      .eq('calc_version_id', data.calc_version_id)
+      .in('id', periods.removed)
       .throwOnError();
-
+    await client.from('sde_period').upsert(periods.existing).throwOnError();
     await client
       .from('sde_period')
-      .insert(prepared.map((p) => p.row))
+      .insert(
+        periods.fresh.map((period) => ({ ...period, created_by: user.id })),
+      )
       .throwOnError();
 
-    const lineRows = prepared.flatMap(({ period, row }) =>
-      period.lines.map((line) => ({
-        account_id,
-        period_id: row.id,
-        line_code: line.line_code,
-        custom_label: line.custom_label ?? null,
-        amount: line.amount,
-        created_by: user.id,
-      })),
+    const { data: savedLines } = await client
+      .from('sde_line')
+      .select('id, line_code')
+      .in(
+        'period_id',
+        prepared.map((p) => p.row.id),
+      )
+      .throwOnError();
+    const customLines = prepared.flatMap(({ period, row }) =>
+      period.lines.flatMap((line) =>
+        line.line_code === 'custom'
+          ? [
+              {
+                id: line.id,
+                account_id,
+                period_id: row.id,
+                line_code: line.line_code,
+                custom_label: line.custom_label,
+                amount: line.amount,
+              },
+            ]
+          : [],
+      ),
     );
+    const keptCustom = new Set(customLines.map((line) => line.id));
 
-    if (lineRows.length > 0) {
-      await client.from('sde_line').insert(lineRows).throwOnError();
-    }
+    await client
+      .from('sde_line')
+      .delete()
+      .in(
+        'id',
+        savedLines
+          .filter(
+            (line) => line.line_code !== 'custom' || !keptCustom.has(line.id),
+          )
+          .map((line) => line.id),
+      )
+      .throwOnError();
+
+    const savedIds = new Set(savedLines.map((line) => line.id));
+    await client
+      .from('sde_line')
+      .upsert(customLines.filter((line) => savedIds.has(line.id)))
+      .throwOnError();
+    await client
+      .from('sde_line')
+      .insert([
+        ...customLines
+          .filter((line) => !savedIds.has(line.id))
+          .map((line) => ({ ...line, created_by: user.id })),
+        ...prepared.flatMap(({ period, row }) =>
+          period.lines.flatMap((line) =>
+            line.line_code === 'custom'
+              ? []
+              : [
+                  {
+                    id: crypto.randomUUID(),
+                    account_id,
+                    period_id: row.id,
+                    line_code: line.line_code,
+                    custom_label: null,
+                    amount: line.amount,
+                    created_by: user.id,
+                  },
+                ],
+          ),
+        ),
+      ])
+      .throwOnError();
 
     const weighted = weightedSde(sdePeriods);
     const recent = sdePeriods[sdePeriods.length - 1]!;
@@ -270,14 +353,19 @@ export const saveSdeCalc = enhanceAction(
       adopt: { revenue: null, sde: weighted, ebitda: recentEbitda },
     };
 
-    await writeSnapshot(client, data.calc_version_id, snapshot as unknown as Json);
+    await writeSnapshot(
+      client,
+      data.calc_version_id,
+      snapshot as unknown as Json,
+    );
 
     return { success: true };
   },
-  { auth: true, schema: saveSdeCalcSchema },
+  saveSdeCalcSchema,
+  { what: 'save calculators', needs: 'deals.work' },
 );
 
-export const saveDealCalc = enhanceAction(
+export const saveDealCalc = refusableAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
     const { account_id } = await calcVersionContext(
@@ -300,40 +388,59 @@ export const saveDealCalc = enhanceAction(
       )
       .throwOnError();
 
+    const { data: savedFunding } = await client
+      .from('funding_source')
+      .select('id')
+      .eq('calc_version_id', data.calc_version_id)
+      .throwOnError();
+    const fundingRows = partitionById(
+      savedFunding.map((source) => source.id),
+      data.funding_sources.map((source) => ({
+        id: source.id,
+        account_id,
+        calc_version_id: data.calc_version_id,
+        type: source.type,
+        amount: source.amount,
+        pct: source.pct ?? null,
+        rate: source.rate ?? null,
+        term_years: source.term_years ?? null,
+        guarantee_fee: source.guarantee_fee ?? null,
+        standby_months: source.standby_months ?? null,
+        after_standby: source.after_standby ?? null,
+        notes: source.notes ?? null,
+      })),
+    );
     await client
       .from('funding_source')
       .delete()
-      .eq('calc_version_id', data.calc_version_id)
+      .in('id', fundingRows.removed)
       .throwOnError();
-
-    if (data.funding_sources.length > 0) {
-      await client
-        .from('funding_source')
-        .insert(
-          data.funding_sources.map((source) => ({
-            account_id,
-            calc_version_id: data.calc_version_id,
-            type: source.type,
-            amount: source.amount,
-            pct: source.pct ?? null,
-            rate: source.rate ?? null,
-            term_years: source.term_years ?? null,
-            guarantee_fee: source.guarantee_fee ?? null,
-            standby_months: source.standby_months ?? null,
-            notes: source.notes ?? null,
-            created_by: user.id,
-          })),
-        )
-        .throwOnError();
-    }
+    await client
+      .from('funding_source')
+      .upsert(fundingRows.existing)
+      .throwOnError();
+    await client
+      .from('funding_source')
+      .insert(
+        fundingRows.fresh.map((source) => ({ ...source, created_by: user.id })),
+      )
+      .throwOnError();
 
     const pl: ProfitAndLoss = data.inputs.pl;
     const funding = data.funding_sources as FundingSource[];
     const options = dscrOptions(data.inputs);
 
     const sde = sdeFromPl(pl);
-    const debtService = debtServiceYear1(funding);
-    const ncf = netCashFlow(sde, debtService);
+    const projection = {
+      sde,
+      annualGrowth: data.inputs.annual_growth,
+      sources: funding,
+      dscrOptions: options,
+      basis: data.inputs.year_basis ?? { kind: 'months_from_close' as const },
+    };
+    const years = threeYearProjection(projection);
+    const debtService = years[0].debt_service;
+    const ncf = years[0].net_cash_flow;
     const buyerEquity =
       data.inputs.buyer_equity ??
       deriveBuyerEquity({
@@ -348,7 +455,8 @@ export const saveDealCalc = enhanceAction(
       net_income: netIncome(pl),
       sde,
       debt_service_yr1: debtService,
-      dscr: dscr(sde, debtService, options),
+      dscr: years[0].dscr,
+      years,
       purchase_multiple: purchaseMultiple(
         data.inputs.purchase_price,
         data.inputs.closing_costs,
@@ -359,24 +467,47 @@ export const saveDealCalc = enhanceAction(
       cash_on_cash: cashOnCash(ncf, buyerEquity),
       payback_years: paybackYears(buyerEquity, ncf),
       deal_box_gap: dealBoxGap(ncf, data.inputs.required_personal_cash_flow),
-      pro_forma: proForma(sde, data.inputs.annual_growth, debtService),
+      pro_forma: tenYearProForma(projection),
+      scenario_paths: data.inputs.scenario_paths
+        ? scenarioPaths({
+            ...projection,
+            sales: pl.sales,
+            minimumDscr: data.inputs.reference_line ?? 1.25,
+            drivers: data.inputs.scenario_paths,
+          })
+        : null,
       dscr_sensitivity: dscrSensitivity(
         sde,
         debtService,
         options,
         data.inputs.reference_line,
       ),
-      adopt: { revenue: pl.sales, sde, ebitda: ebitda(pl) },
+      adopt: {
+        revenue: pl.sales,
+        sde,
+        ebitda: ebitda(pl),
+        years: years.map((year) => ({
+          year: year.year,
+          debt_service: year.debt_service,
+          dscr: year.dscr,
+          net_cash_flow: year.net_cash_flow,
+        })),
+      },
     };
 
-    await writeSnapshot(client, data.calc_version_id, snapshot as unknown as Json);
+    await writeSnapshot(
+      client,
+      data.calc_version_id,
+      snapshot as unknown as Json,
+    );
 
     return { success: true };
   },
-  { auth: true, schema: saveDealCalcSchema },
+  saveDealCalcSchema,
+  { what: 'save calculators', needs: 'deals.work' },
 );
 
-export const saveWorkingCapitalCalc = enhanceAction(
+export const saveWorkingCapitalCalc = refusableAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
     const { account_id } = await calcVersionContext(
@@ -411,14 +542,19 @@ export const saveWorkingCapitalCalc = enhanceAction(
       months_of_revenue_covered: result.months_of_revenue_covered,
     };
 
-    await writeSnapshot(client, data.calc_version_id, snapshot as unknown as Json);
+    await writeSnapshot(
+      client,
+      data.calc_version_id,
+      snapshot as unknown as Json,
+    );
 
     return { success: true };
   },
-  { auth: true, schema: saveWorkingCapitalCalcSchema },
+  saveWorkingCapitalCalcSchema,
+  { what: 'save calculators', needs: 'deals.work' },
 );
 
-export const duplicateCalcVersion = enhanceAction(
+export const duplicateCalcVersion = refusableAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
     const newId = crypto.randomUUID();
@@ -445,6 +581,13 @@ export const duplicateCalcVersion = enhanceAction(
       })
       .throwOnError();
 
+    const copies = new Map<string, string>();
+    const copyOf = (id: string) => {
+      const copy = crypto.randomUUID();
+      copies.set(id, copy);
+      return copy;
+    };
+
     const { data: periods } = await client
       .from('sde_period')
       .select('*, sde_line(*)')
@@ -454,7 +597,7 @@ export const duplicateCalcVersion = enhanceAction(
     const periodCopies = (periods ?? []).map((period) => ({
       source: period,
       row: {
-        id: crypto.randomUUID(),
+        id: copyOf(period.id),
         account_id: source.account_id,
         calc_version_id: newId,
         label: period.label,
@@ -472,6 +615,7 @@ export const duplicateCalcVersion = enhanceAction(
 
       const lineRows = periodCopies.flatMap((copy) =>
         (copy.source.sde_line ?? []).map((line) => ({
+          id: copyOf(line.id),
           account_id: source.account_id,
           period_id: copy.row.id,
           line_code: line.line_code,
@@ -518,6 +662,7 @@ export const duplicateCalcVersion = enhanceAction(
         .from('funding_source')
         .insert(
           (funding ?? []).map((source_row) => ({
+            id: copyOf(source_row.id),
             account_id: source.account_id,
             calc_version_id: newId,
             type: source_row.type,
@@ -527,6 +672,7 @@ export const duplicateCalcVersion = enhanceAction(
             term_years: source_row.term_years,
             guarantee_fee: source_row.guarantee_fee,
             standby_months: source_row.standby_months,
+            after_standby: source_row.after_standby,
             notes: source_row.notes,
             created_by: user.id,
           })),
@@ -534,12 +680,39 @@ export const duplicateCalcVersion = enhanceAction(
         .throwOnError();
     }
 
+    const { data: citations } = await client
+      .from('calc_input_citation')
+      .select('*')
+      .eq('calc_version_id', data.calc_version_id)
+      .order('created_at')
+      .throwOnError();
+
+    await client
+      .from('calc_input_citation')
+      .insert(
+        citations.map((citation) => ({
+          account_id: citation.account_id,
+          calc_version_id: newId,
+          row_id:
+            citation.row_id === null ? null : copies.get(citation.row_id)!,
+          input_key: citation.input_key,
+          dr_document_id: citation.dr_document_id,
+          document_name: citation.document_name,
+          document_version: citation.document_version,
+          page: citation.page,
+          sheet: citation.sheet,
+          cell: citation.cell,
+        })),
+      )
+      .throwOnError();
+
     return newId;
   },
-  { auth: true, schema: calcVersionIdSchema },
+  calcVersionIdSchema,
+  { what: 'duplicate calculators', needs: 'deals.work' },
 );
 
-export const deleteCalcVersion = enhanceAction(
+export const deleteCalcVersion = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -551,10 +724,11 @@ export const deleteCalcVersion = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: calcVersionIdSchema },
+  calcVersionIdSchema,
+  { what: 'delete calculators', needs: 'deals.manage' },
 );
 
-export const markPrimaryCalcVersion = enhanceAction(
+export const markPrimaryCalcVersion = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const { deal_id, type } = await calcVersionContext(
@@ -577,49 +751,51 @@ export const markPrimaryCalcVersion = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: calcVersionIdSchema },
+  calcVersionIdSchema,
+  { what: 'choose the primary calculator', needs: 'deals.work' },
 );
 
-export const adoptCalcVersion = enhanceAction(
+export const adoptCalcVersion = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
     const { data: version } = await client
       .from('calc_version')
-      .select('outputs_snapshot')
+      .select('deal_id, type, outputs_snapshot')
       .eq('id', data.calc_version_id)
       .single()
       .throwOnError();
 
-    const snapshot = version.outputs_snapshot as {
-      adopt?: { revenue?: number | null; sde?: number | null; ebitda?: number | null };
-    } | null;
-    const adopt = snapshot?.adopt ?? {};
+    if (version.deal_id !== data.deal_id) {
+      throw new Refusal('That calc belongs to another deal.');
+    }
 
-    const payload: {
-      deal_id: string;
-      source_calc_version_id: string;
-      adopted_revenue?: number;
-      adopted_sde?: number;
-      adopted_ebitda?: number;
-    } = {
+    if (
+      version.type === 'working_capital' ||
+      !outputsSaved(version.outputs_snapshot)
+    ) {
+      throw new Refusal(
+        'This calc has nothing to adopt. Save a deal or SDE calc first.',
+      );
+    }
+
+    const figures = figuresToAdopt(version.outputs_snapshot);
+
+    await adoptDealFinancialsCore(client, {
       deal_id: data.deal_id,
       source_calc_version_id: data.calc_version_id,
-    };
-
-    if (typeof adopt.revenue === 'number') {
-      payload.adopted_revenue = adopt.revenue;
-    }
-    if (typeof adopt.sde === 'number') {
-      payload.adopted_sde = adopt.sde;
-    }
-    if (typeof adopt.ebitda === 'number') {
-      payload.adopted_ebitda = adopt.ebitda;
-    }
-
-    await adoptDealFinancials(payload);
+      adopted_revenue: figures.revenue ?? undefined,
+      adopted_sde: figures.sde ?? undefined,
+      adopted_ebitda: figures.ebitda ?? undefined,
+      adopted_years: figures.years ?? undefined,
+    });
 
     return { success: true };
   },
-  { auth: true, schema: adoptCalcVersionSchema },
+  adoptCalcVersionSchema,
+  {
+    what: 'adopt financials',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );

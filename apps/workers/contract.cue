@@ -24,6 +24,12 @@ contract.#Contract & {
 			type:        "url"
 			description: "Base URL of the Docling service used to extract document text"
 		}
+		E2E_CLOCK_OFFSET_HOURS: {
+			type:        "int"
+			description: "Hours the lender nudge check moves now forward; set only by the e2e stack"
+			min:         1
+			max:         9007199254740991
+		}
 		EMAIL_HOST: {
 			type:        "string"
 			description: "SMTP host the nodemailer mailer connects to"
@@ -48,6 +54,11 @@ contract.#Contract & {
 			type:        "string"
 			description: "SMTP username the nodemailer mailer authenticates with"
 		}
+		GMAIL_API_BASE: {
+			type:        "url"
+			description: "Base URL of the Gmail API connected mailboxes send through"
+			default:     "https://gmail.googleapis.com"
+		}
 		MAILER_PROVIDER: {
 			type:        "enum"
 			description: "Which mailer backend outbound email activities use"
@@ -67,6 +78,10 @@ contract.#Contract & {
 			type:        "string"
 			description: "Resend API key the resend mailer sends email with"
 			secret:      true
+		}
+		SELLER_DELIVERY_FROM_EMAIL: {
+			type:        "string"
+			description: "Sender address for the email that delivers a document to a seller"
 		}
 		SUPABASE_SERVICE_ROLE_KEY: {
 			type:        "string"

@@ -6,7 +6,8 @@
 # render time and can be overridden per release / per XApp claim:
 #
 #   image.repository, image.tag, workerImage.repository, workerImage.tag,
-#   web.replicaCount, workers.replicaCount, marketing.enabled  (plus
+#   web.replicaCount, workers.replicaCount, marketing.enabled,
+#   billing.enabled  (plus
 #   nameOverride/fullnameOverride/serviceAccount.* consumed by the label +
 #   name helpers)
 #
@@ -20,9 +21,14 @@ mode: public
 
 marketing:
   # Derived from mode: public -> false, internal -> true. Rendered into the
-  # web pod as NEXT_PUBLIC_ENABLE_MARKETING. See README: apps/web must be
-  # wired to read this var (feature-flags.config.ts) by the app lane.
+  # web pod as ENABLE_MARKETING, which apps/web reads at request time.
   enabled: false
+
+billing:
+  # Rendered into the web pod as ENABLE_BILLING. Set false for a
+  # self-hosted install with no trial limits, billing pages, Stripe, or trial
+  # emails.
+  enabled: true
 
 nameOverride: ""
 fullnameOverride: ""

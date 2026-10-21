@@ -1,4 +1,5 @@
 import { isDocumensoConfigured } from '@odb/contracts/esign';
+import { loadRoomContact } from '@odb/lender-rooms/browser/room-contact.ts';
 import { enterLenderRoom } from '@odb/lender-rooms/members/enter-room.ts';
 import {
   loadCanAct,
@@ -20,9 +21,10 @@ export default async function LenderRequestsPage({
   }
 
   const client = getSupabaseServerClient();
-  const [requests, canAct] = await Promise.all([
+  const [requests, canAct, contact] = await Promise.all([
     loadRequests(client, roomId),
     loadCanAct(client, roomId),
+    loadRoomContact(roomId),
   ]);
 
   return (
@@ -30,6 +32,7 @@ export default async function LenderRequestsPage({
       room={gate.room}
       {...requests}
       canAct={canAct}
+      contactName={contact.name}
       esignAvailable={isDocumensoConfigured()}
     />
   );

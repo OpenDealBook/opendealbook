@@ -22,7 +22,11 @@
 # The observability profile is a full Grafana LGTM + profiling stack fed by the OTel
 # Collector: Logs=Loki, Traces=Tempo, Metrics=Prometheus, Profiles=Pyroscope, with
 # blackbox-exporter for uptime probes and Grafana for dashboards + alerting. Apps send
-# OTLP to the collector (localhost:4318) and push profiles to Pyroscope (localhost:4040).
+# OTLP to the collector and push profiles to Pyroscope (localhost:4040). The collector
+# publishes OTLP HTTP on localhost:14318 and gRPC on localhost:14317, Prometheus is on
+# localhost:19090 and Loki on localhost:13100. These are off the upstream defaults so
+# the stack can coexist with another local LGTM stack. Every observability host port is
+# overridable through an env var named on its service (e.g. PROMETHEUS_PORT).
 # Grafana is at http://localhost:3001 with datasources, dashboards, and alert rules
 # provisioned from infra/grafana. Bring it up with:
 #   docker compose --profile observability up -d
@@ -160,7 +164,8 @@ services:
       nango-redis:
         condition: service_healthy
     environment:
-      NANGO_ENCRYPTION_KEY: ${NANGO_ENCRYPTION_KEY:?set NANGO_ENCRYPTION_KEY in .env}
+      # Local-dev default (base64 of 32 bytes). Override with `openssl rand -base64 32` anywhere but a local machine.
+      NANGO_ENCRYPTION_KEY: ${NANGO_ENCRYPTION_KEY:-b3BlbmRlYWxib29rLWxvY2FsLWRldi1uYW5nby1rZXk=}
       NANGO_DB_USER: ${NANGO_DB_USER:-nango}
       NANGO_DB_PASSWORD: ${NANGO_DB_PASSWORD:-nango}
       NANGO_DB_HOST: nango-postgres
@@ -177,7 +182,7 @@ services:
     ports:
       - "3003:3003"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3003/health || exit 1"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3003/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -227,9 +232,10 @@ services:
       # Documenso refuses webhook URLs that resolve to private addresses. Allow the app on the
       # host so a webhook to http://host.docker.internal:<port>/api/webhooks/documenso is sent.
       NEXT_PRIVATE_WEBHOOK_SSRF_BYPASS_HOSTS: ${DOCUMENSO_WEBHOOK_SSRF_BYPASS_HOSTS:-host.docker.internal}
-      NEXTAUTH_SECRET: ${DOCUMENSO_NEXTAUTH_SECRET:?set DOCUMENSO_NEXTAUTH_SECRET in .env}
-      NEXT_PRIVATE_ENCRYPTION_KEY: ${DOCUMENSO_ENCRYPTION_KEY:?set DOCUMENSO_ENCRYPTION_KEY in .env}
-      NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY: ${DOCUMENSO_ENCRYPTION_SECONDARY_KEY:?set DOCUMENSO_ENCRYPTION_SECONDARY_KEY in .env}
+      # These three have local-dev defaults. Override each with `openssl rand -base64 32` anywhere but a local machine.
+      NEXTAUTH_SECRET: ${DOCUMENSO_NEXTAUTH_SECRET:-local-dev-documenso-nextauth-secret}
+      NEXT_PRIVATE_ENCRYPTION_KEY: ${DOCUMENSO_ENCRYPTION_KEY:-local-dev-documenso-encryption-key}
+      NEXT_PRIVATE_ENCRYPTION_SECONDARY_KEY: ${DOCUMENSO_ENCRYPTION_SECONDARY_KEY:-local-dev-documenso-encryption-secondary-key}
       NEXT_PRIVATE_DATABASE_URL: postgres://${DOCUMENSO_DB_USER:-documenso}:${DOCUMENSO_DB_PASSWORD:-documenso}@documenso-postgres:5432/${DOCUMENSO_DB_NAME:-documenso}
       NEXT_PRIVATE_DIRECT_DATABASE_URL: postgres://${DOCUMENSO_DB_USER:-documenso}:${DOCUMENSO_DB_PASSWORD:-documenso}@documenso-postgres:5432/${DOCUMENSO_DB_NAME:-documenso}
       NEXT_PRIVATE_SIGNING_TRANSPORT: local
@@ -274,7 +280,7 @@ services:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "9090:9090"
+      - "${PROMETHEUS_PORT:-19090}:9090"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
       interval: 15s
@@ -296,7 +302,7 @@ services:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     ports:
-      - "3001:3000"
+      - "${GRAFANA_PORT:-3001}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health || exit 1"]
       interval: 15s
@@ -313,13 +319,8 @@ services:
       - ./infra/loki/loki-config.yaml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
     ports:
-      - "3100:3100"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+      - "${LOKI_PORT:-13100}:3100"
+    # No healthcheck: the image holds only the loki binary, with no shell or HTTP client.
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.161.0
@@ -331,9 +332,9 @@ services:
     volumes:
       - ./infra/otel/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
     ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "13133:13133"
+      - "${OTEL_COLLECTOR_GRPC_PORT:-14317}:4317"
+      - "${OTEL_COLLECTOR_HTTP_PORT:-14318}:4318"
+      - "${OTEL_COLLECTOR_HEALTH_PORT:-13133}:13133"
     # Distroless image (no shell): probe by validating config with the collector binary.
     healthcheck:
       test: ["CMD", "/otelcol-contrib", "validate", "--config=/etc/otelcol-contrib/config.yaml"]
@@ -353,13 +354,8 @@ services:
     # 3200 is Tempo's HTTP/query API for Grafana. The OTLP receivers (4317/4318) stay
     # internal; the collector forwards traces to tempo:4317 over the compose network.
     ports:
-      - "3200:3200"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3200/ready || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+      - "${TEMPO_PORT:-3200}:3200"
+    # No healthcheck: the image holds only the tempo binary, with no shell or HTTP client.
 
   pyroscope:
     image: grafana/pyroscope:1.19.0
@@ -370,9 +366,9 @@ services:
     volumes:
       - pyroscope_data:/data
     ports:
-      - "4040:4040"
+      - "${PYROSCOPE_PORT:-4040}:4040"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:4040/ready || exit 1"]
+      test: ["CMD", "/usr/bin/profilecli", "query", "series", "--url", "http://127.0.0.1:4040"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -384,7 +380,7 @@ services:
     restart: unless-stopped
     networks: [opendealbook]
     ports:
-      - "9115:9115"
+      - "${BLACKBOX_EXPORTER_PORT:-9115}:9115"
     # Probes reach the host-side web app via host.docker.internal.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -477,9 +473,11 @@ services:
       REDIS_PORT: "6379"
       REDIS_CACHE_SERVICE_HOST: novu-redis
       REDIS_CACHE_SERVICE_PORT: "6379"
-      JWT_SECRET: ${NOVU_JWT_SECRET:?set NOVU_JWT_SECRET in .env}
-      STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY:?set a 32-char NOVU_STORE_ENCRYPTION_KEY in .env}
-      NOVU_SECRET_KEY: ${NOVU_SECRET_KEY:?set NOVU_SECRET_KEY in .env}
+      # JWT_SECRET, STORE_ENCRYPTION_KEY (exactly 32 chars), and NOVU_SECRET_KEY have local-dev defaults.
+      # Override them with generated values (e.g. `openssl rand -base64 32`) anywhere but a local machine.
+      JWT_SECRET: ${NOVU_JWT_SECRET:-local-dev-novu-jwt-secret}
+      STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY:-local-dev-novu-store-key-32chars}
+      NOVU_SECRET_KEY: ${NOVU_SECRET_KEY:-local-dev-novu-secret-key}
       IS_API_RATE_LIMITING_ENABLED: "false"
       IS_V2_ENABLED: "true"
       # Novu refuses bridge URLs that resolve to private addresses. Allow the app on the host so
@@ -516,9 +514,9 @@ services:
       REDIS_PORT: "6379"
       REDIS_CACHE_SERVICE_HOST: novu-redis
       REDIS_CACHE_SERVICE_PORT: "6379"
-      JWT_SECRET: ${NOVU_JWT_SECRET:?set NOVU_JWT_SECRET in .env}
-      STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY:?set a 32-char NOVU_STORE_ENCRYPTION_KEY in .env}
-      NOVU_SECRET_KEY: ${NOVU_SECRET_KEY:?set NOVU_SECRET_KEY in .env}
+      JWT_SECRET: ${NOVU_JWT_SECRET:-local-dev-novu-jwt-secret}
+      STORE_ENCRYPTION_KEY: ${NOVU_STORE_ENCRYPTION_KEY:-local-dev-novu-store-key-32chars}
+      NOVU_SECRET_KEY: ${NOVU_SECRET_KEY:-local-dev-novu-secret-key}
       # Novu refuses bridge URLs that resolve to private addresses. Allow the app on the host so
       # the lender workflows sync from, and run against, http://host.docker.internal:<port>/api/novu.
       NOVU_SAFE_OUTBOUND_ALLOW: ${NOVU_SAFE_OUTBOUND_ALLOW:-host.docker.internal}
@@ -548,7 +546,7 @@ services:
       MONGO_URL: mongodb://${NOVU_MONGO_USER:-root}:${NOVU_MONGO_PASSWORD:-secret}@novu-mongo:27017/novu-db?authSource=admin
       REDIS_HOST: novu-redis
       REDIS_PORT: "6379"
-      JWT_SECRET: ${NOVU_JWT_SECRET:?set NOVU_JWT_SECRET in .env}
+      JWT_SECRET: ${NOVU_JWT_SECRET:-local-dev-novu-jwt-secret}
     ports:
       - "3007:3002"
     healthcheck:
@@ -574,7 +572,7 @@ services:
     ports:
       - "3008:4000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:4000 || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4000 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

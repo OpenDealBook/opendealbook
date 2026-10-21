@@ -75,9 +75,7 @@ export const saveTemplate = enhanceAction(
 
     await assertDealsManager(client, input.accountId, user.id);
 
-    const admin = getSupabaseServerAdminClient();
-
-    const { data: template, error } = await admin
+    const { data: template, error } = await client
       .from('document_template')
       .insert({
         account_id: input.accountId,
@@ -95,7 +93,7 @@ export const saveTemplate = enhanceAction(
 
     const path = templateDocxPath(input.accountId, template.id, 1);
 
-    const { error: uploadError } = await admin.storage
+    const { error: uploadError } = await client.storage
       .from(TEMPLATES_BUCKET)
       .upload(path, decode(input.docxBase64), {
         contentType: DOCX_CONTENT_TYPE,
@@ -106,7 +104,7 @@ export const saveTemplate = enhanceAction(
       throw uploadError;
     }
 
-    const { error: pathError } = await admin
+    const { error: pathError } = await client
       .from('document_template')
       .update({ docx_path: path })
       .eq('id', template.id);
@@ -115,7 +113,7 @@ export const saveTemplate = enhanceAction(
       throw pathError;
     }
 
-    const { error: fieldsError } = await admin
+    const { error: fieldsError } = await client
       .from('template_field')
       .insert(draftsToRows(template.id, input.fields));
 

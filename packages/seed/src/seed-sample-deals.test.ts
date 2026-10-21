@@ -1,242 +1,139 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { appendDealEvents } from '@odb/events';
-
-import {
-  SAMPLE_TAG,
-  hasSampleData,
-  seedSampleDeals,
-} from './seed-sample-deals';
-
-type EventInput = {
-  aggregateType: string;
-  aggregateId: string;
-  eventType: string;
-  payload: Record<string, unknown>;
-  actorKind?: string;
-};
-
-type Op =
-  | { kind: 'insert'; table: string; rows: Record<string, unknown>[] }
-  | { kind: 'events'; dealId: string; events: EventInput[] };
-
-const ops: Op[] = [];
-let selectData: unknown[] = [];
-
-const from = vi.fn((table: string) => {
-  const builder: Record<string, unknown> = {};
-
-  for (const method of ['select', 'eq', 'ilike', 'limit']) {
-    builder[method] = vi.fn(() => builder);
-  }
-
-  builder.insert = vi.fn((rows: unknown) => {
-    ops.push({
-      kind: 'insert',
-      table,
-      rows: (Array.isArray(rows) ? rows : [rows]) as Record<string, unknown>[],
-    });
-    return builder;
-  });
-
-  builder.then = (resolve: (value: unknown) => unknown) =>
-    resolve({ data: selectData, error: null });
-
-  return builder;
-});
+const world = vi.hoisted(() => ({
+  seeded: null as unknown,
+  uploadError: null as unknown,
+  seedCalls: [] as unknown[],
+  uploads: [] as string[],
+  removed: [] as string[][],
+  removeError: null as unknown,
+  events: [] as unknown[],
+}));
 
 vi.mock('@odb/supabase/admin', () => ({
-  getSupabaseServerAdminClient: () => ({ from }),
+  getSupabaseServerAdminClient: () => ({
+    rpc: (name: string, args: unknown) => ({
+      throwOnError: async () => {
+        world.seedCalls.push({ name, args });
+        return { data: world.seeded };
+      },
+    }),
+    storage: {
+      from: () => ({
+        upload: async (path: string) => {
+          world.uploads.push(path);
+          return { data: null, error: world.uploadError };
+        },
+        remove: async (paths: string[]) => {
+          world.removed.push(paths);
+          return { data: [], error: world.removeError };
+        },
+      }),
+    },
+  }),
 }));
 
 vi.mock('@odb/events', () => ({
-  appendDealEvent: vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]),
-  appendDealEvents: vi.fn(
-    async (_client: unknown, dealId: string, events: EventInput[]) => {
-      ops.push({ kind: 'events', dealId, events });
-      return [{ deal_seq: 1, aggregate_seq: 1 }];
-    },
-  ),
+  appendDealEvent: async (_client: unknown, event: unknown) => {
+    world.events.push(event);
+    return [{ deal_seq: 1, aggregate_seq: 1 }];
+  },
 }));
 
-const appendDealEventsMock = vi.mocked(appendDealEvents);
+import {
+  SAMPLE_DEALS_NOT_LOADED,
+  SampleDealsNotLoaded,
+  seedSampleDeals,
+  seedSampleDealsOnce,
+} from './seed-sample-deals';
 
-function eventBatches(): { dealId: string; events: EventInput[] }[] {
-  return ops.filter(
-    (op): op is Extract<Op, { kind: 'events' }> => op.kind === 'events',
-  );
-}
-
-function insertRows(table: string): Record<string, unknown>[] {
-  const op = ops.find(
-    (candidate): candidate is Extract<Op, { kind: 'insert' }> =>
-      candidate.kind === 'insert' && candidate.table === table,
-  );
-  return op?.rows ?? [];
-}
-
-const seedArgs = {
-  accountId: '00000000-0000-0000-0000-000000000001',
-  userId: '00000000-0000-0000-0000-0000000000aa',
+const seededDocument = {
+  deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+  document_id: '5f675954-8b8a-402f-856d-555c3b0635f5',
+  storage_path: 'deal/6221ddef-b8e9-484f-8bb8-0967d8e16a30/x-trailing-12-month-pl.pdf',
+  removed_paths: [] as string[],
 };
+const oldFile = 'deal/9b1f7c0e-2a4d-4c3b-8e5f-6a7b8c9d0e1f/y-trailing-12-month-pl.pdf';
+const team = { accountId: 'team-1', userId: 'user-1' };
 
-const VALID_PIPELINE_STAGE_KEYS = [
-  'sourcing',
-  'pre_nda',
-  'nda_signed',
-  'loi_submitted',
-  'loi_accepted',
-  'due_diligence',
-  'pa_submitted',
-  'pa_accepted',
-  'announcement',
-  'integration',
-];
+beforeEach(() => {
+  world.seeded = seededDocument;
+  world.uploadError = null;
+  world.seedCalls.length = 0;
+  world.uploads.length = 0;
+  world.removed.length = 0;
+  world.removeError = null;
+  world.events.length = 0;
+});
+
+describe('seedSampleDealsOnce', () => {
+  it('seeds the team once and stores the sample document after the seed commits', async () => {
+    await seedSampleDealsOnce(team);
+
+    expect(world.seedCalls).toEqual([
+      {
+        name: 'seed_sample_deals',
+        args: { p_account_id: 'team-1', p_user_id: 'user-1', p_only_once: true },
+      },
+    ]);
+    expect(world.uploads).toEqual([seededDocument.storage_path]);
+  });
+
+  it('stores nothing when the team was already seeded', async () => {
+    world.seeded = null;
+
+    await seedSampleDealsOnce(team);
+
+    expect(world.uploads).toEqual([]);
+  });
+
+  it('removes the sample document and reports the failure when its file cannot be stored', async () => {
+    world.uploadError = new Error('storage down');
+
+    await expect(seedSampleDealsOnce(team)).rejects.toThrow(
+      new SampleDealsNotLoaded(),
+    );
+    expect(new SampleDealsNotLoaded().message).toBe(SAMPLE_DEALS_NOT_LOADED);
+    expect(world.events).toEqual([
+      {
+        dealId: seededDocument.deal_id,
+        aggregateType: 'dr_document',
+        aggregateId: seededDocument.document_id,
+        eventType: 'dr_document.removed',
+        actorKind: 'service',
+        payload: {},
+      },
+    ]);
+  });
+});
 
 describe('seedSampleDeals', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    ops.length = 0;
-    selectData = [];
-  });
+  it('reloads the examples whether or not the team was seeded before', async () => {
+    await seedSampleDeals(team);
 
-  it('routes deal-domain writes through ordered per-deal event batches', async () => {
-    await seedSampleDeals(seedArgs);
-
-    expect(insertRows('firm')).toHaveLength(4);
-
-    const directDealDomain = ops.filter(
-      (op): op is Extract<Op, { kind: 'insert' }> =>
-        op.kind === 'insert' &&
-        ['deal', 'contract', 'checklist_item', 'dr_document'].includes(
-          op.table,
-        ),
-    );
-    expect(directDealDomain).toHaveLength(0);
-
-    const batches = eventBatches();
-
-    const createBatches = batches.filter((batch) =>
-      batch.events.some((event) => event.eventType === 'deal.created'),
-    );
-    expect(createBatches).toHaveLength(4);
-    for (const batch of createBatches) {
-      expect(batch.events[0]?.eventType).toBe('deal.created');
-      expect(batch.events[0]?.aggregateId).toBe(batch.dealId);
-      expect(batch.events[0]?.payload.account_id).toBe(seedArgs.accountId);
-      expect(batch.events[0]?.payload.owner_user_id).toBe(seedArgs.userId);
-    }
-
-    const contractBatch = batches.find((batch) =>
-      batch.events.some((event) => event.eventType === 'contract.created'),
-    );
-    expect(contractBatch?.events.map((event) => event.eventType)).toEqual([
-      'deal.created',
-      'contract.created',
+    expect(world.seedCalls).toEqual([
+      {
+        name: 'seed_sample_deals',
+        args: { p_account_id: 'team-1', p_user_id: 'user-1', p_only_once: false },
+      },
     ]);
-
-    const checklistBatch = batches.find((batch) =>
-      batch.events.some((event) => event.eventType === 'checklist_item.added'),
-    );
-    expect(checklistBatch?.events[0]?.eventType).toBe('deal.created');
-    const added = (checklistBatch?.events ?? []).filter(
-      (event) => event.eventType === 'checklist_item.added',
-    );
-    expect(added.length).toBeGreaterThanOrEqual(6);
-    expect(added.some((event) => event.payload.deal_killer === true)).toBe(
-      true,
-    );
-    expect(
-      added.every((event) =>
-        String(event.payload.title).startsWith(SAMPLE_TAG),
-      ),
-    ).toBe(true);
-
-    const documentEventIndex = ops.findIndex(
-      (op) =>
-        op.kind === 'events' &&
-        op.events.some((event) => event.eventType === 'dr_document.added'),
-    );
-    const folderInsertIndex = ops.findIndex(
-      (op) => op.kind === 'insert' && op.table === 'dr_folder',
-    );
-    expect(folderInsertIndex).toBeGreaterThanOrEqual(0);
-    expect(documentEventIndex).toBeGreaterThan(folderInsertIndex);
-
-    const documentBatch = ops[documentEventIndex] as Extract<
-      Op,
-      { kind: 'events' }
-    >;
-    const documentEvent = documentBatch.events.find(
-      (event) => event.eventType === 'dr_document.added',
-    );
-    const financialsFolder = insertRows('dr_folder').find((folder) =>
-      String(folder.name).includes('Financials'),
-    );
-    expect(documentEvent?.payload.folder_id).toBe(financialsFolder?.id);
   });
 
-  it('stamps every event as the service actor and restores trailing fidelity events', async () => {
-    await seedSampleDeals(seedArgs);
+  it('removes the replaced examples files from storage after the reload commits', async () => {
+    world.seeded = { ...seededDocument, removed_paths: [oldFile] };
 
-    const batches = eventBatches();
-    const allEvents = batches.flatMap((batch) => batch.events);
-    expect(allEvents.length).toBeGreaterThan(0);
-    expect(allEvents.every((event) => event.actorKind === 'service')).toBe(
-      true,
-    );
+    await seedSampleDeals(team);
 
-    const closedWonBatch = batches.find((batch) =>
-      batch.events.some(
-        (event) =>
-          event.eventType === 'deal.created' &&
-          event.payload.stage === 'integration',
-      ),
-    );
-    expect(closedWonBatch?.events[0]?.eventType).toBe('deal.created');
-    const closedWonUpdate = closedWonBatch?.events.find(
-      (event) => event.eventType === 'deal.updated',
-    );
-    expect(closedWonUpdate?.payload.close_date).toBe('2026-06-30');
-    expect(closedWonUpdate?.aggregateId).toBe(closedWonBatch?.dealId);
-
-    const checklistBatch = batches.find((batch) =>
-      batch.events.some((event) => event.eventType === 'checklist_item.added'),
-    );
-    const firstChecklistItem = checklistBatch?.events.find(
-      (event) => event.eventType === 'checklist_item.added',
-    );
-    const statusChanged = checklistBatch?.events.find(
-      (event) => event.eventType === 'checklist_item.status_changed',
-    );
-    expect(statusChanged?.payload.status).toBe('reviewed');
-    expect(statusChanged?.payload.outcome).toBe('accepted');
-    expect(statusChanged?.aggregateId).toBe(firstChecklistItem?.aggregateId);
+    expect(world.uploads).toEqual([seededDocument.storage_path]);
+    expect(world.removed).toEqual([[oldFile]]);
   });
 
-  it('seeds every deal at a stage the default pipeline contains', async () => {
-    await seedSampleDeals(seedArgs);
+  it('fails the reload when the replaced files cannot be removed', async () => {
+    world.seeded = { ...seededDocument, removed_paths: [oldFile] };
+    world.removeError = new Error('storage down');
 
-    const createdStages = eventBatches()
-      .flatMap((batch) => batch.events)
-      .filter((event) => event.eventType === 'deal.created')
-      .map((event) => event.payload.stage);
-
-    expect(createdStages).toHaveLength(4);
-    for (const stage of createdStages) {
-      expect(VALID_PIPELINE_STAGE_KEYS).toContain(stage);
-    }
-  });
-
-  it('short-circuits a second run when sample data already exists', async () => {
-    selectData = [{ id: 'existing-firm' }];
-
-    expect(await hasSampleData(seedArgs.accountId)).toBe(true);
-
-    ops.length = 0;
-    await seedSampleDeals(seedArgs);
-
-    expect(ops).toHaveLength(0);
-    expect(appendDealEventsMock).not.toHaveBeenCalled();
+    await expect(seedSampleDeals(team)).rejects.toThrow(
+      new SampleDealsNotLoaded(),
+    );
   });
 });

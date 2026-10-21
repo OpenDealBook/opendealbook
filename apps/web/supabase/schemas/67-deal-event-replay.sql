@@ -20,6 +20,7 @@ begin
   delete from public.approval where deal_id = p_deal_id;
   delete from public.deal_participant where deal_id = p_deal_id;
   delete from public.checklist_item where deal_id = p_deal_id;
+  delete from public.deal_milestone where deal_id = p_deal_id;
 
   for v_event in
     select * from public.deal_event de where de.deal_id = p_deal_id order by de.deal_seq

@@ -81,6 +81,12 @@ export async function removeEverythingSeeded() {
 
 async function seedDeal(accountId: string) {
   dealAccountIds.push(accountId);
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: accountId, name: 'Lender asks deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   const dealId = crypto.randomUUID();
   await admin
     .rpc('append_deal_event', {
@@ -88,7 +94,11 @@ async function seedDeal(accountId: string) {
       p_aggregate_type: 'deal',
       p_aggregate_id: dealId,
       p_event_type: 'deal.created',
-      p_payload: { account_id: accountId, description: 'Lender asks deal' },
+      p_payload: {
+        account_id: accountId,
+        firm_id: firm.id,
+        description: 'Lender asks deal',
+      },
       p_actor_kind: 'service',
       p_actor_via: 'integration-test',
     })
@@ -97,21 +107,9 @@ async function seedDeal(accountId: string) {
   return { accountId, dealId };
 }
 
-export async function seedPersonalDeal(owner: Person) {
-  const { data: account } = await admin
-    .from('accounts')
-    .select('id')
-    .eq('primary_owner_user_id', owner.userId)
-    .eq('is_personal_account', true)
-    .single()
-    .throwOnError();
-
-  return seedDeal(account.id);
-}
-
 export async function seedTeamDeal(
   owner: Person,
-  colleague: Person,
+  ...colleagues: Person[]
 ): Promise<{ accountId: string; dealId: string }> {
   const unique = crypto.randomUUID().slice(0, 8);
   const { data: team } = await admin
@@ -121,14 +119,16 @@ export async function seedTeamDeal(
     })
     .throwOnError();
 
-  await admin
-    .from('accounts_memberships')
-    .insert({
-      account_id: team.id,
-      user_id: colleague.userId,
-      account_role: 'member',
-    })
-    .throwOnError();
+  for (const colleague of colleagues) {
+    await admin
+      .from('accounts_memberships')
+      .insert({
+        account_id: team.id,
+        user_id: colleague.userId,
+        account_role: 'member',
+      })
+      .throwOnError();
+  }
 
   return seedDeal(team.id);
 }

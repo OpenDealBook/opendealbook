@@ -1,7 +1,7 @@
 # Tempo single-binary, local filesystem storage (local dev only).
 # OTLP receivers are internal to this container on 4317/4318; the OTel Collector
 # forwards traces to tempo:4317. These ports are intentionally not published to the
-# host, so they do not clash with the collector's published 4317/4318.
+# host; the collector publishes OTLP on the host instead.
 stream_over_http_enabled: true
 
 server:

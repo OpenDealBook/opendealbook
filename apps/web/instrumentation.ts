@@ -16,5 +16,17 @@ export async function register() {
 
     setupOtel();
     setupPyroscope();
+
+    const { env } = await import('./env.ts');
+    const { getSupabaseServerAdminClient } =
+      await import('@odb/supabase/admin');
+
+    await getSupabaseServerAdminClient()
+      .rpc('set_team_rename_limit', { rename_limit: env.TEAM_RENAME_LIMIT })
+      .throwOnError();
+
+    await getSupabaseServerAdminClient()
+      .rpc('set_team_account_billing', { enabled: env.ENABLE_BILLING })
+      .throwOnError();
   }
 }

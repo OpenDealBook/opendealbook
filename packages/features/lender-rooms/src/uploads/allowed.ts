@@ -3,7 +3,6 @@ export const MAX_UPLOAD_BYTES = 300 * 1024 * 1024;
 const MAX_NAME_LENGTH = 255;
 const SEPARATOR_OR_CONTROL = /[/\\\p{Cc}]/u;
 const ONLY_AN_EXTENSION = /^\.[^.]*$/;
-const UNSAFE_IN_STORAGE_KEY = /[^A-Za-z0-9._-]/g;
 
 const VIDEO_OR_AUDIO =
   /\.(mp4|mov|m4v|avi|mkv|webm|wmv|flv|mpg|mpeg|3gp|mp3|wav|m4a|aac|flac|ogg|oga|wma|aiff|opus)$/i;
@@ -19,10 +18,6 @@ export function isUsableFileName(name: string): boolean {
     !SEPARATOR_OR_CONTROL.test(name) &&
     !ONLY_AN_EXTENSION.test(name)
   );
-}
-
-export function storageKeyName(name: string): string {
-  return name.replace(UNSAFE_IN_STORAGE_KEY, '_');
 }
 
 export function uploadRefusal(file: {

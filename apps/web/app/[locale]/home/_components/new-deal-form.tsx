@@ -1,15 +1,21 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
 import {
+  type DealIntakeDraft,
+  type DealSource,
+  dealSourceSchema,
+} from '@odb/deals/schema';
+import {
   createDeal,
   createDealFromIntake,
-  createDealFromIntakePdf,
+  extractDealIntakeFromPdf,
+  extractDealIntakeFromText,
 } from '@odb/deals/server';
-import { type DealSource, dealSourceSchema } from '@odb/deals/schema';
+import { industryChoiceFor } from '@odb/deals/shared';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
@@ -22,6 +28,10 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 import { Textarea } from '@odb/ui/textarea';
+
+import { useRefusableAction } from './use-refusable-action';
+
+const OTHER_INDUSTRY = 'other';
 
 function sourceLabel(value: DealSource): string {
   return value[0]!.toUpperCase() + value.slice(1);
@@ -47,14 +57,20 @@ async function fileToBase64(file: File): Promise<string> {
 export function NewDealForm({
   accountId,
   detailBasePath,
+  industries,
+  existingBusinessNames,
 }: {
   accountId: string;
   detailBasePath: string;
+  industries: Array<{ id: string; name: string }>;
+  existingBusinessNames: string[];
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const { refusal, pending, run } = useRefusableAction();
 
+  const [businessName, setBusinessName] = useState('');
+  const [industryChoice, setIndustryChoice] = useState('');
+  const [otherIndustry, setOtherIndustry] = useState('');
   const [listingUrl, setListingUrl] = useState('');
   const [description, setDescription] = useState('');
   const [source, setSource] = useState<DealSource>('manual');
@@ -71,9 +87,30 @@ export function NewDealForm({
   const [yearEstablished, setYearEstablished] = useState('');
   const [intakeText, setIntakeText] = useState('');
   const [intakePdf, setIntakePdf] = useState<File | null>(null);
+  const [draft, setDraft] = useState<DealIntakeDraft | null>(null);
 
-  // STUB: pasting a listing URL only seeds source + source_url; CaptureListing
-  // extraction (fetching the listing and prefilling fields) is deferred.
+  const duplicateName = existingBusinessNames.some(
+    (name) =>
+      name.trim().toLowerCase() === businessName.trim().toLowerCase(),
+  );
+
+  function identity() {
+    return {
+      account_id: accountId,
+      business_name: businessName,
+      industry_id:
+        industryChoice === '' || industryChoice === OTHER_INDUSTRY
+          ? undefined
+          : industryChoice,
+      industry:
+        industryChoice === OTHER_INDUSTRY ? toText(otherIndustry) : undefined,
+    };
+  }
+
+  function openDeal(dealId: string) {
+    router.push(`${detailBasePath}/${dealId}`);
+  }
+
   function onListingUrl(value: string) {
     setListingUrl(value);
     setSourceUrl(value);
@@ -82,12 +119,11 @@ export function NewDealForm({
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
 
-    startTransition(async () => {
-      try {
-        const dealId = await createDeal({
-          account_id: accountId,
+    run(
+      () =>
+        createDeal({
+          ...identity(),
           description,
           source,
           source_url: toText(sourceUrl),
@@ -101,75 +137,110 @@ export function NewDealForm({
           owner_role: toText(ownerRole),
           reason_for_sale: toText(reasonForSale),
           year_established: toNumber(yearEstablished),
-        });
-
-        router.push(`${detailBasePath}/${dealId}`);
-      } catch (cause) {
-        setError(
-          cause instanceof Error ? cause.message : 'Could not create the deal',
-        );
-      }
-    });
+        }),
+      openDeal,
+    );
   }
 
-  function onExtractAndCreate() {
-    setError(null);
+  function prefill(extracted: DealIntakeDraft) {
+    const choice = industryChoiceFor(industries, extracted.industry);
 
-    startTransition(async () => {
-      try {
-        const dealId = await createDealFromIntake({
-          account_id: accountId,
-          text: intakeText,
-        });
-
-        router.push(`${detailBasePath}/${dealId}`);
-      } catch (cause) {
-        setError(
-          cause instanceof Error ? cause.message : 'Could not extract the deal',
-        );
-      }
-    });
+    setDraft(extracted);
+    setIndustryChoice(
+      choice.industry_id ?? (choice.industry ? OTHER_INDUSTRY : ''),
+    );
+    setOtherIndustry(choice.industry ?? '');
   }
 
-  function onExtractPdfAndCreate() {
+  function onExtract() {
+    run(
+      () =>
+        extractDealIntakeFromText({ account_id: accountId, text: intakeText }),
+      prefill,
+    );
+  }
+
+  function onExtractPdf() {
     if (intakePdf === null) return;
 
-    setError(null);
+    const pdf = intakePdf;
 
-    startTransition(async () => {
-      try {
-        const dealId = await createDealFromIntakePdf({
+    run(
+      async () =>
+        extractDealIntakeFromPdf({
           account_id: accountId,
-          pdf: await fileToBase64(intakePdf),
-        });
+          pdf: await fileToBase64(pdf),
+        }),
+      prefill,
+    );
+  }
 
-        router.push(`${detailBasePath}/${dealId}`);
-      } catch (cause) {
-        setError(
-          cause instanceof Error ? cause.message : 'Could not extract the deal',
-        );
-      }
-    });
+  function onCreateFromDraft(extracted: DealIntakeDraft) {
+    run(
+      () => createDealFromIntake({ ...identity(), draft: extracted }),
+      openDeal,
+    );
   }
 
   return (
     <form onSubmit={onSubmit} className={'flex max-w-2xl flex-col gap-6'}>
+      <div className={'flex flex-col gap-2'}>
+        <Label htmlFor={'business-name'}>Business name</Label>
+        <Input
+          id={'business-name'}
+          required
+          value={businessName}
+          onChange={(event) => setBusinessName(event.target.value)}
+        />
+        {duplicateName ? (
+          <p className={'text-warning text-xs'}>
+            Another deal in this team already uses this business name.
+          </p>
+        ) : null}
+      </div>
+
+      <div className={'flex flex-col gap-2'}>
+        <Label htmlFor={'industry'}>Industry</Label>
+        <Select value={industryChoice} onValueChange={setIndustryChoice}>
+          <SelectTrigger id={'industry'} className={'w-60'}>
+            <SelectValue placeholder={'Pick an industry'} />
+          </SelectTrigger>
+          <SelectContent>
+            {industries.map((industry) => (
+              <SelectItem key={industry.id} value={industry.id}>
+                {industry.name}
+              </SelectItem>
+            ))}
+            <SelectItem value={OTHER_INDUSTRY}>Other</SelectItem>
+          </SelectContent>
+        </Select>
+        {industryChoice === OTHER_INDUSTRY ? (
+          <Input
+            id={'other-industry'}
+            aria-label={'Other industry'}
+            required
+            value={otherIndustry}
+            onChange={(event) => setOtherIndustry(event.target.value)}
+          />
+        ) : null}
+      </div>
+
       <Card>
         <CardContent className={'flex flex-col gap-2 pt-6'}>
           <Label htmlFor={'intake-text'}>Create with AI from pasted text</Label>
           <Textarea
             id={'intake-text'}
             value={intakeText}
-            placeholder={'Paste a listing or CIM memo; AI extracts the deal and opens it for review'}
+            placeholder={'Paste a listing or CIM memo; AI extracts the deal for you to check'}
             onChange={(event) => setIntakeText(event.target.value)}
           />
           <Button
             type={'button'}
             variant={'outline'}
             disabled={pending || intakeText.trim() === ''}
-            onClick={onExtractAndCreate}
+            onClick={onExtract}
           >
-            {pending ? 'Extracting...' : 'Extract and create'}
+            {pending ? 'Extracting...' : 'Extract'}
           </Button>
           <Label htmlFor={'intake-pdf'}>Or upload a listing PDF</Label>
           <Input
@@ -182,10 +253,25 @@ export function NewDealForm({
             type={'button'}
             variant={'outline'}
             disabled={pending || intakePdf === null}
-            onClick={onExtractPdfAndCreate}
+            onClick={onExtractPdf}
           >
-            {pending ? 'Extracting...' : 'Extract PDF and create'}
+            {pending ? 'Extracting...' : 'Extract PDF'}
           </Button>
+          {draft !== null ? (
+            <>
+              <p className={'text-muted-foreground text-xs'}>
+                Extracted. Check the business name and industry above, then
+                create the deal.
+              </p>
+              <Button
+                type={'button'}
+                disabled={pending}
+                onClick={() => onCreateFromDraft(draft)}
+              >
+                {pending ? 'Creating...' : 'Create deal from extract'}
+              </Button>
+            </>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -200,8 +286,7 @@ export function NewDealForm({
             onChange={(event) => onListingUrl(event.target.value)}
           />
           <p className={'text-muted-foreground text-xs'}>
-            Seeds the source as marketplace. Automatic extraction is not wired up
-            yet.
+            Seeds the source as marketplace.
           </p>
         </CardContent>
       </Card>
@@ -339,8 +424,8 @@ export function NewDealForm({
         />
       </div>
 
-      {error !== null ? (
-        <p className={'text-destructive text-sm'}>{error}</p>
+      {refusal !== null ? (
+        <p className={'text-destructive text-sm'}>{refusal}</p>
       ) : null}
 
       <div>

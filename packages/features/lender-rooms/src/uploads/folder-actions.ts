@@ -23,6 +23,7 @@ import {
   MAX_FILES_AND_FOLDERS_AT_ONCE,
   MAX_FOLDERS_IN_SPACE,
 } from './paths';
+import { recordSellerFolderCreated } from './seller-uploads';
 import { inRoomOrPackage } from './targets';
 
 const ROOT_FOLDER = 1;
@@ -36,9 +37,13 @@ async function requireUnderFolderLimit(
 
   if (foldersInSpace + newFolders > MAX_FOLDERS_IN_SPACE) {
     throw new Refusal(
-      space.roomId
-        ? 'This room has reached its limit of 5,000 folders'
-        : 'The lender package has reached its limit of 5,000 folders',
+      space.counselDealId
+        ? "The Buyer's counsel folder has reached its limit of 5,000 folders"
+        : space.sellerCounselDealId
+          ? "The Seller's counsel folder has reached its limit of 5,000 folders"
+        : space.roomId || space.sellerRoomId
+          ? 'This room has reached its limit of 5,000 folders'
+          : 'The lender package has reached its limit of 5,000 folders',
     );
   }
 }
@@ -56,6 +61,10 @@ async function recordFolderCreated(
       action: 'folder_created',
       folderId,
     });
+  }
+
+  if (space.sellerRoomId) {
+    await recordSellerFolderCreated(admin, space, folderId);
   }
 }
 

@@ -5,8 +5,8 @@ import { useState } from 'react';
 import {
   type FileSource,
   fileUrl,
-} from '@odb/lender-rooms/browser/file-access.ts';
-import { FilePreviewDialog } from '@odb/lender-rooms/browser/file-preview-dialog.tsx';
+} from '@odb/lender-rooms/room-browser/file-access.ts';
+import { FilePreviewDialog } from '@odb/lender-rooms/room-browser/file-preview-dialog.tsx';
 import { cn } from '@odb/ui/utils';
 
 export function LenderFileLink({

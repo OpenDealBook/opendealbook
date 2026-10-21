@@ -1,5 +1,10 @@
-import { fundingSourceSchema } from '@odb/calculators';
 import { z } from 'zod';
+
+import {
+  fundingSourceSchema,
+  scenarioPathDriversSchema,
+  yearBasisSchema,
+} from '@odb/calculators';
 
 export const calcTypeSchema = z.enum(['sde', 'deal', 'working_capital']);
 
@@ -46,13 +51,21 @@ export const sdeLineCodeSchema = z.enum([
 
 export type SdeLineCode = z.infer<typeof sdeLineCodeSchema>;
 
-export const sdeLineSchema = z.object({
-  line_code: sdeLineCodeSchema,
-  custom_label: z.string().optional(),
-  amount: z.number(),
-});
+export const sdeLineSchema = z.discriminatedUnion('line_code', [
+  z.object({
+    line_code: sdeLineCodeSchema.exclude(['custom']),
+    amount: z.number(),
+  }),
+  z.object({
+    id: z.uuid(),
+    line_code: z.literal('custom'),
+    custom_label: z.string(),
+    amount: z.number(),
+  }),
+]);
 
 export const sdePeriodInputSchema = z.object({
+  id: z.uuid(),
   label: z.string().optional(),
   weight: z.number(),
   months: z.number().int().min(1).max(11).nullish(),
@@ -84,8 +97,10 @@ export const dealCalcInputsSchema = z.object({
   dscr_mode: z.enum(['tax_adjusted', 'sba_standard']).optional(),
   tax_rate: z.number().optional(),
   owner_salary: z.number().optional(),
-  reference_line: z.number().optional(),
+  reference_line: z.number().positive().optional(),
   buyer_equity: z.number().optional(),
+  year_basis: yearBasisSchema.optional(),
+  scenario_paths: scenarioPathDriversSchema.optional(),
 });
 
 export type DealCalcInputs = z.infer<typeof dealCalcInputsSchema>;
@@ -93,7 +108,7 @@ export type DealCalcInputs = z.infer<typeof dealCalcInputsSchema>;
 export const saveDealCalcSchema = z.object({
   calc_version_id: z.uuid(),
   inputs: dealCalcInputsSchema,
-  funding_sources: z.array(fundingSourceSchema),
+  funding_sources: z.array(fundingSourceSchema.extend({ id: z.uuid() })),
   deal_box_id: z.uuid().optional(),
   imported_from_version_id: z.uuid().optional(),
 });

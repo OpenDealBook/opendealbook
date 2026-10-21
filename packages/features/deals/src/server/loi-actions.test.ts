@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const uuid = (n: number) =>
   `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
@@ -12,12 +12,16 @@ const mocks = vi.hoisted(() => {
     docx_path: 'gen/loi.docx',
     pdf_path: 'gen/loi.pdf',
   }));
+  const checkTemplateFields = vi.fn(async () => undefined);
   const requestContractSignature = vi.fn(
     async () => 'https://sign.test/t/team/documents/envelope_doc1/edit',
   );
   const dealBoxScreenPasses = vi.fn(async () => true);
   const uploadVersion = vi.fn(async () => undefined);
-  const download = vi.fn(async () => ({ data: new Blob(['pdf']), error: null }));
+  const download = vi.fn(async () => ({
+    data: new Blob(['pdf']),
+    error: null,
+  }));
   const storageFrom = vi.fn(() => ({ download }));
 
   let offer: unknown = {
@@ -28,6 +32,15 @@ const mocks = vi.hoisted(() => {
   };
 
   let template: { id: string } | null = { id: 'tmpl-loi' };
+
+  let terms: Record<string, unknown> = {
+    schema_version: 1,
+    purchase_price: 900_000,
+  };
+
+  function setTerms(next: Record<string, unknown>) {
+    terms = next;
+  }
 
   function setTemplate(next: { id: string } | null) {
     template = next;
@@ -47,6 +60,10 @@ const mocks = vi.hoisted(() => {
     existing = [{ signing_status: signingStatus }];
   }
 
+  function clearExistingContracts() {
+    existing = [];
+  }
+
   function listFor(table: string): unknown {
     if (table === 'offer_version') {
       return [{ id: 'ver-1' }];
@@ -63,7 +80,26 @@ const mocks = vi.hoisted(() => {
       return offer;
     }
     if (table === 'offer_version') {
-      return { terms: { schema_version: 1, purchase_price: 900_000 } };
+      return {
+        terms,
+        purchase_price: 900_000,
+        target_close_date: '2026-12-01',
+        exclusivity_days: 30,
+        diligence_days: 45,
+        real_estate_portion: null,
+      };
+    }
+    if (table === 'deal') {
+      return { firm_id: 'firm-1' };
+    }
+    if (table === 'firm') {
+      return { owner_names: ['Sol Seller'] };
+    }
+    if (table === 'accounts') {
+      return { legal_entity_name: 'Buyer Holdings LLC' };
+    }
+    if (table === 'deal_terms_sought') {
+      return { seller_note_amount: 100_000 };
     }
     if (table === 'document_template') {
       return template;
@@ -118,13 +154,16 @@ const mocks = vi.hoisted(() => {
   return {
     appendDealEvent,
     generateFromTemplate,
+    checkTemplateFields,
     requestContractSignature,
     dealBoxScreenPasses,
     uploadVersion,
     storageFrom,
     from,
     setTemplate,
+    setTerms,
     setExistingContract,
+    clearExistingContracts,
     checkContractSignature,
     setOffer,
     inserted,
@@ -152,6 +191,7 @@ vi.mock('@odb/events', () => ({
 
 vi.mock('@odb/templates/server', () => ({
   generateFromTemplate: mocks.generateFromTemplate,
+  checkTemplateFields: mocks.checkTemplateFields,
   GENERATED_BUCKET: 'generated',
 }));
 
@@ -160,6 +200,7 @@ vi.mock('@odb/contracts', () => ({
   contractPdfPath: (accountId: string, contractId: string, version: number) =>
     `${accountId}/${contractId}/v${version}.pdf`,
   PDF_CONTENT_TYPE: 'application/pdf',
+  announceNewVersion: async () => undefined,
 }));
 
 vi.mock('@odb/contracts/esign', async (importOriginal) => ({
@@ -173,26 +214,20 @@ vi.mock('../shared/queries', () => ({
   dealBoxScreenPasses: mocks.dealBoxScreenPasses,
 }));
 
-import { DocumensoRejected } from '@odb/contracts/esign';
-
 import { generateLoi } from './loi-actions';
 
 type Action = (data: Record<string, unknown>) => Promise<unknown>;
 
 const run = generateLoi as unknown as Action;
-const SIGNERS = [
-  { name: 'Bea Buyer', email: 'buyer@example.com' },
-  { name: 'Sol Seller', email: 'seller@example.com' },
-];
 const REQUEST = {
   offer_id: '0b0f5a0e-58a5-4a40-9d4e-6f0f3f3c8a11',
-  signers: SIGNERS,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.setTemplate({ id: 'tmpl-loi' });
-  mocks.setExistingContract(null);
+  mocks.setTerms({ schema_version: 1, purchase_price: 900_000 });
+  mocks.clearExistingContracts();
   mocks.checkContractSignature.mockImplementation(async () => undefined);
   process.env.DOCUMENSO_URL = 'https://sign.test';
   process.env.DOCUMENSO_API_KEY = 'api_test';
@@ -226,25 +261,6 @@ describe('generateLoi', () => {
     expect(mocks.appendDealEvent).not.toHaveBeenCalled();
     expect(mocks.generateFromTemplate).not.toHaveBeenCalled();
     expect(mocks.requestContractSignature).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['no signers', [], 'Name at least one signer'],
-    [
-      'a signer without a name',
-      [{ name: ' ', email: 'buyer@example.com' }],
-      'Each signer needs a name',
-    ],
-    [
-      'a signer without a valid email address',
-      [{ name: 'Bea Buyer', email: 'buyer' }],
-      'Each signer needs a valid email address',
-    ],
-  ])('refuses %s before writing anything', async (_label, signers, refusal) => {
-    expect(await run({ ...REQUEST, signers })).toEqual({ ok: false, refusal });
-
-    expect(mocks.from).not.toHaveBeenCalled();
-    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
   });
 
   it.each(['draft', 'sent'])(
@@ -321,45 +337,87 @@ describe('generateLoi', () => {
     expect(mocks.requestContractSignature).not.toHaveBeenCalled();
   });
 
-  it('says so when Documenso does not accept the signature request', async () => {
-    mocks.requestContractSignature.mockRejectedValueOnce(
-      new DocumensoRejected('Documenso responded with 400'),
-    );
-
-    expect(await run(REQUEST)).toEqual({
-      ok: false,
-      refusal:
-        'Documenso did not accept the signature request. Check the signers and try again',
-    });
-  });
-
-  it('still throws when Documenso fails for a reason no person caused', async () => {
-    mocks.requestContractSignature.mockRejectedValueOnce(
-      new Error('Documenso responded with 500'),
-    );
-
-    await expect(run(REQUEST)).rejects.toThrow('Documenso responded with 500');
-  });
-
-  it('returns the contract version and where to place signature fields and send in Documenso', async () => {
+  it('returns the new contract version', async () => {
     expect(await run(REQUEST)).toEqual({
       ok: true,
       value: {
         contractVersionId: 'cv-1',
-        editorUrl: 'https://sign.test/t/team/documents/envelope_doc1/edit',
       },
     });
   });
 
-  it('renders the loi template with the accepted offer terms', async () => {
-    await run(REQUEST);
-
-    expect(mocks.generateFromTemplate).toHaveBeenCalledWith({
-      accountId: 'acc-1',
-      templateId: 'tmpl-loi',
-      dealId: 'deal-1',
-      fieldValues: { schema_version: 1, purchase_price: 900_000 },
+  describe('field values', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-30T15:00:00Z'));
     });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('fills names, dates, cash at close and the offer columns for the template', async () => {
+      await run(REQUEST);
+
+      expect(mocks.generateFromTemplate).toHaveBeenCalledWith({
+        accountId: 'acc-1',
+        templateId: 'tmpl-loi',
+        dealId: 'deal-1',
+        fieldValues: {
+          schema_version: 1,
+          buyer_name: 'Buyer Holdings LLC',
+          seller_name: 'Sol Seller',
+          effective_date: '2026-10-30',
+          purchase_price: 900_000,
+          cash_at_close: 800_000,
+          target_close_date: '2026-12-01',
+          exclusivity_days: 30,
+          diligence_days: 45,
+          real_estate_portion: null,
+        },
+      });
+    });
+
+    it('lets the offer terms override every default and column', async () => {
+      mocks.setTerms({
+        schema_version: 1,
+        purchase_price: 950_000,
+        buyer_name: 'Other Buyer Inc',
+        seller_name: 'Pat Seller',
+        effective_date: '2026-11-15',
+        cash_at_close: 700_000,
+        diligence_days: 60,
+      });
+
+      await run(REQUEST);
+
+      expect(mocks.generateFromTemplate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fieldValues: expect.objectContaining({
+            buyer_name: 'Other Buyer Inc',
+            seller_name: 'Pat Seller',
+            effective_date: '2026-11-15',
+            purchase_price: 950_000,
+            cash_at_close: 700_000,
+            diligence_days: 60,
+            exclusivity_days: 30,
+          }),
+        }),
+      );
+    });
+  });
+
+  it('refuses with what is missing and leaves no contract behind when the template cannot be filled', async () => {
+    mocks.checkTemplateFields.mockRejectedValueOnce(
+      new Error('Fill in: Seller name, Effective date'),
+    );
+
+    expect(await run(REQUEST)).toEqual({
+      ok: false,
+      refusal: 'Fill in: Seller name, Effective date',
+    });
+    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+    expect(mocks.generateFromTemplate).not.toHaveBeenCalled();
   });
 
   it('creates a generated version-one contract version from the render', async () => {
@@ -388,17 +446,10 @@ describe('generateLoi', () => {
     });
   });
 
-  it('requests a signature for the new contract version from the signers named, and nobody else', async () => {
+  it('requests no signature for the new contract version', async () => {
     await run(REQUEST);
 
-    expect(mocks.requestContractSignature).toHaveBeenCalledWith(
-      {
-        contractVersionId: 'cv-1',
-        dealId: 'deal-1',
-        signers: SIGNERS,
-      },
-      expect.objectContaining({ documenso: { marker: 'documenso' } }),
-    );
+    expect(mocks.requestContractSignature).not.toHaveBeenCalled();
   });
 
   it('does not advance the deal stage', async () => {

@@ -62,9 +62,9 @@ select throws_ok(
 
 -- ---- Deal-access member reaches jobs on their deal (mirrors document_chunk) ----
 select tests.login_as('ej_ext');
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.embedding_job where deal_id = 'cccccccc-0000-0000-0000-0000000000e2' $$,
-  'a participant reads embedding_job rows on their granted deal'
+  'a participant cannot read embedding_job rows on their granted deal'
 );
 
 select tests.login_as('ej_a_owner');

@@ -1,11 +1,9 @@
--- Trial window on the account. trial_ends_at is stamped at provisioning to 30
--- days out; a null value means the account is not time-limited. Both
--- provisioning paths set it, mirroring how seed_default_pipeline_stages is wired.
+-- Trial window on a team. trial_ends_at is stamped when the team is created, 30
+-- days out; a null value means the account is not time-limited. A personal
+-- account holds no deal work, so it has no trial and no pipeline.
 
 alter table public.accounts add column trial_ends_at timestamptz;
 
--- Re-created here (not in 04-accounts) because trial_ends_at only exists from
--- this file onward; the insert now stamps the trial start.
 create or replace function tuckin.provision_personal_account()
   returns trigger
   language plpgsql security definer
@@ -17,18 +15,15 @@ declare
     ''
   );
 begin
-  insert into public.accounts (id, primary_owner_user_id, name, is_personal_account, email, picture_url, trial_ends_at)
+  insert into public.accounts (id, primary_owner_user_id, name, is_personal_account, email, picture_url)
   values (
     new.id,
     new.id,
     display_name,
     true,
     new.email,
-    new.raw_user_meta_data ->> 'avatar_url',
-    now() + interval '30 days'
+    new.raw_user_meta_data ->> 'avatar_url'
   );
-
-  perform public.seed_default_pipeline_stages(new.id);
 
   return new;
 end;
@@ -60,18 +55,24 @@ $$;
 
 create or replace function public.is_trial_active(p_account_id uuid)
   returns boolean
-  language sql security definer
+  language plpgsql stable security definer
   set search_path = '' as $$
-  select exists (
+begin
+  if auth.uid() is not null and not public.has_role_on_account(p_account_id) then
+    raise exception 'not a member of this account' using errcode = 'insufficient_privilege';
+  end if;
+  return exists (
     select 1 from public.accounts a
     where a.id = is_trial_active.p_account_id
       and (a.trial_ends_at is null or a.trial_ends_at > now())
   );
+end;
 $$;
 
+revoke all on function public.is_trial_active(uuid) from public, anon;
 grant execute on function public.is_trial_active(uuid) to authenticated, service_role;
 
--- Keep any account created before this column existed consistent.
+-- Keep any team created before this column existed consistent.
 update public.accounts
   set trial_ends_at = coalesce(created_at, now()) + interval '30 days'
-  where trial_ends_at is null;
+  where trial_ends_at is null and not is_personal_account;

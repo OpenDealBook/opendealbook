@@ -2,69 +2,34 @@
 
 import { z } from 'zod';
 
-import { appendDealEvent, appendDealEvents } from '@odb/events';
-import { enhanceAction } from '@odb/next/actions';
-import type { TablesInsert } from '@odb/supabase';
+import { applyChecklistTemplateTo } from '@odb/deals/server';
+import {
+  appendDealEvent,
+  appendDealEvents,
+  type DealMilestoneSetPayload,
+} from '@odb/events';
+import {
+  type Denied,
+  refusableAction,
+} from '@odb/next/actions/refusable-action';
+import { Refusal } from '@odb/next/refusal';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
-import { buildWeeks } from './build-weeks';
+const CHECK_VIOLATION = '23514';
 
-const createScheduleSchema = z.object({
-  dealId: z.uuid(),
-  startDate: z.string(),
-  targetApaDate: z.string().optional(),
-  templateId: z.uuid().optional(),
-});
+const scheduleChange: Denied<unknown> = {
+  what: "change this deal's schedule",
+  needs: 'checklists.manage',
+};
 
-export const createSchedule = enhanceAction(
-  async (input, user) => {
-    const client = getSupabaseServerClient();
-
-    const { data: deal } = await client
-      .from('deal')
-      .select('account_id')
-      .eq('id', input.dealId)
-      .single()
-      .throwOnError();
-
-    const { data: schedule } = await client
-      .from('diligence_schedule')
-      .insert({
-        account_id: deal.account_id,
-        deal_id: input.dealId,
-        start_date: input.startDate,
-        target_apa_date: input.targetApaDate ?? null,
-        template_id: input.templateId ?? null,
-        created_by: user.id,
-      })
-      .select('*')
-      .single()
-      .throwOnError();
-
-    const weekRows: TablesInsert<'schedule_week'>[] = buildWeeks(
-      input.startDate,
-    ).map((week) => ({
-      schedule_id: schedule.id,
-      account_id: deal.account_id,
-      week_no: week.week_no,
-      theme: week.theme,
-      starts_on: week.starts_on,
-    }));
-
-    const { data: weeks } = await client
-      .from('schedule_week')
-      .insert(weekRows)
-      .select('*')
-      .throwOnError();
-
-    return { schedule, weeks };
-  },
-  { auth: true, schema: createScheduleSchema },
-);
+const dealScheduleChange: Denied<{ dealId: string }> = {
+  ...scheduleChange,
+  dealId: (input) => input.dealId,
+};
 
 const scheduleIdSchema = z.object({ scheduleId: z.uuid() });
 
-export const proposeSchedule = enhanceAction(
+export const proposeSchedule = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -78,10 +43,11 @@ export const proposeSchedule = enhanceAction(
 
     return data;
   },
-  { auth: true, schema: scheduleIdSchema },
+  scheduleIdSchema,
+  scheduleChange,
 );
 
-export const acceptSchedule = enhanceAction(
+export const acceptSchedule = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -95,7 +61,8 @@ export const acceptSchedule = enhanceAction(
 
     return data;
   },
-  { auth: true, schema: scheduleIdSchema },
+  scheduleIdSchema,
+  scheduleChange,
 );
 
 const assignItemToWeekSchema = z.object({
@@ -103,7 +70,7 @@ const assignItemToWeekSchema = z.object({
   weekId: z.uuid(),
 });
 
-export const assignItemToWeek = enhanceAction(
+export const assignItemToWeek = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -122,12 +89,13 @@ export const assignItemToWeek = enhanceAction(
       payload: { schedule_week_id: input.weekId },
     });
   },
-  { auth: true, schema: assignItemToWeekSchema },
+  assignItemToWeekSchema,
+  scheduleChange,
 );
 
 const slipUnreceivedSchema = z.object({ weekId: z.uuid() });
 
-export const slipUnreceived = enhanceAction(
+export const slipUnreceived = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -179,7 +147,8 @@ export const slipUnreceived = enhanceAction(
 
     return slipped;
   },
-  { auth: true, schema: slipUnreceivedSchema },
+  slipUnreceivedSchema,
+  scheduleChange,
 );
 
 const sellerWeekViewSchema = z.object({
@@ -187,7 +156,7 @@ const sellerWeekViewSchema = z.object({
   weekNo: z.number().int(),
 });
 
-export const sellerWeekView = enhanceAction(
+export const sellerWeekView = refusableAction(
   async (input) => {
     const client = getSupabaseServerClient();
 
@@ -222,5 +191,103 @@ export const sellerWeekView = enhanceAction(
 
     return { week, items, questions };
   },
-  { auth: true, schema: sellerWeekViewSchema },
+  sellerWeekViewSchema,
+);
+
+const scheduleFromTemplateSchema = z.object({
+  dealId: z.uuid(),
+  templateId: z.uuid(),
+  startDate: z.iso.date(),
+});
+
+export const scheduleFromTemplate = refusableAction(
+  async (input, user) => {
+      const client = getSupabaseServerClient();
+
+      await applyChecklistTemplateTo(client, {
+        dealId: input.dealId,
+        templateId: input.templateId,
+      });
+      await client
+        .rpc('create_diligence_schedule', {
+          p_deal_id: input.dealId,
+          p_start_date: input.startDate,
+          p_template_id: input.templateId,
+          p_created_by: user.id,
+        })
+        .throwOnError();
+    },
+  scheduleFromTemplateSchema,
+  dealScheduleChange,
+);
+
+const scheduleFromLoiSignedSchema = z.object({
+  dealId: z.uuid(),
+  signedOn: z.iso.date(),
+});
+
+export const scheduleFromLoiSigned = refusableAction(
+  async (input, user) => {
+      const client = getSupabaseServerClient();
+      const { data: existing } = await client
+        .from('deal_milestone')
+        .select('id, target_on, shared')
+        .eq('deal_id', input.dealId)
+        .eq('kind', 'loi_signed')
+        .maybeSingle()
+        .throwOnError();
+
+      await appendDealEvent(client, {
+        dealId: input.dealId,
+        aggregateType: 'deal_milestone',
+        aggregateId: existing?.id ?? crypto.randomUUID(),
+        eventType: 'deal_milestone.set',
+        payload: {
+          kind: 'loi_signed',
+          target_on: existing?.target_on ?? null,
+          actual_on: input.signedOn,
+          shared: existing?.shared ?? true,
+        } satisfies DealMilestoneSetPayload,
+      }).catch((error: { code?: string }) => {
+        if (error.code === CHECK_VIOLATION) {
+          throw new Refusal('An LOI signed date cannot be in the future.');
+        }
+        throw error;
+      });
+
+      const { data: deal } = await client
+        .from('deal')
+        .select('account_id')
+        .eq('id', input.dealId)
+        .single()
+        .throwOnError();
+      const { data: template } = await client
+        .from('checklist_template')
+        .select('id')
+        .eq('account_id', deal.account_id)
+        .eq('kind', 'diligence')
+        .eq('is_default', true)
+        .maybeSingle()
+        .throwOnError();
+
+      if (template) {
+        await applyChecklistTemplateTo(client, {
+          dealId: input.dealId,
+          templateId: template.id,
+        });
+      }
+
+      await client
+        .rpc('create_diligence_schedule', {
+          p_deal_id: input.dealId,
+          p_start_date: input.signedOn,
+          p_created_by: user.id,
+        })
+        .throwOnError();
+      await client
+        .rpc('recompute_checklist_due_dates', { p_deal_id: input.dealId })
+        .throwOnError();
+    },
+  scheduleFromLoiSignedSchema,
+  dealScheduleChange,
 );

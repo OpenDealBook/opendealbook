@@ -33,6 +33,7 @@ create policy seller_question_read on public.seller_question
   using (
     public.has_role_on_account(account_id)
     or public.has_deal_permission(deal_id, 'checklists.manage')
+    or public.is_deal_seller(deal_id)
   );
 
 create policy seller_question_insert on public.seller_question

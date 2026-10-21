@@ -1,0 +1,40 @@
+{
+  "name": "@odb/deal-updates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
+  },
+  "dependencies": {
+    "@odb/deal-people": "workspace:*",
+    "@odb/lender-rooms": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/notifications": "workspace:*",
+    "@odb/shared": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@odb/workflows": "workspace:*",
+    "server-only": "^0.0.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@odb/seller-rooms": "workspace:*",
+    "@odb/tsconfig": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

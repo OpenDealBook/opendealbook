@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { saveDealOperatingPeriod } from '@odb/deals/server';
 import type { OperatingSummary, OperatingVariance } from '@odb/deals/shared';
@@ -20,6 +18,7 @@ import {
 } from '@odb/ui/select';
 
 import { trendBarHeights } from './deal-operating-trend';
+import { useRefusableAction } from './use-refusable-action';
 
 const NO_DATA = 'No data';
 const NEW_MONTH = '__new__';
@@ -80,8 +79,7 @@ export function DealOperating(props: {
   periods: Tables<'deal_operating_period'>[];
   summary: OperatingSummary;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { refusal, pending, run } = useRefusableAction();
 
   const [selectedMonth, setSelectedMonth] = useState(NEW_MONTH);
   const [periodMonth, setPeriodMonth] = useState('');
@@ -123,8 +121,8 @@ export function DealOperating(props: {
       return;
     }
 
-    startTransition(async () => {
-      await saveDealOperatingPeriod({
+    run(() =>
+      saveDealOperatingPeriod({
         deal_id: props.dealId,
         period_month: `${periodMonth}-01`,
         revenue: toNumber(revenue),
@@ -132,9 +130,8 @@ export function DealOperating(props: {
         opex: toNumber(opex),
         cash_balance: toNumber(cashBalance),
         headcount: toNumber(headcount),
-      });
-      router.refresh();
-    });
+      }),
+    );
   }
 
   const latest = props.summary.latest;
@@ -329,6 +326,11 @@ export function DealOperating(props: {
           <Button disabled={pending || periodMonth.trim() === ''} onClick={save}>
             Save month
           </Button>
+          {refusal ? (
+            <p role={'alert'} className={'text-destructive text-sm'}>
+              {refusal}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </div>

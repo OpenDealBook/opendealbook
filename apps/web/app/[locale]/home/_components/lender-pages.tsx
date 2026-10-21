@@ -14,6 +14,12 @@ import type { MarkedRoomFolder } from '@odb/lender-rooms/contents/listing.ts';
 import { loadRoomListing } from '@odb/lender-rooms/contents/load-listing.ts';
 import { loadPackageListing } from '@odb/lender-rooms/contents/load-package.ts';
 import { listFormSignatures } from '@odb/lender-rooms/esign/queries.ts';
+import { canAddToFaq } from '@odb/lender-rooms/faq/answered.ts';
+import { prefillFaqEntry } from '@odb/lender-rooms/faq/prefill.ts';
+import {
+  fetchDealFaq,
+  listDealDocuments,
+} from '@odb/lender-rooms/faq/team-queries.ts';
 import { getForm } from '@odb/lender-rooms/forms/queries.ts';
 import {
   listLenderMembers,
@@ -27,9 +33,15 @@ import {
 import { newestSignature } from '@odb/lender-rooms/requests-ui/request-access.ts';
 import { openRequestCounts } from '@odb/lender-rooms/requests-ui/wording.ts';
 import { listLenderRooms } from '@odb/lender-rooms/rooms/actions.ts';
-import { getSupabaseServerClient } from '@odb/supabase/server';
+import { closeState } from '@odb/lender-rooms/rooms/closing.ts';
+import {
+  getSupabaseServerAdminClient,
+  getSupabaseServerClient,
+} from '@odb/supabase/server';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@odb/ui/tabs';
 
+import { LenderFaqManager } from './lender-faq-manage';
+import { LenderFaqSubnav } from './lender-faq-subnav';
 import { managesDeal } from './lender-manages-deal';
 import { LenderMark } from './lender-mark';
 import { LenderPackage } from './lender-package';
@@ -132,18 +144,64 @@ export async function LenderRoomsPage({
         peopleCount: loaded.members.length,
         waitingOnUs: waitingOnUs(loaded.requests),
         lastActivityAt: lastLenderActivityAt(loaded.activity),
+        lastActionAt: lastLenderActivityAt(
+          loaded.activity.filter(
+            (entry) =>
+              !(entry.kind === 'recorded' && entry.action === 'room_opened'),
+          ),
+        ),
       };
     }),
   );
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
+      <LenderFaqSubnav basePath={basePath} />
       <LenderRoomsOverview
         dealId={dealId}
         basePath={basePath}
         rows={orderRooms(rows)}
       />
       <LenderPackage accountSlug={accountSlug} dealId={dealId} pkg={pkg} />
+    </main>
+  );
+}
+
+export async function LenderFaqPage({
+  dealId,
+  accountId,
+  basePath,
+}: {
+  dealId: string;
+  accountId: string;
+  basePath: string;
+}) {
+  await requireManagedDeal(dealId, accountId);
+  const client = getSupabaseServerClient();
+
+  const [entries, rooms, documents] = await Promise.all([
+    fetchDealFaq(client, dealId),
+    listLenderRooms({ dealId }).then(acceptedOrNotFound),
+    listDealDocuments(client, dealId),
+  ]);
+
+  return (
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
+      <LenderFaqSubnav basePath={basePath} />
+      <header className={'flex flex-col gap-3'}>
+        <h1 className={'font-serif text-3xl leading-tight font-medium'}>
+          Lender FAQ
+        </h1>
+        <p className={'text-muted-foreground max-w-2xl'}>
+          Published entries show in every lender room on this deal, pinned ones
+          first. Untick a room to keep an entry out of it.
+        </p>
+      </header>
+      <LenderFaqManager
+        entries={entries}
+        rooms={rooms.map(({ id, name }) => ({ id, name }))}
+        documents={documents}
+      />
     </main>
   );
 }
@@ -185,17 +243,25 @@ export async function LenderRoomPage({
   const room = await requireManagedRoom(address);
   const client = getSupabaseServerClient();
 
-  const [loaded, removed, listing, seenBy] = await Promise.all([
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  const [loaded, removed, listing, seenBy, closing] = await Promise.all([
     loadRoom(roomId),
     listRemovedLenderMembers({ roomId }).then(acceptedOrNotFound),
     loadDealTeamListing(roomId),
     fetchSeenBy(client, roomId),
+    closeState(
+      getSupabaseServerAdminClient(),
+      { kind: 'lender', roomId },
+      user!.id,
+    ),
   ]);
   const waiting = waitingOnUs(loaded.requests);
   const roomPath = `${basePath}/${roomId}`;
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <header className={'flex flex-col gap-4'}>
         <Link
           href={basePath}
@@ -205,21 +271,25 @@ export async function LenderRoomPage({
         >
           All lenders
         </Link>
-        <div className={'flex items-center gap-4'}>
+        <div className={'flex flex-wrap items-center gap-4'}>
           <LenderMark
             name={room.name}
             initials={loaded.initials}
             logoUrl={loaded.logoUrl}
             className={'size-14 text-xl'}
           />
-          <h1 className={'font-serif text-3xl leading-tight font-medium'}>
+          <h1
+            className={
+              'min-w-0 font-serif text-3xl leading-tight font-medium break-words'
+            }
+          >
             {room.name}
           </h1>
           <RoomStatusBadge status={room.status} />
         </div>
       </header>
       <Tabs defaultValue={roomTab(tab)} className={'gap-6'}>
-        <TabsList>
+        <TabsList className={'max-w-full justify-start overflow-x-auto'}>
           <TabsTrigger value={'requests'}>
             Requests{waiting > 0 ? ` (${waitingOnUsWording(waiting)})` : ''}
           </TabsTrigger>
@@ -269,6 +339,7 @@ export async function LenderRoomPage({
                 isOpen: loaded.view.is_open,
               }),
               welcomeNote: loaded.view.welcome_note,
+              closing,
             }}
           />
         </TabsContent>
@@ -323,14 +394,17 @@ export async function LenderRequestPage({
       ? await getAsk(client, requestId)
       : await getForm(client, requestId);
 
-  const [thread, listing, signatures] = await Promise.all([
+  const [thread, listing, signatures, faqPrefill] = await Promise.all([
     loadThread(client, request),
     loadDealTeamListing(roomId),
     kind === 'form' ? listFormSignatures(client, requestId) : [],
+    kind === 'ask' && canAddToFaq(request)
+      ? prefillFaqEntry(client, requestId)
+      : null,
   ]);
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <header className={'flex flex-col gap-3'}>
         <Link
           href={`${basePath}/${roomId}?tab=requests`}
@@ -373,6 +447,13 @@ export async function LenderRequestPage({
         )}
         packageFolders={packageFolderPaths(listing.master)}
         signatures={signatures}
+        faq={
+          faqPrefill && {
+            dealId: address.dealId,
+            faqPath: `${basePath}/faq`,
+            prefill: faqPrefill,
+          }
+        }
       />
     </main>
   );

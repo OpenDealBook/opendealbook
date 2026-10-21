@@ -36,7 +36,11 @@ export function DealIntakeRerun({ dealId }: { dealId: string }) {
     setError(null);
     startTransition(async () => {
       try {
-        await rerunDealIntake({ deal_id: dealId, text });
+        const result = await rerunDealIntake({ deal_id: dealId, text });
+        if (!result.ok) {
+          setError(result.refusal);
+          return;
+        }
         setOpen(false);
         setText('');
         router.refresh();
@@ -54,7 +58,14 @@ export function DealIntakeRerun({ dealId }: { dealId: string }) {
     setError(null);
     startTransition(async () => {
       try {
-        await rerunDealIntakePdf({ deal_id: dealId, pdf: await fileToBase64(pdf) });
+        const result = await rerunDealIntakePdf({
+          deal_id: dealId,
+          pdf: await fileToBase64(pdf),
+        });
+        if (!result.ok) {
+          setError(result.refusal);
+          return;
+        }
         setOpen(false);
         setPdf(null);
         router.refresh();
@@ -69,7 +80,7 @@ export function DealIntakeRerun({ dealId }: { dealId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={'outline'} size={'sm'}>
+        <Button variant={'ghost'} size={'sm'}>
           Re-extract with AI
         </Button>
       </DialogTrigger>

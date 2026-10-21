@@ -7,7 +7,7 @@ import {
 
 import type * as activities from '../activities';
 
-const { createNotification } = proxyActivities<typeof activities>({
+const { createNotification, isTeamLocked } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 });
 
@@ -33,6 +33,10 @@ export async function weeklyMeetingCadence(
 
     if (!running) {
       break;
+    }
+
+    if (await isTeamLocked({ accountId: input.accountId })) {
+      continue;
     }
 
     await createNotification({

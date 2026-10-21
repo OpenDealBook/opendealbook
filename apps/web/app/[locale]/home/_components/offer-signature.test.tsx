@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { type ComponentProps, act } from 'react';
+import type { ComponentProps } from 'react';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,17 +7,14 @@ import {
   alerts,
   button,
   buttonNames,
-  buttons,
   clearScreen,
   dialogText,
   fakeServer,
-  field,
   linkTo,
   links,
   pageText,
   press,
   show,
-  type,
 } from './lender-test-kit';
 import { OfferLifecycleActions } from './offer-editor';
 
@@ -52,74 +49,45 @@ function showOffer(signatures: Signatures) {
   );
 }
 
-async function confirmInDialog(name: string) {
-  await act(async () => {
-    buttons(name).at(-1)!.click();
-  });
-}
-
 beforeEach(() => fakeServer.reset());
 
 afterEach(clearScreen);
 
 describe('LOI and APA signature requests on an accepted offer', () => {
-  it('asks who signs the LOI and requests it for those signers', async () => {
+  it('offers no revision, submit, accept, reject, or withdraw on an accepted offer', () => {
     showOffer({ loi: null, apa: null, canGenerate: both });
 
-    expect(links()).toEqual([]);
-    expect(buttonNames()).not.toContain('Check LOI signature status');
+    expect(buttonNames()).toEqual(['Generate LOI', 'Generate APA']);
+  });
 
-    await press('Request LOI signature');
+  it('generates the LOI as a new version without asking who signs it', async () => {
+    showOffer({ loi: null, apa: null, canGenerate: both });
 
-    expect(dialogText()).toContain('Request LOI signature');
+    await press('Generate LOI');
 
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
-    await press('Add signer');
-    await type('Signer 2 name', 'Sam Seller');
-    await type('Signer 2 email', 'sam@seller.com');
-    await confirmInDialog('Request LOI signature');
-
-    expect(fakeServer.inputsTo('generateLoi')).toEqual([
-      {
-        offer_id: OFFER,
-        signers: [
-          { name: 'Zac Clifton', email: 'zac@buyer.com' },
-          { name: 'Sam Seller', email: 'sam@seller.com' },
-        ],
-      },
-    ]);
     expect(dialogText()).toBeNull();
+    expect(fakeServer.inputsTo('generateLoi')).toEqual([{ offer_id: OFFER }]);
     expect(fakeServer.refreshes).toBe(1);
+    expect(pageText()).toContain(
+      'Review and send it for signature under Contracts.',
+    );
   });
 
   it('does the same for the APA', async () => {
     showOffer({ loi: null, apa: null, canGenerate: both });
 
-    await press('Request APA signature');
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
-    await confirmInDialog('Request APA signature');
+    await press('Generate APA');
 
-    expect(fakeServer.inputsTo('generateApa')).toEqual([
-      {
-        offer_id: OFFER,
-        signers: [{ name: 'Zac Clifton', email: 'zac@buyer.com' }],
-      },
-    ]);
+    expect(fakeServer.inputsTo('generateApa')).toEqual([{ offer_id: OFFER }]);
   });
 
-  it('shows a refusal as given and keeps the dialog and the typed signers', async () => {
+  it('shows a refusal as given', async () => {
     fakeServer.refusal = 'whatever the server says';
     showOffer({ loi: null, apa: null, canGenerate: both });
 
-    await press('Request LOI signature');
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
-    await confirmInDialog('Request LOI signature');
+    await press('Generate LOI');
 
     expect(alerts()).toEqual(['whatever the server says']);
-    expect(field('Signer 1 name').value).toBe('Zac Clifton');
     expect(fakeServer.refreshes).toBe(0);
   });
 
@@ -182,8 +150,8 @@ describe('LOI and APA signature requests on an accepted offer', () => {
       canGenerate: { loi: false, apa: false },
     });
 
-    expect(button('Request LOI signature').disabled).toBe(true);
-    expect(button('Request APA signature').disabled).toBe(true);
+    expect(button('Generate LOI').disabled).toBe(true);
+    expect(button('Generate APA').disabled).toBe(true);
     expect(pageText()).toContain('LOI: Signed');
     expect(pageText()).toContain('APA: Out for signature');
     expect(links()).toEqual([]);

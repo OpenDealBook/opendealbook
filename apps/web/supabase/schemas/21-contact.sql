@@ -7,6 +7,7 @@ create table if not exists public.contact (
   name varchar(255) not null,
   email varchar(320),
   phone text,
+  company text,
   kind text not null default 'other',
   created_at timestamptz,
   updated_at timestamptz,

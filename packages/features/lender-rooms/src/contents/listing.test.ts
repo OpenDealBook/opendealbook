@@ -44,7 +44,6 @@ function document(
     account_id: 'account',
     deal_id: 'deal',
     storage_path: `deal/${id}`,
-    checklist_item_id: null,
     removed_at: null,
     updated_at: null,
     uploaded_by: null,

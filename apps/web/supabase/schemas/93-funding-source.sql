@@ -18,6 +18,7 @@ create table if not exists public.funding_source (
   term_years numeric,
   guarantee_fee numeric,
   standby_months int,
+  after_standby text check (after_standby in ('remaining_term', 'full_term_after_standby')),
   notes text,
   created_at timestamptz,
   updated_at timestamptz,
@@ -47,13 +48,13 @@ create policy funding_source_read on public.funding_source
 
 create policy funding_source_insert on public.funding_source
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy funding_source_update on public.funding_source
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy funding_source_delete on public.funding_source
   for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'));

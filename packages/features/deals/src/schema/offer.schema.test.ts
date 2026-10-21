@@ -76,6 +76,35 @@ describe('offerTermsSchema', () => {
     ).toBe(false);
   });
 
+  it('keeps a stated effective_date', () => {
+    const parsed = offerTermsSchema.parse({
+      ...fullTerms,
+      effective_date: '2026-12-15',
+    });
+    expect(parsed.effective_date).toBe('2026-12-15');
+  });
+
+  it('keeps stated buyer and seller names', () => {
+    const parsed = offerTermsSchema.parse({
+      ...fullTerms,
+      buyer_name: 'Buyer Holdings LLC',
+      seller_name: 'Sol Seller',
+    });
+    expect([parsed.buyer_name, parsed.seller_name]).toEqual([
+      'Buyer Holdings LLC',
+      'Sol Seller',
+    ]);
+  });
+
+  it('rejects an effective_date that is not a calendar date', () => {
+    expect(
+      offerTermsSchema.safeParse({
+        ...fullTerms,
+        effective_date: '2026-12-15T09:00:00Z',
+      }).success,
+    ).toBe(false);
+  });
+
   it('rejects an invalid contingency type', () => {
     expect(
       offerTermsSchema.safeParse({
@@ -129,10 +158,7 @@ describe('diffOfferTerms', () => {
   it('detects an added contingency', () => {
     const next: OfferTerms = {
       ...base,
-      contingencies: [
-        ...base.contingencies!,
-        { type: 'landlord_approval' },
-      ],
+      contingencies: [...base.contingencies!, { type: 'landlord_approval' }],
     };
     expect(diffOfferTerms(base, next)).toEqual([
       {

@@ -22,10 +22,15 @@ package opendealbook
 
 	// Marketing route-group toggle for apps/web. Derived from mode:
 	// internal -> true, public -> false. Rendered into the web pod as the
-	// NEXT_PUBLIC_ENABLE_MARKETING env var (a Helm hole so one chart serves
-	// both instances). NOTE: apps/web does not yet read this var; the app
-	// lane must wire feature-flags.config.ts to it (see README).
+	// ENABLE_MARKETING env var (a Helm hole so one chart serves both
+	// instances). apps/web reads it on the server at request time.
 	marketing: enabled: bool & (mode == "internal")
+
+	// Billing toggle for apps/web, rendered into the web pod as the
+	// ENABLE_BILLING env var, which apps/web reads on the server at request
+	// time. false runs a self-hosted install with no trial limits, billing
+	// pages, Stripe, or trial emails.
+	billing: enabled: bool | *true
 
 	image: {
 		repository: string

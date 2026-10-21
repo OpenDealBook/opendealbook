@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => {
       singleMode = true;
       return builder;
     };
+    builder.maybeSingle = builder.single;
     builder.eq = (column: string, value: unknown) => {
       eqSpy(table, column, value);
       return builder;
@@ -69,8 +70,18 @@ const mocks = vi.hoisted(() => {
   const from = vi.fn((table: string) => makeBuilder(table));
   const client = { from };
 
-  return { eqSpy, inSpy, updateSpy, appendSpy, appendEventsSpy, from, client };
+  return {
+    eqSpy,
+    inSpy,
+    updateSpy,
+    appendSpy,
+    appendEventsSpy,
+    from,
+    client,
+  };
 });
+
+vi.mock('@odb/deals/server', () => ({ applyChecklistTemplateTo: vi.fn() }));
 
 vi.mock('@odb/next/actions', () => ({
   enhanceAction: (fn: unknown) => fn,
@@ -91,7 +102,16 @@ vi.mock('@odb/events', () => ({
   },
 }));
 
-import { assignItemToWeek, sellerWeekView, slipUnreceived } from './actions';
+import {
+  assignItemToWeek,
+  sellerWeekView,
+  slipUnreceived,
+} from './actions';
+
+const ITEM_ID = '5f675954-8b8a-402f-856d-555c3b0635f5';
+const WEEK_7 = '2b9e4c1a-7d3f-4e8a-9b6c-1f2e3d4c5b6a';
+const WEEK_3 = '3c0f5d2b-8e4a-4f9b-8c7d-2a3b4c5d6e7f';
+const DEAL_ID = '6221ddef-b8e9-484f-8bb8-0967d8e16a30';
 
 type Action = (data: Record<string, unknown>) => Promise<unknown>;
 
@@ -106,8 +126,8 @@ beforeEach(() => {
 describe('assignItemToWeek', () => {
   it('reschedules the item onto the target week via a deal event', async () => {
     await runAssignItemToWeek({
-      checklistItemId: 'item-1',
-      weekId: 'week-7',
+      checklistItemId: ITEM_ID,
+      weekId: WEEK_7,
     });
 
     expect(mocks.appendSpy).toHaveBeenCalledTimes(1);
@@ -121,16 +141,16 @@ describe('assignItemToWeek', () => {
     expect(input).toMatchObject({
       dealId: 'deal-1',
       aggregateType: 'checklist_item',
-      aggregateId: 'item-1',
+      aggregateId: ITEM_ID,
       eventType: 'checklist_item.rescheduled',
-      payload: { schedule_week_id: 'week-7' },
+      payload: { schedule_week_id: WEEK_7 },
     });
   });
 });
 
 describe('slipUnreceived', () => {
   it('reschedules every unreceived item into the next week in one batch', async () => {
-    await runSlipUnreceived({ weekId: 'week-3' });
+    await runSlipUnreceived({ weekId: WEEK_3 });
 
     expect(mocks.appendEventsSpy).toHaveBeenCalledTimes(1);
 
@@ -164,7 +184,7 @@ describe('slipUnreceived', () => {
   });
 
   it('tags the source week as slipped', async () => {
-    await runSlipUnreceived({ weekId: 'week-3' });
+    await runSlipUnreceived({ weekId: WEEK_3 });
 
     const weekTag = mocks.updateSpy.mock.calls.find(
       ([table]) => table === 'schedule_week',
@@ -176,7 +196,7 @@ describe('slipUnreceived', () => {
 
 describe('sellerWeekView', () => {
   it('returns only the requested week of checklist items and seller questions', async () => {
-    await runSellerWeekView({ dealId: 'deal-1', weekNo: 4 });
+    await runSellerWeekView({ dealId: DEAL_ID, weekNo: 4 });
 
     const itemScope = mocks.eqSpy.mock.calls.filter(
       ([table, column]) =>

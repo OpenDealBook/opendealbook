@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
+  DocumensoRejected,
   type SignatureState,
   handleContractSignatureEvent,
 } from '@odb/contracts/esign';
@@ -40,6 +41,9 @@ const documenso = vi.hoisted(() => {
       deleteDraft: async (documentId: string) => {
         states.delete(documentId);
       },
+      cancelSent: async (documentId: string) => {
+        states.set(documentId, 'cancelled');
+      },
       editorUrl: async (documentId: string) => {
         editorLookup.calls += 1;
 
@@ -49,8 +53,13 @@ const documenso = vi.hoisted(() => {
 
         return editorUrlOf(documentId);
       },
-      signatureState: async (documentId: string) =>
-        (states.get(documentId) ?? 'missing') as SignatureState,
+      signatureState: async (documentId: string) => {
+        const state = (states.get(documentId) ?? 'missing') as SignatureState;
+
+        return state === 'completed'
+          ? { state, completedOn: new Date().toISOString().slice(0, 10) }
+          : { state };
+      },
       downloadSignedPdf: async (documentId: string) =>
         Buffer.from(signedPdf.override ?? `%PDF-1.7 signed ${documentId}`),
     },
@@ -70,6 +79,7 @@ vi.mock('@odb/supabase/server', () => ({
 }));
 
 vi.mock('@odb/templates/server', () => ({
+  checkTemplateFields: vi.fn(async () => undefined),
   generateFromTemplate: vi.fn(
     async (input: {
       accountId: string;
@@ -124,8 +134,11 @@ import {
   createCalcVersion,
   saveDealCalc,
 } from './calc-actions';
-import { checkContractSignatureStatus } from './contract-signature-actions';
-import { createDeal } from './deal-actions';
+import {
+  checkContractSignatureStatus,
+  sendContractForSignature,
+} from './contract-signature-actions';
+import { createDealCore } from './deal-actions';
 import { generateLoi } from './loi-actions';
 import { acceptOffer, createOffer, submitOffer } from './offer-actions';
 
@@ -177,34 +190,45 @@ function firstVersion(price: number) {
 }
 
 async function newDeal(description: string): Promise<string> {
-  return (await (createDeal as unknown as Action)(
+  return await createDealCore(
+    account.user,
     {
       account_id: account.accountId,
+      business_name: description,
+      industry: 'Accounting',
       description,
       source: 'manual',
       stage: 'sourcing',
     },
-    actor,
-  )) as string;
+    actor.id,
+  );
 }
 
 async function acceptedOffer(dealId: string, price: number): Promise<string> {
-  const offerId = (await (createOffer as unknown as Action)(
-    { deal_id: dealId, first_version: firstVersion(price) },
-    actor,
-  )) as string;
+  const offerId = (
+    (await (createOffer as unknown as Action)(
+      { deal_id: dealId, first_version: firstVersion(price) },
+      actor,
+    )) as { value: string }
+  ).value;
   await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
   await (acceptOffer as unknown as Action)({ offer_id: offerId }, actor);
   return offerId;
 }
 
 async function adoptFinancials(dealId: string): Promise<void> {
-  const calcVersionId = (await (createCalcVersion as unknown as Action)(
-    { deal_id: dealId, type: 'deal' },
-    actor,
-  )) as string;
+  const calcVersionId = (
+    (await (createCalcVersion as unknown as Action)(
+      { deal_id: dealId, type: 'deal' },
+      actor,
+    )) as { value: string }
+  ).value;
   await (saveDealCalc as unknown as Action)(
-    { calc_version_id: calcVersionId, inputs: dealInputs, funding_sources: funding },
+    {
+      calc_version_id: calcVersionId,
+      inputs: dealInputs,
+      funding_sources: funding,
+    },
     actor,
   );
   await (adoptCalcVersion as unknown as Action)(
@@ -269,10 +293,16 @@ async function signedContractFolders(dealId: string) {
 }
 
 function generate(offerId: string) {
-  return (generateLoi as unknown as Action)({
-    offer_id: offerId,
-    signers: SIGNERS,
-  });
+  return (generateLoi as unknown as Action)({ offer_id: offerId });
+}
+
+async function send(dealId: string) {
+  const { id } = await signing(dealId);
+
+  return (sendContractForSignature as unknown as Action)(
+    { contract_version_id: id, signers: SIGNERS },
+    actor,
+  );
 }
 
 async function loiReady(description: string) {
@@ -286,6 +316,7 @@ async function loiReady(description: string) {
 async function generatedLoi(description: string) {
   const { dealId, offerId } = await loiReady(description);
   await generate(offerId);
+  await send(dealId);
 
   return dealId;
 }
@@ -315,7 +346,7 @@ afterAll(async () => {
 });
 
 describe('generateLoi (integration)', () => {
-  it('renders the loi, creates a contract version, and drafts its signature request in Documenso while the deal stays at loi_submitted', async () => {
+  it('renders the loi as a new version, drafting no signature request, while the deal stays at loi_submitted', async () => {
     const dealId = await newDeal('Generate LOI deal');
     const offerId = await acceptedOffer(dealId, 900_000);
     await adoptFinancials(dealId);
@@ -326,8 +357,9 @@ describe('generateLoi (integration)', () => {
       .eq('id', offerId)
       .single();
 
+    const draftsBefore = documenso.states.size;
     const generated = await (generateLoi as unknown as Action)(
-      { offer_id: offerId, signers: SIGNERS },
+      { offer_id: offerId },
       actor,
     );
 
@@ -378,16 +410,12 @@ describe('generateLoi (integration)', () => {
       .download(versions?.[0]?.pdf_path as string);
     expect(signable.error).toBeNull();
 
-    const requested = await signing(dealId);
-    expect(requested.signing_document_id).toMatch(/^envelope_[0-9a-f]{16}$/);
-    expect(documenso.states.get(requested.signing_document_id!)).toBe('draft');
     expect(generated).toEqual({
       ok: true,
-      value: {
-        contractVersionId: requested.id,
-        editorUrl: documenso.editorUrlOf(requested.signing_document_id!),
-      },
+      value: { contractVersionId: versions?.[0]?.id },
     });
+    expect((await signing(dealId)).signing_document_id).toBeNull();
+    expect(documenso.states.size).toBe(draftsBefore);
 
     const { data: deal } = await account.admin
       .from('deal')
@@ -396,6 +424,71 @@ describe('generateLoi (integration)', () => {
       .single();
 
     expect(deal?.stage).toBe('loi_submitted');
+  });
+
+  it('drafts the signature request for the loi, which needs no counsel sign-off, and says where to place fields', async () => {
+    const { dealId, offerId } = await loiReady('Sent for signature LOI deal');
+    await generate(offerId);
+
+    const sent = await send(dealId);
+
+    const requested = await signing(dealId);
+    expect(requested.signing_document_id).toMatch(/^envelope_[0-9a-f]{16}$/);
+    expect(documenso.states.get(requested.signing_document_id!)).toBe('draft');
+    expect(sent).toEqual({
+      ok: true,
+      value: {
+        editorUrl: documenso.editorUrlOf(requested.signing_document_id!),
+      },
+    });
+    expect(requested.stage).toBe('loi_submitted');
+  });
+
+  it('says so when Documenso does not accept the signature request, recording no draft', async () => {
+    const { dealId, offerId } = await loiReady('Rejected request LOI deal');
+    await generate(offerId);
+    const { createDraft } = documenso.client;
+    documenso.client.createDraft = async () => {
+      throw new DocumensoRejected('Documenso responded with 400');
+    };
+
+    try {
+      expect(await send(dealId)).toEqual({
+        ok: false,
+        refusal:
+          'Documenso did not accept the signature request. Check the signers and try again',
+      });
+    } finally {
+      documenso.client.createDraft = createDraft;
+    }
+    expect((await signing(dealId)).signing_document_id).toBeNull();
+  });
+
+  it('logs the generated LOI as an added version', async () => {
+    const dealId = await newDeal('Generated LOI event deal');
+    const offerId = await acceptedOffer(dealId, 900_000);
+    await adoptFinancials(dealId);
+
+    await (generateLoi as unknown as Action)({ offer_id: offerId }, actor);
+
+    const { data: version } = await account.admin
+      .from('contract_version')
+      .select('id, contract!inner(deal_id)')
+      .eq('contract.deal_id', dealId)
+      .single()
+      .throwOnError();
+    const { data: events } = await account.admin
+      .from('deal_event')
+      .select('event_type, payload')
+      .eq('deal_id', dealId)
+      .eq('event_type', 'contract.version_added')
+      .throwOnError();
+    expect(events).toEqual([
+      {
+        event_type: 'contract.version_added',
+        payload: { version_id: version.id },
+      },
+    ]);
   });
 
   it('leaves the deal and the version alone when Documenso reports the envelope sent', async () => {
@@ -629,6 +722,56 @@ describe('generateLoi (integration)', () => {
   });
 
   describe('generating again for the same offer', () => {
+    it('adds a new version to the same contract while the earlier one was never sent', async () => {
+      const { dealId, offerId } = await loiReady('Regenerated unsent LOI');
+      await generate(offerId);
+
+      const regenerated = await generate(offerId);
+
+      const contracts = await contractsOf(dealId);
+      expect(contracts).toHaveLength(1);
+      const { data: versions } = await account.admin
+        .from('contract_version')
+        .select('id, version, pdf_path')
+        .eq('contract_id', contracts[0]!.id)
+        .order('version')
+        .throwOnError();
+      expect(versions.map((version) => version.version)).toEqual([1, 2]);
+      expect(versions[1]!.pdf_path).toBe(
+        `${account.accountId}/${contracts[0]!.id}/v2.pdf`,
+      );
+      expect(regenerated).toEqual({
+        ok: true,
+        value: { contractVersionId: versions[1]!.id },
+      });
+    });
+
+    it('refuses the loser politely when two people generate a new version at the same moment, adding it once', async () => {
+      const { dealId, offerId } = await loiReady('Raced regenerate LOI');
+      await generate(offerId);
+
+      const outcomes = await Promise.all([generate(offerId), generate(offerId)]);
+
+      expect(outcomes).toContainEqual({
+        ok: false,
+        refusal: 'Someone just generated a new version. Refresh to see it.',
+      });
+      expect(outcomes).toContainEqual({
+        ok: true,
+        value: { contractVersionId: expect.any(String) },
+      });
+      const contracts = await contractsOf(dealId);
+      expect(contracts).toHaveLength(1);
+      expect(contracts[0]!.versions).toHaveLength(2);
+      const { data: added } = await account.admin
+        .from('deal_event')
+        .select('id')
+        .eq('deal_id', dealId)
+        .eq('event_type', 'contract.version_added')
+        .throwOnError();
+      expect(added).toHaveLength(2);
+    });
+
     const IN_PROGRESS = {
       ok: false,
       refusal: 'A signature request for this LOI is already in progress',
@@ -639,6 +782,7 @@ describe('generateLoi (integration)', () => {
       async (state) => {
         const { dealId, offerId } = await loiReady(`Repeat ${state} LOI`);
         await generate(offerId);
+        await send(dealId);
         const requested = await signing(dealId);
         documenso.states.set(requested.signing_document_id!, state);
 
@@ -652,6 +796,7 @@ describe('generateLoi (integration)', () => {
     it('is refused once the LOI has been signed', async () => {
       const { dealId, offerId } = await loiReady('Repeat signed LOI');
       await generate(offerId);
+      await send(dealId);
       const requested = await signing(dealId);
       await documensoReports(requested.signing_document_id!, 'completed');
 
@@ -668,6 +813,7 @@ describe('generateLoi (integration)', () => {
       async (state) => {
         const { dealId, offerId } = await loiReady(`Repeat ${state} LOI`);
         await generate(offerId);
+        await send(dealId);
         const requested = await signing(dealId);
         await documensoReports(requested.signing_document_id!, state);
 
@@ -680,6 +826,7 @@ describe('generateLoi (integration)', () => {
     it('is allowed when our record still says draft but the draft is gone from Documenso', async () => {
       const { dealId, offerId } = await loiReady('Repeat deleted LOI');
       await generate(offerId);
+      await send(dealId);
       const requested = await signing(dealId);
       documenso.states.delete(requested.signing_document_id!);
 
@@ -695,7 +842,7 @@ describe('generateLoi (integration)', () => {
       expect(await contractsOf(dealId)).toHaveLength(2);
     });
 
-    it('ends with one contract version and one draft when two requests arrive at the same moment', async () => {
+    it('ends with one contract version and no draft when two requests arrive at the same moment', async () => {
       const { dealId, offerId } = await loiReady('Simultaneous generate LOI');
       const draftsBefore = documenso.states.size;
 
@@ -711,7 +858,7 @@ describe('generateLoi (integration)', () => {
       expect(await contractsOf(dealId)).toEqual([
         { id: expect.any(String), versions: [{ id: expect.any(String) }] },
       ]);
-      expect(documenso.states.size).toBe(draftsBefore + 1);
+      expect(documenso.states.size).toBe(draftsBefore);
     });
   });
 
@@ -720,10 +867,7 @@ describe('generateLoi (integration)', () => {
     const offerId = await acceptedOffer(dealId, 800_000);
 
     expect(
-      await (generateLoi as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      }),
+      await (generateLoi as unknown as Action)({ offer_id: offerId }),
     ).toEqual({
       ok: false,
       refusal: 'This deal has not passed the deal box screen',
@@ -732,18 +876,15 @@ describe('generateLoi (integration)', () => {
 
   it('rejects when the offer is not accepted', async () => {
     const dealId = await newDeal('Unaccepted deal');
-    const offerId = (await (createOffer as unknown as Action)(
+    const offerId = ((await (createOffer as unknown as Action)(
       { deal_id: dealId, first_version: firstVersion(700_000) },
       actor,
-    )) as string;
+    )) as { value: string }).value;
     await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
     await adoptFinancials(dealId);
 
     expect(
-      await (generateLoi as unknown as Action)({
-        offer_id: offerId,
-        signers: SIGNERS,
-      }),
+      await (generateLoi as unknown as Action)({ offer_id: offerId }),
     ).toEqual({ ok: false, refusal: 'This offer has not been accepted yet' });
   });
 });

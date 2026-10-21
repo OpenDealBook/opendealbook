@@ -37,7 +37,7 @@ const template: LoadedTemplate = {
 
 const deal: DealContext = {
   deal: { id: 'deal-1', account_id: 'acc-1' } as unknown as Tables<'deal'>,
-  firm: { name: 'Acme LLC' } as unknown as Tables<'firm'>,
+  firm: { name: 'Acme LLC', owner_names: [] } as unknown as Tables<'firm'>,
   account: {},
 };
 
@@ -90,5 +90,43 @@ describe('generateDocument', () => {
     expect(row.docx_path).toMatch(/^acc-1\/deal-1\/.+\.docx$/);
     expect(row.pdf_path).toMatch(/^acc-1\/deal-1\/.+\.pdf$/);
     expect(row.contract_id).toBeNull();
+  });
+
+  it('refuses with the labels of blank fields and uploads nothing', async () => {
+    const engine: DocxTemplateEngine = {
+      scanPlaceholders: vi.fn(),
+      fill: vi.fn(),
+    };
+    const storage: TemplateStorage = {
+      downloadTemplate: vi.fn(),
+      uploadGenerated: vi.fn(),
+    };
+    const manualField = (key: string, label: string, sort_order: number) => ({
+      ...template.fields[0]!,
+      id: key,
+      key,
+      label,
+      source: 'manual' as const,
+      sort_order,
+    });
+
+    await expect(
+      generateDocument(
+        {
+          template: {
+            ...template,
+            fields: [
+              template.fields[0]!,
+              manualField('seller_name', 'Seller name', 1),
+              manualField('effective_date', 'Effective date', 2),
+            ],
+          },
+          deal,
+          fieldValues: {},
+        },
+        { engine, storage },
+      ),
+    ).rejects.toThrow('Fill in: Seller name, Effective date');
+    expect(storage.uploadGenerated).not.toHaveBeenCalled();
   });
 });

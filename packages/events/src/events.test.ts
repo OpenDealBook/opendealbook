@@ -4,7 +4,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@odb/supabase';
 
-import { appendDealEvent, appendDealEvents } from './events';
+import {
+  type DealMilestoneRemovedPayload,
+  type DealMilestoneSetPayload,
+  type DealEventInput,
+  appendDealEvent,
+  appendDealEvents,
+} from './events';
 
 function makeClient(result: { data: unknown; error: unknown }) {
   const rpc = vi.fn().mockResolvedValue(result);
@@ -77,6 +83,30 @@ describe('appendDealEvent', () => {
       p_event_type: 'deal.updated',
       p_payload: {},
       p_actor_kind: 'service',
+    });
+  });
+
+  it('forwards p_actor_via when actorVia is supplied', async () => {
+    const { client, rpc } = makeClient({ data: [], error: null });
+
+    await appendDealEvent(client, {
+      dealId: 'deal-1',
+      aggregateType: 'deal',
+      aggregateId: 'deal-1',
+      eventType: 'deal.stage_changed',
+      payload: { stage: 'pa_accepted' },
+      actorKind: 'service',
+      actorVia: 'documenso',
+    });
+
+    expect(rpc).toHaveBeenCalledWith('append_deal_event', {
+      p_deal_id: 'deal-1',
+      p_aggregate_type: 'deal',
+      p_aggregate_id: 'deal-1',
+      p_event_type: 'deal.stage_changed',
+      p_payload: { stage: 'pa_accepted' },
+      p_actor_kind: 'service',
+      p_actor_via: 'documenso',
     });
   });
 
@@ -160,6 +190,45 @@ describe('appendDealEvents', () => {
     expect(result).toEqual(rows);
   });
 
+  it('forwards actor_via per event, only for events that supply it', async () => {
+    const { client, rpc } = makeClient({ data: [], error: null });
+
+    await appendDealEvents(client, 'deal-1', [
+      {
+        aggregateType: 'contract',
+        aggregateId: 'c-1',
+        eventType: 'contract.created',
+        payload: {},
+        actorVia: 'documenso',
+      },
+      {
+        aggregateType: 'meeting',
+        aggregateId: 'm-1',
+        eventType: 'meeting.scheduled',
+        payload: {},
+      },
+    ]);
+
+    expect(rpc).toHaveBeenCalledWith('append_deal_events', {
+      p_deal_id: 'deal-1',
+      p_events: [
+        {
+          aggregate_type: 'contract',
+          aggregate_id: 'c-1',
+          event_type: 'contract.created',
+          payload: {},
+          actor_via: 'documenso',
+        },
+        {
+          aggregate_type: 'meeting',
+          aggregate_id: 'm-1',
+          event_type: 'meeting.scheduled',
+          payload: {},
+        },
+      ],
+    });
+  });
+
   it('forwards actor_kind per event, only for events that supply it', async () => {
     const { client, rpc } = makeClient({ data: [], error: null });
 
@@ -212,5 +281,42 @@ describe('appendDealEvents', () => {
         },
       ]),
     ).rejects.toThrow('conflict');
+  });
+});
+
+describe('deal milestone events', () => {
+  it('accepts a whole fixed or labeled custom milestone and rejects a mismatched label', () => {
+    const closing: DealMilestoneSetPayload = {
+      kind: 'closing',
+      target_on: '2026-11-30',
+      actual_on: null,
+    };
+    const custom: DealMilestoneSetPayload = {
+      kind: 'custom',
+      label: 'Landlord consent',
+      target_on: null,
+      actual_on: null,
+      shared: true,
+    };
+    // @ts-expect-error a custom milestone needs a label
+    const unlabeled: DealMilestoneSetPayload = { kind: 'custom', target_on: null, actual_on: null };
+    // @ts-expect-error a fixed milestone takes no label
+    const labeled: DealMilestoneSetPayload = { kind: 'closing', label: 'x', target_on: null, actual_on: null };
+    // @ts-expect-error a set states both dates, so a date is never cleared by omission
+    const partial: DealMilestoneSetPayload = { kind: 'closing', target_on: '2026-11-30' };
+    const removed: DealMilestoneRemovedPayload = {};
+
+    const events: DealEventInput[] = [
+      { aggregateType: 'deal_milestone', aggregateId: 'm-1', eventType: 'deal_milestone.set', payload: closing },
+      { aggregateType: 'deal_milestone', aggregateId: 'm-2', eventType: 'deal_milestone.set', payload: custom },
+      { aggregateType: 'deal_milestone', aggregateId: 'm-1', eventType: 'deal_milestone.removed', payload: removed },
+    ];
+
+    expect([unlabeled, labeled, partial]).toHaveLength(3);
+    expect(events.map((event) => event.eventType)).toEqual([
+      'deal_milestone.set',
+      'deal_milestone.set',
+      'deal_milestone.removed',
+    ]);
   });
 });

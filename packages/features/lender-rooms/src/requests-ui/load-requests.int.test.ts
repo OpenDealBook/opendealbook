@@ -5,7 +5,7 @@ import {
   admin,
   provisionPerson,
   removeEverythingSeeded,
-  seedPersonalDeal,
+  seedTeamDeal,
   seedRoom,
 } from '../asks/integration-harness';
 import { loadLatestSignature, loadRequests } from './load-requests';
@@ -42,7 +42,7 @@ describe('loading a form page as a lender', () => {
     lender = await provisionPerson();
     outsider = await provisionPerson();
 
-    const deal = await seedPersonalDeal(owner);
+    const deal = await seedTeamDeal(owner);
     ({ roomId } = await seedRoom(deal, 'First Harbor Bank', [lender]));
 
     formId = await seedForm(roomId, deal.accountId, 'Borrower application');

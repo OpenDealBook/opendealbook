@@ -1,0 +1,43 @@
+{
+  "name": "@odb/seller-rooms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "src/*"
+      ]
+    }
+  },
+  "exports": {
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "clean": "git clean -xdf .turbo node_modules",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
+  },
+  "dependencies": {
+    "@odb/data-room": "workspace:*",
+    "@odb/email-templates": "workspace:*",
+    "@odb/lender-rooms": "workspace:*",
+    "@odb/mailers": "workspace:*",
+    "@odb/next": "workspace:*",
+    "@odb/notifications": "workspace:*",
+    "@odb/shared": "workspace:*",
+    "@odb/supabase": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "fflate": "0.8.2",
+    "next": "catalog:",
+    "server-only": "^0.0.1",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@odb/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "vitest": "catalog:"
+  }
+}

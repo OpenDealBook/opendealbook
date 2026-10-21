@@ -1,88 +1,59 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { fetchMyTodos } from './queries';
 
-function makeClient(data: Record<string, unknown[]>) {
-  const eqSpy = vi.fn();
+const deal = { id: '00000000-0000-4000-8000-0000000000d1', firm: { name: 'Acme' } };
 
-  function makeBuilder(table: string) {
-    const builder: Record<string, unknown> = {};
-    const chain = () => builder;
-
-    builder.select = chain;
-    builder.order = chain;
-    builder.eq = (column: string, value: unknown) => {
-      eqSpy(table, column, value);
-      return builder;
-    };
-    builder.then = (resolve: (value: unknown) => void) =>
-      resolve({ data: data[table] ?? [], error: null });
-
-    return builder;
-  }
-
+function clientReturning(rows: Record<string, unknown[]>) {
   return {
-    client: { from: (table: string) => makeBuilder(table) },
-    eqSpy,
+    from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      const chain = () => builder;
+
+      builder.select = chain;
+      builder.eq = chain;
+      builder.order = chain;
+      builder.throwOnError = chain;
+      builder.then = (resolve: (value: unknown) => void) =>
+        resolve({ data: rows[table], error: null });
+
+      return builder;
+    },
   };
 }
 
 describe('fetchMyTodos', () => {
-  it('groups the user assigned checklist items by deal and returns personal todos', async () => {
-    const { client, eqSpy } = makeClient({
+  it('orders checklist items and to-dos together by due date, undated last, marking received and reviewed items done', async () => {
+    const client = clientReturning({
       checklist_item: [
-        {
-          id: 'c1',
-          title: 'NDA',
-          status: 'not_started',
-          deal_id: 'deal-a',
-          deal: { id: 'deal-a', description: 'Deal A' },
-        },
+        { id: 'c1', title: 'NDA', status: 'reviewed', due_at: null, deal },
         {
           id: 'c2',
-          title: 'Tax returns',
+          title: 'Leases',
           status: 'requested',
-          deal_id: 'deal-a',
-          deal: { id: 'deal-a', description: 'Deal A' },
-        },
-        {
-          id: 'c3',
-          title: 'Lease',
-          status: 'not_started',
-          deal_id: 'deal-b',
-          deal: { id: 'deal-b', description: 'Deal B' },
+          due_at: '2026-10-30T00:00:00Z',
+          deal,
         },
       ],
       personal_todo: [
-        { id: 't1', title: 'Call broker', done: false, deal_id: 'deal-a' },
+        {
+          id: 't1',
+          title: 'Call broker',
+          done: false,
+          due_at: '2026-10-05T00:00:00Z',
+          deal: null,
+        },
       ],
     });
 
-    const result = await fetchMyTodos(
-      client as never,
-      '00000000-0000-4000-8000-000000000001',
-    );
+    const items = await fetchMyTodos(client as never, 'user-1', 'team-1');
 
-    expect(eqSpy).toHaveBeenCalledWith(
-      'checklist_item',
-      'owner_user_id',
-      '00000000-0000-4000-8000-000000000001',
-    );
-    expect(eqSpy).toHaveBeenCalledWith(
-      'personal_todo',
-      'user_id',
-      '00000000-0000-4000-8000-000000000001',
-    );
-
-    expect(result.assigned).toHaveLength(2);
-
-    const dealA = result.assigned.find((group) => group.deal.id === 'deal-a');
-    expect(dealA?.deal.description).toBe('Deal A');
-    expect(dealA?.items.map((item) => item.id)).toEqual(['c1', 'c2']);
-
-    const dealB = result.assigned.find((group) => group.deal.id === 'deal-b');
-    expect(dealB?.items).toHaveLength(1);
-
-    expect(result.personal.map((todo) => todo.id)).toEqual(['t1']);
+    expect(
+      items.map((item) => [item.kind, item.title, item.done, item.deal?.name]),
+    ).toEqual([
+      ['todo', 'Call broker', false, undefined],
+      ['checklist', 'Leases', false, 'Acme'],
+      ['checklist', 'NDA', true, 'Acme'],
+    ]);
   });
 });

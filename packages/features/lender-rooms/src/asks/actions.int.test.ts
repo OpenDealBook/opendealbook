@@ -18,7 +18,6 @@ import {
   removeEverythingSeeded,
   seedDocument,
   seedFolder,
-  seedPersonalDeal,
   seedRoom,
   seedTeamDeal,
 } from './integration-harness';
@@ -197,7 +196,47 @@ function configureNovu() {
   process.env.NOVU_API_URL = 'http://novu.test';
 }
 
+async function bellRows(eventType: string, eventKey: string) {
+  const { data } = await admin
+    .from('notifications')
+    .select('recipient_user_id, deal_id, body, link, dedupe_key')
+    .eq('account_id', deal.accountId)
+    .like('dedupe_key', `${eventType}:${eventKey}:%`)
+    .order('recipient_user_id')
+    .throwOnError();
+  return data;
+}
+
+function ourBell(eventType: string, eventKey: string, body: string, link: string) {
+  return [us.userId, colleague.userId].toSorted().map((userId) => ({
+    recipient_user_id: userId,
+    deal_id: deal.dealId,
+    body,
+    link,
+    dedupe_key: `${eventType}:${eventKey}:${userId}`,
+  }));
+}
+
+function askThreadLink(askId: string) {
+  return `/home/${teamSlug}/deals/${deal.dealId}/lenders/${roomA.roomId}/requests/asks/${askId}`;
+}
+
+async function lastLenderMessageId(askId: string) {
+  const { data } = await admin
+    .from('lender_ask_message')
+    .select('id')
+    .eq('ask_id', askId)
+    .eq('side', 'lender')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+    .throwOnError();
+  return data.id;
+}
+
 type Room = { roomId: string; privateFolderId: string };
+
+let teamSlug: string;
 
 let us: Person;
 let colleague: Person;
@@ -226,6 +265,13 @@ beforeAll(async () => {
   ]);
 
   deal = await seedTeamDeal(us, colleague);
+  const { data: team } = await admin
+    .from('accounts')
+    .select('slug')
+    .eq('id', deal.accountId)
+    .single()
+    .throwOnError();
+  teamSlug = team.slug!;
 
   masterFolderId = await seedFolder(deal, 'Lender package');
   await admin
@@ -343,6 +389,36 @@ describe('a lender opening an ask with attachments', () => {
           payload,
         },
       ]),
+    );
+  });
+
+  it('rings the bell once for every member of our account, linking to the thread', async () => {
+    expect(await bellRows('lender_ask.opened', askId)).toEqual(
+      ourBell(
+        'lender_ask.opened',
+        askId,
+        'Bank A made a new request on Lender asks deal',
+        askThreadLink(askId),
+      ),
+    );
+  });
+});
+
+describe('a lender replying to an ask', () => {
+  it('rings our bell once per member for that reply', async () => {
+    const askId = await openInRoomA();
+    await as(us, replyToAskAsInternal)({ askId, body: 'Here.' });
+
+    await as(lenderA, replyToAskAsLender)({ askId, body: 'Thanks.' });
+    const messageId = await lastLenderMessageId(askId);
+
+    expect(await bellRows('lender_ask.replied', messageId)).toEqual(
+      ourBell(
+        'lender_ask.replied',
+        messageId,
+        'Bank A replied to a request on Lender asks deal',
+        askThreadLink(askId),
+      ),
     );
   });
 });
@@ -1452,6 +1528,14 @@ describe('without Novu configured', () => {
     },
   );
 
+  it('opening an ask still rings our bell', async () => {
+    delete process.env.NOVU_API_KEY;
+
+    const askId = await openInRoomA();
+
+    expect(await bellRows('lender_ask.opened', askId)).toHaveLength(2);
+  });
+
   it('our reply succeeds and sends nothing', async () => {
     const askId = await openInRoomA();
     delete process.env.NOVU_API_KEY;
@@ -1479,37 +1563,17 @@ describe('without Novu configured', () => {
 });
 
 describe('notification recipients', () => {
-  it('include the owner of a personal account when a lender opens an ask on their deal', async () => {
-    const personalDeal = await seedPersonalDeal(colleague);
-    const room = await seedRoom(personalDeal, 'Bank C', [lenderB]);
-    let askId = '';
-
-    const sent = await sentDuring(async () => {
-      askId = await openIn(room, lenderB);
-    });
-
-    expect(sent).toEqual([
-      {
-        eventType: 'lender_ask.opened',
-        recipientUserId: colleague.userId,
-        email: colleague.email,
-        payload: { roomId: room.roomId, askId, kind: 'ask' },
-      },
-    ]);
-  });
-
   it('leave out a lender who switched off the answered notification', async () => {
-    const { data: personalAccount } = await admin
-      .from('accounts')
-      .select('id')
-      .eq('primary_owner_user_id', lenderA2.userId)
-      .eq('is_personal_account', true)
-      .single()
+    const { data: lenderTeam } = await admin
+      .rpc('create_team_account', {
+      account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
+      user_id: lenderA2.userId,
+    })
       .throwOnError();
     const { data: preference } = await admin
       .from('notification_preference')
       .insert({
-        account_id: personalAccount.id,
+        account_id: lenderTeam.id,
         recipient_user_id: lenderA2.userId,
         channel: 'email',
         event_type: 'lender_ask.answered',

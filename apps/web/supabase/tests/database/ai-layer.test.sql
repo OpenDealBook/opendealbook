@@ -124,9 +124,9 @@ select throws_ok(
 -- ---- Participant reaches document chunks on the granted deal ----
 select tests.login_as('ai_ext');
 
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.document_chunk where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e2' $$,
-  'a participant reads document chunks on their granted deal'
+  'a participant cannot read document chunks on their granted deal'
 );
 select is_empty(
   $$ select 1 from public.ai_call_log where account_id = tests.account_id('ai-acct-a') $$,

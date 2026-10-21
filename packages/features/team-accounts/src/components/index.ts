@@ -7,7 +7,6 @@ export { RemoveMemberDialog } from './members/remove-member-dialog';
 export { LeaveTeamDialog } from './members/leave-team-dialog';
 export { TransferOwnershipDialog } from './members/transfer-ownership-dialog';
 export { InvitationsList } from './invitations/invitations-list';
-export { AcceptInvitation } from './invitations/accept-invitation';
 export { UpdateTeamForm } from './settings/update-team-form';
 export { DeleteTeamDialog } from './settings/delete-team-dialog';
 export { TeamBillingPanel } from './billing/team-billing-panel';

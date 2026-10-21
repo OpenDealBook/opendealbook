@@ -1,54 +1,178 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
-const ITEMS: { segment: string; label: string }[] = [
-  { segment: '', label: 'Overview' },
-  { segment: 'close', label: 'Close' },
-  { segment: 'operating', label: 'Operating' },
-  { segment: 'worksheets', label: 'Worksheets' },
-  { segment: 'hr-audit', label: 'HR audit' },
-  { segment: 'workbooks', label: 'Workbooks' },
-  { segment: 'schedule', label: 'Schedule' },
-  { segment: 'meetings', label: 'Meetings' },
-  { segment: 'todos', label: 'Todos' },
-  { segment: 'lenders', label: 'Lenders' },
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@odb/ui/dropdown-menu';
+
+interface Page {
+  segment: string;
+  label: string;
+  href?: string;
+}
+
+const TABS: { segment: string; label: string; pages: Page[] }[] = [
+  { segment: '', label: 'Overview', pages: [] },
+  {
+    segment: 'diligence',
+    label: 'Diligence',
+    pages: [
+      { segment: 'diligence', label: 'Checklist' },
+      { segment: 'todos', label: 'To-dos' },
+      { segment: 'schedule', label: 'Schedule' },
+      { segment: 'meetings', label: 'Meetings' },
+      { segment: '', label: 'Seller Q&A', href: 'parties#seller-room' },
+    ],
+  },
+  {
+    segment: 'parties',
+    label: 'Parties',
+    pages: [
+      { segment: 'parties', label: 'People' },
+      { segment: 'lenders', label: 'Lenders' },
+    ],
+  },
+  { segment: 'documents', label: 'Documents', pages: [] },
+  {
+    segment: 'financials',
+    label: 'Financials',
+    pages: [
+      { segment: 'financials', label: 'Analysis' },
+      { segment: 'worksheets', label: 'Worksheets' },
+      { segment: 'workbooks', label: 'Workbooks' },
+    ],
+  },
 ];
+
+const POST_CLOSE: Page[] = [
+  { segment: 'operating', label: 'Operating' },
+  { segment: 'hr-audit', label: 'HR audit' },
+  { segment: 'customer-transition', label: 'Customer transition' },
+];
+
+const MOVED_ANCHORS: Record<string, string> = { '#seller-room': 'parties' };
 
 const MARKER = '/deals/';
 
-export function DealSubnav({ showLenders = false }: { showLenders?: boolean }) {
+const LINK_CLASS =
+  'rounded-md font-medium text-muted-foreground hover:text-foreground aria-[current]:bg-muted aria-[current]:text-foreground';
+const TAB_CLASS = `${LINK_CLASS} px-3 py-1.5 text-sm`;
+
+export function DealSubnav({
+  showLenders = false,
+  offerAccepted = false,
+}: {
+  showLenders?: boolean;
+  offerAccepted?: boolean;
+}) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const markerIndex = pathname.indexOf(MARKER);
   const afterDeals = pathname.slice(markerIndex + MARKER.length);
   const [dealId = ''] = afterDeals.split('/');
   const base = pathname.slice(0, markerIndex + MARKER.length) + dealId;
-  const current = afterDeals.slice(dealId.length).replace(/^\//, '');
+  const [current = ''] = afterDeals
+    .slice(dealId.length)
+    .replace(/^\//, '')
+    .split('/');
+
+  useEffect(() => {
+    const tab = MOVED_ANCHORS[window.location.hash];
+
+    if (current === '' && tab) {
+      router.replace(`${base}/${tab}${window.location.hash}`);
+    }
+  }, [base, current, router]);
+
+  const hrefOf = (page: Page) =>
+    page.href
+      ? `${base}/${page.href}`
+      : page.segment === ''
+        ? base
+        : `${base}/${page.segment}`;
+  const tabs = TABS.map((tab) => ({
+    ...tab,
+    pages: tab.pages.filter(
+      (page) => showLenders || page.segment !== 'lenders',
+    ),
+  }));
+  const activeTab = tabs.find(
+    (tab) =>
+      tab.segment === current ||
+      tab.pages.some((page) => !page.href && page.segment === current),
+  );
+  const subpages =
+    activeTab && activeTab.pages.length > 1 ? activeTab.pages : [];
+  const inPostClose = POST_CLOSE.some((page) => page.segment === current);
 
   return (
-    <nav className={'flex flex-wrap gap-1 border-b pb-2'}>
-      {ITEMS.filter((item) => showLenders || item.segment !== 'lenders').map(
-        (item) => {
-          const active =
-            item.segment === current || current.startsWith(`${item.segment}/`);
-          return (
+    <nav className={'-mx-4 flex flex-col gap-1 px-4 pb-2 lg:mx-0 lg:px-0'}>
+      <div className={'flex gap-1 overflow-x-auto whitespace-nowrap'}>
+        {tabs.map((tab) => (
+          <Link
+            key={tab.label}
+            href={hrefOf(tab)}
+            aria-current={
+              tab === activeTab
+                ? subpages.length > 0
+                  ? 'true'
+                  : 'page'
+                : undefined
+            }
+            className={TAB_CLASS}
+          >
+            {tab.label}
+          </Link>
+        ))}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-current={inPostClose ? 'page' : undefined}
+            className={`${TAB_CLASS} inline-flex items-center gap-1.5`}
+          >
+            Post-close
+            {offerAccepted ? (
+              <span
+                className={
+                  'bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-xs'
+                }
+              >
+                Offer accepted
+              </span>
+            ) : null}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={'start'}>
+            {POST_CLOSE.map((page) => (
+              <DropdownMenuItem key={page.segment} asChild>
+                <Link href={hrefOf(page)}>{page.label}</Link>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      {subpages.length > 0 ? (
+        <div className={'flex gap-1 overflow-x-auto whitespace-nowrap'}>
+          {subpages.map((page) => (
             <Link
-              key={item.segment}
-              href={item.segment === '' ? base : `${base}/${item.segment}`}
-              aria-current={active ? 'page' : undefined}
-              className={
-                active
-                  ? 'bg-muted text-foreground rounded-md px-3 py-1.5 text-sm font-medium'
-                  : 'text-muted-foreground hover:text-foreground rounded-md px-3 py-1.5 text-sm font-medium'
+              key={page.label}
+              href={hrefOf(page)}
+              aria-current={
+                !page.href && page.segment === current ? 'page' : undefined
               }
+              className={`${LINK_CLASS} px-2 py-1 text-xs`}
             >
-              {item.label}
+              {page.label}
             </Link>
-          );
-        },
-      )}
+          ))}
+        </div>
+      ) : null}
     </nav>
   );
 }

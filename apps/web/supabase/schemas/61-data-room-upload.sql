@@ -45,12 +45,12 @@ create policy upload_batch_read on public.upload_batch
 
 create policy upload_batch_insert on public.upload_batch
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy upload_batch_update on public.upload_batch
   for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'deals.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  using (public.has_permission((select auth.uid()), account_id, 'deals.work'))
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.work'));
 
 create policy upload_batch_delete on public.upload_batch
   for delete to authenticated
@@ -102,7 +102,7 @@ create policy upload_item_insert on public.upload_item
     exists (
       select 1 from public.upload_batch b
       where b.id = batch_id
-        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.work')
     )
   );
 
@@ -112,14 +112,14 @@ create policy upload_item_update on public.upload_item
     exists (
       select 1 from public.upload_batch b
       where b.id = batch_id
-        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.work')
     )
   )
   with check (
     exists (
       select 1 from public.upload_batch b
       where b.id = batch_id
-        and public.has_permission((select auth.uid()), b.account_id, 'deals.manage')
+        and public.has_permission((select auth.uid()), b.account_id, 'deals.work')
     )
   );
 

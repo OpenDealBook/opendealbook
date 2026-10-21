@@ -49,3 +49,41 @@ create policy industry_update on public.industry
 create policy industry_delete on public.industry
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- Every team starts with a standard list of common small-business industries
+-- to pick from; a deal can still name any other industry as free text.
+create or replace function public.seed_default_industries(p_account_id uuid)
+  returns void
+  language sql security definer set search_path = '' as $$
+  insert into public.industry (account_id, name)
+  select p_account_id, n
+  from unnest(array[
+    'Accounting & Bookkeeping', 'Auto Repair', 'Childcare', 'Cleaning & Janitorial', 'Construction',
+    'Dental', 'Electrical', 'Engineering Services', 'Fitness & Gyms', 'Food Manufacturing',
+    'Funeral Services', 'Home Health Care', 'HVAC', 'Insurance Agency', 'IT Services',
+    'Landscaping', 'Laundry & Dry Cleaning', 'Legal Services', 'Manufacturing', 'Marketing & Advertising',
+    'Medical Practice', 'Pest Control', 'Pet Services', 'Physical Therapy', 'Plumbing',
+    'Property Management', 'Restaurants', 'Roofing', 'Staffing', 'Trucking & Logistics',
+    'Veterinary', 'Wholesale Distribution'
+  ]) as n
+  where not exists (
+    select 1 from public.industry i
+    where i.account_id = p_account_id and lower(i.name) = lower(n)
+  );
+$$;
+
+revoke all on function public.seed_default_industries(uuid) from public, anon, authenticated, service_role;
+
+create or replace function public.team_gets_default_industries()
+  returns trigger
+  language plpgsql security definer set search_path = '' as $$
+begin
+  perform public.seed_default_industries(new.id);
+  return null;
+end;
+$$;
+
+create trigger team_default_industries
+  after insert on public.accounts
+  for each row when (not new.is_personal_account)
+  execute function public.team_gets_default_industries();

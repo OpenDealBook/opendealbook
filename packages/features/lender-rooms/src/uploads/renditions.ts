@@ -9,6 +9,7 @@ interface PreviewRendition {
   suffix: string;
   contentType: string;
   maxSourceBytes?: number;
+  madeOnView: boolean;
   convert: (original: Uint8Array, name: string) => Promise<Uint8Array>;
 }
 
@@ -18,23 +19,34 @@ const PREVIEW_RENDITIONS: PreviewRendition[] = [
     suffix: '.preview.jpg',
     contentType: 'image/jpeg',
     maxSourceBytes: 50 * 1024 * 1024,
+    madeOnView: true,
     convert: (original) => convertHeic({ buffer: original, format: 'JPEG' }),
   },
   {
     source: /\.pptx$/i,
     suffix: '.preview.pdf',
     contentType: 'application/pdf',
+    madeOnView: true,
+    convert: convertOfficeToPdf,
+  },
+  {
+    source: /\.docx$/i,
+    suffix: '.preview.pdf',
+    contentType: 'application/pdf',
+    madeOnView: false,
     convert: convertOfficeToPdf,
   },
 ];
+
+export function previewRendition(name: string): PreviewRendition | undefined {
+  return PREVIEW_RENDITIONS.find((candidate) => candidate.source.test(name));
+}
 
 export async function ensurePreviewRendition(
   admin: Admin,
   original: { storagePath: string; name: string },
 ): Promise<void> {
-  const rendition = PREVIEW_RENDITIONS.find((candidate) =>
-    candidate.source.test(original.name),
-  );
+  const rendition = previewRendition(original.name);
 
   if (!rendition) {
     return;

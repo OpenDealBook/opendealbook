@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useSignOut } from '@odb/auth';
 import { Avatar, AvatarFallback } from '@odb/ui/avatar';
 import { Button } from '@odb/ui/button';
@@ -18,7 +20,11 @@ export function AccountDropdown({ email }: { email: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={'ghost'} className={'h-9 w-9 rounded-full p-0'}>
+        <Button
+          variant={'ghost'}
+          aria-label={`Account menu for ${email}`}
+          className={'h-9 w-9 rounded-full p-0'}
+        >
           <Avatar className={'h-9 w-9'}>
             <AvatarFallback>{email.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
@@ -31,6 +37,10 @@ export function AccountDropdown({ email }: { email: string }) {
         </DropdownMenuLabel>
 
         <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild>
+          <Link href={'/home/settings'}>Account settings</Link>
+        </DropdownMenuItem>
 
         <DropdownMenuItem onClick={() => void signOut()}>
           Sign out

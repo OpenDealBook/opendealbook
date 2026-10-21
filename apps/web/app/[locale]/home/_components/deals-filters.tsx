@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@odb/ui/select';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@odb/ui/sheet';
 
 import { DEAL_PARAM } from './deals-search-params';
 
@@ -58,6 +59,7 @@ export function DealsFilters(props: {
   locationOptions: FilterOption[];
   starredCount: number;
   archivedCount: number;
+  examplesCount: number;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -138,8 +140,8 @@ export function DealsFilters(props: {
 
   const chips = buildChips(props);
 
-  return (
-    <div className={'flex w-72 shrink-0 flex-col gap-6 text-sm'}>
+  const panel = (
+    <div className={'flex flex-col gap-6 text-sm'}>
       <Input
         placeholder={'Search deals'}
         value={search}
@@ -272,8 +274,38 @@ export function DealsFilters(props: {
           />
           Archived ({props.archivedCount})
         </label>
+        <label className={'flex items-center gap-2'}>
+          <Checkbox
+            checked={props.filters.examples === true}
+            onCheckedChange={(checked) =>
+              setParam(DEAL_PARAM.examples, checked === true ? '1' : undefined)
+            }
+          />
+          Examples ({props.examplesCount})
+        </label>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      <Sheet>
+        <SheetTrigger asChild>
+          <Button variant={'outline'} size={'sm'} className={'self-start md:hidden'}>
+            Filters
+          </Button>
+        </SheetTrigger>
+        <SheetContent
+          side={'left'}
+          aria-describedby={undefined}
+          className={'w-80 overflow-y-auto p-4 pt-12'}
+        >
+          <SheetTitle className={'sr-only'}>Filters</SheetTitle>
+          {panel}
+        </SheetContent>
+      </Sheet>
+      <div className={'hidden w-72 shrink-0 md:block'}>{panel}</div>
+    </>
   );
 }
 
@@ -447,6 +479,13 @@ function buildChips(props: {
       key: DEAL_PARAM.archived,
       label: 'Archived',
       clear: (setParam) => () => setParam(DEAL_PARAM.archived, undefined),
+    });
+  }
+  if (props.filters.examples === true) {
+    chips.push({
+      key: DEAL_PARAM.examples,
+      label: 'Examples',
+      clear: (setParam) => () => setParam(DEAL_PARAM.examples, undefined),
     });
   }
 

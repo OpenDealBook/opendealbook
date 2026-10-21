@@ -1,30 +1,68 @@
-import { randomUUID } from 'node:crypto';
-
 import { buildMimeMessage, encodeBase64Url } from './mime';
-import type { MailboxConnection, OutboundEmail, SendResult } from './types';
+import {
+  MailboxAccessDenied,
+  type MailboxConnection,
+  type OutboundEmail,
+  type SendResult,
+  type ThreadMessage,
+} from './types';
 
-const GMAIL_SEND_URL =
-  'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
-const GRAPH_SEND_MAIL_URL = 'https://graph.microsoft.com/v1.0/me/sendMail';
+function gmailUrl(path: string) {
+  return `${process.env.GMAIL_API_BASE ?? 'https://gmail.googleapis.com'}/gmail/v1/users/me${path}`;
+}
+const GRAPH_MESSAGES_URL = 'https://graph.microsoft.com/v1.0/me/messages';
 
 export async function sendViaGmail(
   accessToken: string,
   connection: MailboxConnection,
   email: OutboundEmail,
 ): Promise<SendResult> {
-  const raw = encodeBase64Url(buildMimeMessage(connection, email));
+  const threadHeaders =
+    email.inThread === undefined
+      ? []
+      : await gmailReplyHeaders(accessToken, email.inThread);
+  const raw = encodeBase64Url(
+    buildMimeMessage(connection, email, threadHeaders),
+  );
 
-  const response = await fetch(GMAIL_SEND_URL, {
+  const response = await fetch(gmailUrl('/messages/send'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ raw }),
+    body: JSON.stringify({ raw, threadId: email.inThread }),
   });
 
-  const { id } = (await response.json()) as { id: string };
-  return { providerMessageId: id };
+  const { id, threadId } = (await response.json()) as {
+    id: string;
+    threadId: string;
+  };
+  return { providerMessageId: id, threadId };
+}
+
+async function gmailReplyHeaders(accessToken: string, threadId: string) {
+  const url = new URL(gmailUrl(`/threads/${encodeURIComponent(threadId)}`));
+  url.searchParams.set('format', 'metadata');
+  url.searchParams.set('metadataHeaders', 'Message-ID');
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const { messages } = (await response.json()) as {
+    messages: { payload: { headers: { name: string; value: string }[] } }[];
+  };
+  const messageIds = messages.map(
+    (message) =>
+      message.payload.headers.find(
+        ({ name }) => name.toLowerCase() === 'message-id',
+      )!.value,
+  );
+
+  return [
+    `In-Reply-To: ${messageIds.at(-1)}`,
+    `References: ${messageIds.join(' ')}`,
+  ];
 }
 
 export async function sendViaMicrosoft(
@@ -43,14 +81,107 @@ export async function sendViaMicrosoft(
       : {}),
   };
 
-  await fetch(GRAPH_SEND_MAIL_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message }),
-  });
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+  };
 
-  return { providerMessageId: randomUUID() };
+  const draft =
+    email.inThread === undefined
+      ? await fetch(GRAPH_MESSAGES_URL, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(message),
+        })
+      : await fetch(
+          `${GRAPH_MESSAGES_URL}/${await latestInConversation(accessToken, email.inThread)}/createReply`,
+          { method: 'POST', headers, body: JSON.stringify({ message }) },
+        );
+  const { id, conversationId } = (await draft.json()) as {
+    id: string;
+    conversationId: string;
+  };
+
+  await fetch(`${GRAPH_MESSAGES_URL}/${id}/send`, { method: 'POST', headers });
+
+  return { providerMessageId: id, threadId: conversationId };
+}
+
+async function latestInConversation(
+  accessToken: string,
+  conversationId: string,
+) {
+  const messages = await listMicrosoftConversationMessages(
+    accessToken,
+    conversationId,
+  );
+
+  return messages.reduce((latest, message) =>
+    message.receivedAt > latest.receivedAt ? message : latest,
+  ).providerMessageId;
+}
+
+function assertReadable(response: Response): void {
+  if (response.status === 401 || response.status === 403) {
+    throw new MailboxAccessDenied(`mailbox read denied: ${response.status}`);
+  }
+}
+
+export async function listGmailThreadMessages(
+  accessToken: string,
+  threadId: string,
+): Promise<ThreadMessage[]> {
+  const url = new URL(gmailUrl(`/threads/${encodeURIComponent(threadId)}`));
+  url.searchParams.set('format', 'metadata');
+  url.searchParams.set('metadataHeaders', 'From');
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  assertReadable(response);
+
+  const { messages } = (await response.json()) as {
+    messages: {
+      id: string;
+      internalDate: string;
+      payload: { headers: { name: string; value: string }[] };
+    }[];
+  };
+
+  return messages.map((message) => {
+    const from = message.payload.headers.find(({ name }) => name === 'From')!;
+    return {
+      providerMessageId: message.id,
+      receivedAt: new Date(Number(message.internalDate)).toISOString(),
+      fromAddress: from.value.match(/<([^>]+)>/)?.[1] ?? from.value,
+    };
+  });
+}
+
+export async function listMicrosoftConversationMessages(
+  accessToken: string,
+  conversationId: string,
+): Promise<ThreadMessage[]> {
+  const url = new URL(GRAPH_MESSAGES_URL);
+  url.searchParams.set('$filter', `conversationId eq '${conversationId}'`);
+  url.searchParams.set('$select', 'id,receivedDateTime,from');
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  assertReadable(response);
+
+  const { value } = (await response.json()) as {
+    value: {
+      id: string;
+      receivedDateTime: string;
+      from: { emailAddress: { address: string } };
+    }[];
+  };
+
+  return value.map((message) => ({
+    providerMessageId: message.id,
+    receivedAt: new Date(message.receivedDateTime).toISOString(),
+    fromAddress: message.from.emailAddress.address,
+  }));
 }

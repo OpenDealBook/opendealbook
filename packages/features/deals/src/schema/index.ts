@@ -1,6 +1,5 @@
 export * from './enums';
 export * from './deal-box.schema';
-export * from './firm.schema';
 export * from './deal.schema';
 export * from './deal-intake.schema';
 export * from './checklist-item.schema';
@@ -15,3 +14,4 @@ export * from './operating-period.schema';
 export * from './saved-view.schema';
 export * from './personal-todo.schema';
 export * from './worksheet.schema';
+export * from './calc-citation.schema';

@@ -34,6 +34,8 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 
+import { useRefusableAction } from './use-refusable-action';
+
 const LOST_REASONS: { value: string; label: string }[] = [
   { value: 'offer_not_made', label: 'Offer not made' },
   { value: 'offer_not_accepted', label: 'Offer not accepted' },
@@ -49,6 +51,7 @@ export function DealRowActions(props: {
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const refusable = useRefusableAction();
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState(LOST_REASONS[0]!.value);
 
@@ -63,7 +66,11 @@ export function DealRowActions(props: {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant={'ghost'} size={'sm'} disabled={pending}>
+          <Button
+            variant={'ghost'}
+            size={'sm'}
+            disabled={pending || refusable.pending}
+          >
             Actions
           </Button>
         </DropdownMenuTrigger>
@@ -81,7 +88,7 @@ export function DealRowActions(props: {
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() =>
-              run(() =>
+              refusable.run(() =>
                 props.archived
                   ? unarchiveDeal({ deal_id: props.dealId })
                   : archiveDeal({ deal_id: props.dealId }),
@@ -93,7 +100,7 @@ export function DealRowActions(props: {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() =>
-              run(() =>
+              refusable.run(() =>
                 setDealResolution({
                   deal_id: props.dealId,
                   resolution: 'won',
@@ -132,26 +139,32 @@ export function DealRowActions(props: {
             </Button>
             <Button
               variant={'destructive'}
-              disabled={pending}
-              onClick={() => {
-                setLostOpen(false);
-                run(() =>
-                  setDealResolution({
-                    deal_id: props.dealId,
-                    resolution: 'lost',
-                    resolution_reason:
-                      lostReason as Parameters<
-                        typeof setDealResolution
-                      >[0]['resolution_reason'],
-                  }),
-                );
-              }}
+              disabled={refusable.pending}
+              onClick={() =>
+                refusable.run(
+                  () =>
+                    setDealResolution({
+                      deal_id: props.dealId,
+                      resolution: 'lost',
+                      resolution_reason:
+                        lostReason as Parameters<
+                          typeof setDealResolution
+                        >[0]['resolution_reason'],
+                    }),
+                  () => setLostOpen(false),
+                )
+              }
             >
               Mark lost
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {refusable.refusal ? (
+        <p role={'alert'} className={'text-destructive text-sm'}>
+          {refusable.refusal}
+        </p>
+      ) : null}
     </>
   );
 }

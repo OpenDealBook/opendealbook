@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { upsertDealThesis } from '@odb/deals/server';
 import type { Tables } from '@odb/supabase';
@@ -10,6 +8,8 @@ import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
+
+import { useRefusableAction } from './use-refusable-action';
 
 const FIELDS = [
   { key: 'why_this_business', label: 'Why this business', max: 2000 },
@@ -28,8 +28,7 @@ export function ThesisSection({
   deal_id: string;
   thesis: Tables<'deal_thesis'> | null;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { refusal, pending, run } = useRefusableAction();
   const [values, setValues] = useState<Record<FieldKey, string>>(() => ({
     why_this_business: thesis?.why_this_business ?? '',
     main_concerns: thesis?.main_concerns ?? '',
@@ -39,10 +38,7 @@ export function ThesisSection({
   }));
 
   function save() {
-    startTransition(async () => {
-      await upsertDealThesis({ deal_id, ...values });
-      router.refresh();
-    });
+    run(() => upsertDealThesis({ deal_id, ...values }));
   }
 
   return (
@@ -53,7 +49,8 @@ export function ThesisSection({
       <CardContent className={'flex flex-col gap-6'}>
         {thesis === null ? (
           <p className={'text-muted-foreground text-sm'}>
-            No thesis yet. Capture your internal, broker-facing notes below.
+            No thesis yet. Write down why you want this business, what worries
+            you, and your plan after closing.
           </p>
         ) : null}
         {FIELDS.map((field) => (
@@ -77,10 +74,15 @@ export function ThesisSection({
             />
           </div>
         ))}
-        <div>
-          <Button onClick={save} disabled={pending}>
+        <div className={'flex flex-col gap-2'}>
+          <Button onClick={save} disabled={pending} className={'self-start'}>
             Save
           </Button>
+          {refusal ? (
+            <p role={'alert'} className={'text-destructive text-sm'}>
+              {refusal}
+            </p>
+          ) : null}
         </div>
       </CardContent>
     </Card>

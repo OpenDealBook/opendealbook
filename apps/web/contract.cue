@@ -49,6 +49,27 @@ contract.#Contract & {
 			secret:      true
 			minLength:   32
 		}
+		E2E_CLOCK_OFFSET_HOURS: {
+			type:        "int"
+			description: "Hours the lender nudge check moves now forward; set only by the e2e stack"
+			min:         1
+			max:         9007199254740991
+		}
+		ENABLE_BILLING: {
+			type:        "bool"
+			description: "Toggles billing, trial limits and the Stripe integration"
+			default:     true
+		}
+		ENABLE_MARKETING: {
+			type:        "bool"
+			description: "Toggles the public marketing site routes"
+			default:     true
+		}
+		GMAIL_API_BASE: {
+			type:        "url"
+			description: "Base URL of the Gmail API connected mailboxes send through"
+			default:     "https://gmail.googleapis.com"
+		}
 		GOTENBERG_URL: {
 			type:        "url"
 			description: "Base URL of the Gotenberg service used to render PDFs"
@@ -56,6 +77,12 @@ contract.#Contract & {
 		KEYSTATIC_CONTENT_ROOT: {
 			type:        "string"
 			description: "Filesystem root Keystatic reads marketing content from"
+		}
+		LENDER_DIGEST_INTERVAL_MINUTES: {
+			type:        "int"
+			description: "Minutes the lender new-documents digest batches over; unset batches until 22:00 UTC"
+			min:         1
+			max:         9007199254740991
 		}
 		LENDER_ROOMS_FROM_EMAIL: {
 			type:        "string"
@@ -108,24 +135,23 @@ contract.#Contract & {
 			type:        "url"
 			description: "Pyroscope server address continuous profiling data is sent to"
 		}
+		SELLER_DELIVERY_FROM_EMAIL: {
+			type:        "string"
+			description: "Sender address for the email that delivers a document to a seller"
+		}
+		STRIPE_API_BASE: {
+			type:        "url"
+			description: "Stripe API base URL override; unset uses api.stripe.com"
+		}
 		STRIPE_SECRET_KEY: {
 			type:        "string"
 			description: "Stripe API secret key used for billing operations"
-			required:    true
 			secret:      true
 			minLength:   1
 		}
 		STRIPE_WEBHOOK_SECRET: {
 			type:        "string"
 			description: "Signing secret that verifies inbound Stripe webhooks"
-			required:    true
-			secret:      true
-			minLength:   1
-		}
-		SUPABASE_DB_WEBHOOK_SECRET: {
-			type:        "string"
-			description: "Shared secret that signs inbound Supabase database webhooks"
-			required:    true
 			secret:      true
 			minLength:   1
 		}
@@ -135,6 +161,12 @@ contract.#Contract & {
 			required:    true
 			secret:      true
 			minLength:   1
+		}
+		TEAM_RENAME_LIMIT: {
+			type:        "enum"
+			description: "How often a team may be renamed: monthly allows one rename per 30 days, off removes the limit"
+			values: ["monthly", "off"]
+			default: "monthly"
 		}
 	}
 }

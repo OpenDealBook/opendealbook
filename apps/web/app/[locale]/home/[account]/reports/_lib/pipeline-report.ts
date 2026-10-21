@@ -61,14 +61,11 @@ function facetValue(facets: FacetCount[], value: string): number {
   return facets.find((facet) => facet.value === value)?.count ?? 0;
 }
 
-function reachedCount(reach: Map<string, Set<string>>, key: string): number {
-  let count = 0;
-  for (const stages of reach.values()) {
-    if (stages.has(key)) {
-      count += 1;
-    }
-  }
-  return count;
+function dealsReaching(
+  reach: Map<string, Set<string>>,
+  key: string,
+): Set<string>[] {
+  return [...reach.values()].filter((stages) => stages.has(key));
 }
 
 export function buildPipelineReport(input: PipelineReportInput): PipelineReport {
@@ -88,29 +85,34 @@ export function buildPipelineReport(input: PipelineReportInput): PipelineReport 
     count: facetValue(input.stageFacets, stage.key),
   }));
 
-  const funnel = input.stages.map((stage, index) => {
-    const reached = reachedCount(input.reach, stage.key);
-    const next = input.stages[index + 1];
-    if (next === undefined) {
+  const funnel = input.stages
+    .map((stage, index) => {
+      const reaching = dealsReaching(input.reach, stage.key);
+      const reached = reaching.length;
+      const later = input.stages.slice(index + 1);
+      if (later.length === 0) {
+        return {
+          key: stage.key,
+          label: stage.label,
+          reached,
+          advanced: 0,
+          dropped: 0,
+          conversion: null,
+        };
+      }
+      const advanced = reaching.filter((stages) =>
+        later.some((next) => stages.has(next.key)),
+      ).length;
       return {
         key: stage.key,
         label: stage.label,
         reached,
-        advanced: 0,
-        dropped: 0,
-        conversion: null,
+        advanced,
+        dropped: reached - advanced,
+        conversion: advanced / reached,
       };
-    }
-    const advanced = reachedCount(input.reach, next.key);
-    return {
-      key: stage.key,
-      label: stage.label,
-      reached,
-      advanced,
-      dropped: reached - advanced,
-      conversion: reached === 0 ? 0 : advanced / reached,
-    };
-  });
+    })
+    .filter((step) => step.reached > 0);
 
   const won = facetValue(input.resolutionFacets, 'won');
   const lost = facetValue(input.resolutionFacets, 'lost');

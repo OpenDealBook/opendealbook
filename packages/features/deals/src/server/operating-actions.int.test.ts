@@ -17,7 +17,7 @@ vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => holder.client,
 }));
 
-import { createDeal } from './deal-actions';
+import { createDealCore } from './deal-actions';
 import { saveDealOperatingPeriod } from './operating-actions';
 
 type Action = (
@@ -31,15 +31,18 @@ let actor: { id: string };
 
 async function newDeal(description: string): Promise<string> {
   holder.client = account.user;
-  return (await (createDeal as unknown as Action)(
+  return await createDealCore(
+    account.user,
     {
       account_id: account.accountId,
+      business_name: description,
+      industry: 'Accounting',
       description,
       source: 'manual',
       stage: 'sourcing',
     },
-    actor,
-  )) as string;
+    actor.id,
+  );
 }
 
 beforeAll(async () => {
@@ -58,7 +61,7 @@ describe('saveDealOperatingPeriod (integration)', () => {
     const dealId = await newDeal('Operating period capture deal');
     holder.client = account.user;
 
-    const saved = (await (saveDealOperatingPeriod as unknown as Action)(
+    const saved = ((await (saveDealOperatingPeriod as unknown as Action)(
       {
         deal_id: dealId,
         period_month: '2026-09-01',
@@ -71,7 +74,7 @@ describe('saveDealOperatingPeriod (integration)', () => {
         notes: 'Normal month.',
       },
       actor,
-    )) as Record<string, unknown>;
+    )) as { value: Record<string, unknown> }).value;
 
     expect(saved).toMatchObject({
       deal_id: dealId,

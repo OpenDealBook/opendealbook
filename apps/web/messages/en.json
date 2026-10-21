@@ -2,11 +2,11 @@
   "common": {
     "appName": "Open Deal Book",
     "home": "Home",
+    "work": "Work",
     "deals": "Deals",
     "lenders": "Lenders",
     "reports": "Reports",
     "outreach": "Outreach",
-    "underwriting": "Underwriting",
     "todos": "My Todos",
     "lenderRooms": "Lender rooms",
     "compsImport": "Comps import",
@@ -30,10 +30,17 @@
   },
   "account": {
     "settings": "Settings",
+    "teamSettings": "Team settings",
+    "dealBox": "Deal box",
+    "members": "Members",
     "profile": "Profile",
     "apiKeys": "API keys",
     "templates": "Templates",
-    "buyerProfile": "Buyer profile"
+    "checklists": "Checklists",
+    "buyerProfile": "Buyer profile",
+    "dealCalcDefaults": "Deal calc defaults",
+    "lenderSettings": "Lender settings",
+    "contractReview": "Counsel sign-off"
   },
   "billing": {
     "title": "Billing",

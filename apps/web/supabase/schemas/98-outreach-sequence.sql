@@ -49,6 +49,8 @@ create policy outreach_sequence_delete on public.outreach_sequence
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
+create type public.outreach_channel as enum ('email', 'letter');
+
 -- Ordered steps of a sequence. ordinal is the 1-based position the dispatcher
 -- matches against outreach_enrollment.current_step; delay_days spaces a step from
 -- the one before it. account_id is denormalised from the parent sequence so reads
@@ -59,13 +61,15 @@ create table if not exists public.outreach_step (
   sequence_id uuid not null references public.outreach_sequence (id) on delete cascade,
   ordinal int not null,
   delay_days int not null default 0,
-  subject text not null,
+  channel public.outreach_channel not null default 'email',
+  subject text,
   body text not null,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
   updated_by uuid references auth.users,
-  unique (sequence_id, ordinal)
+  unique (sequence_id, ordinal),
+  check (channel = 'letter' or subject is not null)
 );
 
 alter table public.outreach_step enable row level security;

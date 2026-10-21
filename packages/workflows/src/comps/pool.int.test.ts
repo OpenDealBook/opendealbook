@@ -6,14 +6,15 @@ import {
   seedDeal,
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
-
 import { anonymizeClose } from './anonymizeClose';
 import { detectDuplicates } from './detectDuplicates';
 import { recordDealActivity } from './recordDealActivity';
 
 let account: IntegrationAccount;
-const poolCleanup: { table: 'comp_pool' | 'activity_pool'; pseudonym: string }[] =
-  [];
+const poolCleanup: {
+  table: 'comp_pool' | 'activity_pool';
+  pseudonym: string;
+}[] = [];
 const regionCleanup: string[] = [];
 
 const today = new Date().toISOString().slice(0, 10);
@@ -35,12 +36,17 @@ afterAll(async () => {
 
 describe('recordDealActivity (integration)', () => {
   it('projects a banded activity_pool row and a key linking the pseudonym to the deal', async () => {
-    const dealId = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Activity deal',
-      source: 'manual',
-      stage: 'integration',
-      asking_price: 900_000,
-    });
+    const dealId = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Activity deal',
+        source: 'manual',
+        stage: 'integration',
+        asking_price: 900_000,
+      },
+    );
     await appendDealEvent(account.admin, {
       dealId,
       aggregateType: 'deal',
@@ -77,19 +83,24 @@ describe('recordDealActivity (integration)', () => {
 
 describe('anonymizeClose opt-in gating (integration)', () => {
   it('writes no comp_pool row when the account has not opted in, and a banded row once it has', async () => {
-    const dealId = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Opt-in deal',
-      stage: 'integration',
-      asking_price: 1_200_000,
-      revenue_ttm: 800_000,
-      sde_ttm: 300_000,
-    });
+    const dealId = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Opt-in deal',
+        stage: 'integration',
+        asking_price: 1_200_000,
+        revenue_ttm: 800_000,
+        sde_ttm: 300_000,
+      },
+    );
     await appendDealEvent(account.admin, {
       dealId,
-      aggregateType: 'deal',
-      aggregateId: dealId,
-      eventType: 'deal.updated',
-      payload: { close_date: today },
+      aggregateType: 'deal_milestone',
+      aggregateId: crypto.randomUUID(),
+      eventType: 'deal_milestone.set',
+      payload: { kind: 'closing', target_on: null, actual_on: today },
     });
 
     await anonymizeClose({ dealId, dealSeq: 1 });
@@ -129,21 +140,173 @@ describe('anonymizeClose opt-in gating (integration)', () => {
   });
 });
 
+async function seedOffer(
+  dealId: string,
+  prices: number[],
+  closingEvent: 'offer.accepted' | 'offer.rejected' | null,
+): Promise<void> {
+  const offerId = crypto.randomUUID();
+  await appendDealEvent(account.admin, {
+    dealId,
+    aggregateType: 'offer',
+    aggregateId: offerId,
+    eventType: 'offer.drafted',
+  });
+  for (const [index, price] of prices.entries()) {
+    await appendDealEvent(account.admin, {
+      dealId,
+      aggregateType: 'offer',
+      aggregateId: offerId,
+      eventType: 'offer.version_added',
+      payload: {
+        version_id: crypto.randomUUID(),
+        number: index + 1,
+        author_side: index % 2 === 0 ? 'buyer' : 'seller',
+        purchase_price: price,
+        terms: {},
+      },
+    });
+  }
+  await appendDealEvent(account.admin, {
+    dealId,
+    aggregateType: 'offer',
+    aggregateId: offerId,
+    eventType: 'offer.submitted',
+  });
+  if (closingEvent !== null) {
+    await appendDealEvent(account.admin, {
+      dealId,
+      aggregateType: 'offer',
+      aggregateId: offerId,
+      eventType: closingEvent,
+    });
+  }
+}
+
+async function dealWithRejectedThenAcceptedOffer(description: string) {
+  const dealId = await seedDeal(
+    account.admin,
+    account.accountId,
+    account.userId,
+    {
+      description,
+      stage: 'integration',
+      asking_price: 1_800_000,
+      revenue_ttm: 900_000,
+      sde_ttm: 350_000,
+    },
+  );
+  await seedOffer(dealId, [2_000_000], 'offer.rejected');
+  await seedOffer(dealId, [1_500_000, 1_400_000], 'offer.accepted');
+  return dealId;
+}
+
+describe('comp prices come from the accepted offer only (integration)', () => {
+  it('records the LOI price as the accepted version, not the highest price across offers', async () => {
+    const dealId = await dealWithRejectedThenAcceptedOffer(
+      'Accepted LOI activity deal',
+    );
+
+    await recordDealActivity({ dealId, dealSeq: 1 });
+
+    const { data: key } = await account.admin
+      .from('activity_pool_key')
+      .select('pseudonym')
+      .eq('deal_id', dealId)
+      .single();
+    poolCleanup.push({ table: 'activity_pool', pseudonym: key!.pseudonym });
+    const { data: pool } = await account.admin
+      .from('activity_pool')
+      .select('loi_price_banded')
+      .eq('pseudonym', key!.pseudonym)
+      .single();
+
+    expect(pool?.loi_price_banded).toBe(1_400_000);
+  });
+
+  it('records no LOI price while no offer is accepted', async () => {
+    const dealId = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Open offer activity deal',
+        stage: 'integration',
+        asking_price: 1_800_000,
+      },
+    );
+    await seedOffer(dealId, [1_300_000], null);
+
+    await recordDealActivity({ dealId, dealSeq: 1 });
+
+    const { data: key } = await account.admin
+      .from('activity_pool_key')
+      .select('pseudonym')
+      .eq('deal_id', dealId)
+      .single();
+    poolCleanup.push({ table: 'activity_pool', pseudonym: key!.pseudonym });
+    const { data: pool } = await account.admin
+      .from('activity_pool')
+      .select('loi_price_banded')
+      .eq('pseudonym', key!.pseudonym)
+      .single();
+
+    expect(pool?.loi_price_banded).toBeNull();
+  });
+
+  it('records the sale price as the accepted version, not the highest price across offers', async () => {
+    const dealId = await dealWithRejectedThenAcceptedOffer(
+      'Accepted close deal',
+    );
+    await appendDealEvent(account.admin, {
+      dealId,
+      aggregateType: 'deal_milestone',
+      aggregateId: crypto.randomUUID(),
+      eventType: 'deal_milestone.set',
+      payload: { kind: 'closing', target_on: null, actual_on: today },
+    });
+    await account.admin
+      .from('comp_pool_optin')
+      .upsert({ account_id: account.accountId, opted_in: true });
+
+    await anonymizeClose({ dealId, dealSeq: 1 });
+
+    const { data: key } = await account.admin
+      .from('comp_pool_key')
+      .select('pseudonym')
+      .eq('deal_id', dealId)
+      .single();
+    poolCleanup.push({ table: 'comp_pool', pseudonym: key!.pseudonym });
+    const { data: pool } = await account.admin
+      .from('comp_pool')
+      .select('sale_price_banded')
+      .eq('pseudonym', key!.pseudonym)
+      .single();
+
+    expect(pool?.sale_price_banded).toBe(1_400_000);
+  });
+});
+
 describe('anonymizeClose 2-quarter hold (integration)', () => {
   it('holds a lost-to-other-buyer close until two quarters pass', async () => {
-    const recent = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Recent lost deal',
-      stage: 'integration',
-      asking_price: 1_000_000,
-      revenue_ttm: 700_000,
-      sde_ttm: 250_000,
-    });
+    const recent = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Recent lost deal',
+        stage: 'integration',
+        asking_price: 1_000_000,
+        revenue_ttm: 700_000,
+        sde_ttm: 250_000,
+      },
+    );
     await appendDealEvent(account.admin, {
       dealId: recent,
-      aggregateType: 'deal',
-      aggregateId: recent,
-      eventType: 'deal.updated',
-      payload: { close_date: today },
+      aggregateType: 'deal_milestone',
+      aggregateId: crypto.randomUUID(),
+      eventType: 'deal_milestone.set',
+      payload: { kind: 'closing', target_on: null, actual_on: today },
     });
     await appendDealEvent(account.admin, {
       dealId: recent,
@@ -161,19 +324,24 @@ describe('anonymizeClose 2-quarter hold (integration)', () => {
       .eq('deal_id', recent);
     expect(heldKey).toHaveLength(0);
 
-    const aged = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Aged lost deal',
-      stage: 'integration',
-      asking_price: 1_000_000,
-      revenue_ttm: 700_000,
-      sde_ttm: 250_000,
-    });
+    const aged = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Aged lost deal',
+        stage: 'integration',
+        asking_price: 1_000_000,
+        revenue_ttm: 700_000,
+        sde_ttm: 250_000,
+      },
+    );
     await appendDealEvent(account.admin, {
       dealId: aged,
-      aggregateType: 'deal',
-      aggregateId: aged,
-      eventType: 'deal.updated',
-      payload: { close_date: '2024-01-01' },
+      aggregateType: 'deal_milestone',
+      aggregateId: crypto.randomUUID(),
+      eventType: 'deal_milestone.set',
+      payload: { kind: 'closing', target_on: null, actual_on: '2024-01-01' },
     });
     await appendDealEvent(account.admin, {
       dealId: aged,
@@ -197,14 +365,24 @@ describe('anonymizeClose 2-quarter hold (integration)', () => {
 
 describe('detectDuplicates (integration)', () => {
   it('auto-flags a matching source_url by appending deal.duplicate_flagged', async () => {
-    const original = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Original listing',
-      source_url: 'https://example.com/listing/alpha',
-    });
-    const copy = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Copied listing',
-      source_url: 'https://example.com/listing/alpha',
-    });
+    const original = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Original listing',
+        source_url: 'https://example.com/listing/alpha',
+      },
+    );
+    const copy = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Copied listing',
+        source_url: 'https://example.com/listing/alpha',
+      },
+    );
 
     await detectDuplicates({ dealId: copy });
 
@@ -219,12 +397,22 @@ describe('detectDuplicates (integration)', () => {
   });
 
   it('records a description match as a duplicate_candidate', async () => {
-    const first = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Harbor Freight Bookkeeping',
-    });
-    const second = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Harbor Freight Bookkeeping',
-    });
+    const first = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Harbor Freight Bookkeeping',
+      },
+    );
+    const second = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Harbor Freight Bookkeeping',
+      },
+    );
 
     await detectDuplicates({ dealId: second });
 
@@ -304,5 +492,67 @@ describe('k-anonymity read surface (integration)', () => {
     expect(bucket).toHaveProperty('median_sde_multiple');
     expect(bucket).not.toHaveProperty('pseudonym');
     expect(bucket).not.toHaveProperty('sale_price_banded');
+  });
+});
+
+describe('relay consumers when the deal is deleted after the batch was read (integration)', () => {
+  async function deletedDealId() {
+    const owner = await provisionAccount();
+    const dealId = await seedDeal(owner.admin, owner.accountId, owner.userId, {
+      description: 'Deleted before its relay event is consumed',
+    });
+    await owner.admin
+      .from('accounts')
+      .delete()
+      .eq('id', owner.accountId)
+      .throwOnError();
+    await owner.cleanup();
+    return dealId;
+  }
+
+  it('detectDuplicates skips the event instead of failing', async () => {
+    await expect(
+      detectDuplicates({ dealId: await deletedDealId() }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('recordDealActivity skips the event instead of failing', async () => {
+    await expect(
+      recordDealActivity({ dealId: await deletedDealId(), dealSeq: 1 }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('anonymizeClose skips the event instead of failing', async () => {
+    await expect(
+      anonymizeClose({ dealId: await deletedDealId(), dealSeq: 1 }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe('pool pseudonyms after a keyed deal is deleted (integration)', () => {
+  it('numbers a new deal past every pseudonym still in use', async () => {
+    const owner = await provisionAccount();
+    const deletedDeal = await seedDeal(owner.admin, owner.accountId, owner.userId, {
+      description: 'Keyed then deleted',
+    });
+    await recordDealActivity({ dealId: deletedDeal, dealSeq: 1 });
+    const keptDeal = await seedDeal(account.admin, account.accountId, account.userId, {
+      description: 'Keyed and kept',
+    });
+    await recordDealActivity({ dealId: keptDeal, dealSeq: 1 });
+    await owner.admin.from('accounts').delete().eq('id', owner.accountId).throwOnError();
+    await owner.cleanup();
+
+    const newDeal = await seedDeal(account.admin, account.accountId, account.userId, {
+      description: 'Keyed after a deletion',
+    });
+    await recordDealActivity({ dealId: newDeal, dealSeq: 1 });
+
+    const { data: keys } = await account.admin
+      .from('activity_pool_key')
+      .select('pseudonym')
+      .in('deal_id', [keptDeal, newDeal])
+      .throwOnError();
+    expect(new Set(keys!.map((key) => key.pseudonym)).size).toBe(2);
   });
 });

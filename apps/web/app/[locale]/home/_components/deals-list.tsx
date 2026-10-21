@@ -9,6 +9,8 @@ import {
   listDealsFaceted,
 } from '@odb/deals';
 import { listSavedViews } from '@odb/deals/server';
+import { multipleText } from '@odb/deals/shared';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
@@ -42,7 +44,7 @@ const COLUMN_CELLS: Record<DealColumnKey, (deal: DealListItem) => ReactNode> = {
   revenue: (deal) => formatCurrency(deal.revenue),
   sde: (deal) => formatCurrency(deal.sde),
   multiple: (deal) =>
-    deal.multiple === null ? 'Not disclosed' : `${deal.multiple.toFixed(1)}x`,
+    deal.multiple === null ? 'Not disclosed' : multipleText(deal.multiple),
   margin: (deal) =>
     deal.margin === null ? null : (
       <Badge variant={'outline'}>{Math.round(deal.margin * 100)}%</Badge>
@@ -77,13 +79,6 @@ const currency = new Intl.NumberFormat('en-US', {
 
 function formatCurrency(value: number | null): string {
   return value === null ? 'Not disclosed' : currency.format(value);
-}
-
-function dealTitle(title: string | null): string {
-  if (title === null) {
-    return 'Untitled deal';
-  }
-  return title.replace(/^Example:\s*/, '');
 }
 
 function resolutionLabel(
@@ -161,7 +156,29 @@ export async function DealsList({
     cursor,
   });
 
-  const savedViews = await listSavedViews({ account_id: accountId });
+  const ownerIds = [
+    ...new Set(
+      result.items
+        .map((item) => item.ownerUserId)
+        .filter((id): id is string => id !== null),
+    ),
+  ];
+
+  const [savedViews, { data: owners }] = await Promise.all([
+    listSavedViews({ account_id: accountId }),
+    // Service role: teammates cannot read each other's personal accounts, and
+    // these ids come from deals the caller was already allowed to read.
+    getSupabaseServerAdminClient()
+      .from('accounts')
+      .select('primary_owner_user_id, name')
+      .eq('is_personal_account', true)
+      .in('primary_owner_user_id', ownerIds)
+      .throwOnError(),
+  ]);
+
+  const ownerNames = new Map(
+    owners.map((owner) => [owner.primary_owner_user_id, owner.name]),
+  );
 
   const columns = DEAL_COLUMNS.filter((column) =>
     visibleColumns.includes(column.key),
@@ -215,6 +232,7 @@ export async function DealsList({
         )}
         starredCount={result.facetCounts.starred}
         archivedCount={result.facetCounts.archived}
+        examplesCount={result.facetCounts.examples}
       />
 
       <div className={'flex min-w-0 flex-1 flex-col gap-4'}>
@@ -272,13 +290,18 @@ export async function DealsList({
                     </h2>
                     <div
                       className={
-                        'grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3'
+                        'grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4'
                       }
                     >
                       {section.items.map((deal) => (
                         <DealCard
                           key={deal.id}
                           deal={deal}
+                          ownerName={
+                            deal.ownerUserId === null
+                              ? null
+                              : ownerNames.get(deal.ownerUserId)!
+                          }
                           detailBasePath={detailBasePath}
                         />
                       ))}
@@ -330,9 +353,9 @@ function GroupSection({
         <TableRow key={deal.id}>
           <TableCell className={'flex items-center gap-2'}>
             <Link href={`${detailBasePath}/${deal.id}`} className={'hover:underline'}>
-              {dealTitle(deal.title)}
+              {deal.title}
             </Link>
-            {deal.captureMethod === 'example' ? (
+            {deal.isExample ? (
               <Badge variant={'secondary'}>Example</Badge>
             ) : null}
           </TableCell>

@@ -16,7 +16,10 @@ export async function assertDealPermission(
   });
 
   if (data !== true) {
-    throw new Error(`${permission} permission required`);
+    throw Object.assign(
+      new Error(`not authorized on deal ${dealId}: needs ${permission}`),
+      { code: '42501' },
+    );
   }
 }
 

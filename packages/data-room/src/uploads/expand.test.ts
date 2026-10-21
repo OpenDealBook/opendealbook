@@ -60,7 +60,6 @@ describe('expandBatch', () => {
         name: 'a.pdf',
         storage_path: 'deal/deal/item-1.pdf',
         version: 1,
-        checklist_item_id: null,
       },
     });
 
@@ -107,5 +106,58 @@ describe('expandBatch', () => {
 
     const ok = memory.tables.upload_item?.find((row) => row.id === 'item-ok');
     expect(ok?.status).toBe('imported');
+  });
+
+  describe('when the database refuses a counsel folder to someone who does not manage the deal', () => {
+    const refused = Object.assign(
+      new Error(
+        'not authorized to add a document to a counsel folder on deal deal: needs deals.manage',
+      ),
+      { code: '42501' },
+    );
+
+    async function expandAsAnalyst(
+      people: { user_id: string; name: string }[],
+    ) {
+      appendDealEventMock.mockRejectedValue(refused);
+
+      const memory = createMemoryClient({
+        seed: {
+          deal: [{ id: 'deal', owner_user_id: 'owner' }],
+          upload_batch: [{ id: 'batch', status: 'ready' }],
+          upload_item: [pendingItem('item-1', 'memo.pdf')],
+        },
+      });
+      const client = Object.assign(memory.client, {
+        rpc: async () => ({ data: people, error: null }),
+      });
+
+      await expandBatch(client, {
+        dealId: 'deal',
+        batchId: 'batch',
+        targetFolderId: 'counsel-folder',
+      });
+
+      return memory.tables.upload_item?.[0];
+    }
+
+    it('names the deal owner to ask', async () => {
+      const item = await expandAsAnalyst([
+        { user_id: 'owner', name: 'Morgan Reyes' },
+      ]);
+
+      expect(item?.status).toBe('failed');
+      expect(item?.error).toBe(
+        'Only deal managers can add documents to counsel folders. Ask Morgan Reyes.',
+      );
+    });
+
+    it('asks for a deal manager when the owner is not among the deal people', async () => {
+      const item = await expandAsAnalyst([]);
+
+      expect(item?.error).toBe(
+        'Only deal managers can add documents to counsel folders. Ask a deal manager.',
+      );
+    });
   });
 });

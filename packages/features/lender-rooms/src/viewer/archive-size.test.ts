@@ -1,7 +1,8 @@
 import { zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 
-import { inflatesBeyond } from './archive-size';
+import { inflatesBeyond } from '@odb/shared/archive';
+
 import { parsePreview } from './parse-preview';
 
 import { readFileSync } from 'node:fs';

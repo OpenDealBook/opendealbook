@@ -1,5 +1,6 @@
 import { Client, Connection } from '@temporalio/client';
 
+import type { DealUpdateDeliveryInput } from './dealUpdateDelivery/activities';
 import {
   dealWorkflowId,
   TASK_QUEUE,
@@ -66,4 +67,15 @@ export async function stopTrialDrip(userId: string): Promise<void> {
   const handle = client.workflow.getHandle(trialDripWorkflowId(userId));
 
   await handle.signal('stopTrialDrip');
+}
+
+export async function startDealUpdateDelivery(input: DealUpdateDeliveryInput) {
+  const client = await getTemporalClient();
+
+  return client.workflow.start('dealUpdateDelivery', {
+    taskQueue: TASK_QUEUE,
+    workflowId: `deal-update-delivery-${input.updateId}`,
+    workflowIdConflictPolicy: 'USE_EXISTING',
+    args: [input],
+  });
 }

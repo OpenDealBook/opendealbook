@@ -9,6 +9,8 @@ import { ConsoleMonitoringService } from '@odb/monitoring';
 import { getLogger } from '@odb/shared/logger';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+import { TEAM_READ_ONLY } from '../index';
+
 interface EnhanceActionConfig<Input> {
   auth?: boolean;
   schema?: ZodType<Input>;
@@ -22,9 +24,19 @@ const actionClient = createSafeActionClient({
     getLogger().error({ err: error }, 'Server action failed');
     monitoring.captureException(error);
 
-    return error.message;
+    return isTeamReadOnly(error)
+      ? TEAM_READ_ONLY
+      : error.message;
   },
 });
+
+function isTeamReadOnly(error: Error): boolean {
+  return (
+    'code' in error &&
+    error.code === '42501' &&
+    error.message === 'team is read-only'
+  );
+}
 
 export function enhanceAction<Input, Output>(
   fn: (input: Input, user: User) => Promise<Output>,

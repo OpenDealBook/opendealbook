@@ -96,6 +96,55 @@ describe('poseSellerQuestion (integration)', () => {
   });
 });
 
+describe('answerSellerQuestion by an outside seller (integration)', () => {
+  it('lets a seller who is not on the buyer account answer, and notifies the deal owner', async () => {
+    const seller = await provisionAccount();
+    try {
+      const dealId = await seedDeal(
+        account.admin,
+        account.accountId,
+        account.userId,
+        { description: 'Outside seller deal' },
+      );
+      await appendDealEvent(account.admin, {
+        dealId,
+        aggregateType: 'deal_participant',
+        aggregateId: crypto.randomUUID(),
+        eventType: 'deal_participant.added',
+        payload: { user_id: seller.userId, party: 'seller', role: 'seller' },
+      });
+      await seedSignedLoi(account.admin, account.accountId, dealId);
+
+      const posed = await runPose(
+        { dealId, question: 'Share the lease terms.' },
+        { id: account.userId },
+      );
+      harness.triggerNotification.mockClear();
+
+      harness.client = seller.user;
+      await runAnswer({ questionId: posed.id, answer: 'Ten years, two renewals.' });
+
+      const { data: resolved } = await account.admin
+        .from('seller_question')
+        .select('answer, status')
+        .eq('id', posed.id)
+        .single();
+      expect(resolved).toMatchObject({
+        answer: 'Ten years, two renewals.',
+        status: 'received',
+      });
+
+      expect(harness.triggerNotification).toHaveBeenCalledTimes(1);
+      expect((harness.triggerNotification.mock.calls[0] as unknown[])?.[1]).toMatchObject({
+        eventType: 'seller_question.answered',
+        recipientUserId: account.userId,
+      });
+    } finally {
+      await seller.cleanup();
+    }
+  });
+});
+
 describe('answerSellerQuestion signed-LOI gate (integration)', () => {
   it('blocks the answer until the deal has a signed LOI, then writes it', async () => {
     const dealId = await seedDeal(

@@ -5,15 +5,11 @@ import { redirect } from 'next/navigation';
 
 import { getTranslations } from 'next-intl/server';
 
-import { NotificationsPopover } from '@odb/notifications/components';
 import { hasLenderRooms } from '@odb/lender-rooms/members/room-gate.ts';
+import { NotificationsPopover } from '@odb/notifications/components';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Logo } from '@odb/ui/logo';
 
-import personalAccountNavigationConfig from '~/config/personal-account-navigation.config';
-
-import { TrialBanner } from '../_components/trial-banner';
-import { loadTrialState } from '../_lib/trial';
 import { AccountDropdown } from './_components/account-dropdown';
 
 export default async function UserWorkspaceLayout({
@@ -37,8 +33,6 @@ export default async function UserWorkspaceLayout({
     redirect('/auth/sign-in');
   }
 
-  const trial = await loadTrialState(user.id);
-
   const showLenderRooms = await hasLenderRooms(client);
 
   return (
@@ -51,17 +45,14 @@ export default async function UserWorkspaceLayout({
         </Link>
 
         <nav className={'mt-2 flex flex-col gap-1'}>
-          {personalAccountNavigationConfig.map((item) => (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={
-                'hover:bg-muted rounded-md px-2 py-2 text-sm font-medium'
-              }
-            >
-              {t(item.label)}
-            </Link>
-          ))}
+          <Link
+            href={'/home/settings'}
+            className={
+              'hover:bg-muted rounded-md px-2 py-2 text-sm font-medium'
+            }
+          >
+            {t('account.settings')}
+          </Link>
 
           {showLenderRooms && (
             <Link
@@ -83,13 +74,6 @@ export default async function UserWorkspaceLayout({
           <NotificationsPopover accountId={user.id} />
           <AccountDropdown email={user.email ?? ''} />
         </header>
-
-        <TrialBanner
-          accountId={user.id}
-          isActive={trial.isActive}
-          endsAt={trial.endsAt}
-          billingHref={'/home/billing'}
-        />
 
         <div className={'flex-1'}>{children}</div>
       </div>

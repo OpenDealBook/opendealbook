@@ -37,6 +37,7 @@ describe('the team Lenders subtabs', () => {
     show(<LenderTeamSubnav basePath={TEAM} />);
 
     expect(linkTo('Rooms')).toBe(TEAM);
+    expect(linkTo('Saved lenders')).toBe(`${TEAM}/saved`);
     expect(linkTo('Contacts')).toBe(`${TEAM}/contacts`);
     expect(document.querySelector('a[aria-current="page"]')?.textContent).toBe(
       'Contacts',
@@ -62,6 +63,7 @@ describe('every lender room across the team', () => {
             peopleCount: 2,
             waitingOnUs: 1,
             lastActivityAt: null,
+            lastActionAt: null,
           },
         ]}
       />,
@@ -92,6 +94,7 @@ describe('every lender room across the team', () => {
       peopleCount: 1,
       waitingOnUs: 0,
       lastActivityAt: null,
+      lastActionAt: null,
     };
 
     show(

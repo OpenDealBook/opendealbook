@@ -9,7 +9,13 @@ class NodemailerMailer implements Mailer {
     const { createTransport } = await import('nodemailer');
     const transporter = createTransport(getSmtpTransport());
 
-    const info = await transporter.sendMail(config);
+    const info = await transporter.sendMail({
+      ...config,
+      attachments: config.attachments?.map((attachment) => ({
+        ...attachment,
+        content: Buffer.from(attachment.content),
+      })),
+    });
 
     return { messageId: info.messageId };
   }

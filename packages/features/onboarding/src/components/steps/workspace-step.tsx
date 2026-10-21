@@ -26,13 +26,8 @@ export function WorkspaceStepForm(props: {
 }) {
   const form = useForm({
     resolver: zodResolver(workspaceStepSchema),
-    defaultValues: {
-      kind: props.value?.kind ?? 'personal',
-      teamName: props.value?.kind === 'team' ? props.value.teamName : '',
-    },
+    defaultValues: { teamName: props.value?.teamName ?? '' },
   });
-
-  const kind = form.watch('kind');
 
   return (
     <Form {...form}>
@@ -44,46 +39,17 @@ export function WorkspaceStepForm(props: {
       >
         <FormField
           control={form.control}
-          name="kind"
+          name="teamName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Workspace</FormLabel>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={field.value === 'personal' ? 'default' : 'outline'}
-                  onClick={() => field.onChange('personal')}
-                >
-                  Just me
-                </Button>
-                <Button
-                  type="button"
-                  variant={field.value === 'team' ? 'default' : 'outline'}
-                  onClick={() => field.onChange('team')}
-                >
-                  A team
-                </Button>
-              </div>
+              <FormLabel>Team name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {kind === 'team' ? (
-          <FormField
-            control={form.control}
-            name="teamName"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Team name</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ) : null}
 
         <div className="flex gap-2">
           {props.onBack ? (

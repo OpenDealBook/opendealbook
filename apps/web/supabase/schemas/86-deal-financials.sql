@@ -13,6 +13,7 @@ create table if not exists public.deal_financials (
   adopted_revenue numeric,
   adopted_sde numeric,
   adopted_ebitda numeric,
+  adopted_years jsonb,
   source_calc_version_id uuid,
   adopted_at timestamptz,
   adopted_by uuid references auth.users

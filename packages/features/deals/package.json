@@ -13,7 +13,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server/index.ts",
-    "./server/seed-example-deals": "./src/server/seed-example-deals.ts",
     "./hooks": "./src/hooks/index.ts",
     "./schema": "./src/schema/index.ts",
     "./shared": "./src/shared/index.ts"
@@ -30,7 +29,9 @@
     "@odb/contracts": "workspace:*",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
+    "@odb/notifications": "workspace:*",
     "@odb/policies": "workspace:*",
+    "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",
     "unpdf": "1.8.1",

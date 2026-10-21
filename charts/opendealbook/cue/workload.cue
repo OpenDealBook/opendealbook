@@ -50,7 +50,10 @@ _web: #Deployment & {
 					image:           #holes.image
 					imagePullPolicy: values.image.pullPolicy
 					ports: [{name: "http", containerPort: values.web.port, protocol: "TCP"}]
-					env:     list.Concat([_env, [{name: "NEXT_PUBLIC_ENABLE_MARKETING", value: #holes.marketing}]])
+					env: list.Concat([_env, [
+						{name: "ENABLE_MARKETING", value: #holes.marketing},
+						{name: "ENABLE_BILLING", value: #holes.billing},
+					]])
 					envFrom: _envFrom
 					resources: {
 						requests: {cpu: values.web.resources.requests.cpu, memory: values.web.resources.requests.memory}

@@ -21,8 +21,8 @@ _resources: [
 
 _stream: yaml.MarshalStream(_resources)
 
-// scalar sentinels (all marshal unquoted); the marketing token carries its
-// own surrounding quotes so the env value stays a string.
+// scalar sentinels (all marshal unquoted); the marketing and billing tokens
+// carry their own surrounding quotes so the env value stays a string.
 _s1: strings.Replace(_stream, #holes.image, #holes.tokens[#holes.image], -1)
 _s1b: strings.Replace(_s1, #holes.workerImage, #holes.tokens[#holes.workerImage], -1)
 _s2: strings.Replace(_s1b, "\(#holes.replicasWeb)", #holes.tokens["424201"], -1)
@@ -30,12 +30,13 @@ _s3: strings.Replace(_s2, "\(#holes.replicasWorkers)", #holes.tokens["424202"], 
 _s4: strings.Replace(_s3, #holes.fullname, #holes.tokens[#holes.fullname], -1)
 _s5: strings.Replace(_s4, #holes.marketing, #holes.tokens[#holes.marketing], -1)
 _s6: strings.Replace(_s5, #holes.namespace, #holes.tokens[#holes.namespace], -1)
+_s7: strings.Replace(_s6, #holes.billing, #holes.tokens[#holes.billing], -1)
 
 // label/selector map-key sentinels become the include holes at their exact
 // marshaled indentation (yaml.Marshal uses 2-space steps). Selector sentinels
 // occur at 8, 6 and 4 spaces; replace deepest-first so a shallower pattern
 // never eats the trailing spaces of a deeper line.
-_l1: strings.Replace(_s6,
+_l1: strings.Replace(_s7,
 	"    \(#holes.labels): \"\"",
 	"    {{- include \"opendealbook.labels\" . | nindent 4 }}", -1)
 

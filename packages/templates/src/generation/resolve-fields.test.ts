@@ -33,7 +33,7 @@ function context(overrides: Partial<DealContext> = {}): DealContext {
       asking_price: 250000,
       close_date: '2026-02-01',
     } as unknown as Tables<'deal'>,
-    firm: { name: 'Acme LLC' } as unknown as Tables<'firm'>,
+    firm: { name: 'Acme LLC', owner_names: [] } as unknown as Tables<'firm'>,
     account: { name: 'Buyer Fund' },
     ...overrides,
   };
@@ -80,6 +80,28 @@ describe('resolveFieldValues', () => {
     expect(valuesJson['deal.asking_price']).toBe(250000);
   });
 
+  it('renders the firm.owner_name merge field from every owner name', () => {
+    const { values } = resolveFieldValues(
+      [
+        field({
+          key: 'firm.owner_name',
+          source: 'firm',
+          source_path: 'owner_name',
+        }),
+      ],
+      context({
+        firm: {
+          owner_names: ['Pat Owner', 'Sam Owner', 'Lee Owner'],
+        } as unknown as Tables<'firm'>,
+      }),
+      {},
+    );
+
+    expect(values['firm.owner_name']).toBe(
+      'Pat Owner, Sam Owner and Lee Owner',
+    );
+  });
+
   it('resolves an empty string when a firm relation is absent', () => {
     const { values } = resolveFieldValues(
       [field({ key: 'firm.name', source: 'firm', source_path: 'name' })],
@@ -93,7 +115,12 @@ describe('resolveFieldValues', () => {
 
 describe('formatFieldValue', () => {
   it('formats currency using the format as the ISO code', () => {
-    expect(formatFieldValue(250000, 'currency', 'USD')).toBe('$250,000.00');
+    expect(formatFieldValue(250000, 'currency', 'USD')).toBe('$250,000');
+  });
+
+  it('shows cents only when they are not zero', () => {
+    expect(formatFieldValue(900000.5, 'currency', null)).toBe('$900,000.50');
+    expect(formatFieldValue('900000', 'currency', null)).toBe('$900,000');
   });
 
   it('formats percent with a trailing sign', () => {
@@ -103,6 +130,12 @@ describe('formatFieldValue', () => {
   it('formats a date to an ISO day', () => {
     expect(formatFieldValue('2026-02-01T10:00:00Z', 'date', null)).toBe(
       '2026-02-01',
+    );
+  });
+
+  it('formats a long-format date as a long date', () => {
+    expect(formatFieldValue('2026-10-30', 'date', 'long')).toBe(
+      'October 30, 2026',
     );
   });
 

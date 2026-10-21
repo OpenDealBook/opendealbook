@@ -9,6 +9,7 @@ import {
   seedDefaultSequences,
   updateSequence,
 } from '@odb/outreach-app/server';
+import type { Enums } from '@odb/supabase';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
@@ -18,7 +19,8 @@ import { Textarea } from '@odb/ui/textarea';
 export interface SequenceStep {
   ordinal: number;
   delayDays: number;
-  subject: string;
+  channel: Enums<'outreach_channel'>;
+  subject: string | null;
   body: string;
 }
 
@@ -46,6 +48,10 @@ const EMPTY_DRAFT: Draft = {
   subject: '',
   body: '',
 };
+
+function hasLetterStep(sequence: Sequence): boolean {
+  return sequence.steps.some((step) => step.channel === 'letter');
+}
 
 function draftFromSequence(sequence: Sequence): Draft {
   const step = sequence.steps[0];
@@ -93,7 +99,7 @@ export function SequencesPanel({
       return;
     }
 
-    const step: SequenceStep = {
+    const step = {
       ordinal: 1,
       delayDays: 0,
       subject: draft.subject,
@@ -158,12 +164,18 @@ export function SequencesPanel({
                 type={'button'}
                 size={'sm'}
                 variant={'outline'}
+                disabled={hasLetterStep(sequence)}
                 onClick={() => setDraft(draftFromSequence(sequence))}
               >
                 Edit
               </Button>
             </CardHeader>
             <CardContent className={'flex flex-col gap-2'}>
+              {hasLetterStep(sequence) ? (
+                <p className={'text-muted-foreground text-sm'}>
+                  Letter steps can&apos;t be edited yet.
+                </p>
+              ) : null}
               {sequence.description !== null ? (
                 <p className={'text-muted-foreground text-sm'}>
                   {sequence.description}
@@ -174,7 +186,9 @@ export function SequencesPanel({
                   key={step.ordinal}
                   className={'rounded border p-3 text-sm'}
                 >
-                  <p className={'font-medium'}>{step.subject}</p>
+                  <p className={'font-medium'}>
+                    {step.channel === 'letter' ? 'Letter' : step.subject}
+                  </p>
                   <p className={'text-muted-foreground whitespace-pre-wrap'}>
                     {step.body}
                   </p>

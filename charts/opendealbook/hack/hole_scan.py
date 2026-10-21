@@ -13,6 +13,7 @@ ALLOWED = [
     r"\{\{ \.Values\.workerImage\.repository \}\}",
     r"\{\{ \.Values\.workerImage\.tag \}\}",
     r"\{\{ \.Values\.marketing\.enabled \}\}",
+    r"\{\{ \.Values\.billing\.enabled \}\}",
     r'\{\{ include "opendealbook\.fullname" \. \}\}',
     r"\{\{ \.Release\.Namespace \}\}",
     r'\{\{- include "opendealbook\.labels" \. \| nindent \d+ \}\}',

@@ -21,7 +21,14 @@ export function LenderNameForm({
     <form
       className={'flex flex-col gap-2'}
       action={async (formData) => {
-        await setMyLenderName({ name: String(formData.get('name')) });
+        await setMyLenderName(
+          allowSkip
+            ? {
+                name: String(formData.get('name')),
+                phone: String(formData.get('phone')),
+              }
+            : { name: String(formData.get('name')) },
+        );
         router.refresh();
       }}
     >
@@ -33,6 +40,18 @@ export function LenderNameForm({
         autoComplete={'name'}
         required
       />
+      {allowSkip && (
+        <>
+          <Label htmlFor={'lender-phone'}>Phone (optional)</Label>
+          <Input
+            id={'lender-phone'}
+            name={'phone'}
+            type={'tel'}
+            autoComplete={'tel'}
+            maxLength={50}
+          />
+        </>
+      )}
       <div className={'flex gap-2'}>
         <Button type={'submit'}>Save</Button>
         {allowSkip && (

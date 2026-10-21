@@ -1,5 +1,9 @@
 -- Account-scoped firms sourced into the pipeline. website is the dedupe key
--- within an account. status drives the sourcing state machine.
+-- within an account. status drives the sourcing state machine. A deal's
+-- business name is its firm's name; name_confirmed is false only where the name
+-- was guessed from the deal's description and still awaits the team's word.
+
+create domain public.ein as text check (value ~ '^\d{9}$');
 
 create table if not exists public.firm (
   id uuid primary key default gen_random_uuid(),
@@ -11,13 +15,24 @@ create table if not exists public.firm (
   website text,
   employee_band text,
   established_year int,
-  owner_name text,
+  owner_names text[] not null default '{}',
   owner_age_estimate int,
+  owner_mailing_address_line1 text,
+  owner_mailing_city text,
+  owner_mailing_state text,
+  owner_mailing_postal_code text,
+  ein public.ein,
+  naics_code text check (naics_code ~ '^\d{2,6}$'),
+  revenue_estimate numeric,
+  profile text,
+  profile_generated_at timestamptz,
+  profile_model text,
   service_mix_json jsonb not null default '{}'::jsonb,
   icp_score numeric,
   source text,
   source_url text,
   imported_at timestamptz not null default now(),
+  name_confirmed boolean not null default true,
   status text not null default 'imported' check (
     status in ('imported', 'enriched', 'scored', 'contacted', 'responded', 'deal_created', 'disqualified')
   ),
@@ -25,7 +40,8 @@ create table if not exists public.firm (
   updated_at timestamptz,
   created_by uuid references auth.users,
   updated_by uuid references auth.users,
-  unique (account_id, website)
+  unique (account_id, website),
+  unique (id, account_id)
 );
 
 alter table public.firm enable row level security;
@@ -48,9 +64,10 @@ create policy firm_read on public.firm
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
+-- Creating a deal names its business, so whoever may create deals may add one.
 create policy firm_insert on public.firm
   for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+  with check (public.has_permission((select auth.uid()), account_id, 'deals.create'));
 
 create policy firm_update on public.firm
   for update to authenticated

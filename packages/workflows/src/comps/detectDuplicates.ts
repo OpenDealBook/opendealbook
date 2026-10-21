@@ -5,20 +5,44 @@ export interface DetectDuplicatesInput {
   dealId: string;
 }
 
-export async function detectDuplicates(input: DetectDuplicatesInput): Promise<void> {
+export async function detectDuplicates(
+  input: DetectDuplicatesInput,
+): Promise<void> {
   const client = getSupabaseServerAdminClient();
 
   const { data: deal, error } = await client
     .from('deal')
     .select('account_id, source_url, description, duplicate_of')
     .eq('id', input.dealId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw error;
   }
 
+  if (deal === null) {
+    console.info(
+      `[detectDuplicates] skipping relay event; deal ${input.dealId} no longer exists`,
+    );
+    return;
+  }
+
   if (deal.duplicate_of !== null) {
+    return;
+  }
+
+  const { data: cleared, error: clearedError } = await client
+    .from('deal_event')
+    .select('global_seq')
+    .eq('deal_id', input.dealId)
+    .eq('event_type', 'deal.duplicate_cleared')
+    .limit(1);
+
+  if (clearedError) {
+    throw clearedError;
+  }
+
+  if (cleared.length > 0) {
     return;
   }
 

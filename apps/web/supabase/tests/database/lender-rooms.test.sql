@@ -3,8 +3,8 @@ select no_plan();
 
 -- Account 1 owns deal d1 (rooms A and B, a master package) and deal d3 (no
 -- package yet). Account 2 owns deal d2 (rooms Z and Y, no firm). Every user
--- here also owns a personal account on which they hold every permission;
--- lr_side_dealer opens deal d9 on theirs.
+-- here also owns a personal account, which holds no deal work;
+-- lr_side_dealer opens deal d9 on their own team.
 select tests.create_user('lr_owner');
 select tests.create_user('lr_owner_2');
 select tests.create_user('lr_lender_a');
@@ -19,6 +19,7 @@ select tests.create_user('lr_member');
 select tests.login_as_service_role();
 select public.create_team_account('LR Acct', tests.get_uid('lr_owner'), 'lr-acct');
 select public.create_team_account('LR Acct 2', tests.get_uid('lr_owner_2'), 'lr-acct-2');
+select public.create_team_account('LR Side', tests.get_uid('lr_side_dealer'), 'lr-side');
 
 select public.append_deal_event('1e000000-0000-0000-0000-0000000000d1', 'deal',
   '1e000000-0000-0000-0000-0000000000d1', 'deal.created',
@@ -73,8 +74,14 @@ values
   ('1e000000-0000-0000-0000-00000000d00c', tests.account_id('lr-acct'), '1e000000-0000-0000-0000-0000000000d1', '1e000000-0000-0000-0000-00000000f0a1', 'asked-about.pdf', 'deal/x/asked-about.pdf', 1, null),
   ('1e000000-0000-0000-0000-00000000d00b', tests.account_id('lr-acct'), '1e000000-0000-0000-0000-0000000000d1', '1e000000-0000-0000-0000-00000000f00b', 'for-b.pdf', 'deal/x/for-b.pdf', 1, null),
   ('1e000000-0000-0000-0000-00000000d0ff', tests.account_id('lr-acct'), '1e000000-0000-0000-0000-0000000000d1', '1e000000-0000-0000-0000-00000000f0ff', 'tax-return.pdf', 'deal/x/tax-return.pdf', 1, null),
-  ('1e000000-0000-0000-0000-00000000d201', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', '1e000000-0000-0000-0000-00000000f201', 'other-cim.pdf', 'deal/y/other-cim.pdf', 1, null),
-  ('1e000000-0000-0000-0000-00000000d0c9', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', '1e000000-0000-0000-0000-00000000f002', 'misfiled.pdf', 'deal/y/misfiled.pdf', 1, null);
+  ('1e000000-0000-0000-0000-00000000d201', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', '1e000000-0000-0000-0000-00000000f201', 'other-cim.pdf', 'deal/y/other-cim.pdf', 1, null);
+
+-- The database refuses cross-team links, so the misfiled rows the read side
+-- must still defend against are seeded with triggers off.
+set local session_replication_role = replica;
+insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path, version, removed_at)
+values ('1e000000-0000-0000-0000-00000000d0c9', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', '1e000000-0000-0000-0000-00000000f002', 'misfiled.pdf', 'deal/y/misfiled.pdf', 1, null);
+set local session_replication_role = origin;
 
 insert into public.lender_brand (domain, name, logo_path)
 values ('lender-a.test', 'Lender A Bank', 'lender-a.test/logo.png');
@@ -90,8 +97,12 @@ insert into public.lender_room (id, account_id, deal_id, brand_domain, name, wel
 values
   ('1e000000-0000-0000-0000-0000000000a0', tests.account_id('lr-acct'), '1e000000-0000-0000-0000-0000000000d1', 'lender-a.test', 'Lender A', 'Welcome', '1e000000-0000-0000-0000-00000000f00a'),
   ('1e000000-0000-0000-0000-0000000000b0', tests.account_id('lr-acct'), '1e000000-0000-0000-0000-0000000000d1', null, 'Lender B', null, '1e000000-0000-0000-0000-00000000f00b'),
-  ('1e000000-0000-0000-0000-0000000000e0', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', null, 'Lender Z', null, '1e000000-0000-0000-0000-00000000f20a'),
-  ('1e000000-0000-0000-0000-0000000000e1', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', null, 'Lender Y', null, '1e000000-0000-0000-0000-00000000f0ff');
+  ('1e000000-0000-0000-0000-0000000000e0', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', null, 'Lender Z', null, '1e000000-0000-0000-0000-00000000f20a');
+
+set local session_replication_role = replica;
+insert into public.lender_room (id, account_id, deal_id, brand_domain, name, welcome_note, private_folder_id)
+values ('1e000000-0000-0000-0000-0000000000e1', tests.account_id('lr-acct-2'), '1e000000-0000-0000-0000-0000000000d2', null, 'Lender Y', null, '1e000000-0000-0000-0000-00000000f0ff');
+set local session_replication_role = origin;
 
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
 values
@@ -394,7 +405,7 @@ select tests.login_as('lr_side_dealer');
 select is_empty(
   $$ select 1 from public.team_lender_rooms(tests.account_id('lr-acct'))
      union all select 1 from public.team_lender_contacts(tests.account_id('lr-acct')) $$,
-  'managing deals on a personal account gets nothing for another account'
+  'managing deals on another team gets nothing for this team'
 );
 select tests.login_as('lr_lender_b');
 select is_empty(
@@ -711,7 +722,7 @@ select lives_ok(
 select throws_ok(
   $$ insert into public.lender_upload (room_id, deal_id, folder_id, name, storage_path, uploaded_by)
      values ('1e000000-0000-0000-0000-0000000000a0', '1e000000-0000-0000-0000-0000000000d2', '1e000000-0000-0000-0000-00000000f00a', 'astray.pdf', 'deal/x/uploads/astray.pdf', tests.get_uid('lr_lender_a')) $$,
-  '23503', null, 'a room upload names the deal its room is on and no other'
+  '42501', 'rows cannot link across teams', 'a room upload names the deal its room is on and no other'
 );
 select throws_ok(
   $$ insert into public.lender_upload (room_id, folder_id, name, storage_path, uploaded_by)
@@ -779,9 +790,16 @@ select results_eq(
     'Lender A Bank',
     'lender-a.test/logo.png',
     'Target Co',
-    'Lender deal'
+    null::date,
+    null::date,
+    null::text,
+    'LR Acct',
+    null::numeric,
+    null::text,
+    null::numeric,
+    null::numeric
   ) $$,
-  'a member gets their room with its brand, folders, and deal name, and nothing about status, account, or people'
+  'a member gets their room with its brand, folders, deal name, and buyer team, and nothing about status or people'
 );
 select is_empty(
   $$ select 1 from public.lender_room_view('1e000000-0000-0000-0000-0000000000b0') $$,
@@ -1018,13 +1036,13 @@ select throws_ok(
   '42501', null, 'a member cannot delete a document directly'
 );
 
--- ---- Lender A: owning a personal account opens nothing ----
+-- ---- Lender A: a personal account holds no deal work ----
 select throws_ok(
   $$ insert into public.lender_room (account_id, deal_id, name, private_folder_id)
      values (
        (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_lender_a') and is_personal_account),
        '1e000000-0000-0000-0000-0000000000d1', 'Mine now', '1e000000-0000-0000-0000-00000000f00a') $$,
-  '42501', null, 'a lender cannot create a room on the deal by naming their personal account'
+  '23514', null, 'a lender cannot create a room on the deal by naming their personal account'
 );
 select throws_ok(
   $$ insert into public.lender_room (account_id, deal_id, name, private_folder_id)
@@ -1037,14 +1055,14 @@ select throws_ok(
        '1e000000-0000-0000-0000-0000000000d3',
        (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_lender_a') and is_personal_account),
        '1e000000-0000-0000-0000-00000000f00a') $$,
-  '42501', null, 'a lender cannot set a deal''s master package by naming their personal account'
+  '23514', null, 'a lender cannot set a deal''s master package by naming their personal account'
 );
 select throws_ok(
   $$ insert into public.dr_folder (account_id, deal_id, parent_id, name)
      values (
        (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_lender_a') and is_personal_account),
        '1e000000-0000-0000-0000-0000000000d1', '1e000000-0000-0000-0000-00000000f001', 'Planted') $$,
-  '42501', null, 'a lender cannot add a folder to the master package by naming their personal account'
+  '23514', null, 'a lender cannot add a folder to the master package by naming their personal account'
 );
 select throws_ok(
   $$ insert into public.lender_room_member (room_id, user_id, email)
@@ -1073,24 +1091,24 @@ select tests.login_as('lr_side_dealer');
 select public.append_deal_event('1e000000-0000-0000-0000-0000000000d9', 'deal',
   '1e000000-0000-0000-0000-0000000000d9', 'deal.created',
   jsonb_build_object(
-    'account_id', (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_side_dealer') and is_personal_account),
+    'account_id', tests.account_id('lr-side'),
     'description', 'Side deal'));
 insert into public.dr_folder (id, account_id, deal_id, name)
 values (
   '1e000000-0000-0000-0000-00000000f901',
-  (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_side_dealer') and is_personal_account),
+  tests.account_id('lr-side'),
   '1e000000-0000-0000-0000-0000000000d9', 'Side folder');
 select throws_ok(
   $$ insert into public.dr_folder (account_id, deal_id, parent_id, name)
      values (
-       (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_side_dealer') and is_personal_account),
+       tests.account_id('lr-side'),
        '1e000000-0000-0000-0000-0000000000d9', '1e000000-0000-0000-0000-00000000f001', 'Hung from another deal') $$,
   '23503', null, 'a folder of one deal cannot hang under another deal''s folder'
 );
 select lives_ok(
   $$ insert into public.dr_folder (account_id, deal_id, parent_id, name)
      values (
-       (select id from public.accounts where primary_owner_user_id = tests.get_uid('lr_side_dealer') and is_personal_account),
+       tests.account_id('lr-side'),
        '1e000000-0000-0000-0000-0000000000d9', '1e000000-0000-0000-0000-00000000f901', 'Under my own folder') $$,
   'a folder hangs under a folder of its own deal'
 );
@@ -1336,9 +1354,9 @@ select isnt_empty(
 select tests.login_as('lr_lender_z');
 
 select results_eq(
-  $$ select name, deal_name, deal_description from public.lender_room_view('1e000000-0000-0000-0000-0000000000e0') $$,
-  $$ values ('Lender Z', null::text, 'Other deal') $$,
-  'a deal with no firm has no name to show, only its description'
+  $$ select name, deal_name from public.lender_room_view('1e000000-0000-0000-0000-0000000000e0') $$,
+  $$ values ('Lender Z', null::text) $$,
+  'a deal with no firm and no code name has no name to show'
 );
 select is_empty(
   $$ select 1 from public.lender_room_view('1e000000-0000-0000-0000-0000000000a0') $$,
@@ -1435,8 +1453,8 @@ select set_eq(
   'the team sees both of its rooms and no other account''s'
 );
 select results_eq(
-  $$ select name, deal_name, deal_description from public.lender_room_view('1e000000-0000-0000-0000-0000000000b0') $$,
-  $$ values ('Lender B', 'Target Co', 'Lender deal') $$,
+  $$ select name, deal_name from public.lender_room_view('1e000000-0000-0000-0000-0000000000b0') $$,
+  $$ values ('Lender B', 'Target Co') $$,
   'the team gets the lender view of any of its rooms'
 );
 select is((select count(*)::int from public.lender_room_member), 5, 'the team sees every member of its rooms');
@@ -1510,7 +1528,7 @@ select set_eq(
   array['huge-model.xlsx', 'huge-for-b.mov'],
   'the team sees too-large placeholders in both rooms'
 );
-select is((select count(*)::int from public.dr_folder), 10, 'the team still sees its whole data room');
+select is((select count(*)::int from public.dr_folder), 20, 'the team still sees its whole data room, default folders included');
 select is((select count(*)::int from public.dr_document), 10, 'the team still sees every document that has not been removed');
 select throws_ok('select 1 from public.lender_brand', '42501', null, 'the team cannot read the brand cache');
 select is_empty(
@@ -1908,10 +1926,30 @@ select is(
   'a closed room is none of a member''s open rooms'
 );
 select results_eq(
-  $$ select name, is_open, deal_name, deal_description from public.lender_room_view('1e000000-0000-0000-0000-0000000000a0') $$,
-  $$ values ('Lender A', false, 'Target Co', 'Lender deal') $$,
+  $$ select name, is_open, deal_name from public.lender_room_view('1e000000-0000-0000-0000-0000000000a0') $$,
+  $$ values ('Lender A', false, 'Target Co') $$,
   'a member of a closed room still gets the room and deal name, marked not open'
 );
+select tests.login_as_service_role();
+select public.append_deal_event('1e000000-0000-0000-0000-0000000000d1', 'deal',
+  '1e000000-0000-0000-0000-0000000000d1', 'deal.updated',
+  jsonb_build_object('code_name', 'Project Harbor'), null, 'service');
+select tests.login_as('lr_lender_a');
+select results_eq(
+  $$ select deal_name from public.lender_room_view('1e000000-0000-0000-0000-0000000000a0') $$,
+  $$ values ('Project Harbor') $$,
+  'a lender sees the deal''s code name in place of its business name'
+);
+select results_eq(
+  $$ select deal_name from public.my_lender_rooms() $$,
+  $$ values ('Project Harbor') $$,
+  'a lender''s rooms list names the deal by its code name'
+);
+select tests.login_as_service_role();
+select public.append_deal_event('1e000000-0000-0000-0000-0000000000d1', 'deal',
+  '1e000000-0000-0000-0000-0000000000d1', 'deal.updated',
+  jsonb_build_object('code_name', null), null, 'service');
+select tests.login_as('lr_lender_a');
 select set_eq(
   'select id from public.my_lender_rooms()',
   array['1e000000-0000-0000-0000-0000000000a0'::uuid],
@@ -2024,8 +2062,10 @@ select is(
 );
 
 -- ---- A package that names another deal's folder as its master ----
+set local session_replication_role = replica;
 update public.lender_package set master_folder_id = '1e000000-0000-0000-0000-00000000f001'
 where deal_id = '1e000000-0000-0000-0000-0000000000d2';
+set local session_replication_role = origin;
 select is(
   public.lender_package_folder_count('1e000000-0000-0000-0000-0000000000d2'),
   0,
@@ -2047,6 +2087,93 @@ select lives_ok(
   $$ delete from public.lender_room where id = '1e000000-0000-0000-0000-0000000000e1' $$,
   'a room is deleted along with its members'
 );
+
+-- ---- A lender's rooms list: what is new, whose turn, and in what order ----
+-- Account LL owns deals l1 and l2. Lender LL is in four rooms: One (visited
+-- two days ago, with a new file, an older file, the lender's own upload, a
+-- new team answer and an answered request), Two (never visited, with one
+-- file), Four (opened a day ago, quiet), and Three (closed, ten days old).
+select tests.create_user('ll_owner');
+select tests.create_user('ll_lender');
+select tests.login_as_service_role();
+select public.create_team_account('LL Buyers', tests.get_uid('ll_owner'), 'll-acct');
+select public.append_deal_event('1e0000ff-0000-0000-0000-0000000000d1', 'deal',
+  '1e0000ff-0000-0000-0000-0000000000d1', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('ll-acct'), 'owner_user_id', tests.get_uid('ll_owner'),
+    'description', 'List deal one'), null, 'service');
+select public.append_deal_event('1e0000ff-0000-0000-0000-0000000000d2', 'deal',
+  '1e0000ff-0000-0000-0000-0000000000d2', 'deal.created',
+  jsonb_build_object('account_id', tests.account_id('ll-acct'), 'owner_user_id', tests.get_uid('ll_owner'),
+    'description', 'List deal two'), null, 'service');
+reset role;
+
+set local session_replication_role = replica;
+insert into public.dr_folder (id, account_id, deal_id, parent_id, name)
+values
+  ('1e0000ff-0000-0000-0000-00000000f001', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', null, 'Room One'),
+  ('1e0000ff-0000-0000-0000-00000000f002', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d2', null, 'Room Two'),
+  ('1e0000ff-0000-0000-0000-00000000f003', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', null, 'Room Three'),
+  ('1e0000ff-0000-0000-0000-00000000f004', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d2', null, 'Room Four');
+insert into public.lender_room (id, account_id, deal_id, name, private_folder_id, created_at, closed_at)
+values
+  ('1e0000ff-0000-0000-0000-0000000000a1', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', 'Bank One', '1e0000ff-0000-0000-0000-00000000f001', now() - interval '20 days', null),
+  ('1e0000ff-0000-0000-0000-0000000000a2', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d2', 'Bank Two', '1e0000ff-0000-0000-0000-00000000f002', now() - interval '3 days', null),
+  ('1e0000ff-0000-0000-0000-0000000000a3', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', 'Bank Three', '1e0000ff-0000-0000-0000-00000000f003', now() - interval '10 days', now()),
+  ('1e0000ff-0000-0000-0000-0000000000a4', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d2', 'Bank Four', '1e0000ff-0000-0000-0000-00000000f004', now() - interval '1 day', null);
+insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path, version, created_at)
+values
+  ('1e0000ff-0000-0000-0000-00000000d001', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', '1e0000ff-0000-0000-0000-00000000f001', 'old.pdf', 'll/old.pdf', 1, now() - interval '3 days'),
+  ('1e0000ff-0000-0000-0000-00000000d002', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', '1e0000ff-0000-0000-0000-00000000f001', 'new.pdf', 'll/new.pdf', 1, now() - interval '1 day'),
+  ('1e0000ff-0000-0000-0000-00000000d003', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', '1e0000ff-0000-0000-0000-00000000f001', 'mine.pdf', 'll/mine.pdf', 1, now() - interval '1 day'),
+  ('1e0000ff-0000-0000-0000-00000000d004', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d2', '1e0000ff-0000-0000-0000-00000000f002', 'two.pdf', 'll/two.pdf', 1, now() - interval '5 days'),
+  ('1e0000ff-0000-0000-0000-00000000d005', tests.account_id('ll-acct'), '1e0000ff-0000-0000-0000-0000000000d1', '1e0000ff-0000-0000-0000-00000000f003', 'closed.pdf', 'll/closed.pdf', 1, now() - interval '9 days');
+set local session_replication_role = origin;
+
+insert into public.lender_room_member (room_id, user_id, email, invited_by)
+select r, tests.get_uid('ll_lender'), 'll_lender@tuckin.test', tests.get_uid('ll_owner')
+from unnest(array[
+  '1e0000ff-0000-0000-0000-0000000000a1', '1e0000ff-0000-0000-0000-0000000000a2',
+  '1e0000ff-0000-0000-0000-0000000000a3', '1e0000ff-0000-0000-0000-0000000000a4'
+]::uuid[]) r;
+insert into public.lender_upload (room_id, deal_id, folder_id, name, storage_path, uploaded_by, registered_at, document_ids)
+values ('1e0000ff-0000-0000-0000-0000000000a1', '1e0000ff-0000-0000-0000-0000000000d1', '1e0000ff-0000-0000-0000-00000000f001',
+  'mine.pdf', 'll/upload/mine.pdf', tests.get_uid('ll_lender'), now(), array['1e0000ff-0000-0000-0000-00000000d003'::uuid]);
+insert into public.lender_room_activity (room_id, account_id, user_id, side, action, created_at)
+values
+  ('1e0000ff-0000-0000-0000-0000000000a1', tests.account_id('ll-acct'), tests.get_uid('ll_lender'), 'lender', 'room_opened', now() - interval '4 days'),
+  ('1e0000ff-0000-0000-0000-0000000000a1', tests.account_id('ll-acct'), tests.get_uid('ll_lender'), 'lender', 'room_opened', now() - interval '2 days'),
+  ('1e0000ff-0000-0000-0000-0000000000a4', tests.account_id('ll-acct'), tests.get_uid('ll_lender'), 'lender', 'room_opened', now() - interval '1 day');
+insert into public.lender_ask (id, room_id, account_id, kind, title, status)
+values
+  ('1e0000ff-0000-0000-0000-0000000000b1', '1e0000ff-0000-0000-0000-0000000000a1', tests.account_id('ll-acct'), 'ask', 'Tax returns', 'answered'),
+  ('1e0000ff-0000-0000-0000-0000000000b2', '1e0000ff-0000-0000-0000-0000000000a1', tests.account_id('ll-acct'), 'ask', 'Lease', 'open'),
+  ('1e0000ff-0000-0000-0000-0000000000b3', '1e0000ff-0000-0000-0000-0000000000a3', tests.account_id('ll-acct'), 'ask', 'Closed room ask', 'answered');
+insert into public.lender_ask_message (ask_id, author_user_id, side, body, created_at)
+values
+  ('1e0000ff-0000-0000-0000-0000000000b1', tests.get_uid('ll_lender'), 'lender', 'Send the returns', now() - interval '3 days'),
+  ('1e0000ff-0000-0000-0000-0000000000b1', tests.get_uid('ll_owner'), 'internal', 'Here they are', now() - interval '12 hours'),
+  ('1e0000ff-0000-0000-0000-0000000000b2', tests.get_uid('ll_lender'), 'lender', 'And the lease', now() - interval '6 hours');
+
+select tests.login_as('ll_lender');
+
+select results_eq(
+  $$ select (room).name, new_count, your_turn_count from public.my_lender_room_list() $$,
+  $$ values ('Bank One', 2, 1), ('Bank Two', 1, 0), ('Bank Four', 0, 0), ('Bank Three', 0, 0) $$,
+  'a lender''s rooms count files and team answers since the last visit and requests answered back to them, those needing attention first, then the most recent'
+);
+select results_eq(
+  $$ select last_activity_at from public.my_lender_room_list() where (room).name = 'Bank One' $$,
+  $$ values (now() - interval '12 hours') $$,
+  'a room''s latest activity is its latest file or team answer'
+);
+select results_eq(
+  $$ select last_activity_at from public.my_lender_room_list() where (room).name = 'Bank Four' $$,
+  $$ values (now() - interval '1 day') $$,
+  'a quiet room''s latest activity is when it was made'
+);
+
+select tests.login_as('ll_owner');
+select is_empty('select 1 from public.my_lender_room_list()', 'the team lists none of its rooms as its own');
 
 select * from finish();
 rollback;

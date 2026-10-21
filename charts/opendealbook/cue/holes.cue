@@ -13,6 +13,7 @@ package opendealbook
 //   {{ .Values.workerImage.repository }}
 //   {{ .Values.workerImage.tag }}
 //   {{ .Values.marketing.enabled }}      (public|internal instance toggle)
+//   {{ .Values.billing.enabled }}        (self-hosted install with no billing)
 //   {{ include "opendealbook.fullname" . }}
 //   {{ .Release.Namespace }}
 //   {{- include "opendealbook.labels" . | nindent N }}
@@ -35,6 +36,7 @@ package opendealbook
 	// marketing toggle sentinel: the token is wrapped in quotes on swap so the
 	// rendered env value is a quoted string ("true"/"false"), not a YAML bool.
 	marketing: "ODBMARKETING"
+	billing:   "ODBBILLING"
 
 	// map-key sentinels for the label includes
 	labels:   "ODBLABELS"
@@ -48,5 +50,6 @@ package opendealbook
 		"ODBFULLNAME":          "{{ include \"opendealbook.fullname\" . }}"
 		"ODBNAMESPACE":         "{{ .Release.Namespace }}"
 		"ODBMARKETING":         "\"{{ .Values.marketing.enabled }}\""
+		"ODBBILLING":           "\"{{ .Values.billing.enabled }}\""
 	}
 }

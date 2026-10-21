@@ -7,6 +7,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
+import { refuseWhileTeamLocked } from '../actions/team-lock';
 import { brandLogoUrl } from './logo-url';
 import { BRAND_BUCKET, brandLogoPath, lookupBrand } from './lookup-brand';
 import { pinnedRequest } from './pinned-request';
@@ -76,10 +77,12 @@ export const setManualLenderLogo = refusableAction(
 
     const { data: room } = await client
       .from('lender_room')
-      .select('brand_domain')
+      .select('account_id, brand_domain')
       .eq('id', input.roomId)
       .single()
       .throwOnError();
+
+    await refuseWhileTeamLocked(room.account_id);
 
     if (!room.brand_domain) {
       throw new Refusal('This room has no website, so a logo cannot be added');

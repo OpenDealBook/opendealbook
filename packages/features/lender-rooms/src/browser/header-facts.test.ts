@@ -15,7 +15,14 @@ const room: LenderRoomSummary = {
   brand_name: 'First Harbor Bank, N.A.',
   brand_logo_path: 'firstharbor.com/logo.png',
   deal_name: 'Dockside Cafe Group',
-  deal_description: 'Three-location cafe group on the waterfront',
+  target_close_date: '2027-04-30',
+  must_close_by: '2027-03-31',
+  must_close_reason: null,
+  buyer_team: 'Harbor Acquisitions',
+  loan_amount: 2240000,
+  loan_type: 'sba_7a',
+  term_years: 10,
+  seller_note_amount: 300000,
 };
 
 describe('headerFacts', () => {
@@ -25,7 +32,9 @@ describe('headerFacts', () => {
       initials: 'FH',
       logoPath: 'firstharbor.com/logo.png',
       dealName: 'Dockside Cafe Group',
-      dealDescription: 'Three-location cafe group on the waterfront',
+      buyerTeam: 'Harbor Acquisitions',
+      loanAsk: '$2,240,000 SBA 7(a) plus $300,000 seller note, 10-year term',
+      closeBy: 'March 31, 2027',
       welcomeNote: 'Glad to have you looking at this one.',
       accessEnds: '2026-12-11T00:00:00Z',
       packageLabel: 'Dockside Cafe Group lender package',
@@ -53,6 +62,33 @@ describe('headerFacts', () => {
     expect(facts.dealName).toBeNull();
     expect(facts.packageLabel).toBe('Lender package');
     expect(facts.recordedFor).toBe('the deal team');
+  });
+
+  it('asks only for what the team saved, and closes by the target date when there is no deadline', () => {
+    const facts = headerFacts({
+      ...room,
+      must_close_by: null,
+      term_years: null,
+      seller_note_amount: null,
+    });
+
+    expect(facts.loanAsk).toBe('$2,240,000 SBA 7(a)');
+    expect(facts.closeBy).toBe('April 30, 2027');
+  });
+
+  it('has no loan ask or close-by date when the team saved none', () => {
+    const facts = headerFacts({
+      ...room,
+      target_close_date: null,
+      must_close_by: null,
+      loan_amount: null,
+      loan_type: null,
+      term_years: null,
+      seller_note_amount: null,
+    });
+
+    expect(facts.loanAsk).toBeNull();
+    expect(facts.closeBy).toBeNull();
   });
 
   it('uses the one initial of a one-word lender name', () => {

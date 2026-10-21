@@ -22,6 +22,13 @@ const recordedWording = {
   document_downloaded: 'Downloaded',
   zip_downloaded: 'Downloaded a zip',
   folder_created: 'Created folder',
+  faq_page_opened: 'Opened the FAQ',
+  faq_entry_opened: 'Opened FAQ entry',
+  faq_file_previewed: 'Previewed FAQ file',
+  faq_file_downloaded: 'Downloaded FAQ file',
+  faq_suggestion_opened: 'Opened a suggested FAQ entry',
+  faq_suggestion_resolved: 'Said this answered their question',
+  request_sent_after_suggestion: 'Sent a request after seeing suggestions',
 } satisfies Record<
   Extract<RoomActivityEntry, { kind: 'recorded' }>['action'],
   string
@@ -72,7 +79,13 @@ function what(
     case 'recorded':
       return {
         action: recordedWording[entry.action],
-        item: entry.documentName ?? entry.folderName,
+        item:
+          entry.documentName ??
+          entry.folderName ??
+          entry.faqFileName ??
+          (entry.faqEntryRemoved
+            ? `${entry.faqQuestion} (removed)`
+            : entry.faqQuestion),
       };
     case 'request_opened':
     case 'form_uploaded':

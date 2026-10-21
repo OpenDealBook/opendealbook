@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { connection } from 'next/server';
 
 import { Button } from '@odb/ui/button';
 import {
@@ -125,7 +126,9 @@ const trust = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  await connection();
+
   const redirectTo = marketingGateRedirect(featureFlagsConfig.enableMarketing);
 
   if (redirectTo) {

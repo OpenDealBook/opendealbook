@@ -25,7 +25,14 @@ const room = {
   brand_name: null,
   brand_logo_path: null,
   deal_name: 'Harbor Freight Co',
-  deal_description: null,
+  target_close_date: null,
+  must_close_by: null,
+  must_close_reason: null,
+  buyer_team: null,
+  loan_amount: null,
+  loan_type: null,
+  term_years: null,
+  seller_note_amount: null,
 };
 
 const request = {
@@ -58,6 +65,7 @@ describe('the requests page', () => {
   it('lets a room member send a request and upload a form', () => {
     show(
       <RequestsPage
+        contactName={null}
         room={room}
         asks={[row]}
         forms={[]}
@@ -71,9 +79,27 @@ describe('the requests page', () => {
     expect(pageText()).not.toContain('You are viewing this room');
   });
 
+  it('links back to the room, named for the deal', () => {
+    show(
+      <RequestsPage
+        contactName={null}
+        room={room}
+        asks={[]}
+        forms={[]}
+        canAct
+        esignAvailable
+      />,
+    );
+
+    expect(
+      document.querySelector(`a[href="/lender/${room.id}"]`)?.textContent,
+    ).toBe('Harbor Freight Co');
+  });
+
   it('shows a manager who is not a member the list with a banner and nothing to send', () => {
     show(
       <RequestsPage
+        contactName={null}
         room={room}
         asks={[row]}
         forms={[]}
@@ -94,7 +120,14 @@ describe('the requests page', () => {
 
   it("says there are no requests yet in the lender's words", () => {
     show(
-      <RequestsPage room={room} asks={[]} forms={[]} canAct esignAvailable />,
+      <RequestsPage
+        contactName={null}
+        room={room}
+        asks={[]}
+        forms={[]}
+        canAct
+        esignAvailable
+      />,
     );
 
     expect(pageText()).toContain('No requests yet.');
@@ -106,6 +139,7 @@ describe('the requests page', () => {
   it("shows an answered request as the lender's turn", () => {
     show(
       <RequestsPage
+        contactName={null}
         room={room}
         asks={[{ ...row, status: 'answered' }]}
         forms={[]}
@@ -134,6 +168,7 @@ describe('a form that has been sent to its signers', () => {
   it('reads Out for signature in the list instead of waiting on the team', () => {
     show(
       <RequestsPage
+        contactName={null}
         room={room}
         asks={[]}
         forms={[sentForm]}
@@ -166,6 +201,7 @@ describe('a form that has been sent to its signers', () => {
   it('still waits on the team while the signature request is a draft', () => {
     show(
       <RequestsPage
+        contactName={null}
         room={room}
         asks={[]}
         forms={[{ ...sentForm, latest_signature_status: 'draft' }]}

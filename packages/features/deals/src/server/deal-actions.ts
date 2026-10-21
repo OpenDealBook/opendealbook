@@ -2,7 +2,6 @@
 
 import { appendDealEvent, appendDealEvents, type DealEventInput } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
-import type { TablesInsert } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
@@ -13,6 +12,7 @@ import { updateChecklistItemStatusSchema } from '../schema/checklist-item.schema
 import { dealBoxSchema } from '../schema/deal-box.schema';
 import { dealParticipantSchema } from '../schema/deal-participant.schema';
 import {
+  type AdoptDealFinancialsPayload,
   adoptDealFinancialsSchema,
   type DealPayload,
   dealIdSchema,
@@ -22,8 +22,8 @@ import {
   setEarningsBasisSchema,
   updateDealStageSchema,
 } from '../schema/deal.schema';
-import { firmSchema } from '../schema/firm.schema';
 import { fetchAccountStages } from '../shared';
+import { Refusal, refusableAction } from './refusal';
 
 function definedFields(
   fields: Record<string, string | number | undefined>,
@@ -54,6 +54,17 @@ export async function createDealCore(
   userId: string,
 ): Promise<string> {
   const dealId = crypto.randomUUID();
+  const firmId = crypto.randomUUID();
+
+  await client
+    .from('firm')
+    .insert({
+      id: firmId,
+      account_id: data.account_id,
+      name: data.business_name,
+      status: 'deal_created',
+    })
+    .throwOnError();
 
   await appendDealEvent(client, {
     dealId,
@@ -63,7 +74,7 @@ export async function createDealCore(
     payload: {
       account_id: data.account_id,
       owner_user_id: userId,
-      firm_id: data.firm_id ?? null,
+      firm_id: firmId,
       description: data.description ?? null,
       source: data.source,
       stage: data.stage,
@@ -83,7 +94,6 @@ export async function createDealCore(
         reason_for_sale: data.reason_for_sale,
         year_established: data.year_established,
         discovered_at: data.discovered_at,
-        capture_method: data.capture_method,
         source_url: data.source_url,
       }),
     },
@@ -92,12 +102,12 @@ export async function createDealCore(
   return dealId;
 }
 
-export const createDeal = enhanceAction(
+export const createDeal = refusableAction(
   async (data, user) => createDealCore(getSupabaseServerClient(), data, user.id),
-  { auth: true, schema: dealSchema },
+  dealSchema,
 );
 
-export const updateDealStage = enhanceAction(
+export const updateDealStage = refusableAction(
   async (data, _user) => {
     const client = getSupabaseServerClient();
 
@@ -138,10 +148,15 @@ export const updateDealStage = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: updateDealStageSchema },
+  updateDealStageSchema,
+  {
+    what: 'change the deal stage',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const upsertDealBox = enhanceAction(
+export const upsertDealBox = refusableAction(
   async (data, user) => {
     const client = getSupabaseServerClient();
 
@@ -167,33 +182,11 @@ export const upsertDealBox = enhanceAction(
 
     return row;
   },
-  { auth: true, schema: dealBoxSchema },
+  dealBoxSchema,
+  { what: 'edit the deal box', needs: 'deals.manage' },
 );
 
-export const createFirm = enhanceAction(
-  async (data) => {
-    const client = getSupabaseServerClient();
-
-    const { service_mix_json, ...rest } = data;
-    const insert: TablesInsert<'firm'> =
-      service_mix_json == null ? rest : { ...rest, service_mix_json };
-
-    const { data: row, error } = await client
-      .from('firm')
-      .insert(insert)
-      .select('*')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return row;
-  },
-  { auth: true, schema: firmSchema },
-);
-
-export const addDealParticipant = enhanceAction(
+export const addDealParticipant = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -203,7 +196,7 @@ export const addDealParticipant = enhanceAction(
     });
 
     if (!allowed) {
-      throw new Error('Not permitted to manage participants');
+      throw new Refusal('Only deal managers can add people to a deal.');
     }
 
     const participantId = crypto.randomUUID();
@@ -225,7 +218,7 @@ export const addDealParticipant = enhanceAction(
 
     return participantId;
   },
-  { auth: true, schema: dealParticipantSchema },
+  dealParticipantSchema,
 );
 
 const checklistTimestampColumn = {
@@ -234,7 +227,7 @@ const checklistTimestampColumn = {
   reviewed: 'reviewed_at',
 } as const;
 
-export const updateChecklistItemStatus = enhanceAction(
+export const updateChecklistItemStatus = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const now = new Date().toISOString();
@@ -271,10 +264,11 @@ export const updateChecklistItemStatus = enhanceAction(
 
     return data.id;
   },
-  { auth: true, schema: updateChecklistItemStatusSchema },
+  updateChecklistItemStatusSchema,
+  { what: 'change checklist status', needs: 'checklists.manage' },
 );
 
-export const requestApproval = enhanceAction(
+export const requestApproval = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
     const approvalId = crypto.randomUUID();
@@ -289,10 +283,15 @@ export const requestApproval = enhanceAction(
 
     return approvalId;
   },
-  { auth: true, schema: approvalSchema },
+  approvalSchema,
+  {
+    what: 'request approvals',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const decideApproval = enhanceAction(
+export const decideApproval = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -313,10 +312,11 @@ export const decideApproval = enhanceAction(
 
     return data.id;
   },
-  { auth: true, schema: decideApprovalSchema },
+  decideApprovalSchema,
+  { what: 'decide approvals', needs: 'deals.manage' },
 );
 
-export const setDealResolution = enhanceAction(
+export const setDealResolution = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -333,10 +333,15 @@ export const setDealResolution = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: setDealResolutionSchema },
+  setDealResolutionSchema,
+  {
+    what: 'close out deals',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const archiveDeal = enhanceAction(
+export const archiveDeal = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -350,10 +355,15 @@ export const archiveDeal = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: dealIdSchema },
+  dealIdSchema,
+  {
+    what: 'archive deals',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const unarchiveDeal = enhanceAction(
+export const unarchiveDeal = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -367,10 +377,15 @@ export const unarchiveDeal = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: dealIdSchema },
+  dealIdSchema,
+  {
+    what: 'unarchive deals',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const setDealListingStatus = enhanceAction(
+export const setDealListingStatus = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -384,23 +399,17 @@ export const setDealListingStatus = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: setDealListingStatusSchema },
+  setDealListingStatusSchema,
+  {
+    what: 'change the listing status',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const setEarningsBasis = enhanceAction(
+export const setEarningsBasis = refusableAction(
   async (data) => {
-    const client = getSupabaseServerClient();
-
-    const { data: allowed } = await client.rpc('has_deal_permission', {
-      deal_id: data.deal_id,
-      permission: 'deals.manage',
-    });
-
-    if (!allowed) {
-      throw new Error('Not permitted to manage this deal');
-    }
-
-    await appendDealEvent(client, {
+    await appendDealEvent(getSupabaseServerClient(), {
       dealId: data.deal_id,
       aggregateType: 'deal',
       aggregateId: data.deal_id,
@@ -410,29 +419,45 @@ export const setEarningsBasis = enhanceAction(
 
     return { success: true };
   },
-  { auth: true, schema: setEarningsBasisSchema },
+  setEarningsBasisSchema,
+  {
+    what: 'change the earnings basis',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
-export const adoptDealFinancials = enhanceAction(
-  async (data) => {
-    const client = getSupabaseServerClient();
+export async function adoptDealFinancialsCore(
+  client: ReturnType<typeof getSupabaseServerClient>,
+  data: AdoptDealFinancialsPayload,
+): Promise<void> {
+  await appendDealEvent(client, {
+    dealId: data.deal_id,
+    aggregateType: 'deal',
+    aggregateId: data.deal_id,
+    eventType: 'deal.financials_adopted',
+    payload: {
+      adopted_revenue: data.adopted_revenue ?? null,
+      adopted_sde: data.adopted_sde ?? null,
+      adopted_ebitda: data.adopted_ebitda ?? null,
+      adopted_years: data.adopted_years ?? null,
+      source_calc_version_id: data.source_calc_version_id ?? null,
+    },
+  });
+}
 
-    await appendDealEvent(client, {
-      dealId: data.deal_id,
-      aggregateType: 'deal',
-      aggregateId: data.deal_id,
-      eventType: 'deal.financials_adopted',
-      payload: {
-        adopted_revenue: data.adopted_revenue ?? null,
-        adopted_sde: data.adopted_sde ?? null,
-        adopted_ebitda: data.adopted_ebitda ?? null,
-        source_calc_version_id: data.source_calc_version_id ?? null,
-      },
-    });
+export const adoptDealFinancials = refusableAction(
+  async (data) => {
+    await adoptDealFinancialsCore(getSupabaseServerClient(), data);
 
     return { success: true };
   },
-  { auth: true, schema: adoptDealFinancialsSchema },
+  adoptDealFinancialsSchema,
+  {
+    what: 'adopt financials',
+    needs: 'deals.manage',
+    dealId: (data) => data.deal_id,
+  },
 );
 
 export const starDeal = enhanceAction(

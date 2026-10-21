@@ -1,52 +1,66 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useParams } from 'next/navigation';
 
-import { createDocumentSignedUrl } from '@odb/data-room/documents/actions';
 import { Button } from '@odb/ui/button';
-import { Spinner } from '@odb/ui/spinner';
 
-interface DataRoomDocumentLinkProps {
+export function openDataRoomWindow({
+  account,
+  dealId,
+  ...cited
+}: {
+  account: string;
   dealId: string;
-  documentId: string;
+  doc?: string;
+  page?: number;
+  sheet?: string;
+}) {
+  const view = `/deal-windows/${account}/${dealId}/data-room/view`;
+  const query = new URLSearchParams(
+    Object.entries(cited).flatMap(([key, value]) =>
+      value === undefined ? [] : [[key, String(value)]],
+    ),
+  ).toString();
+
+  window.open(
+    query ? `${view}?${query}` : view,
+    `data-room-${dealId}`,
+    'popup',
+  );
 }
 
 export function DataRoomDocumentLink({
   dealId,
   documentId,
-}: DataRoomDocumentLinkProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  function onOpen() {
-    startTransition(async () => {
-      setError(null);
-
-      try {
-        const url = await createDocumentSignedUrl({ dealId, documentId });
-
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } catch {
-        setError('Unavailable until the data-room storage bucket is provisioned');
-      }
-    });
-  }
+}: {
+  dealId: string;
+  documentId: string;
+}) {
+  const { account } = useParams<{ account: string }>();
 
   return (
-    <div className={'flex flex-col items-end gap-1'}>
-      <Button
-        type={'button'}
-        variant={'outline'}
-        size={'sm'}
-        onClick={onOpen}
-        disabled={isPending}
-      >
-        {isPending ? <Spinner /> : null}
-        Open
-      </Button>
-      {error ? (
-        <span className={'text-destructive text-xs'}>{error}</span>
-      ) : null}
-    </div>
+    <Button
+      type={'button'}
+      variant={'outline'}
+      size={'sm'}
+      onClick={() => openDataRoomWindow({ account, dealId, doc: documentId })}
+    >
+      Open
+    </Button>
+  );
+}
+
+export function OpenDataRoomWindow() {
+  const { account, id } = useParams<{ account: string; id: string }>();
+
+  return (
+    <Button
+      type={'button'}
+      variant={'outline'}
+      size={'sm'}
+      onClick={() => openDataRoomWindow({ account, dealId: id })}
+    >
+      Open in data room window
+    </Button>
   );
 }

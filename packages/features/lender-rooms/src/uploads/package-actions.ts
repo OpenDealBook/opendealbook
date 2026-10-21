@@ -7,6 +7,7 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
+import { refuseWhileTeamLocked } from '../actions/team-lock';
 import { isWithinFolder, packageRoot } from './access';
 
 const NOT_IN_PACKAGE = 'That file is not in the lender package';
@@ -14,6 +15,7 @@ const NOT_IN_PACKAGE = 'That file is not in the lender package';
 export const removePackageFile = refusableAction(
   async (input): Promise<void> => {
     const root = await packageRoot(input.dealId);
+    await refuseWhileTeamLocked(root.accountId);
     const admin = getSupabaseServerAdminClient();
     const document = await admin
       .from('dr_document')

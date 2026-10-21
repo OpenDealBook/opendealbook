@@ -2,11 +2,9 @@
 
 import { z } from 'zod';
 
+import { TEAM_READ_ONLY } from '@odb/next';
 import { enhanceAction } from '@odb/next/actions';
-import {
-  getSupabaseServerAdminClient,
-  getSupabaseServerClient,
-} from '@odb/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { generateApiKey } from './issuance';
 
@@ -16,6 +14,11 @@ const createApiKeySchema = z.object({
   scopes: z.array(z.string()).nonempty().optional(),
 });
 
+const CANNOT_CREATE = 'You cannot create API keys for this team.';
+const CANNOT_REVOKE = 'You cannot revoke this API key.';
+
+type Refused = { ok: false; refusal: string };
+
 const listApiKeysSchema = z.object({ accountId: z.string().uuid() });
 
 const revokeApiKeySchema = z.object({
@@ -23,37 +26,24 @@ const revokeApiKeySchema = z.object({
   id: z.string().uuid(),
 });
 
-async function assertCanManageKeys(accountId: string, userId: string) {
-  const client = getSupabaseServerClient();
-
-  const { data: isOwner } = await client.rpc('is_account_owner', {
-    account_id: accountId,
-  });
-
-  if (isOwner) {
-    return;
-  }
-
-  const { data: allowed } = await client.rpc('has_permission', {
-    account_id: accountId,
-    permission_name: 'members.manage',
-    user_id: userId,
-  });
-
-  if (!allowed) {
-    throw new Error('Not allowed to manage API keys');
-  }
-}
-
 export const createApiKey = enhanceAction(
-  async (data, user) => {
-    await assertCanManageKeys(data.accountId, user.id);
-
+  async (
+    data,
+    user,
+  ): Promise<
+    | {
+        ok: true;
+        rawKey: string;
+        prefix: string;
+        name: string;
+        scopes: string[];
+      }
+    | Refused
+  > => {
     const generated = generateApiKey();
     const scopes = data.scopes ?? ['read'];
-    const admin = getSupabaseServerAdminClient();
 
-    const { error } = await admin.from('api_key').insert({
+    const { error } = await getSupabaseServerClient().from('api_key').insert({
       account_id: data.accountId,
       name: data.name,
       key_prefix: generated.prefix,
@@ -62,11 +52,20 @@ export const createApiKey = enhanceAction(
       created_by: user.id,
     });
 
+    if (error?.code === '42501') {
+      return {
+        ok: false,
+        refusal:
+          error.message === 'team is read-only' ? TEAM_READ_ONLY : CANNOT_CREATE,
+      };
+    }
+
     if (error) {
       throw error;
     }
 
     return {
+      ok: true,
       rawKey: generated.rawKey,
       prefix: generated.prefix,
       name: data.name,
@@ -98,20 +97,25 @@ export const listApiKeys = enhanceAction(
 );
 
 export const revokeApiKey = enhanceAction(
-  async (data) => {
+  async (data): Promise<{ ok: true } | Refused> => {
     const client = getSupabaseServerClient();
 
-    const { error } = await client
+    const { data: revoked, error } = await client
       .from('api_key')
       .update({ revoked_at: new Date().toISOString() })
       .eq('id', data.id)
-      .eq('account_id', data.accountId);
+      .eq('account_id', data.accountId)
+      .select('id');
 
     if (error) {
       throw error;
     }
 
-    return { success: true };
+    if (revoked.length === 0) {
+      return { ok: false, refusal: CANNOT_REVOKE };
+    }
+
+    return { ok: true };
   },
   { auth: true, schema: revokeApiKeySchema },
 );

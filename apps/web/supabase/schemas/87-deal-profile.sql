@@ -55,3 +55,38 @@ create policy deal_profile_update on public.deal_profile
 create policy deal_profile_delete on public.deal_profile
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- Saves the profile editor in one transaction: the deal.updated event and the
+-- business name, which it also confirms. The new code name is checked against
+-- the new business name; the write whose trigger would compare the new code
+-- name with the old business name goes second.
+create or replace function public.update_deal_profile(p_deal_id uuid, p_business_name text, p_payload jsonb)
+  returns void
+  language plpgsql security invoker set search_path = '' as $$
+declare
+  v_firm public.firm;
+  v_code_name text := btrim(p_payload ->> 'code_name');
+begin
+  select f.* into v_firm
+  from public.deal d join public.firm f on f.id = d.firm_id
+  where d.id = p_deal_id;
+
+  if not public.has_permission((select auth.uid()), v_firm.account_id, 'deals.manage') then
+    raise exception 'editing the deal profile needs deals.manage' using errcode = 'insufficient_privilege';
+  end if;
+
+  if public.code_name_contains_business_name(v_code_name, p_business_name) then
+    raise exception 'a code name must not contain the business name' using errcode = 'check_violation';
+  end if;
+
+  if public.code_name_contains_business_name(v_code_name, v_firm.name) then
+    update public.firm set name = p_business_name, name_confirmed = true where id = v_firm.id;
+    perform public.append_deal_event(p_deal_id, 'deal', p_deal_id, 'deal.updated', p_payload);
+  else
+    perform public.append_deal_event(p_deal_id, 'deal', p_deal_id, 'deal.updated', p_payload);
+    update public.firm set name = p_business_name, name_confirmed = true where id = v_firm.id;
+  end if;
+end;
+$$;
+
+grant execute on function public.update_deal_profile(uuid, text, jsonb) to authenticated, service_role;

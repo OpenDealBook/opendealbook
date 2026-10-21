@@ -2,7 +2,7 @@ import { proxyActivities, sleep } from '@temporalio/workflow';
 
 import type * as activities from '../activities';
 
-const { createNotification } = proxyActivities<typeof activities>({
+const { createNotification, isTeamLocked } = proxyActivities<typeof activities>({
   startToCloseTimeout: '1 minute',
 });
 
@@ -23,6 +23,10 @@ export async function announcementSchedule(
 ): Promise<void> {
   for (const item of input.items) {
     await sleep(Date.parse(item.at) - Date.now());
+
+    if (await isTeamLocked({ accountId: input.accountId })) {
+      continue;
+    }
 
     await createNotification({
       accountId: input.accountId,

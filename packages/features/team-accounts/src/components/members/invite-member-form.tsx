@@ -1,9 +1,10 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { useFieldArray, useForm } from 'react-hook-form';
 
-import { hasPermission, type AppPermission, type Role } from '@odb/policies';
+import { hasPermission, type AppPermission } from '@odb/policies';
 import { Button } from '@odb/ui/button';
 import {
   Form,
@@ -21,7 +22,10 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 
+import { teamInvitationsQueryKey } from '../../hooks/use-team-invitations';
+import { ROLE_LABELS } from '../../role-labels';
 import {
+  INVITABLE_ROLES,
   inviteMembersSchema,
   type InviteMembersData,
 } from '../../schema/invite-members.schema';
@@ -29,15 +33,16 @@ import { inviteMembersAction } from '../../server/invitations-actions';
 
 export function InviteMemberForm(props: {
   slug: string;
-  roles: Role[];
+  accountId: string;
   permissions: AppPermission[];
   onSuccess?: () => void;
 }) {
+  const queryClient = useQueryClient();
   const form = useForm<InviteMembersData>({
     resolver: zodResolver(inviteMembersSchema),
     defaultValues: {
       slug: props.slug,
-      invitations: [{ email: '', role: props.roles[0]?.name ?? '' }],
+      invitations: [{ email: '', role: 'member' }],
     },
   });
 
@@ -57,6 +62,9 @@ export function InviteMemberForm(props: {
         onSubmit={form.handleSubmit(async (values) => {
           await inviteMembersAction(values);
           form.reset();
+          await queryClient.invalidateQueries({
+            queryKey: teamInvitationsQueryKey(props.accountId),
+          });
           props.onSuccess?.();
         })}
       >
@@ -87,9 +95,9 @@ export function InviteMemberForm(props: {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {props.roles.map((role) => (
-                        <SelectItem key={role.name} value={role.name}>
-                          {role.name}
+                      {INVITABLE_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {ROLE_LABELS[role]}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -116,7 +124,7 @@ export function InviteMemberForm(props: {
             onClick={() =>
               fieldArray.append({
                 email: '',
-                role: props.roles[0]?.name ?? '',
+                role: 'member',
               })
             }
           >

@@ -48,7 +48,7 @@ export const importFirmsFromCsv = enhanceAction(
       website: row.website,
       employee_band: row.employee_band,
       established_year: row.established_year,
-      owner_name: row.owner_name,
+      owner_names: row.owner_names,
       owner_age_estimate: row.owner_age_estimate,
       source: 'csv',
       source_url: row.source_url,

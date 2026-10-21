@@ -8,7 +8,6 @@ export const pathsConfig = {
   },
   app: {
     home: '/home',
-    billing: '/home/billing',
   },
 } as const;
 

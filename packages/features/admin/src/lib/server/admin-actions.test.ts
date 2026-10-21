@@ -6,6 +6,9 @@ const state = vi.hoisted(() => ({
   updateUserById: vi.fn(),
   insert: vi.fn(),
   del: vi.fn(),
+  deletedFrom: [] as string[],
+  deleteFails: false,
+  upsert: vi.fn(),
   ownerId: 'owner-1',
 }));
 
@@ -18,15 +21,26 @@ vi.mock('@odb/supabase/server', () => {
       select: () => ({ eq: () => ({ single }) }),
       delete: () => ({
         eq: (...args: unknown[]) => {
+          state.deletedFrom.push(table);
           state.del(...args);
 
-          return Promise.resolve({ error: null });
+          return Object.assign(Promise.resolve({ error: null }), {
+            throwOnError: () =>
+              state.deleteFails
+                ? Promise.reject(new Error('delete failed'))
+                : Promise.resolve({ error: null }),
+          });
         },
       }),
       insert: (row: unknown) => {
         state.insert(table, row);
 
         return Promise.resolve({ error: null });
+      },
+      upsert: (row: unknown) => {
+        state.upsert(table, row);
+
+        return { throwOnError: () => Promise.resolve({ error: null }) };
       },
     }),
     rpc: state.adminRpc,
@@ -49,7 +63,9 @@ import {
   banUserAction,
   deleteAccountAction,
   reactivateUserAction,
+  setSellerSendLimitAction,
 } from './admin-actions';
+import { SellerSendLimitSchema } from './schemas';
 
 beforeEach(() => {
   state.serverRpc.mockResolvedValue({ data: true });
@@ -58,6 +74,9 @@ beforeEach(() => {
   state.updateUserById.mockResolvedValue({ error: null });
   state.insert.mockClear();
   state.del.mockClear();
+  state.deletedFrom = [];
+  state.deleteFails = false;
+  state.upsert.mockClear();
   state.adminRpc.mockClear();
   state.ownerId = 'owner-1';
 });
@@ -152,5 +171,76 @@ describe('reactivateUserAction', () => {
         target_id: 'user-9',
       }),
     );
+  });
+});
+
+describe('setSellerSendLimitAction', () => {
+  const accountId = '6f1c2d3e-4a5b-4c6d-8e7f-90a1b2c3d4e5';
+
+  it('sets the team value and appends an audit row', async () => {
+    await setSellerSendLimitAction({ accountId, dailyLimit: 25 });
+
+    expect(state.upsert).toHaveBeenCalledWith('seller_send_limit', {
+      account_id: accountId,
+      daily_limit: 25,
+    });
+    expect(state.insert).toHaveBeenCalledWith(
+      'admin_action_log',
+      expect.objectContaining({
+        actor_user_id: 'actor-1',
+        action: 'account.seller_send_limit',
+        target_type: 'account',
+        target_id: accountId,
+        detail: { dailyLimit: 25 },
+      }),
+    );
+  });
+
+  it('clears the team value so the defaults apply again', async () => {
+    await setSellerSendLimitAction({ accountId, dailyLimit: null });
+
+    expect(state.upsert).not.toHaveBeenCalled();
+    expect(state.deletedFrom).toEqual(['seller_send_limit']);
+    expect(state.del).toHaveBeenCalledWith('account_id', accountId);
+    expect(state.insert).toHaveBeenCalledWith(
+      'admin_action_log',
+      expect.objectContaining({ detail: { dailyLimit: null } }),
+    );
+  });
+
+  it('does not record a reset that failed', async () => {
+    state.deleteFails = true;
+
+    await expect(
+      setSellerSendLimitAction({ accountId, dailyLimit: null }),
+    ).rejects.toThrow('delete failed');
+    expect(state.insert).not.toHaveBeenCalledWith('admin_action_log', expect.anything());
+  });
+
+  it('accepts zero, which blocks sending', async () => {
+    await setSellerSendLimitAction({ accountId, dailyLimit: 0 });
+
+    expect(state.upsert).toHaveBeenCalledWith('seller_send_limit', {
+      account_id: accountId,
+      daily_limit: 0,
+    });
+  });
+
+  it('refuses a negative or fractional value', () => {
+    expect(
+      SellerSendLimitSchema.safeParse({ accountId, dailyLimit: -1 }).success,
+    ).toBe(false);
+    expect(
+      SellerSendLimitSchema.safeParse({ accountId, dailyLimit: 2.5 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects when the caller is not a super admin', async () => {
+    state.serverRpc.mockResolvedValue({ data: false });
+
+    await expect(
+      setSellerSendLimitAction({ accountId, dailyLimit: 25 }),
+    ).rejects.toThrow();
+    expect(state.upsert).not.toHaveBeenCalled();
   });
 });

@@ -30,6 +30,7 @@ import {
   banUserAction,
   reactivateUserAction,
 } from '../lib/server/admin-actions';
+import { SellerSendLimitCard } from './seller-send-limit-card';
 
 export function AdminAccountDetail({ accountId }: { accountId: string }) {
   const queryClient = useQueryClient();
@@ -115,6 +116,13 @@ export function AdminAccountDetail({ accountId }: { accountId: string }) {
           )}
         </CardContent>
       </Card>
+
+      <SellerSendLimitCard
+        key={data?.sellerSendLimit ?? 'default'}
+        accountId={accountId}
+        dailyLimit={data?.sellerSendLimit ?? null}
+        onSaved={invalidate}
+      />
 
       <Dialog
         open={banTarget !== null}

@@ -19,8 +19,8 @@ import {
   replyToAskAsLender,
   withdrawAsk,
 } from '../asks/lender-actions';
-import { fileUrl } from '../browser/file-access';
-import { FilePreviewDialog } from '../browser/file-preview-dialog';
+import { fileUrl } from '../room-browser/file-access';
+import { FilePreviewDialog } from '../room-browser/file-preview-dialog';
 import {
   changeReturnRoute,
   closeFormAsLender,

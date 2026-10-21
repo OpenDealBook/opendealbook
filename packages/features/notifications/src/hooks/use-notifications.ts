@@ -1,41 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useSupabase, useUser } from '@odb/supabase/hooks';
 
-import {
-  type NotificationRow,
-  type NotificationViewModel,
-  toNotificationViewModel,
-} from '../types';
+import { dismissNotification } from '../server/dismiss-notification';
+import { markAllNotificationsRead } from '../server/mark-all-notifications-read';
+import { toNotificationViewModel } from '../types';
 
 export function useNotifications(accountId: string) {
   const client = useSupabase();
+  const queryClient = useQueryClient();
   const userId = useUser().data?.id;
-  const [streamed, setStreamed] = useState<NotificationViewModel[]>([]);
+  const queryKey = ['notifications', accountId, userId];
 
   const query = useQuery({
-    queryKey: ['notifications', accountId, userId],
+    queryKey,
     enabled: userId !== undefined,
     queryFn: async () => {
-      const { data, error } = await client
+      const { data } = await client
         .from('notifications')
-        .select('id, body, type, link, created_at')
+        .select(
+          'id, body, type, link, created_at, deal(firm!inner(name)), notification_reads(read_at)',
+        )
         .eq('account_id', accountId)
         .eq('dismissed', false)
         .or(`recipient_user_id.eq.${userId},recipient_user_id.is.null`)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
-      }
+        .order('created_at', { ascending: false })
+        .throwOnError();
 
       return data.map(toNotificationViewModel);
     },
   });
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey });
 
   useEffect(() => {
     if (userId === undefined) {
@@ -52,17 +52,10 @@ export function useNotifications(accountId: string) {
           table: 'notifications',
           filter: `account_id=eq.${accountId}`,
         },
-        (payload) => {
-          const recipientUserId = payload.new.recipient_user_id;
-
-          if (recipientUserId !== null && recipientUserId !== userId) {
-            return;
-          }
-
-          setStreamed((existing) => [
-            toNotificationViewModel(payload.new as NotificationRow),
-            ...existing,
-          ]);
+        () => {
+          void queryClient.invalidateQueries({
+            queryKey: ['notifications', accountId, userId],
+          });
         },
       )
       .subscribe();
@@ -70,9 +63,17 @@ export function useNotifications(accountId: string) {
     return () => {
       void client.removeChannel(channel);
     };
-  }, [client, accountId, userId]);
+  }, [client, queryClient, accountId, userId]);
 
-  const notifications = [...streamed, ...(query.data ?? [])];
-
-  return { notifications, unreadCount: notifications.length };
+  return {
+    notifications: query.data ?? [],
+    dismiss: async (id: number) => {
+      await dismissNotification({ id });
+      await refresh();
+    },
+    markAllRead: async () => {
+      await markAllNotificationsRead({ accountId });
+      await refresh();
+    },
+  };
 }

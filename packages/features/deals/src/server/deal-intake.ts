@@ -70,15 +70,21 @@ function profileAndFinancials(
 }
 
 export function dealFromIntakeDraft(
-  accountId: string,
+  identity: Pick<
+    DealPayload,
+    'account_id' | 'business_name' | 'industry_id' | 'industry'
+  >,
   draft: DealIntakeDraft,
 ): DealPayload {
   return {
-    account_id: accountId,
     source: 'manual',
     stage: 'sourcing',
     ...profileAndFinancials(draft),
-  } as DealPayload;
+    account_id: identity.account_id,
+    business_name: identity.business_name,
+    industry_id: identity.industry_id,
+    industry: identity.industry,
+  };
 }
 
 export function dealUpdateFromIntakeDraft(

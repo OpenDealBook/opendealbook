@@ -57,9 +57,17 @@ describe('importFirmsFromCsv', () => {
 
     const result = await importFirmsFromCsv({
       accountId: '00000000-0000-0000-0000-000000000001',
-      csvText: 'Company,Site\nAcme,acme.com\nBeta,beta.com',
-      mapping: { name: 'Company', website: 'Site' },
+      csvText:
+        'Company,Site,Owners\nAcme,acme.com,\nBeta,beta.com,Pat Owner;Sam Owner',
+      mapping: { name: 'Company', website: 'Site', owner_name: 'Owners' },
     });
+
+    expect(firmInsert.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        name: 'Beta',
+        owner_names: ['Pat Owner', 'Sam Owner'],
+      }),
+    ]);
 
     expect(rpc).toHaveBeenCalledWith('has_permission', {
       account_id: '00000000-0000-0000-0000-000000000001',

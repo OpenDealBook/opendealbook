@@ -1,12 +1,12 @@
--- A diligence schedule for a deal: the plan from start to a target APA date,
--- broken into weeks (schedule_week). Deal-scoped; managed with checklists.manage.
+-- A diligence schedule for a deal: the plan from its start, broken into weeks
+-- (schedule_week). The target APA date is the deal's apa_signing milestone.
+-- Deal-scoped; managed with checklists.manage.
 
 create table if not exists public.diligence_schedule (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null references public.deal (id) on delete cascade,
   account_id uuid not null references public.accounts (id) on delete cascade,
   start_date date,
-  target_apa_date date,
   template_id uuid,
   status text not null default 'proposed' check (status in ('proposed', 'accepted', 'active', 'done')),
   created_by uuid references auth.users default auth.uid(),
@@ -16,7 +16,7 @@ create table if not exists public.diligence_schedule (
 
 alter table public.diligence_schedule enable row level security;
 
-create index ix_diligence_schedule_deal on public.diligence_schedule (deal_id);
+create unique index ix_diligence_schedule_deal on public.diligence_schedule (deal_id);
 create index ix_diligence_schedule_account on public.diligence_schedule (account_id);
 
 revoke all on public.diligence_schedule from authenticated, service_role;

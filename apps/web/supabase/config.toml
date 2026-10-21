@@ -26,6 +26,7 @@ port = 54323
 [local_smtp]
 enabled = true
 port = 54324
+smtp_port = 54325
 
 [storage]
 enabled = true
@@ -38,15 +39,18 @@ additional_redirect_urls = [
   "http://localhost:3000",
   "http://localhost:3000/auth/callback",
   "http://localhost:3000/update-password",
+  "http://localhost:3100",
+  "http://localhost:3100/auth/callback",
+  "http://localhost:3100/update-password",
 ]
 jwt_expiry = 3600
 enable_signup = true
 
 [auth.email]
 enable_signup = true
-# Local dev only: programmatic sign-up returns a session immediately. Production
-# keeps confirmations on through its own hosted auth settings.
-enable_confirmations = false
+# Sign-up waits for the confirmation email, which lands in Mailpit locally; the
+# e2e sign-up fixture confirms through it.
+enable_confirmations = true
 double_confirm_changes = true
 
 [auth.mfa.totp]

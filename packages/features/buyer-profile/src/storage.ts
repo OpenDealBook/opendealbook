@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@odb/supabase';
+import { storageKeyName } from '@odb/supabase/storage-key';
 
 export const BUYER_PROFILE_BUCKET = 'buyer-profile';
 
@@ -11,7 +12,7 @@ export async function uploadBuyerProfilePhoto(
   accountId: string,
   file: File,
 ): Promise<string> {
-  const path = `${accountId}/${crypto.randomUUID()}-${file.name}`;
+  const path = `${accountId}/${crypto.randomUUID()}-${storageKeyName(file.name)}`;
 
   const { error } = await client.storage
     .from(BUYER_PROFILE_BUCKET)

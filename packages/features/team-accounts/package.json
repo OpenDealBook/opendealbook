@@ -15,27 +15,38 @@
     "./components": "./src/components/index.ts",
     "./schema": "./src/schema/index.ts",
     "./server": "./src/server/index.ts",
-    "./hooks": "./src/hooks/index.ts"
+    "./hooks": "./src/hooks/index.ts",
+    "./last-team": "./src/last-team.ts",
+    "./role-labels": "./src/role-labels.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:int": "vitest run -c vitest.int.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-table": "catalog:",
+    "@odb/email-templates": "workspace:*",
+    "@odb/mailers": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/policies": "workspace:*",
+    "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/ui": "workspace:*",
     "react-hook-form": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@odb/seller-rooms": "workspace:*",
     "@odb/tsconfig": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "30.1.2",
+    "react-dom": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {

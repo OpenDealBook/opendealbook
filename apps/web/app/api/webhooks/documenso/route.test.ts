@@ -14,6 +14,9 @@ vi.mock('@odb/contracts/esign', async (importOriginal) => ({
   createDocumensoClient: () => documenso,
   handleContractSignatureEvent,
 }));
+vi.mock('@odb/deals/server', () => ({
+  setUpDiligenceOnLoiSigned: vi.fn(),
+}));
 vi.mock('@odb/lender-rooms/esign/webhook.ts', () => ({
   handleFormSignatureEvent,
 }));
@@ -162,6 +165,7 @@ describe('what the documenso webhook does with an event', () => {
       client: adminClient,
       admin: adminClient,
       documenso,
+      onLoiSigned: expect.any(Function),
     });
   });
 

@@ -67,29 +67,29 @@ select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'deal_pa
 -- ---- Deal-scoped visibility: a participant sees their granted deal ----
 select tests.login_as('rs_ext');
 
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.meeting_series where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e1' $$,
-  'a participant sees meeting_series on their granted deal'
+  'a participant cannot read meeting_series on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.meeting where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e1' $$,
-  'a participant sees meetings on their granted deal'
+  'a participant cannot read meetings on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.meeting_action_item where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e1' $$,
-  'a participant sees meeting action items on their granted deal'
+  'a participant cannot read meeting action items on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.hr_audit_engagement where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e1' $$,
-  'a participant sees the hr audit engagement on their granted deal'
+  'a participant cannot read the hr audit engagement on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.employee where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e1' $$,
-  'a participant sees employees on their granted deal'
+  'a participant cannot read employees on their granted deal'
 );
-select isnt_empty(
+select is_empty(
   $$ select 1 from public.client_transition where deal_id = 'aaaaaaaa-0000-0000-0000-0000000000e1' $$,
-  'a participant sees client transitions on their granted deal'
+  'a participant cannot read client transitions on their granted deal'
 );
 
 -- The same participant has no grant on Deal B and sees none of its rows.
@@ -126,12 +126,12 @@ select isnt_empty(
   'a member gets pipeline aggregates for their own account'
 );
 select is(
-  (select total_revenue from public.analytics_pipeline_by_stage(tests.account_id('rs-acct-a'), true) where stage = 'sourced'),
+  (select total_revenue from public.analytics_pipeline_by_stage(tests.account_id('rs-acct-a'), true) where stage = 'sourcing'),
   1000000::numeric,
   'pipeline analytics reports revenue when include_revenue is true'
 );
 select is(
-  (select total_revenue from public.analytics_pipeline_by_stage(tests.account_id('rs-acct-a'), false) where stage = 'sourced'),
+  (select total_revenue from public.analytics_pipeline_by_stage(tests.account_id('rs-acct-a'), false) where stage = 'sourcing'),
   0::numeric,
   'pipeline analytics zeroes revenue when include_revenue is false'
 );

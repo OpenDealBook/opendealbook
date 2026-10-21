@@ -32,7 +32,6 @@ function doc(
     storage_path: `deal/deal/${overrides.id}`,
     version: 1,
     uploaded_by: null,
-    checklist_item_id: null,
     created_at: null,
     updated_at: null,
     removed_at: null,

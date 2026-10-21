@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { businessIdentityFields, hasIndustry } from './deal.schema';
+
 export const dealIntakeDraftSchema = z.object({
   revenue: z.number().nullable(),
   sde: z.number().nullable(),
@@ -15,22 +17,26 @@ export const dealIntakeDraftSchema = z.object({
 
 export type DealIntakeDraft = z.infer<typeof dealIntakeDraftSchema>;
 
-export const createDealFromIntakeSchema = z.object({
+export const extractDealIntakeFromTextSchema = z.object({
   account_id: z.uuid(),
   text: z.string().min(1),
 });
 
-export type CreateDealFromIntakePayload = z.infer<
-  typeof createDealFromIntakeSchema
->;
-
-export const createDealFromIntakePdfSchema = z.object({
+export const extractDealIntakeFromPdfSchema = z.object({
   account_id: z.uuid(),
   pdf: z.string().min(1),
 });
 
-export type CreateDealFromIntakePdfPayload = z.infer<
-  typeof createDealFromIntakePdfSchema
+export const createDealFromIntakeSchema = z
+  .object({
+    account_id: z.uuid(),
+    ...businessIdentityFields,
+    draft: dealIntakeDraftSchema,
+  })
+  .refine(...hasIndustry);
+
+export type CreateDealFromIntakePayload = z.infer<
+  typeof createDealFromIntakeSchema
 >;
 
 export const rerunDealIntakeSchema = z.object({

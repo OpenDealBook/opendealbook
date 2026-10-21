@@ -1,53 +1,88 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  getTeamAccountNavigationConfig,
-  teamNavigationFor,
-} from '../../../../config/team-account-navigation.config';
+import { stubBootEnv } from '../../../../test-env';
 
-const everyItemBefore = [
-  'common.home',
-  'common.todos',
-  'common.deals',
-  'common.reports',
-  'common.outreach',
-  'common.underwriting',
-  'common.compsImport',
-  'account.settings',
-  'account.apiKeys',
-  'account.templates',
-  'account.buyerProfile',
-  'billing.title',
-];
+stubBootEnv({});
+const { teamNavigationFor } =
+  await import('../../../../config/team-account-navigation.config');
+
+function labelsIn(group: string, permissions: string[]) {
+  return teamNavigationFor('team-one', permissions)
+    .filter((item) => item.group === group)
+    .map((item) => item.label);
+}
+
+const everyPermission = ['deals.manage', 'api_keys.manage'];
 
 describe('the team workspace nav', () => {
-  it('shows Lenders after Deals to people who can manage deals', () => {
-    const labels = teamNavigationFor('team-one', ['deals.manage']).map(
-      (item) => item.label,
-    );
-
-    expect(labels).toEqual([
+  it('puts daily work in the Work group', () => {
+    expect(labelsIn('work', everyPermission)).toEqual([
       'common.home',
       'common.todos',
       'common.deals',
       'common.lenders',
-      ...everyItemBefore.slice(3),
+      'common.outreach',
+      'common.reports',
     ]);
+  });
+
+  it('puts team administration in the Settings group, starting with the deal box', () => {
+    expect(labelsIn('settings', everyPermission)).toEqual([
+      'account.dealBox',
+      'account.members',
+      'account.teamSettings',
+      'billing.title',
+      'account.lenderSettings',
+      'account.contractReview',
+      'account.templates',
+      'account.checklists',
+      'account.buyerProfile',
+      'account.dealCalcDefaults',
+      'common.compsImport',
+      'account.apiKeys',
+    ]);
+    expect(
+      teamNavigationFor('team-one', []).find(
+        (item) => item.label === 'account.members',
+      )?.path,
+    ).toBe('/home/team-one/members');
+    expect(
+      teamNavigationFor('team-one', []).find(
+        (item) => item.label === 'account.dealBox',
+      )?.path,
+    ).toBe('/home/team-one/underwriting');
+  });
+
+  it('shows Lenders and Lender settings only to people who can manage deals', () => {
+    expect(labelsIn('work', ['api_keys.manage'])).not.toContain(
+      'common.lenders',
+    );
+    expect(labelsIn('settings', ['members.manage'])).not.toContain(
+      'account.lenderSettings',
+    );
+    expect(labelsIn('settings', ['members.manage'])).not.toContain(
+      'account.contractReview',
+    );
     expect(
       teamNavigationFor('team-one', ['deals.manage']).find(
         (item) => item.label === 'common.lenders',
       )?.path,
     ).toBe('/home/team-one/lenders');
+    expect(
+      teamNavigationFor('team-one', ['deals.manage']).find(
+        (item) => item.label === 'account.lenderSettings',
+      )?.path,
+    ).toBe('/home/team-one/settings/lenders');
   });
 
-  it('hides Lenders from everyone else and leaves every other item as it was', () => {
+  it('shows API keys only to people who can manage API keys', () => {
     expect(
-      teamNavigationFor('team-one', ['deals.create']).map((item) => item.label),
-    ).toEqual(everyItemBefore);
+      labelsIn('settings', ['deals.manage', 'members.manage']),
+    ).not.toContain('account.apiKeys');
     expect(
-      getTeamAccountNavigationConfig('team-one')
-        .filter((item) => item.label !== 'common.lenders')
-        .map((item) => item.label),
-    ).toEqual(everyItemBefore);
+      teamNavigationFor('team-one', ['api_keys.manage']).find(
+        (item) => item.label === 'account.apiKeys',
+      )?.path,
+    ).toBe('/home/team-one/settings/api-keys');
   });
 });

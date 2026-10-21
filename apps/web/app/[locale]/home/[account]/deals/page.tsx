@@ -15,7 +15,7 @@ export default async function TeamDealsPage({
   const resolvedSearchParams = await searchParams;
 
   return (
-    <main className={'flex flex-col gap-6 p-8'}>
+    <main className={'flex flex-col gap-6 p-4 md:p-8'}>
       <h1 className={'text-2xl font-semibold'}>Deals</h1>
       <DealsList
         accountId={team.id}

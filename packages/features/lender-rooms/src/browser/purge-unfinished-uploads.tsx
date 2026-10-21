@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-import { unfinishedMemory } from './unfinished-memory';
+import { unfinishedMemory } from '../room-browser/unfinished-memory';
 
 export function PurgeUnfinishedUploads({
   userId,

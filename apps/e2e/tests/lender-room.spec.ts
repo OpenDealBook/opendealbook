@@ -1,102 +1,41 @@
-import {
-  type APIRequestContext,
-  type Browser,
-  type Page,
-  expect,
-  test,
-} from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 
 import {
-  SUPABASE_URL,
-  completePersonalOnboarding,
   completeTeamOnboarding,
+  db,
+  expect,
   newCredentials,
-  serviceHeaders,
-  signUp,
-} from './fixtures/team';
+  test,
+} from './fixtures';
+import { createDeal } from './fixtures/deal';
 
 const DATA_ROOM_BUCKET = 'data-room';
 
-async function restRows<Row>(
-  request: APIRequestContext,
-  path: string,
-): Promise<Row[]> {
-  const response = await request.get(`${SUPABASE_URL}/rest/v1/${path}`, {
-    headers: serviceHeaders,
-  });
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as Row[];
-}
-
-async function userIdByEmail(request: APIRequestContext, email: string) {
-  const rows = await restRows<{ primary_owner_user_id: string }>(
-    request,
-    `accounts?email=eq.${encodeURIComponent(email)}&is_personal_account=eq.true&select=primary_owner_user_id`,
-  );
-  expect(rows).toHaveLength(1);
-  return rows[0]!.primary_owner_user_id;
-}
-
-async function documentIdByName(
-  request: APIRequestContext,
-  dealId: string,
-  name: string,
-): Promise<string> {
-  const rows = await restRows<{ id: string }>(
-    request,
-    `dr_document?deal_id=eq.${dealId}&name=eq.${encodeURIComponent(name)}&select=id`,
+async function documentIdByName(dealId: string, name: string): Promise<string> {
+  const rows = await db.rows<{ id: string }>(
+    'dr_document',
+    `deal_id=eq.${dealId}&name=eq.${encodeURIComponent(name)}&select=id`,
   );
   expect(rows).toHaveLength(1);
   return rows[0]!.id;
 }
 
-// The invite email carries a token-hash link to /auth/confirm; the same link is
-// built here from a server-side admin magic link, as sign-in-link.ts does.
-async function signInLink(
-  request: APIRequestContext,
-  { email, next }: { email: string; next: string },
-): Promise<string> {
-  const response = await request.post(
-    `${SUPABASE_URL}/auth/v1/admin/generate_link`,
-    { headers: serviceHeaders, data: { type: 'magiclink', email } },
-  );
-  expect(response.ok()).toBeTruthy();
-  const { hashed_token: tokenHash } = (await response.json()) as {
-    hashed_token: string;
-  };
-
-  return `/auth/confirm?${new URLSearchParams({
-    token_hash: tokenHash,
-    type: 'magiclink',
-    next,
-  })}`;
-}
-
-async function lenderActivity(
-  request: APIRequestContext,
-  roomId: string,
-  userId: string,
-) {
-  return restRows<{ action: string; side: string; dr_document_id: string | null }>(
-    request,
-    `lender_room_activity?room_id=eq.${roomId}&user_id=eq.${userId}&select=action,side,dr_document_id`,
+function lenderActivity(roomId: string, userId: string) {
+  return db.rows<{
+    action: string;
+    side: string;
+    dr_document_id: string | null;
+  }>(
+    'lender_room_activity',
+    `room_id=eq.${roomId}&user_id=eq.${userId}&select=action,side,dr_document_id`,
   );
 }
 
-async function documentsVisibleToLender(
-  request: APIRequestContext,
-  userId: string,
-  documentIds: string[],
-) {
-  const response = await request.post(
-    `${SUPABASE_URL}/rest/v1/rpc/lender_visible_documents`,
-    {
-      headers: serviceHeaders,
-      data: { user_id: userId, document_ids: documentIds },
-    },
-  );
-  expect(response.ok()).toBeTruthy();
-  return (await response.json()) as { document_id: string }[];
+function documentsVisibleToLender(userId: string, documentIds: string[]) {
+  return db.rpc<{ document_id: string }[]>('lender_visible_documents', {
+    user_id: userId,
+    document_ids: documentIds,
+  });
 }
 
 async function createRoomByName(page: Page, openLabel: string, name: string) {
@@ -108,94 +47,24 @@ async function createRoomByName(page: Page, openLabel: string, name: string) {
   return new URL(page.url()).pathname.split('/').pop()!;
 }
 
-async function cleanUp(
-  request: APIRequestContext,
-  {
-    dealId,
-    teamSlug,
-    emails,
-  }: { dealId: string | null; teamSlug: string; emails: string[] },
-) {
-  if (dealId) {
-    const listed = await request.post(
-      `${SUPABASE_URL}/storage/v1/object/list/${DATA_ROOM_BUCKET}`,
-      {
-        headers: serviceHeaders,
-        data: { prefix: `deal/${dealId}`, limit: 1000 },
-      },
-    );
-    expect(listed.ok()).toBeTruthy();
-    const objects = (await listed.json()) as { name: string }[];
-
-    if (objects.length > 0) {
-      const removed = await request.delete(
-        `${SUPABASE_URL}/storage/v1/object/${DATA_ROOM_BUCKET}`,
-        {
-          headers: serviceHeaders,
-          data: {
-            prefixes: objects.map((object) => `deal/${dealId}/${object.name}`),
-          },
-        },
-      );
-      expect(removed.ok()).toBeTruthy();
-    }
-  }
-
-  const teamDeleted = await request.delete(
-    `${SUPABASE_URL}/rest/v1/accounts?slug=eq.${teamSlug}`,
-    { headers: serviceHeaders },
-  );
-  expect(teamDeleted.ok()).toBeTruthy();
-
-  for (const email of emails) {
-    await request.delete(
-      `${SUPABASE_URL}/rest/v1/lender_rate_limit?key=like.*${encodeURIComponent(email)}*`,
-      { headers: serviceHeaders },
-    );
-
-    const [account] = await restRows<{ primary_owner_user_id: string }>(
-      request,
-      `accounts?email=eq.${encodeURIComponent(email)}&is_personal_account=eq.true&select=primary_owner_user_id`,
-    );
-
-    if (account) {
-      const userId = account.primary_owner_user_id;
-      const accountDeleted = await request.delete(
-        `${SUPABASE_URL}/rest/v1/accounts?id=eq.${userId}`,
-        { headers: serviceHeaders },
-      );
-      expect(accountDeleted.ok()).toBeTruthy();
-      const userDeleted = await request.delete(
-        `${SUPABASE_URL}/auth/v1/admin/users/${userId}`,
-        { headers: serviceHeaders },
-      );
-      expect(userDeleted.ok()).toBeTruthy();
-    }
-  }
-}
-
 // Membership is seeded rather than invited: the invite-join flow is covered
 // by invite-join.spec.ts, and only the plain member role matters here.
-async function addTeamMember(
-  request: APIRequestContext,
-  { teamSlug, userId }: { teamSlug: string; userId: string },
-) {
-  const [teamAccount] = await restRows<{ id: string }>(
-    request,
-    `accounts?slug=eq.${teamSlug}&select=id`,
+async function addTeamMember({
+  teamSlug,
+  userId,
+}: {
+  teamSlug: string;
+  userId: string;
+}) {
+  const [teamAccount] = await db.rows<{ id: string }>(
+    'accounts',
+    `slug=eq.${teamSlug}&select=id`,
   );
-  const added = await request.post(
-    `${SUPABASE_URL}/rest/v1/accounts_memberships`,
-    {
-      headers: serviceHeaders,
-      data: {
-        account_id: teamAccount!.id,
-        user_id: userId,
-        account_role: 'member',
-      },
-    },
-  );
-  expect(added.ok()).toBeTruthy();
+  await db.insert('accounts_memberships', {
+    account_id: teamAccount!.id,
+    user_id: userId,
+    account_role: 'member',
+  });
 }
 
 async function freshPage(browser: Browser) {
@@ -210,25 +79,15 @@ const lender = {
 };
 const outsider = newCredentials();
 const teamName = `Lender Room Team ${Date.now()}`;
-let teamSlug = '';
-let dealId: string | null = null;
-
-// The team account goes first: removing it removes the deal, its rooms, and
-// every row the lender's actions left behind.
-test.afterEach(async ({ request }) => {
-  await cleanUp(request, {
-    dealId,
-    teamSlug,
-    emails: [team.email, lender.email, outsider.email],
-  });
-});
 
 test('lender room journey: invite, sign in, browse, request, track, hide, close', async ({
   page,
-  request,
   browser,
+  auth,
+  cleanup,
+  lender: lenderFlow,
 }) => {
-  test.setTimeout(600 * 1000);
+  test.setTimeout(120 * 1000);
 
   const stamp = Date.now();
   const dealDescription = `Lender Room Deal ${stamp}`;
@@ -249,21 +108,19 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   // 1. Deal team: sign up into a team, create a team deal, start the lender
   // package and add two files to it, create two rooms by typed name, invite
   // a named lender person into the second.
-  await signUp(page, team);
-  teamSlug = await completeTeamOnboarding(page, teamName);
+  await auth.signUp(page, team);
+  const teamSlug = await completeTeamOnboarding(page, teamName);
 
-  await page.goto(`/home/${teamSlug}/deals/new`);
-  await page.getByLabel('Description').fill(dealDescription);
-  await page.getByRole('button', { name: 'Create deal' }).click();
-  await page.waitForURL(
-    new RegExp(`/home/${teamSlug}/deals/[0-9a-f-]{36}$`),
-  );
-  dealId = new URL(page.url()).pathname.split('/').pop()!;
+  const { dealId } = await createDeal(page, teamSlug, dealDescription);
+  cleanup.track({
+    kind: 'storage',
+    bucket: DATA_ROOM_BUCKET,
+    prefix: `deal/${dealId}`,
+  });
   const dealPath = `/home/${teamSlug}/deals/${dealId}`;
   const lendersPath = `${dealPath}/lenders`;
 
-  await page.locator(`a[href="${lendersPath}"]`).click();
-  await page.waitForURL(lendersPath);
+  await page.goto(lendersPath);
   await expect(
     page.getByRole('heading', { name: 'No lender rooms yet' }),
   ).toBeVisible();
@@ -287,7 +144,7 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   await expect(
     page.getByRole('link', { name: `Download ${removedName}` }),
   ).toBeVisible({ timeout: 30 * 1000 });
-  const masterId = await documentIdByName(request, dealId, masterName);
+  const masterId = await documentIdByName(dealId, masterName);
 
   await createRoomByName(page, 'Create the first lender room', decoyRoomName);
   await page.goto(lendersPath);
@@ -298,47 +155,40 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
     'aria-selected',
     'true',
   );
-  await page.getByLabel('Email').fill(lender.email);
-  await page.getByLabel('Name (optional)').fill(lender.name);
-  await page.getByRole('button', { name: 'Invite', exact: true }).click();
+  await lenderFlow.invite(page, { email: lender.email, name: lender.name });
   await expect(page.getByText(lenderLabel)).toBeVisible();
   await expect(page.getByRole('tab', { name: 'People (1)' })).toBeVisible();
 
   // 2. Lender: open the emailed sign-in link in a fresh browser and continue.
   const lenderPage = lenderSide.page;
-  await lenderPage.goto(
-    await signInLink(request, {
-      email: lender.email,
-      next: `/lender/${roomId}`,
-    }),
-  );
-  await lenderPage
-    .getByRole('button', { name: 'Continue to your lender room' })
-    .click();
-  await lenderPage.waitForURL(new RegExp(`/lender/${roomId}$`));
-  const lenderUserId = await userIdByEmail(request, lender.email);
+  await lenderFlow.signIn(lenderPage, { email: lender.email, roomId });
+  const lenderUserId = await db.userIdByEmail(lender.email);
 
   // 3. Lender: header, deal, notice; preview and download the master file;
   // open a request; make a folder in "Your files" and upload into it.
   await expect(
-    lenderPage.getByRole('heading', { name: new RegExp(roomName) }),
+    lenderPage.getByText(`Prepared for ${roomName}`),
   ).toBeVisible();
   await expect(
     lenderPage
       .getByRole('region', { name: 'People in this room' })
       .getByText(`${lender.name} (you)`),
   ).toBeVisible();
-  await expect(lenderPage.getByText(dealDescription)).toBeVisible();
+  await expect(
+    lenderPage.getByRole('heading', { name: dealDescription, level: 1 }),
+  ).toBeVisible();
   await expect(
     lenderPage.getByText(
-      'Views and downloads in this room are recorded for the deal team.',
+      `Views and downloads in this room are recorded for ${dealDescription}'s team.`,
     ),
   ).toBeVisible();
 
   await expect(
     lenderPage.getByRole('button', { name: removedName, exact: true }),
   ).toBeVisible();
-  await lenderPage.getByRole('button', { name: masterName, exact: true }).click();
+  await lenderPage
+    .getByRole('button', { name: masterName, exact: true })
+    .click();
   const preview = lenderPage.getByRole('dialog', {
     name: `Preview of ${masterName}`,
   });
@@ -347,16 +197,30 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   await expect(preview).toBeHidden();
 
   const downloading = lenderPage.waitForEvent('download');
-  await lenderPage.getByRole('link', { name: `Download ${masterName}` }).click();
+  await lenderPage
+    .getByRole('link', { name: `Download ${masterName}` })
+    .click();
   expect((await downloading).suggestedFilename()).toBe(masterName);
 
   await lenderPage.getByRole('button', { name: 'Request something' }).click();
-  const composer = lenderPage.getByRole('dialog', { name: 'Request something' });
+  const composer = lenderPage.getByRole('dialog', {
+    name: 'Request something',
+  });
   await composer
-    .getByRole('textbox', { name: 'What do you need from the deal team?' })
+    .getByRole('textbox', { name: /^What do you need from/ })
     .fill(requestTitle);
   await composer.getByRole('button', { name: 'Send request' }).click();
   await expect(composer).toBeHidden();
+
+  await expect(async () => {
+    await page.goto(`/home/${teamSlug}`);
+    await page.locator('button:has(svg.lucide-bell)').click();
+    await expect(
+      page.getByRole('link', { name: `${roomName} made a new request on ${dealDescription}` }),
+    ).toHaveAttribute('href', new RegExp(`/lenders/${roomId}/requests/asks/[0-9a-f-]{36}$`), {
+      timeout: 4000,
+    });
+  }).toPass({ timeout: 60 * 1000 });
 
   const folders = lenderPage.getByRole('navigation', { name: 'Folders' });
   await folders.getByRole('button', { name: 'Your files' }).click();
@@ -395,32 +259,42 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   await expect(activityRow('Created folder', folderName)).toBeVisible();
   await expect(activityRow('Uploaded a file', lenderFileName)).toBeVisible();
 
-  const recorded = await lenderActivity(request, roomId, lenderUserId);
+  const recorded = await lenderActivity(roomId, lenderUserId);
   expect(recorded).toEqual(
     expect.arrayContaining([
-      { action: 'document_previewed', side: 'lender', dr_document_id: masterId },
-      { action: 'document_downloaded', side: 'lender', dr_document_id: masterId },
+      {
+        action: 'document_previewed',
+        side: 'lender',
+        dr_document_id: masterId,
+      },
+      {
+        action: 'document_downloaded',
+        side: 'lender',
+        dr_document_id: masterId,
+      },
       expect.objectContaining({ action: 'folder_created', side: 'lender' }),
     ]),
   );
-  const asks = await restRows<{ title: string; status: string }>(
-    request,
-    `lender_ask?room_id=eq.${roomId}&select=title,status`,
+  const asks = await db.rows<{ title: string; status: string }>(
+    'lender_ask',
+    `room_id=eq.${roomId}&select=title,status`,
   );
   expect(asks).toEqual([{ title: requestTitle, status: 'open' }]);
-  const lenderUploads = await restRows<{ name: string }>(
-    request,
-    `dr_document?deal_id=eq.${dealId}&uploaded_by=eq.${lenderUserId}&select=name`,
+  const lenderUploads = await db.rows<{ name: string }>(
+    'dr_document',
+    `deal_id=eq.${dealId}&uploaded_by=eq.${lenderUserId}&select=name`,
   );
   expect(lenderUploads).toEqual([{ name: lenderFileName }]);
-  expect(
-    await documentsVisibleToLender(request, lenderUserId, [masterId]),
-  ).toHaveLength(1);
+  expect(await documentsVisibleToLender(lenderUserId, [masterId])).toHaveLength(
+    1,
+  );
 
   await page.getByRole('tab', { name: 'Files' }).click();
   const masterRow = page.locator(`[data-entry="${masterName}"]`);
   await expect(masterRow.getByText(lenderLabel)).toBeVisible();
-  await expect(masterRow.getByText('Not seen by the lender yet')).toHaveCount(0);
+  await expect(masterRow.getByText('Not seen by the lender yet')).toHaveCount(
+    0,
+  );
 
   await page.goto(lendersPath);
   const firstRoom = page.getByRole('main').getByRole('listitem').first();
@@ -466,15 +340,17 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
     .getByRole('button', { name: `Hide ${masterName} from this lender` })
     .click();
   await expect(
-    page.locator(`[data-entry="${masterName}"]`).getByText('Hidden from this lender'),
+    page
+      .locator(`[data-entry="${masterName}"]`)
+      .getByText('Hidden from this lender'),
   ).toBeVisible();
-  expect(
-    await documentsVisibleToLender(request, lenderUserId, [masterId]),
-  ).toHaveLength(0);
+  expect(await documentsVisibleToLender(lenderUserId, [masterId])).toHaveLength(
+    0,
+  );
 
   await lenderPage.goto(`/lender/${roomId}`);
   await expect(
-    lenderPage.getByRole('heading', { name: new RegExp(roomName) }),
+    lenderPage.getByText(`Prepared for ${roomName}`),
   ).toBeVisible();
   await expect(lenderPage.getByText(masterName)).toHaveCount(0);
   await expect(
@@ -492,10 +368,25 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
 
   await lenderPage.reload();
   await expect(
-    lenderPage.getByRole('heading', { name: new RegExp(roomName) }),
+    lenderPage.getByText(`Prepared for ${roomName}`),
   ).toBeVisible();
   await expect(lenderPage.getByText(removedName)).toHaveCount(0);
 
+  await page.goto(`${roomPath}?tab=settings`);
+  await page.getByRole('tab', { name: 'Status and access' }).click();
+  await page.getByRole('button', { name: 'Close room' }).click();
+  const closingTodo = `Tell ${roomName} the room is closing`;
+  await expect(async () => {
+    await page.goto(`${dealPath}/todos`);
+    await page
+      .getByRole('listitem')
+      .filter({ hasText: closingTodo })
+      .getByRole('checkbox')
+      .click({ timeout: 3000 });
+  }).toPass({ timeout: 60 * 1000 });
+  await expect(
+    page.getByRole('listitem').filter({ hasText: closingTodo }).getByRole('checkbox'),
+  ).toBeChecked();
   await page.goto(`${roomPath}?tab=settings`);
   await page.getByRole('tab', { name: 'Status and access' }).click();
   await page.getByRole('button', { name: 'Close room' }).click();
@@ -514,8 +405,8 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   // 7. An unrelated signed-in user gets not-found and no Lenders tab; made a
   // plain team member (no deals.manage), they see the deal but still no tab.
   const outsiderPage = outsiderSide.page;
-  await signUp(outsiderPage, outsider);
-  await completePersonalOnboarding(outsiderPage);
+  await auth.signUp(outsiderPage, outsider);
+  await completeTeamOnboarding(outsiderPage, `Outsider Team ${Date.now()}`);
 
   const roomResponse = await outsiderPage.goto(`/lender/${roomId}`);
   expect(roomResponse!.status()).toBe(404);
@@ -527,9 +418,9 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   ).toHaveCount(0);
   expect((await outsiderPage.goto(lendersPath))!.status()).toBe(404);
 
-  await addTeamMember(request, {
+  await addTeamMember({
     teamSlug,
-    userId: await userIdByEmail(request, outsider.email),
+    userId: await db.userIdByEmail(outsider.email),
   });
   await outsiderPage.goto(dealPath);
   await expect(outsiderPage.getByText(dealDescription).first()).toBeVisible();
@@ -541,16 +432,18 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
 
   await outsiderPage.goto(`/home/${teamSlug}/deals`);
   await expect(
-    outsiderPage.getByRole('complementary').getByRole('link', { name: 'Deals', exact: true }),
+    outsiderPage
+      .getByRole('complementary')
+      .getByRole('link', { name: 'Deals', exact: true }),
   ).toBeVisible();
   await expect(
     outsiderPage
       .getByRole('complementary')
       .getByRole('link', { name: 'Lenders', exact: true }),
   ).toHaveCount(0);
-  expect(
-    (await outsiderPage.goto(`/home/${teamSlug}/lenders`))!.status(),
-  ).toBe(404);
+  expect((await outsiderPage.goto(`/home/${teamSlug}/lenders`))!.status()).toBe(
+    404,
+  );
 
   await lenderSide.context.close();
   await outsiderSide.context.close();

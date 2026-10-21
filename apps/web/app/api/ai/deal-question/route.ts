@@ -1,4 +1,5 @@
 import { answerDealQuestion } from '@odb/ai/server';
+import { TEAM_READ_ONLY } from '@odb/next';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient, requireUser } from '@odb/supabase/server';
 
@@ -22,6 +23,26 @@ export async function POST(request: Request) {
     return Response.json(
       { error: 'dealId and question are required' },
       { status: 400 },
+    );
+  }
+
+  const { data: deal } = await client
+    .from('deal')
+    .select('account_id')
+    .eq('id', body.dealId)
+    .maybeSingle()
+    .throwOnError();
+
+  const { data: locked } = deal
+    ? await client
+        .rpc('is_account_locked', { target_account_id: deal.account_id })
+        .throwOnError()
+    : { data: false };
+
+  if (locked) {
+    return Response.json(
+      { error: TEAM_READ_ONLY },
+      { status: 403 },
     );
   }
 

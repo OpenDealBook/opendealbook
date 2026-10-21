@@ -1,23 +1,35 @@
-import { expect, test } from '@playwright/test';
-
 import {
-  completePersonalOnboarding,
+  completeInviteeOnboarding,
   completeTeamOnboarding,
-  invitationByEmail,
-  membershipsForAccount,
+  db,
+  expect,
   newCredentials,
-  signUp,
-} from './fixtures/team';
+  test,
+} from './fixtures';
+
+function membershipsForAccount(accountId: string) {
+  return db.rows<{ user_id: string; account_role: string }>(
+    'accounts_memberships',
+    `account_id=eq.${accountId}&select=user_id,account_role`,
+  );
+}
+
+function invitationByEmail(email: string) {
+  return db.rows<{ invite_token: string; account_id: string; role: string }>(
+    'invitations',
+    `email=eq.${encodeURIComponent(email)}&select=invite_token,account_id,role`,
+  );
+}
 
 test('an invited member joins the team from the invite link', async ({
   page,
-  request,
   browser,
+  auth,
 }) => {
-  test.setTimeout(300 * 1000);
+  test.setTimeout(120 * 1000);
 
   // Owner: fresh signup, onboard as a team, open the members page.
-  await signUp(page);
+  await auth.signUp(page);
   const teamName = `Beacon Partners ${Date.now()}`;
   const slug = await completeTeamOnboarding(page, teamName);
 
@@ -34,7 +46,7 @@ test('an invited member joins the team from the invite link', async ({
 
   await inviteForm.getByPlaceholder('Email').fill(invitee.email);
   await inviteForm.getByRole('combobox').click();
-  await page.getByRole('option', { name: 'member', exact: true }).click();
+  await page.getByRole('option', { name: 'Team member', exact: true }).click();
   await inviteForm.getByRole('button', { name: 'Send invitations' }).click();
 
   // The invitations list refetches on load; the invited email shows up there.
@@ -42,7 +54,7 @@ test('an invited member joins the team from the invite link', async ({
   await expect(page.getByRole('cell', { name: invitee.email })).toBeVisible();
 
   // The UI never exposes the invite token, so capture it from the DB.
-  const invitations = await invitationByEmail(request, invitee.email);
+  const invitations = await invitationByEmail(invitee.email);
   expect(invitations).toHaveLength(1);
   const { invite_token: token, account_id: accountId } = invitations[0]!;
 
@@ -51,9 +63,7 @@ test('an invited member joins the team from the invite link', async ({
   const inviteePage = await inviteeContext.newPage();
 
   try {
-    await signUp(inviteePage, invitee);
-    await completePersonalOnboarding(inviteePage);
-
+    await auth.signUp(inviteePage, invitee);
     await inviteePage.goto(`/join?token=${token}`);
     await inviteePage
       .getByRole('button', { name: 'Accept invitation' })
@@ -63,28 +73,26 @@ test('an invited member joins the team from the invite link', async ({
     await expect
       .poll(
         async () => {
-          const members = await membershipsForAccount(request, accountId);
+          const members = await membershipsForAccount(accountId);
           return members.some((member) => member.account_role === 'member');
         },
         { timeout: 20 * 1000 },
       )
       .toBe(true);
 
-    // The invitee can now open the team workspace: proof they are a member.
-    // The team "Home" index (/home/<slug>) crashes app-side (see report), so a
-    // working workspace page is used; the sidebar carries the team name there.
+    await completeInviteeOnboarding(inviteePage, slug);
     await inviteePage.goto(`/home/${slug}/members`);
     await expect(inviteePage).toHaveURL(new RegExp(`/home/${slug}(/|$)`));
     await expect(inviteePage.getByText(teamName).first()).toBeVisible();
 
-    const members = await membershipsForAccount(request, accountId);
+    const members = await membershipsForAccount(accountId);
     expect(members).toHaveLength(2);
     expect(
       members.filter((member) => member.account_role === 'member'),
     ).toHaveLength(1);
 
     // A consumed invitation is deleted.
-    expect(await invitationByEmail(request, invitee.email)).toHaveLength(0);
+    expect(await invitationByEmail(invitee.email)).toHaveLength(0);
   } finally {
     await inviteeContext.close();
   }

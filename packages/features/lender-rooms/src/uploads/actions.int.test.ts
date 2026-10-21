@@ -99,11 +99,10 @@ async function provisionPerson(): Promise<Person> {
   }
 
   const account = await admin
-    .from('accounts')
-    .select('id')
-    .eq('primary_owner_user_id', created.data.user.id)
-    .eq('is_personal_account', true)
-    .single()
+    .rpc('create_team_account', {
+      account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
+      user_id: created.data.user.id,
+    })
     .throwOnError();
 
   const client = createClient<Database>(SUPABASE_URL, ANON_KEY, {
@@ -300,7 +299,7 @@ beforeAll(async () => {
     request.on('data', (chunk: Buffer) => chunks.push(chunk));
     request.on('end', () => {
       const deck =
-        /filename="[^"]+\.pptx"[\s\S]*?\r\n\r\n([\s\S]*?)\r\n--/.exec(
+        /filename="[^"]+\.(?:pptx|docx)"[\s\S]*?\r\n\r\n([\s\S]*?)\r\n--/.exec(
           Buffer.concat(chunks).toString('latin1'),
         );
       const converts =
@@ -968,6 +967,40 @@ describe('preview renditions', { timeout: 60_000 }, () => {
     expect(
       await (await storedObject(`${board!.storage_path}.preview.pdf`)).text(),
     ).toBe('%PDF-1.7 of zipped slides');
+  });
+
+  it('stores the converted PDF beside a Word file', async () => {
+    const sent = await upload(
+      lender,
+      roomA,
+      'Lease.docx',
+      strToU8('lease text'),
+    );
+    const preview = await storedObject(`${sent.path}.preview.pdf`);
+
+    expect(preview.type).toBe('application/pdf');
+    expect(await preview.text()).toBe('%PDF-1.7 of lease text');
+  });
+
+  it('still registers a Word file, without a preview, when the conversion fails', async () => {
+    const sent = await sendFile(
+      lender,
+      roomA,
+      'Unconverted.docx',
+      strToU8('words'),
+    );
+
+    converter.working = false;
+    const ids = await register(lender, sent.uploadId).finally(() => {
+      converter.working = true;
+    });
+
+    expect(
+      (await documentsNamed(roomA.folderId, 'Unconverted.docx')).map(
+        (doc) => doc.id,
+      ),
+    ).toEqual(ids);
+    expect(await isStored(`${sent.path}.preview.pdf`)).toBe(false);
   });
 
   it('still registers a PowerPoint file, without a preview, when the conversion fails', async () => {

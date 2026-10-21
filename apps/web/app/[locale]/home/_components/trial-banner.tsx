@@ -1,15 +1,6 @@
-'use client';
-
-import { useTransition } from 'react';
-
 import Link from 'next/link';
 
-import { Button } from '@odb/ui/button';
-
-import { reloadSampleData } from '../_lib/trial-actions';
-
 interface TrialBannerProps {
-  accountId: string;
   isActive: boolean;
   endsAt: string | null;
   billingHref: string;
@@ -17,7 +8,7 @@ interface TrialBannerProps {
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
-function daysLeft(endsAt: string): number {
+export function daysLeft(endsAt: string): number {
   return Math.max(
     0,
     Math.ceil((new Date(endsAt).getTime() - Date.now()) / DAY_MS),
@@ -25,21 +16,12 @@ function daysLeft(endsAt: string): number {
 }
 
 export function TrialBanner({
-  accountId,
   isActive,
   endsAt,
   billingHref,
 }: TrialBannerProps) {
-  const [isPending, startTransition] = useTransition();
-
   if (!endsAt) {
     return null;
-  }
-
-  function onReload() {
-    startTransition(async () => {
-      await reloadSampleData({ accountId });
-    });
   }
 
   return (
@@ -59,16 +41,6 @@ export function TrialBanner({
           </Link>
         </span>
       )}
-
-      <Button
-        type={'button'}
-        size={'sm'}
-        variant={'outline'}
-        onClick={onReload}
-        disabled={isPending}
-      >
-        {isPending ? 'Loading' : 'Reload sample deals'}
-      </Button>
     </div>
   );
 }

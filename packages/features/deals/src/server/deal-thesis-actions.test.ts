@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => {
 
   function dataFor(table: string): unknown {
     if (table === 'deal') {
-      return { id: 'deal-1', account_id: 'account-1' };
+      return { id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', account_id: 'account-1' };
     }
 
     return { id: `${table}-1` };
@@ -63,7 +63,7 @@ describe('upsertDealThesis', () => {
   it('resolves the account from the deal and upserts on conflict of deal_id', async () => {
     await runUpsertDealThesis(
       {
-        deal_id: 'deal-1',
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
         why_this_business: 'Strong recurring revenue',
         main_concerns: 'Owner dependency',
       },
@@ -76,7 +76,7 @@ describe('upsertDealThesis', () => {
 
     expect(table).toBe('deal_thesis');
     expect(payload).toEqual({
-      deal_id: 'deal-1',
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       account_id: 'account-1',
       why_this_business: 'Strong recurring revenue',
       main_concerns: 'Owner dependency',

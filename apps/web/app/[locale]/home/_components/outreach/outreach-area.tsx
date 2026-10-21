@@ -10,6 +10,7 @@ import {
 } from '@odb/ui/table';
 
 import { EnrollForm, type EnrollFirm } from './enroll-form';
+import { enrollmentStatusLabel } from './enrollment-status';
 import { MailboxConnectForm } from './mailbox-connect-form';
 import { SequencesPanel, type Sequence } from './sequences-panel';
 import { SettingsForm } from './settings-form';
@@ -46,7 +47,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
       .order('created_at'),
     client
       .from('outreach_step')
-      .select('sequence_id, ordinal, delay_days, subject, body')
+      .select('sequence_id, ordinal, delay_days, channel, subject, body')
       .eq('account_id', accountId)
       .order('ordinal'),
     client.from('firm').select('id, name').eq('account_id', accountId).order('name'),
@@ -82,6 +83,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
       .map((step) => ({
         ordinal: step.ordinal,
         delayDays: step.delay_days,
+        channel: step.channel,
         subject: step.subject,
         body: step.body,
       })),
@@ -184,7 +186,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
                   {(enrollments.data ?? []).map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>{row.target_email}</TableCell>
-                      <TableCell>{row.status}</TableCell>
+                      <TableCell>{enrollmentStatusLabel(row.status)}</TableCell>
                       <TableCell>{formatDate(row.next_send_at)}</TableCell>
                       <TableCell>{row.sent_count}</TableCell>
                     </TableRow>

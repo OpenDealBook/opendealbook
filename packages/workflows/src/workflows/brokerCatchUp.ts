@@ -14,6 +14,7 @@ const {
   createBrokerFollowUpTask,
   recordWorkbookRun,
   createNotification,
+  isTeamLocked,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '5 minutes',
 });
@@ -58,7 +59,7 @@ export async function brokerCatchUp(input: BrokerCatchUpInput): Promise<void> {
       APPROVAL_REMINDER_INTERVAL,
     );
 
-    if (!gotApproval) {
+    if (!gotApproval && !(await isTeamLocked({ accountId: input.accountId }))) {
       await createNotification({
         accountId: input.accountId,
         recipientUserId: input.config.dealLeadUserId,
@@ -66,6 +67,10 @@ export async function brokerCatchUp(input: BrokerCatchUpInput): Promise<void> {
         body: 'Broker catch-up batch is waiting for your approval',
       });
     }
+  }
+
+  if (await isTeamLocked({ accountId: input.accountId })) {
+    return;
   }
 
   const { sent } = await sendBrokerBatchEmail({

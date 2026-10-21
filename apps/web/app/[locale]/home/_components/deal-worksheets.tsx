@@ -1,8 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-
-import { useRouter } from 'next/navigation';
+import { useId, useState } from 'react';
 
 import { deleteWorksheetRow, saveWorksheetRow } from '@odb/deals/server';
 import {
@@ -24,7 +22,11 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 
-import { worksheetColumns, worksheetDisplayCells } from './deal-worksheets-cells';
+import {
+  worksheetColumns,
+  worksheetDisplayCells,
+} from './deal-worksheets-cells';
+import { useRefusableAction } from './use-refusable-action';
 
 const WORKSHEET_TYPES: DealWorksheetType[] = [
   'margin_analysis',
@@ -72,13 +74,15 @@ function toRowData(
 
 function WorksheetFieldInput(props: {
   field: WorksheetField;
+  id?: string;
+  ariaLabel?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
   if (props.field.kind === 'select') {
     return (
       <Select value={props.value} onValueChange={props.onChange}>
-        <SelectTrigger>
+        <SelectTrigger id={props.id} aria-label={props.ariaLabel}>
           <SelectValue placeholder={props.field.label} />
         </SelectTrigger>
         <SelectContent>
@@ -94,6 +98,8 @@ function WorksheetFieldInput(props: {
 
   return (
     <Input
+      id={props.id}
+      aria-label={props.ariaLabel}
       type={props.field.kind === 'text' ? 'text' : 'number'}
       value={props.value}
       onChange={(event) => props.onChange(event.target.value)}
@@ -106,8 +112,8 @@ function WorksheetSection(props: {
   type: DealWorksheetType;
   rows: WorksheetRow[];
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { refusal, pending, run } = useRefusableAction();
+  const idPrefix = useId();
 
   const fields = WORKSHEET_FIELD_CATALOG[props.type];
   const columns = worksheetColumns(props.type);
@@ -117,13 +123,6 @@ function WorksheetSection(props: {
   const [addValues, setAddValues] = useState<Record<string, string>>(
     emptyFieldValues(fields),
   );
-
-  function run(action: () => Promise<unknown>) {
-    startTransition(async () => {
-      await action();
-      router.refresh();
-    });
-  }
 
   function startEdit(row: WorksheetRow) {
     setEditingId(row.id);
@@ -136,28 +135,30 @@ function WorksheetSection(props: {
   }
 
   function saveEdit(row: WorksheetRow) {
-    run(async () => {
-      await saveWorksheetRow({
-        id: row.id,
-        deal_id: props.dealId,
-        worksheet_type: props.type,
-        data: toRowData(fields, editValues),
-        sort_order: row.sort_order,
-      });
-      setEditingId(null);
-    });
+    run(
+      () =>
+        saveWorksheetRow({
+          id: row.id,
+          deal_id: props.dealId,
+          worksheet_type: props.type,
+          data: toRowData(fields, editValues),
+          sort_order: row.sort_order,
+        }),
+      () => setEditingId(null),
+    );
   }
 
   function addRow() {
-    run(async () => {
-      await saveWorksheetRow({
-        deal_id: props.dealId,
-        worksheet_type: props.type,
-        data: toRowData(fields, addValues),
-        sort_order: props.rows.length,
-      });
-      setAddValues(emptyFieldValues(fields));
-    });
+    run(
+      () =>
+        saveWorksheetRow({
+          deal_id: props.dealId,
+          worksheet_type: props.type,
+          data: toRowData(fields, addValues),
+          sort_order: props.rows.length,
+        }),
+      () => setAddValues(emptyFieldValues(fields)),
+    );
   }
 
   function removeRow(row: WorksheetRow) {
@@ -171,7 +172,7 @@ function WorksheetSection(props: {
       </CardHeader>
       <CardContent className={'flex flex-col gap-4'}>
         {props.rows.length === 0 ? (
-          <p className={'text-sm text-muted-foreground'}>No rows yet</p>
+          <p className={'text-muted-foreground text-sm'}>No rows yet</p>
         ) : (
           <div className={'overflow-x-auto'}>
             <table className={'w-full text-sm'}>
@@ -180,7 +181,7 @@ function WorksheetSection(props: {
                   {columns.map((column) => (
                     <th
                       key={column.key}
-                      className={'px-2 py-1 text-left text-muted-foreground'}
+                      className={'text-muted-foreground px-2 py-1 text-left'}
                     >
                       {column.label}
                     </th>
@@ -189,7 +190,7 @@ function WorksheetSection(props: {
                 </tr>
               </thead>
               <tbody>
-                {props.rows.map((row) => {
+                {props.rows.map((row, rowIndex) => {
                   const isEditing = editingId === row.id;
                   const cells = worksheetDisplayCells(
                     props.type,
@@ -204,9 +205,13 @@ function WorksheetSection(props: {
                           {isEditing ? (
                             <WorksheetFieldInput
                               field={field}
+                              ariaLabel={`${field.label}, row ${rowIndex + 1}`}
                               value={editValues[field.key] ?? ''}
                               onChange={(value) =>
-                                setEditValues((prev) => ({ ...prev, [field.key]: value }))
+                                setEditValues((prev) => ({
+                                  ...prev,
+                                  [field.key]: value,
+                                }))
                               }
                             />
                           ) : (
@@ -222,7 +227,11 @@ function WorksheetSection(props: {
                       <td className={'px-2 py-1 text-right'}>
                         {isEditing ? (
                           <div className={'flex justify-end gap-2'}>
-                            <Button size={'sm'} disabled={pending} onClick={() => saveEdit(row)}>
+                            <Button
+                              size={'sm'}
+                              disabled={pending}
+                              onClick={() => saveEdit(row)}
+                            >
                               Save
                             </Button>
                             <Button
@@ -266,11 +275,14 @@ function WorksheetSection(props: {
         <div className={'grid grid-cols-2 gap-3 sm:grid-cols-4'}>
           {fields.map((field) => (
             <div key={field.key} className={'flex flex-col gap-2'}>
-              <Label>{field.label}</Label>
+              <Label htmlFor={`${idPrefix}-${field.key}`}>{field.label}</Label>
               <WorksheetFieldInput
                 field={field}
+                id={`${idPrefix}-${field.key}`}
                 value={addValues[field.key] ?? ''}
-                onChange={(value) => setAddValues((prev) => ({ ...prev, [field.key]: value }))}
+                onChange={(value) =>
+                  setAddValues((prev) => ({ ...prev, [field.key]: value }))
+                }
               />
             </div>
           ))}
@@ -278,12 +290,20 @@ function WorksheetSection(props: {
         <Button disabled={pending} onClick={addRow} className={'self-start'}>
           Add row
         </Button>
+        {refusal ? (
+          <p role={'alert'} className={'text-destructive text-sm'}>
+            {refusal}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
-export function DealWorksheets(props: { dealId: string; rows: WorksheetRow[] }) {
+export function DealWorksheets(props: {
+  dealId: string;
+  rows: WorksheetRow[];
+}) {
   return (
     <div className={'flex flex-col gap-6'}>
       {WORKSHEET_TYPES.map((type) => (

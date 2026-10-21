@@ -76,8 +76,6 @@ import {
   acceptOffer,
   addOfferVersion,
   createOffer,
-  expireOffer,
-  rejectOffer,
   submitOffer,
   withdrawOffer,
 } from './offer-actions';
@@ -91,9 +89,7 @@ const runCreateOffer = createOffer as unknown as Action;
 const runAddOfferVersion = addOfferVersion as unknown as Action;
 const runSubmitOffer = submitOffer as unknown as Action;
 const runAcceptOffer = acceptOffer as unknown as Action;
-const runRejectOffer = rejectOffer as unknown as Action;
 const runWithdrawOffer = withdrawOffer as unknown as Action;
-const runExpireOffer = expireOffer as unknown as Action;
 
 const user = { id: 'user-1' };
 
@@ -135,7 +131,7 @@ beforeEach(() => {
 describe('createOffer', () => {
   it('drafts the offer and adds the first buyer version in one append', async () => {
     const result = await runCreateOffer(
-      { deal_id: 'deal-1', first_version: minimalVersion },
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', first_version: minimalVersion },
       user,
     );
 
@@ -143,7 +139,7 @@ describe('createOffer', () => {
       -1,
     ) as unknown as [unknown, string, Array<Record<string, unknown>>];
 
-    expect(dealId).toBe('deal-1');
+    expect(dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(events).toEqual([
       {
         aggregateType: 'offer',
@@ -162,27 +158,17 @@ describe('createOffer', () => {
         }),
       },
     ]);
-    expect(result).toBe(uuid(1));
-  });
-
-  it('rejects a second offer on the same deal', async () => {
-    mocks.setOffer({ id: 'offer-1' });
-
-    await expect(
-      runCreateOffer({ deal_id: 'deal-1', first_version: minimalVersion }, user),
-    ).rejects.toThrow();
-
-    expect(mocks.appendDealEvents).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, value: uuid(1) });
   });
 });
 
 describe('addOfferVersion', () => {
   it('adds a buyer version numbered after the latest with no counter', async () => {
-    mocks.setOffer({ deal_id: 'deal-1', status: 'submitted' });
+    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'submitted' });
     mocks.setOfferVersion({ number: 2 });
 
     const result = await runAddOfferVersion(
-      { offer_id: 'offer-1', author_side: 'buyer', version: minimalVersion },
+      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657', author_side: 'buyer', version: minimalVersion },
       user,
     );
 
@@ -190,11 +176,11 @@ describe('addOfferVersion', () => {
       -1,
     ) as unknown as [unknown, string, Array<Record<string, unknown>>];
 
-    expect(dealId).toBe('deal-1');
+    expect(dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(events).toEqual([
       {
         aggregateType: 'offer',
-        aggregateId: 'offer-1',
+        aggregateId: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
         eventType: 'offer.version_added',
         payload: expectedVersionPayload({
           version_id: uuid(1),
@@ -203,15 +189,15 @@ describe('addOfferVersion', () => {
         }),
       },
     ]);
-    expect(result).toBe(uuid(1));
+    expect(result).toEqual({ ok: true, value: uuid(1) });
   });
 
   it('records a seller counter as a version plus offer.countered', async () => {
-    mocks.setOffer({ deal_id: 'deal-1', status: 'submitted' });
+    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'submitted' });
     mocks.setOfferVersion({ number: 1 });
 
     await runAddOfferVersion(
-      { offer_id: 'offer-1', author_side: 'seller', version: minimalVersion },
+      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657', author_side: 'seller', version: minimalVersion },
       user,
     );
 
@@ -222,7 +208,7 @@ describe('addOfferVersion', () => {
     expect(events).toEqual([
       {
         aggregateType: 'offer',
-        aggregateId: 'offer-1',
+        aggregateId: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
         eventType: 'offer.version_added',
         payload: expectedVersionPayload({
           version_id: uuid(1),
@@ -232,35 +218,55 @@ describe('addOfferVersion', () => {
       },
       {
         aggregateType: 'offer',
-        aggregateId: 'offer-1',
+        aggregateId: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
         eventType: 'offer.countered',
         payload: {},
       },
     ]);
   });
+
+  it('tells an analyst only deal managers can record a seller counter', async () => {
+    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'submitted' });
+    mocks.setOfferVersion({ number: 1 });
+    mocks.appendDealEvents.mockRejectedValueOnce({
+      code: '42501',
+      message:
+        'not authorized to append offer.countered on deal 6221ddef-b8e9-484f-8bb8-0967d8e16a30: needs deals.manage',
+    });
+
+    const result = await runAddOfferVersion(
+      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657', author_side: 'seller', version: minimalVersion },
+      user,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can revise offers. Ask a deal manager.',
+    });
+  });
 });
 
 describe('submitOffer', () => {
   it('submits the offer and moves the deal to loi_submitted', async () => {
-    mocks.setOffer({ deal_id: 'deal-1', status: 'draft' });
+    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'draft' });
 
-    await runSubmitOffer({ offer_id: 'offer-1' }, user);
+    await runSubmitOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user);
 
     const [, dealId, events] = mocks.appendDealEvents.mock.calls.at(
       -1,
     ) as unknown as [unknown, string, Array<Record<string, unknown>>];
 
-    expect(dealId).toBe('deal-1');
+    expect(dealId).toBe('6221ddef-b8e9-484f-8bb8-0967d8e16a30');
     expect(events).toEqual([
       {
         aggregateType: 'offer',
-        aggregateId: 'offer-1',
+        aggregateId: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
         eventType: 'offer.submitted',
         payload: {},
       },
       {
         aggregateType: 'deal',
-        aggregateId: 'deal-1',
+        aggregateId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
         eventType: 'deal.stage_changed',
         payload: { stage: 'loi_submitted' },
       },
@@ -268,10 +274,10 @@ describe('submitOffer', () => {
   });
 
   it('rejects submitting an already resolved offer', async () => {
-    mocks.setOffer({ deal_id: 'deal-1', status: 'withdrawn' });
+    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'withdrawn' });
 
     await expect(
-      runSubmitOffer({ offer_id: 'offer-1' }, user),
+      runSubmitOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user),
     ).rejects.toThrow();
 
     expect(mocks.appendDealEvents).not.toHaveBeenCalled();
@@ -281,12 +287,12 @@ describe('submitOffer', () => {
 describe('acceptOffer', () => {
   it('records the offer as accepted without advancing the stage or creating a contract', async () => {
     mocks.setOffer({
-      deal_id: 'deal-1',
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       status: 'submitted',
-      current_version_id: 'ver-7',
+      current_version_id: 'd74f7ebe-a338-4ff2-8e42-61440941c519',
     });
 
-    await runAcceptOffer({ offer_id: 'offer-1' }, user);
+    await runAcceptOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user);
 
     expect(mocks.appendDealEvents).not.toHaveBeenCalled();
 
@@ -296,9 +302,9 @@ describe('acceptOffer', () => {
     ];
 
     expect(input).toEqual({
-      dealId: 'deal-1',
+      dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       aggregateType: 'offer',
-      aggregateId: 'offer-1',
+      aggregateId: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
       eventType: 'offer.accepted',
       payload: {},
     });
@@ -306,13 +312,13 @@ describe('acceptOffer', () => {
 
   it('rejects accepting an already accepted offer', async () => {
     mocks.setOffer({
-      deal_id: 'deal-1',
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
       status: 'accepted',
-      current_version_id: 'ver-7',
+      current_version_id: 'd74f7ebe-a338-4ff2-8e42-61440941c519',
     });
 
     await expect(
-      runAcceptOffer({ offer_id: 'offer-1' }, user),
+      runAcceptOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user),
     ).rejects.toThrow();
 
     expect(mocks.appendDealEvents).not.toHaveBeenCalled();
@@ -320,33 +326,11 @@ describe('acceptOffer', () => {
 });
 
 describe('rejectOffer / withdrawOffer / expireOffer', () => {
-  it.each([
-    ['reject', runRejectOffer, 'offer.rejected'],
-    ['withdraw', runWithdrawOffer, 'offer.withdrawn'],
-    ['expire', runExpireOffer, 'offer.expired'],
-  ] as const)(
-    'appends only the %s status event with no deal events',
-    async (_name, run, eventType) => {
-      mocks.setOffer({ deal_id: 'deal-1', status: 'submitted' });
-
-      await run({ offer_id: 'offer-1' }, user);
-
-      expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
-        dealId: 'deal-1',
-        aggregateType: 'offer',
-        aggregateId: 'offer-1',
-        eventType,
-        payload: {},
-      });
-      expect(mocks.appendDealEvents).not.toHaveBeenCalled();
-    },
-  );
-
   it('rejects withdrawing an already expired offer', async () => {
-    mocks.setOffer({ deal_id: 'deal-1', status: 'expired' });
+    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'expired' });
 
     await expect(
-      runWithdrawOffer({ offer_id: 'offer-1' }, user),
+      runWithdrawOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user),
     ).rejects.toThrow();
 
     expect(mocks.appendDealEvent).not.toHaveBeenCalled();

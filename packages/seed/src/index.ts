@@ -1,6 +1,7 @@
 export {
+  SAMPLE_DEALS_NOT_LOADED,
+  SampleDealsNotLoaded,
   seedSampleDeals,
-  hasSampleData,
-  SAMPLE_TAG,
+  seedSampleDealsOnce,
 } from './seed-sample-deals';
 export { uploadTemplateFixtures } from './upload-template-fixtures';

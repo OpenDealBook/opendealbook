@@ -2,11 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 
+import type { CompleteOnboarding, OnboardingFlow } from '@odb/onboarding';
 import { OnboardingWizard } from '@odb/onboarding/components';
 
-import type { CompleteOnboarding } from '@odb/onboarding';
-
-export function OnboardingContainer(props: { onComplete: CompleteOnboarding }) {
+export function OnboardingContainer(props: {
+  flow: OnboardingFlow;
+  onComplete: CompleteOnboarding;
+}) {
   const router = useRouter();
 
   const handleComplete: CompleteOnboarding = async (submission) => {
@@ -15,5 +17,5 @@ export function OnboardingContainer(props: { onComplete: CompleteOnboarding }) {
     return result;
   };
 
-  return <OnboardingWizard onComplete={handleComplete} />;
+  return <OnboardingWizard flow={props.flow} onComplete={handleComplete} />;
 }

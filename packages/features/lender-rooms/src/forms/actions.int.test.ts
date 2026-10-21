@@ -9,6 +9,8 @@ import {
   vi,
 } from 'vitest';
 
+import { DATA_ROOM_BUCKET } from '@odb/data-room/storage';
+
 import type { ActionResult } from '../actions/refusal';
 import { unwrap } from '../actions/test-support/unwrap';
 import {
@@ -157,6 +159,7 @@ import {
   openForm,
   replaceBlankForm,
   replyToFormAsLender,
+  sentFormTitle,
   withdrawForm,
 } from './lender-actions';
 import { getForm, listForms } from './queries';
@@ -253,6 +256,37 @@ function configureNovu() {
 }
 
 const RESPONSE_STAMP = '2026-10-01T09:00:00+00:00';
+
+async function bellRows(eventType: string, eventKey: string) {
+  const { data } = await admin
+    .from('notifications')
+    .select('recipient_user_id, deal_id, body, link, dedupe_key')
+    .eq('account_id', deal.accountId)
+    .like('dedupe_key', `${eventType}:${eventKey}:%`)
+    .order('recipient_user_id')
+    .throwOnError();
+  return data;
+}
+
+function ourBell(eventType: string, eventKey: string, body: string, link: string) {
+  return [us.userId, colleague.userId].toSorted().map((userId) => ({
+    recipient_user_id: userId,
+    deal_id: deal.dealId,
+    body,
+    link,
+    dedupe_key: `${eventType}:${eventKey}:${userId}`,
+  }));
+}
+
+async function formThreadLink(formId: string) {
+  const { data: team } = await admin
+    .from('accounts')
+    .select('slug')
+    .eq('id', deal.accountId)
+    .single()
+    .throwOnError();
+  return `/home/${team.slug}/deals/${deal.dealId}/lenders/${roomA.roomId}/requests/forms/${formId}`;
+}
 
 type Room = { roomId: string; privateFolderId: string };
 
@@ -430,6 +464,17 @@ describe('a lender opening a form with the e-sign route', () => {
     expect(sent).toEqual(
       expect.arrayContaining(
         toldAbout('lender_form.uploaded', formId, [us, colleague]),
+      ),
+    );
+  });
+
+  it('rings the bell once for every member of our account, linking to the form', async () => {
+    expect(await bellRows('lender_form.uploaded', formId)).toEqual(
+      ourBell(
+        'lender_form.uploaded',
+        formId,
+        'Bank A uploaded a form to complete on Lender asks deal',
+        await formThreadLink(formId),
       ),
     );
   });
@@ -1206,6 +1251,25 @@ describe('a lender reply with an attachment on an answered form', () => {
       ),
     );
   });
+
+  it('rings our bell once per member for that reply', async () => {
+    const { data: message } = await admin
+      .from('lender_ask_message')
+      .select('id')
+      .eq('ask_id', formId)
+      .eq('side', 'lender')
+      .single()
+      .throwOnError();
+
+    expect(await bellRows('lender_ask.replied', message.id)).toEqual(
+      ourBell(
+        'lender_ask.replied',
+        message.id,
+        'Bank A replied about a form on Lender asks deal',
+        await formThreadLink(formId),
+      ),
+    );
+  });
 });
 
 describe('the form thread', () => {
@@ -1821,5 +1885,73 @@ describe('when e-signature is not set up', () => {
     )({ formId: earlierEsignFormId, returnRoute: 'upload' });
 
     expect((await formRow(earlierEsignFormId)).return_route).toBe('upload');
+  });
+});
+
+describe('a lender about to send a form they sent before', () => {
+  let formId: string;
+
+  beforeAll(async () => {
+    const documentId = await seedDocument(
+      deal,
+      roomA.privateFolderId,
+      'sba-1919.pdf',
+    );
+
+    await admin.storage
+      .from(DATA_ROOM_BUCKET)
+      .upload(`deal/${deal.dealId}/${documentId}-sba-1919.pdf`, 'abc');
+
+    formId = await actingAs<string>(
+      lenderA,
+      openForm,
+    )({
+      roomId: roomA.roomId,
+      title: 'SBA 1919',
+      documentId,
+      returnRoute: 'upload',
+    });
+  });
+
+  function sentBefore(name: string, size: number) {
+    return actingAs<string | null>(
+      lenderA2,
+      sentFormTitle,
+    )({ roomId: roomA.roomId, name, size });
+  }
+
+  it('is told the title of the open form with the same file name and size', async () => {
+    expect(await sentBefore('sba-1919.pdf', 3)).toBe('SBA 1919');
+  });
+
+  it('is told nothing for the same name with another size', async () => {
+    expect(await sentBefore('sba-1919.pdf', 4)).toBeNull();
+  });
+
+  it('is told the title while the form is answered', async () => {
+    await weRespond(formId);
+
+    expect(await sentBefore('sba-1919.pdf', 3)).toBe('SBA 1919');
+  });
+
+  it('is told nothing once that form is withdrawn or closed', async () => {
+    for (const status of ['withdrawn', 'closed'] as const) {
+      await admin
+        .from('lender_ask')
+        .update({ status })
+        .eq('id', formId)
+        .throwOnError();
+
+      expect(await sentBefore('sba-1919.pdf', 3)).toBeNull();
+    }
+  });
+
+  it('cannot ask about a room they are not in', async () => {
+    await expect(
+      actingAs(
+        lenderB,
+        sentFormTitle,
+      )({ roomId: roomA.roomId, name: 'sba-1919.pdf', size: 3 }),
+    ).rejects.toThrow(NOT_A_MEMBER);
   });
 });

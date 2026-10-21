@@ -1,11 +1,11 @@
 'use server';
 
-import { enhanceAction } from '@odb/next/actions';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { dealThesisSchema } from '../schema/deal-thesis.schema';
+import { refusableAction } from './refusal';
 
-export const upsertDealThesis = enhanceAction(
+export const upsertDealThesis = refusableAction(
   async (data) => {
     const client = getSupabaseServerClient();
 
@@ -30,5 +30,6 @@ export const upsertDealThesis = enhanceAction(
 
     return row;
   },
-  { auth: true, schema: dealThesisSchema },
+  dealThesisSchema,
+  { what: 'edit the thesis', needs: 'deals.work' },
 );

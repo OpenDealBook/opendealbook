@@ -29,7 +29,7 @@ describe('ContactCard', () => {
       .map((node) => node.textContent);
   }
 
-  it('shows the name, email, and phone of the contact on the deal team', () => {
+  it('shows the name and phone of the contact on the deal team, then their email', () => {
     act(() =>
       root.render(
         <ContactCard
@@ -47,12 +47,12 @@ describe('ContactCard', () => {
       'D',
       'Your contact on this deal',
       'Dana Whitfield',
-      'dana@dockside.test',
       '555 0142',
+      'dana@dockside.test',
     ]);
-    expect(container.querySelector('a')!.getAttribute('href')).toBe(
-      'mailto:dana@dockside.test',
-    );
+    expect(
+      container.querySelector('a[href="mailto:dana@dockside.test"]'),
+    ).not.toBeNull();
   });
 
   it('shows the email alone under the same heading when there is no name', () => {

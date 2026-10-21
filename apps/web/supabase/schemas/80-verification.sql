@@ -1,7 +1,8 @@
 -- Diligence verification framework. A verification_run is one execution of the
 -- reconciliation-check suite against a deal; each run yields verification_finding
--- rows tying a discrepancy to the checklist item or data-room document it
--- concerns. These are standalone conventional tables, not event-sourced deal
+-- rows tying a discrepancy to the data-room document it concerns and every
+-- checklist item that links that document. The item ids carry no foreign key:
+-- replay_deal re-creates checklist items under the same ids. These are standalone conventional tables, not event-sourced deal
 -- projections: the verification runner writes them through the service role
 -- after its own permission check, so authenticated keeps SELECT gated on deal
 -- access, mirroring dr_document, and never writes directly.
@@ -50,7 +51,7 @@ create table if not exists public.verification_finding (
   check_key text not null,
   severity public.verification_severity not null,
   status public.verification_finding_status not null default 'open',
-  checklist_item_id uuid references public.checklist_item (id) on delete set null,
+  checklist_item_ids uuid[] not null default '{}',
   dr_document_id uuid references public.dr_document (id) on delete set null,
   detail jsonb not null default '{}'::jsonb,
   created_at timestamptz,

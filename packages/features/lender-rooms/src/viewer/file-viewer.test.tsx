@@ -74,13 +74,19 @@ describe('FileViewer', () => {
     vi.doUnmock('mammoth');
   });
 
-  async function open(fileName: string) {
+  async function open(
+    fileName: string,
+    initialPage?: number,
+    initialSheet?: string,
+  ) {
     await act(async () => {
       root.render(
         <FileViewer
           fileName={fileName}
           previewUrl="/preview"
           downloadUrl="/download"
+          initialPage={initialPage}
+          initialSheet={initialSheet}
         />,
       );
     });
@@ -313,8 +319,36 @@ describe('FileViewer', () => {
   });
 
   describe('PDF', () => {
+    let paneWidth: number;
+    let paneObservers: Set<() => void>;
+
+    class FakeResizeObserver {
+      constructor(private readonly notify: () => void) {}
+      observe() {
+        paneObservers.add(this.notify);
+        this.notify();
+      }
+      disconnect() {
+        paneObservers.delete(this.notify);
+      }
+    }
+
+    async function resizePane(width: number) {
+      paneWidth = width;
+      await act(async () => {
+        paneObservers.forEach((notify) => notify());
+        await new Promise((settle) => setTimeout(settle, 50));
+      });
+    }
+
     beforeEach(async () => {
       vi.stubGlobal('pdfjsWorker', await import(/* @vite-ignore */ PDF_WORKER));
+      paneWidth = 448;
+      paneObservers = new Set();
+      vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(
+        () => paneWidth,
+      );
     });
 
     it('says a password-protected PDF is password protected', async () => {
@@ -323,6 +357,85 @@ describe('FileViewer', () => {
       await open('Tax return.pdf');
 
       await shows(PASSWORD_MESSAGE);
+    });
+
+    describe('on a canvas that draws', () => {
+      function drawingContext(): unknown {
+        const context: unknown = new Proxy(function () {}, {
+          get: (_, key) =>
+            key === 'then'
+              ? undefined
+              : ['a', 'd', 'width', 'height'].includes(String(key))
+                ? 1
+                : ['b', 'c', 'e', 'f'].includes(String(key))
+                  ? 0
+                  : context,
+          apply: () => context,
+          set: () => true,
+        });
+        return context;
+      }
+
+      beforeEach(() => {
+        vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+          () => drawingContext() as never,
+        );
+        servePreview(fixture('sample.pdf'));
+      });
+
+      it('opens on the first page', async () => {
+        await open('Term sheet.pdf');
+
+        await shows('Page 1 of 2');
+      });
+
+      it('opens on the page asked for', async () => {
+        await open('Term sheet.pdf', 2);
+
+        await shows('Page 2 of 2');
+      });
+
+      it('shows a Word file through its PDF rendition, on the page asked for', async () => {
+        await open('Lease.docx', 2);
+
+        await shows('Page 2 of 2');
+      });
+
+      it('opens on the last page when asked for one past the end', async () => {
+        await open('Term sheet.pdf', 9);
+
+        await shows('Page 2 of 2');
+      });
+
+      it('fits a 200 pt page to a 448 px pane at 150%', async () => {
+        await open('Term sheet.pdf');
+
+        await shows('150%');
+      });
+
+      it('refits the page when the pane narrows', async () => {
+        await open('Term sheet.pdf');
+        await shows('150%');
+
+        await resizePane(288);
+
+        await shows('90%');
+      });
+
+      it('keeps a zoom chosen by hand when the pane narrows', async () => {
+        await open('Term sheet.pdf');
+        await shows('150%');
+        act(() => {
+          container
+            .querySelector<HTMLButtonElement>('[aria-label="Zoom in"]')!
+            .click();
+        });
+        await shows('200%');
+
+        await resizePane(288);
+
+        expect(container.textContent).toContain('200%');
+      });
     });
 
     it('falls back to the unsupported panel when a page cannot be rendered', async () => {
@@ -354,6 +467,40 @@ describe('FileViewer', () => {
   });
 
   describe('spreadsheets', () => {
+    function selectedSheet() {
+      return container.querySelector('[role="tab"][aria-selected="true"]')
+        ?.textContent;
+    }
+
+    it('opens on the sheet asked for', async () => {
+      servePreview(fixture('sample.xlsx'));
+
+      await open('Rent roll.xlsx', undefined, 'Rent roll');
+
+      await vi.waitFor(() => expect(selectedSheet()).toBe('Rent roll'));
+    });
+
+    it('opens on the first sheet when the one asked for does not exist', async () => {
+      servePreview(fixture('sample.xlsx'));
+
+      await open('Rent roll.xlsx', undefined, 'Budget');
+
+      await vi.waitFor(() => expect(selectedSheet()).toBe('Summary'));
+    });
+
+    it('shows a CSV as its one sheet whatever sheet is asked for', async () => {
+      servePreview(fixture('sample.csv'));
+
+      await open('Rent roll.csv', undefined, 'Rent roll');
+
+      await vi.waitFor(() =>
+        expect(container.querySelectorAll('[role="tab"]')).toHaveLength(1),
+      );
+      expect(selectedSheet()).toBe(
+        container.querySelector('[role="tab"]')?.textContent,
+      );
+    });
+
     it('shows a tab per sheet', async () => {
       servePreview(fixture('sample.xlsx'));
 

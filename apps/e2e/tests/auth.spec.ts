@@ -1,21 +1,24 @@
-import { expect, test } from '@playwright/test';
-
-import { newCredentials, signIn, signUp } from './fixtures/auth';
+import { expect, newCredentials, test } from './fixtures';
 
 test.describe('authentication', () => {
-  test('signs up a new user and lands in /home', async ({ page }) => {
-    await signUp(page);
+  test('signs up a new user and lands in onboarding', async ({
+    page,
+    auth,
+  }) => {
+    await auth.signUp(page);
 
-    await expect(page).toHaveURL(/\/home(\/|$)/);
+    await expect(page).toHaveURL(/\/onboarding(\/|$)/);
   });
 
-  test('signs an existing user back in', async ({ page, context }) => {
+  test('signs an existing user back in', async ({ page, context, auth }) => {
     const user = newCredentials();
 
-    await signUp(page, user);
+    await auth.signUp(page, user);
 
     await context.clearCookies();
 
-    await signIn(page, user);
+    await auth.signIn(page, user);
+
+    await expect(page).toHaveURL(/\/home(\/|$)/);
   });
 });

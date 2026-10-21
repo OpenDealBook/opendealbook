@@ -75,6 +75,13 @@ export const checklistImportanceSchema = z.enum([
   'na',
 ]);
 
+export const checklistWaitingOnSchema = z.enum([
+  'us',
+  'seller',
+  'counsel',
+  'lender',
+]);
+
 export const approvalSubjectSchema = z.enum([
   'stage_move',
   'loi',
@@ -95,5 +102,6 @@ export type ChecklistOutcome = z.infer<typeof checklistOutcomeSchema>;
 export type ChecklistKind = z.infer<typeof checklistKindSchema>;
 export type ChecklistOwnerRole = z.infer<typeof checklistOwnerRoleSchema>;
 export type ChecklistImportance = z.infer<typeof checklistImportanceSchema>;
+export type ChecklistWaitingOn = z.infer<typeof checklistWaitingOnSchema>;
 export type ApprovalSubject = z.infer<typeof approvalSubjectSchema>;
 export type ApprovalDecision = z.infer<typeof approvalDecisionSchema>;

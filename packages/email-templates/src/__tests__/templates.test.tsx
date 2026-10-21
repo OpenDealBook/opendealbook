@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { renderCounselSignInEmail } from '../emails/counsel-sign-in.email';
 import { renderInvitationEmail } from '../emails/invitation.email';
 import { renderLenderDocumentsDigestEmail } from '../emails/lender-documents-digest.email';
 import { renderLenderNoticeEmail } from '../emails/lender-notice.email';
@@ -117,6 +118,28 @@ describe('email templates', () => {
     );
   });
 
+  it('renders the counsel sign-in email linking to the deals list', async () => {
+    const link =
+      'https://opendealbook.app/counsel/confirm?token_hash=abc&next=%2Fcounsel';
+    const email = await renderCounselSignInEmail({
+      productName: 'Open Deal Book',
+      deals: [
+        {
+          name: 'Brennan Climate Services',
+          outsideName: 'Brennan Climate Services',
+        },
+        { name: 'Harbor Marine', outsideName: 'Harbor Marine' },
+      ],
+      signInLink: link,
+    });
+
+    expect(email.subject).toBe(
+      'Your sign-in link for Brennan Climate Services and Harbor Marine',
+    );
+    expect(email.html).toContain(link.replace('&', '&amp;'));
+    expect(email.text).toContain(link);
+  });
+
   it('renders a lender notice with its message and action link', async () => {
     const email = await renderLenderNoticeEmail({
       productName: 'Open Deal Book',
@@ -143,27 +166,39 @@ describe('email templates', () => {
         {
           name: 'First Harbor Bank',
           link: 'https://opendealbook.app/lender/room-1',
-          documents: [
-            { name: 'Balance sheet.xlsx', status: 'new' },
-            { name: 'Tax return 2025.pdf', status: 'updated' },
+          faqLink: 'https://opendealbook.app/lender/room-1/faq',
+          items: [
+            { kind: 'document', name: 'Balance sheet.xlsx', status: 'new' },
+            {
+              kind: 'document',
+              name: 'Tax return 2025.pdf',
+              status: 'updated',
+            },
           ],
           moreCount: 0,
         },
         {
           name: 'Second Harbor Bank',
           link: 'https://opendealbook.app/lender/room-2',
-          documents: [{ name: 'Lease.pdf', status: 'new' }],
+          faqLink: 'https://opendealbook.app/lender/room-2/faq',
+          items: [{ kind: 'document', name: 'Lease.pdf', status: 'new' }],
           moreCount: 0,
         },
       ],
     });
 
-    expect(email.subject).toBe('3 new or updated documents in your lender rooms');
+    expect(email.subject).toBe(
+      '3 new or updated documents in your lender rooms',
+    );
     expect(email.html).toMatch(
       /First Harbor Bank[\s\S]*Balance sheet\.xlsx \(new\)[\s\S]*Tax return 2025\.pdf \(updated\)[\s\S]*Second Harbor Bank[\s\S]*Lease\.pdf \(new\)/,
     );
-    expect(email.html).toContain('href="https://opendealbook.app/lender/room-1"');
-    expect(email.html).toContain('href="https://opendealbook.app/lender/room-2"');
+    expect(email.html).toContain(
+      'href="https://opendealbook.app/lender/room-1"',
+    );
+    expect(email.html).toContain(
+      'href="https://opendealbook.app/lender/room-2"',
+    );
   });
 
   it('words the digest subject for a single document in a single room', async () => {
@@ -173,7 +208,8 @@ describe('email templates', () => {
         {
           name: 'First Harbor Bank',
           link: 'https://opendealbook.app/lender/room-1',
-          documents: [{ name: 'Lease.pdf', status: 'updated' }],
+          faqLink: 'https://opendealbook.app/lender/room-1/faq',
+          items: [{ kind: 'document', name: 'Lease.pdf', status: 'updated' }],
           moreCount: 0,
         },
       ],
@@ -189,13 +225,16 @@ describe('email templates', () => {
         {
           name: 'First Harbor Bank',
           link: 'https://opendealbook.app/lender/room-1',
-          documents: [{ name: 'Lease.pdf', status: 'new' }],
+          faqLink: 'https://opendealbook.app/lender/room-1/faq',
+          items: [{ kind: 'document', name: 'Lease.pdf', status: 'new' }],
           moreCount: 3,
         },
       ],
     });
 
-    expect(email.subject).toBe('4 new or updated documents in your lender room');
+    expect(email.subject).toBe(
+      '4 new or updated documents in your lender room',
+    );
     expect(email.html).toMatch(
       /Lease\.pdf \(new\)[\s\S]*<a[^>]*href="https:\/\/opendealbook\.app\/lender\/room-1"[^>]*>and 3 more<\/a>/,
     );
@@ -208,7 +247,8 @@ describe('email templates', () => {
         {
           name: 'First Harbor Bank',
           link: 'https://opendealbook.app/lender/room-1',
-          documents: [{ name: 'Lease.pdf', status: 'new' }],
+          faqLink: 'https://opendealbook.app/lender/room-1/faq',
+          items: [{ kind: 'document', name: 'Lease.pdf', status: 'new' }],
           moreCount: 0,
         },
       ],
@@ -216,4 +256,47 @@ describe('email templates', () => {
 
     expect(email.html).not.toContain(' more<');
   });
+
+  it('lists a published FAQ entry as a line linking to the room FAQ', async () => {
+    const email = await renderLenderDocumentsDigestEmail({
+      productName: 'Open Deal Book',
+      rooms: [
+        {
+          name: 'First Harbor Bank',
+          link: 'https://opendealbook.app/lender/room-1',
+          faqLink: 'https://opendealbook.app/lender/room-1/faq',
+          items: [
+            { kind: 'document', name: 'Lease.pdf', status: 'new' },
+            { kind: 'faq', question: 'What was 2025 EBITDA?' },
+          ],
+          moreCount: 0,
+        },
+      ],
+    });
+
+    expect(email.html).toMatch(
+      /Lease\.pdf \(new\)[\s\S]*<a[^>]*href="https:\/\/opendealbook\.app\/lender\/room-1\/faq"[^>]*>What was 2025 EBITDA\? \(FAQ\)<\/a>/,
+    );
+  });
+
+  it.each([
+    { roomCount: 1, subject: 'Updates in your lender room' },
+    { roomCount: 2, subject: 'Updates in your lender rooms' },
+  ])(
+    'gives a day of only FAQ entries in $roomCount room(s) a neutral subject',
+    async ({ roomCount, subject }) => {
+      const email = await renderLenderDocumentsDigestEmail({
+        productName: 'Open Deal Book',
+        rooms: Array.from({ length: roomCount }, (_, index) => ({
+          name: `Harbor Bank ${index + 1}`,
+          link: `https://opendealbook.app/lender/room-${index + 1}`,
+          faqLink: `https://opendealbook.app/lender/room-${index + 1}/faq`,
+          items: [{ kind: 'faq' as const, question: 'What was 2025 EBITDA?' }],
+          moreCount: 0,
+        })),
+      });
+
+      expect(email.subject).toBe(subject);
+    },
+  );
 });

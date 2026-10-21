@@ -43,4 +43,44 @@ describe('resend mailer', () => {
       }),
     ).rejects.toThrow('invalid recipient');
   });
+
+  it('sends replies to the reply-to address', async () => {
+    send.mockResolvedValueOnce({ data: { id: 'msg_3' }, error: null });
+
+    await createMailer().sendEmail({
+      to: 'user@example.com',
+      from: 'Harbor via OpenDealbook <noreply@example.com>',
+      replyTo: 'author@example.com',
+      subject: 'Hello',
+      text: 'Hi',
+    });
+
+    expect(send.mock.lastCall![0].replyTo).toBe('author@example.com');
+  });
+
+  it('sends attachments as buffers of the same bytes', async () => {
+    send.mockResolvedValueOnce({ data: { id: 'msg_2' }, error: null });
+    const pdf = new TextEncoder().encode('%PDF-1.4');
+
+    await createMailer().sendEmail({
+      to: 'user@example.com',
+      from: 'noreply@example.com',
+      subject: 'Hello',
+      html: '<p>Hi</p>',
+      attachments: [
+        { filename: 'doc.pdf', content: pdf, contentType: 'application/pdf' },
+      ],
+    });
+
+    const [{ attachments }] = send.mock.lastCall!;
+
+    expect(attachments).toEqual([
+      {
+        filename: 'doc.pdf',
+        content: Buffer.from(pdf),
+        contentType: 'application/pdf',
+      },
+    ]);
+    expect(Buffer.isBuffer(attachments[0].content)).toBe(true);
+  });
 });

@@ -25,6 +25,7 @@ const teamRoomSchema = z.object({
   member_count: z.number(),
   requests_waiting_on_team: z.number(),
   last_lender_activity_at: z.string().nullable(),
+  last_lender_action_at: z.string().nullable(),
 });
 
 export interface TeamRoom extends Omit<LenderRoomRow, 'logoUrl'> {
@@ -62,6 +63,7 @@ export function teamRooms(raw: unknown): TeamRoom[] {
         peopleCount: room.member_count,
         waitingOnUs: room.requests_waiting_on_team,
         lastActivityAt: room.last_lender_activity_at,
+        lastActionAt: room.last_lender_action_at,
       })),
   );
 }

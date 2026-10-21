@@ -1,13 +1,25 @@
 import { resolveAccessToken } from './nango';
-import { sendViaGmail, sendViaMicrosoft } from './providers';
-import type { MailboxConnection, OutboundEmail, SendResult } from './types';
+import {
+  listGmailThreadMessages,
+  listMicrosoftConversationMessages,
+  sendViaGmail,
+  sendViaMicrosoft,
+} from './providers';
+import type {
+  MailboxConnection,
+  OutboundEmail,
+  SendResult,
+  ThreadMessage,
+} from './types';
 
 export type {
   MailboxProvider,
   MailboxConnection,
   OutboundEmail,
   SendResult,
+  ThreadMessage,
 } from './types';
+export { MailboxAccessDenied } from './types';
 
 export async function sendAs(
   connection: MailboxConnection,
@@ -20,4 +32,17 @@ export async function sendAs(
   }
 
   return sendViaMicrosoft(accessToken, email);
+}
+
+export async function listThreadMessages(
+  connection: MailboxConnection,
+  threadId: string,
+): Promise<ThreadMessage[]> {
+  const accessToken = await resolveAccessToken(connection);
+
+  if (connection.provider === 'gmail') {
+    return listGmailThreadMessages(accessToken, threadId);
+  }
+
+  return listMicrosoftConversationMessages(accessToken, threadId);
 }

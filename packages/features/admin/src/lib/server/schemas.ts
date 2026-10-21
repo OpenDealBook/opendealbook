@@ -14,6 +14,12 @@ export const UserIdSchema = z.object({
   userId: z.uuid(),
 });
 
+export const SellerSendLimitSchema = z.object({
+  accountId: z.uuid(),
+  dailyLimit: z.number().int().min(0).nullable(),
+});
+
 export type ListAccountsInput = z.infer<typeof ListAccountsSchema>;
 export type AccountIdInput = z.infer<typeof AccountIdSchema>;
 export type UserIdInput = z.infer<typeof UserIdSchema>;
+export type SellerSendLimitInput = z.infer<typeof SellerSendLimitSchema>;

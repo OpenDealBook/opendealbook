@@ -7,8 +7,10 @@ import { useRouter } from 'next/navigation';
 import type { ActionResult } from '@odb/lender-rooms/actions/refusal.ts';
 import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
 import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
+import type { CloseState } from '@odb/lender-rooms/rooms/closing.ts';
 import {
   closeLenderRoom,
+  prepareLenderRoomClose,
   reopenLenderRoom,
   setLenderRoomExpiry,
   setLenderRoomStatus,
@@ -40,6 +42,7 @@ export interface LifecycleRoom {
   status: RoomStatus;
   access: RoomAccess;
   welcomeNote: string | null;
+  closing: CloseState;
 }
 
 const statuses = Object.keys(roomStatusWording) as RoomStatus[];
@@ -111,8 +114,14 @@ export function LenderRoomLifecycle({ room }: { room: LifecycleRoom }) {
             <Button
               type={'button'}
               variant={'outline'}
-              disabled={isPending}
-              onClick={() => setIsClosing(true)}
+              disabled={
+                isPending || (!room.closing.ready && room.closing.hasOwnTodo)
+              }
+              onClick={() =>
+                room.closing.ready
+                  ? setIsClosing(true)
+                  : run(() => prepareLenderRoomClose({ roomId }))
+              }
             >
               Close room
             </Button>
@@ -127,6 +136,13 @@ export function LenderRoomLifecycle({ room }: { room: LifecycleRoom }) {
             </Button>
           )}
         </form>
+        {room.access.kind !== 'closed' &&
+        !room.closing.ready &&
+        room.closing.hasOwnTodo ? (
+          <p className={'text-muted-foreground text-sm'}>
+            {`Tick "Tell ${room.name} the room is closing" in this deal's to-dos, or send an update to someone in this room, to close it.`}
+          </p>
+        ) : null}
       </section>
 
       <form

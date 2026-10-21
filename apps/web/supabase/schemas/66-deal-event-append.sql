@@ -12,6 +12,11 @@
 -- deal row does not exist yet; every other event authorises with the log's
 -- has_deal_permission and resolves the account from the deal.
 --
+-- Whoever may edit a deal's milestones may also move the checklist dates that
+-- follow them, so checklist_item.due_recomputed also takes deals.manage.
+-- Anyone doing deal work may add to a checklist item's notes thread, and may
+-- request an item from the seller: mark it requested and waiting on the seller.
+--
 -- A dr_document event is checked here, where it enters, and nowhere else:
 -- replay_deal re-runs stored history through the projector, and history
 -- written before a rule existed must still rebuild.
@@ -20,7 +25,8 @@
 -- server code signs whatever storage path a document carries, so the
 -- aggregate id, the payload folder, and the payload storage path are all held
 -- to the event's own deal. Only an event with no user behind it names its
--- uploader in the payload; a user's event is uploaded by that user.
+-- uploader in the payload; a user's event is uploaded by that user. Counsel
+-- folders take uploads only from the deal's managers.
 create or replace function public.check_dr_document_event(
   p_deal_id uuid,
   p_aggregate_id uuid,
@@ -51,6 +57,20 @@ begin
     or p_payload ->> 'storage_path' ~ '\\|(^|/)\.{0,2}(/|$)'
   ) then
     raise exception 'storage path % is not a file of deal %', p_payload ->> 'storage_path', p_deal_id;
+  end if;
+
+  if p_event_type = 'dr_document.added' and p_actor_ref is not null
+    and not public.has_deal_permission(p_deal_id, 'deals.manage')
+    and exists (
+      with recursive ancestry as (
+        select f.id, f.parent_id from public.dr_folder f where f.id = (p_payload ->> 'folder_id')::uuid
+        union all
+        select p.id, p.parent_id from public.dr_folder p join ancestry a on p.id = a.parent_id
+      )
+      select 1 from ancestry a join public.counsel_uploads_folder u on u.folder_id = a.id
+    ) then
+    raise exception 'not authorized to add a document to a counsel folder on deal %: needs deals.manage', p_deal_id
+      using errcode = 'insufficient_privilege';
   end if;
 
   if p_event_type = 'dr_document.added' and (p_payload ->> 'uploaded_by')::uuid <> p_actor_ref then
@@ -97,6 +117,78 @@ begin
 end;
 $$;
 
+-- A checklist item's owner is someone on the deal's team, and its linked
+-- document is in the item's own deal. Checked where the event enters, so
+-- history from before a member left still replays.
+create or replace function public.check_checklist_item_event(
+  p_deal_id uuid,
+  p_account_id uuid,
+  p_payload jsonb
+) returns void
+  language plpgsql set search_path = '' as $$
+begin
+  if p_payload ->> 'document_id' is not null and not exists (
+    select 1 from public.dr_document d
+    where d.id = (p_payload ->> 'document_id')::uuid and d.deal_id = p_deal_id
+  ) then
+    raise exception 'document % is not in deal %', p_payload ->> 'document_id', p_deal_id
+      using errcode = 'check_violation';
+  end if;
+
+  if p_payload ->> 'owner_user_id' is not null and not exists (
+    select 1 from public.accounts_memberships m
+    where m.account_id = p_account_id and m.user_id = (p_payload ->> 'owner_user_id')::uuid
+  ) then
+    raise exception 'checklist owner % is not on the deal''s team', p_payload ->> 'owner_user_id'
+      using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
+-- A reason for the deadline means nothing without the date it explains.
+create or replace function public.check_deal_close_deadline_event(
+  p_event_type text,
+  p_payload jsonb
+) returns void
+  language plpgsql set search_path = '' as $$
+begin
+  if p_event_type = 'deal.close_deadline_set'
+    and p_payload ->> 'must_close_reason' is not null
+    and p_payload ->> 'must_close_by' is null then
+    raise exception 'a close deadline reason needs a date' using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
+-- contract.created overwrites the status of a contract that already exists;
+-- contract.version_set changes it only when the payload names one. A new
+-- contract starts as a draft.
+create or replace function public.contract_event_changes_status(
+  p_contract_id uuid,
+  p_event_type text,
+  p_payload jsonb
+) returns boolean
+  language sql stable set search_path = '' as $$
+  select case p_event_type
+    when 'contract.created' then
+      case when c.id is null then coalesce(p_payload ->> 'status', 'draft') <> 'draft'
+        else p_payload ->> 'status' is distinct from c.status end
+    when 'contract.version_set' then
+      p_payload ->> 'status' is not null and p_payload ->> 'status' is distinct from c.status
+    else false
+  end
+  from (select 1) one
+  left join public.contract c on c.id = p_contract_id;
+$$;
+
+-- The two checklist events of a request from the seller, and nothing more.
+create or replace function public.is_seller_request_event(p_event_type text, p_payload jsonb)
+  returns boolean
+  language sql immutable set search_path = '' as $$
+  select (p_event_type = 'checklist_item.status_changed' and p_payload - 'requested_at' = '{"status": "requested"}'::jsonb)
+    or (p_event_type = 'checklist_item.waiting_on_set' and p_payload = '{"waiting_on": "seller"}'::jsonb);
+$$;
+
 create or replace function public.append_deal_event(
   p_deal_id uuid,
   p_aggregate_type text,
@@ -125,12 +217,33 @@ begin
 
   if p_actor_kind = 'user' then
     v_actor_ref := (select auth.uid());
-    if p_event_type = 'deal.created' then
+    if p_aggregate_type = 'deal_update' then
+      raise exception 'only delivery records deal update history' using errcode = 'insufficient_privilege';
+    elsif p_aggregate_type = 'lender_room' then
+      raise exception 'only the nudge sweep records lender room history' using errcode = 'insufficient_privilege';
+    elsif p_event_type = 'deal.created' then
       if not public.has_permission(v_actor_ref, v_account_id, 'deals.create') then
         raise exception 'not authorized to create a deal on account %', v_account_id using errcode = 'insufficient_privilege';
       end if;
-    elsif not public.has_deal_permission(p_deal_id, public.deal_event_permission(p_aggregate_type)) then
-      raise exception 'not authorized to append % on deal %', p_event_type, p_deal_id using errcode = 'insufficient_privilege';
+    elsif not public.has_deal_permission(p_deal_id, public.deal_event_permission(p_aggregate_type, p_event_type))
+      and not (p_event_type = 'checklist_item.due_recomputed' and public.has_deal_permission(p_deal_id, 'deals.manage'))
+      and not (p_event_type = 'checklist_item.note_posted' and public.has_deal_permission(p_deal_id, 'deals.work'))
+      and not (public.is_seller_request_event(p_event_type, p_payload) and public.has_deal_permission(p_deal_id, 'deals.work')) then
+      raise exception 'not authorized to append % on deal %: needs %',
+        p_event_type, p_deal_id, public.deal_event_permission(p_aggregate_type, p_event_type)
+        using errcode = 'insufficient_privilege';
+    elsif public.contract_event_changes_status(p_aggregate_id, p_event_type, p_payload)
+      and not public.has_deal_permission(p_deal_id, 'deals.manage') then
+      raise exception 'not authorized to change the status of contract %: needs deals.manage', p_aggregate_id
+        using errcode = 'insufficient_privilege';
+    elsif p_event_type = 'contract.version_set'
+      and exists (
+        select 1 from public.contract_version cv
+        where cv.contract_id = p_aggregate_id and cv.version > (p_payload ->> 'current_version')::int
+      )
+      and not public.has_deal_permission(p_deal_id, 'deals.manage') then
+      raise exception 'not authorized to adopt an older version of contract %: needs deals.manage', p_aggregate_id
+        using errcode = 'insufficient_privilege';
     end if;
   elsif (select auth.role()) <> 'service_role' then
     raise exception 'non-user events require the service role' using errcode = 'insufficient_privilege';
@@ -155,6 +268,10 @@ begin
     perform public.check_dr_document_event(p_deal_id, p_aggregate_id, p_event_type, p_payload, v_actor_ref);
   elsif p_aggregate_type = 'contract' then
     perform public.check_contract_event(p_deal_id, p_aggregate_id, p_event_type, p_payload);
+  elsif p_aggregate_type = 'deal' then
+    perform public.check_deal_close_deadline_event(p_event_type, p_payload);
+  elsif p_aggregate_type = 'checklist_item' then
+    perform public.check_checklist_item_event(p_deal_id, v_account_id, p_payload);
   end if;
 
   insert into public.deal_event (

@@ -12,6 +12,8 @@ vi.mock('@odb/events', () => ({
   appendDealEvent: vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]),
 }));
 
+vi.mock('../docx-to-pdf', () => ({ convertDocxToPdf: async () => null }));
+
 const appendDealEventMock = vi.mocked(appendDealEvent);
 
 function makeClient(results: Array<{ data: unknown; error: unknown }>) {
@@ -86,6 +88,8 @@ describe('appendContractVersion', () => {
         source: 'upload',
         party: 'seller',
         change_summary: 'Countered on price',
+        docx_path: 'acc-1/contract-1/v4.docx',
+        docx_bucket: 'contracts',
       }),
     );
     expect(appendDealEventMock).toHaveBeenCalledWith(client, {
@@ -122,5 +126,34 @@ describe('createContractRecord', () => {
       eventType: 'contract.created',
       payload: { type: 'loi', status: 'draft', current_version: 0 },
     });
+  });
+
+  it('records that a template-generated version lives in the generated bucket', async () => {
+    const { client, inserts } = makeClient([
+      { data: { account_id: 'acc-1' }, error: null },
+      { data: { id: 'ver-1', version: 1 }, error: null },
+    ]);
+
+    await createContractRecord(
+      { dealId: 'deal-1', type: 'apa', fromTemplateId: 'tpl-1' },
+      {
+        client,
+        createdByUserId: 'user-1',
+        generateVersionOne: vi.fn(async () => ({
+          generatedDocumentId: 'gen-1',
+          docxPath: 'acc-1/deal-1/key.docx',
+          pdfPath: 'acc-1/deal-1/key.pdf',
+        })),
+      },
+    );
+
+    expect(inserts).toContainEqual(
+      expect.objectContaining({
+        docx_path: 'acc-1/deal-1/key.docx',
+        docx_bucket: 'generated',
+        pdf_path: 'acc-1/deal-1/key.pdf',
+        pdf_bucket: 'generated',
+      }),
+    );
   });
 });

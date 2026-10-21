@@ -28,7 +28,7 @@ export async function offerContracts(
 
   const { data: contracts } = await client
     .from('contract')
-    .select('type, versions:contract_version(id, version, signing_status)')
+    .select('id, type, versions:contract_version(id, version, signing_status)')
     .in(
       'source_offer_version_id',
       offerVersions.map((offerVersion) => offerVersion.id),

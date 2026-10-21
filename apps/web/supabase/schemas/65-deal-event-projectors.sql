@@ -85,25 +85,25 @@ begin
   elsif ev.event_type = 'deal.updated' then
     update public.deal set
       description = coalesce(ev.payload ->> 'description', description),
+      code_name = case when ev.payload ? 'code_name' then btrim(ev.payload ->> 'code_name') else code_name end,
       asking_price = coalesce((ev.payload ->> 'asking_price')::numeric, asking_price),
       revenue_ttm = coalesce((ev.payload ->> 'revenue_ttm')::numeric, revenue_ttm),
       sde_ttm = coalesce((ev.payload ->> 'sde_ttm')::numeric, sde_ttm),
       ebitda_ttm = coalesce((ev.payload ->> 'ebitda_ttm')::numeric, ebitda_ttm),
       notes = coalesce(ev.payload ->> 'notes', notes),
-      close_date = coalesce((ev.payload ->> 'close_date')::date, close_date),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
     update public.deal_profile set
-      year_established = coalesce((ev.payload ->> 'year_established')::int, year_established),
-      industry_id = coalesce((ev.payload ->> 'industry_id')::uuid, industry_id),
-      industry = coalesce(ev.payload ->> 'industry', industry),
-      business_model = coalesce(ev.payload ->> 'business_model', business_model),
-      location_id = coalesce((ev.payload ->> 'location_id')::uuid, location_id),
-      location_raw = coalesce(ev.payload ->> 'location_raw', location_raw),
-      employee_band = coalesce(ev.payload ->> 'employee_band', employee_band),
-      website = coalesce(ev.payload ->> 'website', website),
-      owner_role = coalesce(ev.payload ->> 'owner_role', owner_role),
-      reason_for_sale = coalesce(ev.payload ->> 'reason_for_sale', reason_for_sale)
+      year_established = case when ev.payload ? 'year_established' then (ev.payload ->> 'year_established')::int else year_established end,
+      industry_id = case when ev.payload ? 'industry_id' then (ev.payload ->> 'industry_id')::uuid else industry_id end,
+      industry = case when ev.payload ? 'industry' then ev.payload ->> 'industry' else industry end,
+      business_model = case when ev.payload ? 'business_model' then ev.payload ->> 'business_model' else business_model end,
+      location_id = case when ev.payload ? 'location_id' then (ev.payload ->> 'location_id')::uuid else location_id end,
+      location_raw = case when ev.payload ? 'location_raw' then ev.payload ->> 'location_raw' else location_raw end,
+      employee_band = case when ev.payload ? 'employee_band' then ev.payload ->> 'employee_band' else employee_band end,
+      website = case when ev.payload ? 'website' then ev.payload ->> 'website' else website end,
+      owner_role = case when ev.payload ? 'owner_role' then ev.payload ->> 'owner_role' else owner_role end,
+      reason_for_sale = case when ev.payload ? 'reason_for_sale' then ev.payload ->> 'reason_for_sale' else reason_for_sale end
     where deal_id = ev.aggregate_id;
   elsif ev.event_type = 'deal.stage_changed' then
     update public.deal set
@@ -148,6 +148,7 @@ begin
       earnings_basis = ev.payload ->> 'earnings_basis',
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
+  elsif ev.event_type = 'deal.contract_review_gate_changed' then
   else
     raise exception 'unknown deal event %', ev.event_type;
   end if;
@@ -182,7 +183,7 @@ create or replace function public.project_checklist_item(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'checklist_item.added' then
-    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, kind, owner_role, importance, answer, offer_term_key, created_by, updated_by)
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, review_offset_days, review_due_at, source_template_id, kind, owner_role, importance, answer, offer_term_key, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       ev.payload ->> 'category',
@@ -194,6 +195,9 @@ begin
       coalesce((ev.payload ->> 'deal_killer')::boolean, false),
       (ev.payload ->> 'schedule_week_id')::uuid,
       (ev.payload ->> 'due_offset_days')::int,
+      coalesce((ev.payload ->> 'review_offset_days')::int, 3),
+      (ev.payload ->> 'review_due_at')::timestamptz,
+      (ev.payload ->> 'source_template_id')::uuid,
       ev.payload ->> 'kind',
       ev.payload ->> 'owner_role',
       ev.payload ->> 'importance',
@@ -211,6 +215,9 @@ begin
       deal_killer = excluded.deal_killer,
       schedule_week_id = excluded.schedule_week_id,
       due_offset_days = excluded.due_offset_days,
+      review_offset_days = excluded.review_offset_days,
+      review_due_at = excluded.review_due_at,
+      source_template_id = excluded.source_template_id,
       kind = excluded.kind,
       owner_role = excluded.owner_role,
       importance = excluded.importance,
@@ -228,6 +235,12 @@ begin
       answer = coalesce(ev.payload ->> 'answer', answer),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.due_recomputed' then
+    update public.checklist_item set
+      due_at = (ev.payload ->> 'due_at')::timestamptz,
+      review_due_at = (ev.payload ->> 'review_due_at')::timestamptz,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
   elsif ev.event_type = 'checklist_item.rescheduled' then
     update public.checklist_item set
       schedule_week_id = (ev.payload ->> 'schedule_week_id')::uuid,
@@ -235,6 +248,27 @@ begin
       deal_killer = coalesce((ev.payload ->> 'deal_killer')::boolean, deal_killer),
       updated_by = ev.actor_ref
     where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.details_set' then
+    update public.checklist_item set
+      owner_user_id = case when ev.payload ? 'owner_user_id' then (ev.payload ->> 'owner_user_id')::uuid else owner_user_id end,
+      importance = case when ev.payload ? 'importance' then ev.payload ->> 'importance' else importance end,
+      due_at = case when ev.payload ? 'due_at' then (ev.payload ->> 'due_at')::timestamptz else due_at end,
+      review_due_at = case when ev.payload ? 'due_at'
+        then (ev.payload ->> 'due_at')::timestamptz + make_interval(days => review_offset_days)
+        else review_due_at end,
+      due_set_manually = case when ev.payload ? 'use_scheduled_date' then false
+        else due_set_manually or ev.payload ? 'due_at' end,
+      updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.waiting_on_set' then
+    update public.checklist_item set waiting_on = ev.payload ->> 'waiting_on', updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.document_linked' then
+    update public.checklist_item set linked_document_id = (ev.payload ->> 'document_id')::uuid, updated_by = ev.actor_ref
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'checklist_item.note_posted' then
+    insert into public.checklist_item_note (id, checklist_item_id, body, author_user_id, created_at)
+    values (ev.id, ev.aggregate_id, ev.payload ->> 'body', ev.actor_ref, ev.created_at);
   elsif ev.event_type = 'checklist_item.removed' then
     update public.checklist_item set removed_at = ev.created_at, updated_by = ev.actor_ref
     where id = ev.aggregate_id;
@@ -306,20 +340,18 @@ create or replace function public.project_dr_document(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'dr_document.added' then
-    insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path, version, checklist_item_id, uploaded_by)
+    insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path, version, uploaded_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       (ev.payload ->> 'folder_id')::uuid,
       ev.payload ->> 'name',
       ev.payload ->> 'storage_path',
       coalesce((ev.payload ->> 'version')::int, 1),
-      (ev.payload ->> 'checklist_item_id')::uuid,
       coalesce(ev.actor_ref, (ev.payload ->> 'uploaded_by')::uuid)
     )
     on conflict (id) do update set
       folder_id = excluded.folder_id,
-      name = excluded.name,
-      checklist_item_id = excluded.checklist_item_id
+      name = excluded.name
     where dr_document.deal_id = excluded.deal_id;
   elsif ev.event_type = 'dr_document.moved' then
     update public.dr_document set folder_id = (ev.payload ->> 'folder_id')::uuid
@@ -434,6 +466,10 @@ begin
       current_version = (ev.payload ->> 'current_version')::int,
       status = coalesce(ev.payload ->> 'status', status)
     where id = ev.aggregate_id;
+  -- Logged so counsel and the team can be told; the rows they name are
+  -- written by the upload, the share and the comment themselves.
+  elsif ev.event_type in ('contract.version_added', 'contract.version_shown_to_seller_side', 'contract.comment_posted',
+    'contract.review_requested', 'contract.review_decided', 'contract.signing_overridden') then
   elsif ev.event_type = 'contract.signature_requested' then
     update public.contract_version cv set
       signing_document_id = ev.payload ->> 'signing_document_id',
@@ -519,12 +555,13 @@ create or replace function public.project_deal_financials(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'deal.financials_adopted' then
-    insert into public.deal_financials (deal_id, account_id, adopted_revenue, adopted_sde, adopted_ebitda, source_calc_version_id, adopted_by, adopted_at)
+    insert into public.deal_financials (deal_id, account_id, adopted_revenue, adopted_sde, adopted_ebitda, adopted_years, source_calc_version_id, adopted_by, adopted_at)
     values (
       ev.aggregate_id, ev.account_id,
       (ev.payload ->> 'adopted_revenue')::numeric,
       (ev.payload ->> 'adopted_sde')::numeric,
       (ev.payload ->> 'adopted_ebitda')::numeric,
+      nullif(ev.payload -> 'adopted_years', 'null'::jsonb),
       (ev.payload ->> 'source_calc_version_id')::uuid,
       ev.actor_ref,
       ev.created_at
@@ -533,6 +570,7 @@ begin
       adopted_revenue = excluded.adopted_revenue,
       adopted_sde = excluded.adopted_sde,
       adopted_ebitda = excluded.adopted_ebitda,
+      adopted_years = excluded.adopted_years,
       source_calc_version_id = excluded.source_calc_version_id,
       adopted_by = excluded.adopted_by,
       adopted_at = excluded.adopted_at;
@@ -550,6 +588,8 @@ create or replace function public.project_deal_event(ev public.deal_event)
 begin
   if ev.aggregate_type = 'deal' and ev.event_type = 'deal.financials_adopted' then
     perform public.project_deal_financials(ev);
+  elsif ev.aggregate_type = 'deal' and ev.event_type = 'deal.close_deadline_set' then
+    perform public.project_deal_close_deadline(ev);
   elsif ev.aggregate_type = 'deal' then
     perform public.project_deal(ev);
   elsif ev.aggregate_type = 'deal_box' then
@@ -570,20 +610,35 @@ begin
     perform public.project_contract(ev);
   elsif ev.aggregate_type = 'offer' then
     perform public.project_offer(ev);
+  elsif ev.aggregate_type = 'deal_milestone' then
+    perform public.project_deal_milestone(ev);
+  -- History only; delivery state lives on deal_update_recipient.
+  elsif ev.aggregate_type = 'deal_update' then
+    null;
+  -- History only; a workflow trigger reads it from the log.
+  elsif ev.aggregate_type = 'lender_room' and ev.event_type = 'lender_room.went_quiet' then
+    null;
+  -- History only; the email relay reads it from the log.
+  elsif ev.aggregate_type = 'seller_counsel_message' then
+    null;
   else
     raise exception 'no projector for aggregate_type %', ev.aggregate_type;
   end if;
 end;
 $$;
 
--- The permission an event of a given aggregate must satisfy, mirroring the
--- insert policies the projection tables carried before the log.
-create or replace function public.deal_event_permission(p_aggregate_type text)
+-- The permission an event must satisfy. Drafting, uploading, comments,
+-- meetings and milestone dates are deal work; adopting, sending, signing,
+-- deleting and moving the deal along stay with the deal's managers.
+create or replace function public.deal_event_permission(p_aggregate_type text, p_event_type text)
   returns text
   language sql immutable set search_path = '' as $$
-  select case p_aggregate_type
-    when 'checklist_item' then 'checklists.manage'
-    when 'deal_participant' then 'participants.manage'
+  select case
+    when p_event_type in ('offer.drafted', 'offer.version_added', 'contract.created', 'contract.version_added',
+      'contract.version_set', 'contract.comment_posted', 'dr_document.added') then 'deals.work'
+    when p_aggregate_type in ('meeting', 'meeting_action_item', 'deal_milestone') then 'deals.work'
+    when p_aggregate_type = 'checklist_item' then 'checklists.manage'
+    when p_aggregate_type = 'deal_participant' then 'participants.manage'
     else 'deals.manage'
   end;
 $$;
@@ -604,10 +659,15 @@ $$;
 
 -- The deal-level snapshot body: the deal row plus a compact manifest of each
 -- child aggregate's current head aggregate_seq (D3), not a full child bundle.
+-- The team reads these snapshots, so seller and counsel thread messages and
+-- Seller's counsel folder files stay out.
+-- plpgsql so the body is not checked here: is_seller_counsel_document loads
+-- later, in 99v.
 create or replace function public.deal_wide_manifest(p_deal_id uuid)
   returns jsonb
-  language sql security definer set search_path = '' as $$
-  select jsonb_build_object(
+  language plpgsql security definer set search_path = '' as $$
+begin
+  return jsonb_build_object(
     'deal', (select to_jsonb(d) from public.deal d where d.id = p_deal_id),
     'heads', coalesce((
       select jsonb_object_agg(k, mx)
@@ -615,8 +675,11 @@ create or replace function public.deal_wide_manifest(p_deal_id uuid)
         select de.aggregate_type || ':' || de.aggregate_id::text as k, max(de.aggregate_seq) as mx
         from public.deal_event de
         where de.deal_id = p_deal_id
+          and de.aggregate_type <> 'seller_counsel_message'
+          and not (de.aggregate_type = 'dr_document' and public.is_seller_counsel_document(de.aggregate_id))
         group by de.aggregate_type, de.aggregate_id
       ) s
     ), '{}'::jsonb)
   );
+end;
 $$;

@@ -1,10 +1,7 @@
 'use server';
 
 import { enhanceAction } from '@odb/next/actions';
-import {
-  getSupabaseServerAdminClient,
-  getSupabaseServerClient,
-} from '@odb/supabase/server';
+import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {
   leaveTeamSchema,
@@ -95,7 +92,7 @@ async function leaveTeam(data: LeaveTeamData, user: { id: string }) {
 }
 
 async function transferOwnership(data: TransferOwnershipData) {
-  const client = getSupabaseServerAdminClient();
+  const client = getSupabaseServerClient();
 
   const { error } = await client.rpc('transfer_team_account_ownership', {
     new_owner_id: data.userId,

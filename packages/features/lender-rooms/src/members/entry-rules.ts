@@ -38,7 +38,7 @@ const ROOMS_LIST_PATH = '/lender';
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
 const RETURN_PATH = new RegExp(
-  `^/lender(/${UUID}(/requests(/(asks|forms)/${UUID})?)?)?$`,
+  `^/lender(/${UUID}(/faq|/requests(/(asks|forms)/${UUID})?)?)?$`,
 );
 
 export function safeNextPath(next: string | null): string {

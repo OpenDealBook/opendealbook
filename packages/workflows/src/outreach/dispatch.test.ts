@@ -47,6 +47,7 @@ function makeClient(seed: Seed) {
       in: () => b,
       order: () => b,
       limit: () => b,
+      throwOnError: () => b,
       maybeSingle: async () => ({ data: single, error: null }),
       single: async () => ({ data: single, error: null }),
       insert: (payload: unknown) => {
@@ -64,7 +65,13 @@ function makeClient(seed: Seed) {
     return b;
   }
 
-  return { client: { from: (table: string) => builder(table) }, captures };
+  return {
+    client: {
+      from: (table: string) => builder(table),
+      rpc: async () => ({ data: false, error: null }),
+    },
+    captures,
+  };
 }
 
 const connectionRow = {
@@ -88,6 +95,7 @@ const commonSingles = {
     website: 'firm.com',
   },
   outreach_step: {
+    channel: 'email',
     subject: 'RE: {{ firm.name }}',
     body: 'Hi {{ recipient.name }}, about {{ dealBox.industries }}.',
   },
@@ -132,8 +140,7 @@ describe('dispatchAccountOutreach throttle', () => {
 
     expect(result.sent).toBe(1);
     expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
-    expect(captures.inserts.outreach_message).toHaveLength(1);
-    expect(captures.inserts.outreach_message![0]!.status).toBe('sent');
+    expect(captures.updates.outreach_message!.map((row) => row.status)).toEqual(['sent']);
   });
 
   it('sends nothing when the cap is already spent', async () => {
@@ -164,6 +171,7 @@ describe('dispatchAccountOutreach sequence resolution', () => {
         ...commonSingles,
         outreach_setting: { daily_cap: 10, max_touches: 1 },
         outreach_step: {
+          channel: 'email',
           subject: 'RE: {{ firm.name }}',
           body: 'Reaching out about {{ firm.name }}.',
         },
@@ -215,10 +223,9 @@ describe('dispatchAccountOutreach failure isolation', () => {
     expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(2);
     expect(result.sent).toBe(1);
 
-    const logged = captures.inserts.outreach_message!;
-    expect(logged).toHaveLength(2);
-    expect(logged.map((row) => row.status)).toEqual(['failed', 'sent']);
-    expect(logged[0]!.error).toBe('smtp down');
+    const outcomes = captures.updates.outreach_message!;
+    expect(outcomes.map((row) => row.status)).toEqual(['failed', 'sent']);
+    expect(outcomes[0]!.error).toBe('smtp down');
 
     const enrollmentUpdates = captures.updates.outreach_enrollment!;
     expect(enrollmentUpdates.map((row) => row.status)).toEqual(['failed', 'sent']);

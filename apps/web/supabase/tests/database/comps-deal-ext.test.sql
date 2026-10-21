@@ -54,7 +54,7 @@ select is(
 -- stage_changed carries outcome_reason.
 select public.append_deal_event(
   'f2222222-0000-0000-0000-000000000001', 'deal', 'f2222222-0000-0000-0000-000000000001', 'deal.stage_changed',
-  jsonb_build_object('stage', 'closed_lost', 'outcome_reason', 'price_gap')
+  jsonb_build_object('stage', 'pre_nda', 'outcome_reason', 'price_gap')
 );
 select is(
   (select outcome_reason from public.deal where id = 'f2222222-0000-0000-0000-000000000001'),
@@ -63,7 +63,7 @@ select is(
 );
 select is(
   (select stage from public.deal where id = 'f2222222-0000-0000-0000-000000000001'),
-  'closed_lost',
+  'pre_nda',
   'deal.stage_changed still moves the stage'
 );
 
@@ -82,7 +82,7 @@ select is(
 );
 select is(
   (select stage from public.deal where id = 'f2222222-0000-0000-0000-000000000001'),
-  'closed_lost',
+  'pre_nda',
   'deal.duplicate_flagged does not touch the stage'
 );
 

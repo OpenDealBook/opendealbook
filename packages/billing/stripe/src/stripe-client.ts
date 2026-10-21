@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
 
-import { getStripeSecretKey } from './env';
+import { getStripeApiBase, getStripeSecretKey } from './env';
 
 export function createStripeClient(): Stripe {
-  return new Stripe(getStripeSecretKey());
+  return new Stripe(getStripeSecretKey(), getStripeApiBase());
 }
