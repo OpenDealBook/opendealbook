@@ -9,6 +9,7 @@ import {
   clearScreen,
   fakeActions,
   fakeServer,
+  linkTo,
   pageText,
   press,
   show,
@@ -32,12 +33,14 @@ const failedStep: Props['steps'][number] = {
   attempt: 5,
   status: 'failed',
   wake_at: null,
+  waiting_on: null,
   iteration_path: [],
   input: { channel: 'deals' },
   output: null,
   error: 'Novu rejected the payload',
   started_at: '2026-10-20T14:00:00Z',
   finished_at: '2026-10-20T14:03:00Z',
+  workflow_approval: [],
   logs: [
     {
       id: 'l1',
@@ -62,12 +65,14 @@ const succeededStep: Props['steps'][number] = {
   attempt: 1,
   status: 'succeeded',
   wake_at: null,
+  waiting_on: null,
   iteration_path: [],
   input: { channel: 'team' },
   output: { delivered: 3 },
   error: null,
   started_at: '2026-10-20T13:59:00Z',
   finished_at: '2026-10-20T13:59:30Z',
+  workflow_approval: [],
   logs: [],
 };
 
@@ -79,6 +84,7 @@ function showRun(overrides: Partial<Props> = {}) {
       steps={[succeededStep, failedStep]}
       labels={{ 'notify-1': 'Tell the team', 'each-firm': 'Each firm' }}
       loops={['each-firm']}
+      approvalsHref={'/home/team-one/approvals'}
       stepDataRemoved={false}
       unfinished={false}
       canManage
@@ -142,7 +148,10 @@ it('offers Retry, not Cancel, on a failed run, and retries it', async () => {
 });
 
 it('offers Cancel, not Retry, on an unfinished run, and cancels it', async () => {
-  showRun({ run: { id: RUN, status: 'running', error: null, ...noLoopBudget }, unfinished: true });
+  showRun({
+    run: { id: RUN, status: 'running', error: null, ...noLoopBudget },
+    unfinished: true,
+  });
 
   expect(buttonNames()).toEqual(['Cancel run']);
 
@@ -205,7 +214,9 @@ it('gives no rerun hint without workflows.manage', () => {
 it('shows the removed step data notice once to a manager on a failed run', () => {
   showRun({ stepDataRemoved: true });
 
-  expect(pageText().split('Step data was removed after 90 days').length).toBe(2);
+  expect(pageText().split('Step data was removed after 90 days').length).toBe(
+    2,
+  );
 });
 
 const loopStep = (items: number): Props['steps'][number] => ({
@@ -222,7 +233,12 @@ const loopStep = (items: number): Props['steps'][number] => ({
 
 it('says why a run could not start', () => {
   showRun({
-    run: { id: RUN, status: 'failed', error: 'Unknown node type "fax"', ...noLoopBudget },
+    run: {
+      id: RUN,
+      status: 'failed',
+      error: 'Unknown node type "fax"',
+      ...noLoopBudget,
+    },
     steps: [],
   });
 
@@ -254,9 +270,7 @@ it('says when the run left loop items for next time', () => {
       loop_items_total: 730,
     },
   });
-  expect(pageText()).toContain(
-    '500 of 730 loop items; the rest run next time',
-  );
+  expect(pageText()).toContain('500 of 730 loop items; the rest run next time');
   clearScreen();
 
   showRun({
@@ -273,7 +287,9 @@ it('says when the run left loop items for next time', () => {
 
 it('words a waiting step with the shared status', () => {
   showRun({
-    steps: [{ ...succeededStep, status: 'waiting', output: null, finished_at: null }],
+    steps: [
+      { ...succeededStep, status: 'waiting', output: null, finished_at: null },
+    ],
   });
 
   expect(pageText()).toContain('Waiting');
@@ -281,7 +297,12 @@ it('words a waiting step with the shared status', () => {
 
 it('replaces Retry with a fix-and-rerun hint when the run never started', () => {
   showRun({
-    run: { id: RUN, status: 'failed', error: 'Unknown node type "fax"', ...noLoopBudget },
+    run: {
+      id: RUN,
+      status: 'failed',
+      error: 'Unknown node type "fax"',
+      ...noLoopBudget,
+    },
     steps: [],
   });
 
@@ -293,7 +314,12 @@ it('replaces Retry with a fix-and-rerun hint when the run never started', () => 
 
 it('gives no fix-and-rerun hint without workflows.manage', () => {
   showRun({
-    run: { id: RUN, status: 'failed', error: 'Unknown node type "fax"', ...noLoopBudget },
+    run: {
+      id: RUN,
+      status: 'failed',
+      error: 'Unknown node type "fax"',
+      ...noLoopBudget,
+    },
     steps: [],
     canManage: false,
   });
@@ -330,5 +356,80 @@ it('names the loop item each step ran for, counting from one, outermost first', 
     [...document.querySelectorAll('[data-slot="card-title"]')].map(
       (title) => title.textContent,
     ),
-  ).toEqual(['Tell the team (item 3)', 'Tell the team (item 2, 5)', 'Tell the team']);
+  ).toEqual([
+    'Tell the team (item 3)',
+    'Tell the team (item 2, 5)',
+    'Tell the team',
+  ]);
 });
+
+it('shows a step waiting on a deal manager as waiting for approval, with a link to decide', () => {
+  showRun({
+    steps: [
+      {
+        ...succeededStep,
+        node_id: 'approve-loi',
+        status: 'waiting',
+        waiting_on: 'decision',
+        output: { prompt: 'Send the LOI?' },
+        finished_at: null,
+      },
+    ],
+  });
+
+  expect(pageText()).toContain('Waiting for approval');
+  expect(linkTo('Decide in Approvals')).toBe('/home/team-one/approvals');
+});
+
+it('offers no approval link once the step is decided, for a timed wait, or for a step parked at a cap', () => {
+  showRun({
+    steps: [
+      { ...succeededStep, node_id: 'approve-loi' },
+      {
+        ...succeededStep,
+        id: 'w',
+        status: 'waiting',
+        waiting_on: 'timer',
+        finished_at: null,
+        wake_at: '2026-10-22T09:00:00Z',
+      },
+      {
+        ...succeededStep,
+        id: 'c',
+        node_id: 'vet-firm',
+        status: 'waiting',
+        waiting_on: 'cap',
+        output: null,
+        finished_at: null,
+      },
+    ],
+  });
+
+  expect(pageText()).not.toContain('Waiting for approval');
+  expect(linkTo('Decide in Approvals')).toBeUndefined();
+});
+
+it.each([
+  [true, 'approved'],
+  [false, 'rejected'],
+] as const)(
+  'shows a decided step the run has yet to pick up as decided %s, without the approval link',
+  (approved, word) => {
+    showRun({
+      steps: [
+        {
+          ...succeededStep,
+          node_id: 'approve-loi',
+          status: 'waiting',
+          waiting_on: 'decision',
+          finished_at: null,
+          workflow_approval: [{ approved }],
+        },
+      ],
+    });
+
+    expect(pageText()).toContain(`Decided: ${word}; the run continues shortly`);
+    expect(pageText()).not.toContain('Waiting for approval');
+    expect(linkTo('Decide in Approvals')).toBeUndefined();
+  },
+);

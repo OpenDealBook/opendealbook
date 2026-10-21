@@ -278,7 +278,7 @@ describe('lender bridge authentication', () => {
         status: 'ok',
         sdkVersion: expect.any(String),
         frameworkVersion: expect.any(String),
-        discovered: { workflows: 32, steps: 40 },
+        discovered: { workflows: 34, steps: 42 },
       });
     },
   );
@@ -314,7 +314,7 @@ describe('lender bridge without a Novu key', () => {
 });
 
 describe('lender workflow definitions', () => {
-  it("defines the twelve lender workflows, the two seller digests, the counsel message, the counsel uploads digest, the contract negotiation notice, the contract review reminder and unanswered notice, the deal update approval request, the three seller room notices, the five deal event notices, the to-do assignment, the Seller's counsel folder notice, the seller and counsel thread notice and the workflow run failure notice under the ids the triggers use", async () => {
+  it("defines the twelve lender workflows, the two seller digests, the counsel message, the counsel uploads digest, the contract negotiation notice, the contract review reminder and unanswered notice, the deal update approval request, the three seller room notices, the five deal event notices, the to-do assignment, the Seller's counsel folder notice, the seller and counsel thread notice, the workflow approval notice, the workflow run failure notice and the workflow run pause notice under the ids the triggers use", async () => {
     const { workflows } = await discover();
 
     expect(workflows.map((workflow) => workflow.workflowId).sort()).toEqual([
@@ -349,7 +349,9 @@ describe('lender workflow definitions', () => {
       'seller_room.closed',
       'seller_room.reopened',
       'todo.assigned',
+      'workflow-approval.waiting',
       'workflow-run.failed',
+      'workflow-run.paused',
     ]);
   });
 

@@ -7,7 +7,7 @@ const EMBEDDING = Array.from({ length: 1536 }, () => 0.01);
 
 interface EndpointRow {
   id: string;
-  model: string;
+  model: string | null;
   chat_model: string | null;
   base_url: string | null;
   api_key_secret_ref: string | null;
@@ -182,6 +182,18 @@ describe('answerDealQuestion', () => {
     await expect(
       answerDealQuestion(read, { dealId: 'deal-1', question: 'q' }, write.client),
     ).rejects.toThrow();
+  });
+
+  it('treats an endpoint without an embedding model as unusable and calls no provider', async () => {
+    const read = makeReadClient({ ...fullEndpoint, model: null }, []);
+    const write = makeWriteClient();
+    const fetchMock = mockFetch(undefined);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      answerDealQuestion(read, { dealId: 'deal-1', question: 'q' }, write.client),
+    ).rejects.toThrow('llm_endpoint endpoint-1 has no model');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('throws when the endpoint api key is not present in the environment', async () => {

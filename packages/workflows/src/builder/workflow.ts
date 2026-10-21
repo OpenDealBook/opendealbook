@@ -3,10 +3,13 @@ import {
   condition,
   defineSignal,
   isCancellation,
+  log,
   proxyActivities,
   setHandler,
   sleep,
 } from '@temporalio/workflow';
+
+import type { RetryPolicy } from '@temporalio/common';
 
 import type { Enums, Json } from '@odb/supabase';
 
@@ -14,7 +17,14 @@ import type * as activities from '../activities';
 import type { LoopCarried, LoopGrant, StepResult } from './activities';
 import type { StepOutputs } from './expressions';
 import type { StepIo, WorkflowEdge, WorkflowNode } from './graph';
-import { TEAM_UNLOCKED_SIGNAL } from './ids';
+import { APPROVAL_DECIDED_SIGNAL, CAP_RAISED_SIGNAL, TEAM_UNLOCKED_SIGNAL } from './ids';
+import { AI_NODE_TYPES, AI_STEP_HEARTBEAT_TIMEOUT, AI_STEP_TIMEOUT } from './nodeKinds';
+
+const STEP_RETRY: RetryPolicy = {
+  maximumAttempts: 5,
+  initialInterval: '10 seconds',
+  backoffCoefficient: 2,
+};
 
 const {
   loadWorkflowRun,
@@ -22,14 +32,19 @@ const {
   executeWorkflowStep,
   failWorkflowStep,
   releaseLoopItems,
+  notifyRunPaused,
+  notifyRunFailed,
+  notifyApprovalWaiting,
   isTeamLocked,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '5 minutes',
-  retry: {
-    maximumAttempts: 5,
-    initialInterval: '10 seconds',
-    backoffCoefficient: 2,
-  },
+  retry: STEP_RETRY,
+});
+
+const { executeWorkflowStep: executeAiStep } = proxyActivities<typeof activities>({
+  startToCloseTimeout: AI_STEP_TIMEOUT,
+  heartbeatTimeout: AI_STEP_HEARTBEAT_TIMEOUT,
+  retry: STEP_RETRY,
 });
 
 const { failWorkflowRun } = proxyActivities<typeof activities>({
@@ -41,13 +56,26 @@ const { failWorkflowRun } = proxyActivities<typeof activities>({
   },
 });
 
-const LOCKED_RECHECK_INTERVAL = '1 hour';
+const SIGNAL_RECHECK_INTERVAL = '1 hour';
 
 function failureMessage(error: Error): string {
   return error.cause instanceof Error ? failureMessage(error.cause) : error.message;
 }
 
+async function sendNotice(notice: Promise<void>): Promise<void> {
+  await notice.catch((error: Error) => {
+    log.warn('A workflow notice could not be sent', { error: failureMessage(error) });
+  });
+}
+
 const teamUnlockedSignal = defineSignal(TEAM_UNLOCKED_SIGNAL);
+const approvalDecidedSignal = defineSignal<[{ stepRunId: string }]>(APPROVAL_DECIDED_SIGNAL);
+const capRaisedSignal = defineSignal(CAP_RAISED_SIGNAL);
+
+function untilNextUtcMonth(): number {
+  const now = new Date();
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now.getTime();
+}
 
 export interface RunPublishedWorkflowInput {
   runId: string;
@@ -106,9 +134,10 @@ export async function runPublishedWorkflow({
   try {
     const loaded = await loadWorkflowRun({ runId });
     if (loaded.kind === 'refused') {
+      await sendNotice(notifyRunFailed({ runId }));
       return;
     }
-    const { accountId, triggerNodeId, graph } = loaded;
+    const { accountId, triggerNodeId, triggerOutput, graph } = loaded;
     const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
     const arrivals = new Map<string, Map<string, Arrival>>();
     const reachable = new Set([triggerNodeId]);
@@ -121,21 +150,39 @@ export async function runPublishedWorkflow({
     let statusChange = Promise.resolve();
     let working = 0;
     let waiting = 0;
+    let awaitingPerson = 0;
+    let capped = 0;
+    let capPauses = 0;
+    let pausedForCap = false;
+    let capRaises = 0;
     let lockPaused = false;
     let unlockSignalled = false;
     let lockCheck: Promise<void> | undefined;
+    const decided = new Set<string>();
 
     setHandler(teamUnlockedSignal, () => {
       unlockSignalled = true;
+    });
+    setHandler(approvalDecidedSignal, ({ stepRunId }) => {
+      decided.add(stepRunId);
+    });
+    setHandler(capRaisedSignal, () => {
+      capRaises += 1;
     });
 
     const reconcileStatus = (): Promise<void> => {
       statusChange = statusChange.then(async () => {
         const to = lockPaused
           ? 'paused_locked'
-          : working === 0 && waiting > 0
-            ? 'waiting'
-            : 'running';
+          : working > 0
+            ? 'running'
+            : capped > 0
+              ? 'paused_cap'
+              : awaitingPerson > 0
+                ? 'awaiting_approval'
+                : waiting > 0
+                  ? 'waiting'
+                  : 'running';
         if (to !== status) {
           await transitionWorkflowRun({ runId, from: status, to });
           status = to;
@@ -152,7 +199,7 @@ export async function runPublishedWorkflow({
       await reconcileStatus();
       do {
         unlockSignalled = false;
-        await condition(() => unlockSignalled, LOCKED_RECHECK_INTERVAL);
+        await condition(() => unlockSignalled, SIGNAL_RECHECK_INTERVAL);
       } while (await isTeamLocked({ accountId }));
       lockPaused = false;
       await reconcileStatus();
@@ -213,7 +260,8 @@ export async function runPublishedWorkflow({
         item.touched = true;
       }
       const execution = { runId, accountId, node, iterationPath: scope.path };
-      const result = await executeWorkflowStep({
+      const executeStep = AI_NODE_TYPES.includes(node.type) ? executeAiStep : executeWorkflowStep;
+      const result = await executeStep({
         ...execution,
         input,
         steps,
@@ -242,15 +290,49 @@ export async function runPublishedWorkflow({
       working += 1;
       await sharedLockCheck();
       let result = await execute(node, input, steps, scope);
-      while (result?.kind === 'waiting') {
+      while (
+        result?.kind === 'waiting' ||
+        result?.kind === 'awaiting_decision' ||
+        result?.kind === 'capped'
+      ) {
         working -= 1;
-        waiting += 1;
-        await reconcileStatus();
-        await sleep(Math.max(0, Date.parse(result.until) - Date.now()));
-        waiting -= 1;
+        const wasCapped = result.kind === 'capped';
+        if (result.kind === 'waiting') {
+          waiting += 1;
+          await reconcileStatus();
+          await sleep(Math.max(0, Date.parse(result.until) - Date.now()));
+          waiting -= 1;
+        } else if (result.kind === 'awaiting_decision') {
+          const { stepRunId } = result;
+          awaitingPerson += 1;
+          await reconcileStatus();
+          await sendNotice(notifyApprovalWaiting({ stepRunId }));
+          do {
+            await condition(() => decided.has(stepRunId), SIGNAL_RECHECK_INTERVAL);
+            result = await execute(node, input, steps, scope);
+          } while (result?.kind === 'awaiting_decision');
+          awaitingPerson -= 1;
+          working += 1;
+          await reconcileStatus();
+          continue;
+        } else {
+          capped += 1;
+          await reconcileStatus();
+          if (!pausedForCap) {
+            pausedForCap = true;
+            capPauses += 1;
+            await sendNotice(notifyRunPaused({ runId, pause: capPauses }));
+          }
+          const raisesSeen = capRaises;
+          await condition(() => capRaises !== raisesSeen, untilNextUtcMonth());
+          capped -= 1;
+        }
         working += 1;
         await reconcileStatus();
         result = await execute(node, input, steps, scope);
+        if (wasCapped && result?.kind !== 'capped') {
+          pausedForCap = false;
+        }
       }
       working -= 1;
 
@@ -263,7 +345,7 @@ export async function runPublishedWorkflow({
       const next = loop
         ? runLoop(node, output, loop, reached, scope)
         : follow(edgesFrom(node.id), scope, (edge) =>
-            node.type === 'branch' && edge.sourceHandle !== handle
+            handle !== undefined && edge.sourceHandle !== handle
               ? 'skipped'
               : { from: node.id, output, steps: reached },
           );
@@ -403,8 +485,8 @@ export async function runPublishedWorkflow({
 
     await follow(edgesFrom(triggerNodeId), { path: [], failed: false, items: [] }, () => ({
       from: triggerNodeId,
-      output: {},
-      steps: { [triggerNodeId]: {} },
+      output: triggerOutput,
+      steps: { [triggerNodeId]: triggerOutput },
     }));
     await reconcileStatus();
     if (failed || runCancelled) {
@@ -417,6 +499,9 @@ export async function runPublishedWorkflow({
         to: failed ? 'failed' : 'succeeded',
       });
     }
+    if (failed && !runCancelled) {
+      await sendNotice(notifyRunFailed({ runId }));
+    }
   } catch (error) {
     if (isCancellation(error)) {
       await CancellationScope.nonCancellable(releaseUnprocessed);
@@ -425,6 +510,7 @@ export async function runPublishedWorkflow({
     await CancellationScope.nonCancellable(async () => {
       await releaseUnprocessed();
       await failWorkflowRun({ runId, error: failureMessage(error as Error) });
+      await sendNotice(notifyRunFailed({ runId }));
     });
   }
 }

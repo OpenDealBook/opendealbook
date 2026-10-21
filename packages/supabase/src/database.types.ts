@@ -17,6 +17,7 @@ export type Database = {
           global_seq: number
           id: string
           payload: Json
+          xid: unknown
         }
         Insert: {
           account_id: string
@@ -25,6 +26,7 @@ export type Database = {
           global_seq?: never
           id?: string
           payload?: Json
+          xid?: unknown
         }
         Update: {
           account_id?: string
@@ -33,6 +35,7 @@ export type Database = {
           global_seq?: never
           id?: string
           payload?: Json
+          xid?: unknown
         }
         Relationships: [
           {
@@ -4109,6 +4112,7 @@ export type Database = {
           global_seq: number
           id: string
           payload: Json
+          xid: unknown
         }
         Insert: {
           account_id: string
@@ -4125,6 +4129,7 @@ export type Database = {
           global_seq?: never
           id?: string
           payload?: Json
+          xid?: unknown
         }
         Update: {
           account_id?: string
@@ -4141,6 +4146,7 @@ export type Database = {
           global_seq?: never
           id?: string
           payload?: Json
+          xid?: unknown
         }
         Relationships: [
           {
@@ -8066,39 +8072,42 @@ export type Database = {
       llm_endpoint: {
         Row: {
           account_id: string
+          api_key_secret_id: string | null
           api_key_secret_ref: string | null
           base_url: string | null
           chat_model: string | null
           created_at: string | null
           created_by: string | null
           id: string
-          model: string
+          model: string | null
           provider: string
           updated_at: string | null
           updated_by: string | null
         }
         Insert: {
           account_id: string
+          api_key_secret_id?: string | null
           api_key_secret_ref?: string | null
           base_url?: string | null
           chat_model?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
-          model: string
+          model?: string | null
           provider: string
           updated_at?: string | null
           updated_by?: string | null
         }
         Update: {
           account_id?: string
+          api_key_secret_id?: string | null
           api_key_secret_ref?: string | null
           base_url?: string | null
           chat_model?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
-          model?: string
+          model?: string | null
           provider?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -8107,21 +8116,21 @@ export type Database = {
           {
             foreignKeyName: "llm_endpoint_account_id_fkey"
             columns: ["account_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "accounts"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "llm_endpoint_account_id_fkey"
             columns: ["account_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "user_account_workspace"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "llm_endpoint_account_id_fkey"
             columns: ["account_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "user_accounts"
             referencedColumns: ["id"]
           },
@@ -9841,16 +9850,19 @@ export type Database = {
       relay_cursor: {
         Row: {
           last_global_seq: number
+          last_xid: unknown
           name: string
           updated_at: string
         }
         Insert: {
           last_global_seq: number
+          last_xid?: unknown
           name: string
           updated_at?: string
         }
         Update: {
           last_global_seq?: number
+          last_xid?: unknown
           name?: string
           updated_at?: string
         }
@@ -12056,6 +12068,8 @@ export type Database = {
           archived_at: string | null
           created_at: string
           enabled: boolean
+          enabled_after_account_seq: number | null
+          enabled_after_deal_seq: number | null
           id: string
           name: string
           system_key: string | null
@@ -12065,6 +12079,8 @@ export type Database = {
           archived_at?: string | null
           created_at?: string
           enabled?: boolean
+          enabled_after_account_seq?: number | null
+          enabled_after_deal_seq?: number | null
           id?: string
           name: string
           system_key?: string | null
@@ -12074,6 +12090,8 @@ export type Database = {
           archived_at?: string | null
           created_at?: string
           enabled?: boolean
+          enabled_after_account_seq?: number | null
+          enabled_after_deal_seq?: number | null
           id?: string
           name?: string
           system_key?: string | null
@@ -12207,6 +12225,7 @@ export type Database = {
           status: Database["public"]["Enums"]["workflow_run_status"]
           trigger_kind: Database["public"]["Enums"]["workflow_trigger_kind"]
           trigger_node_id: string
+          trigger_output: Json
           trigger_ref: string
           version_id: string
           workflow_id: string
@@ -12222,6 +12241,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["workflow_run_status"]
           trigger_kind: Database["public"]["Enums"]["workflow_trigger_kind"]
           trigger_node_id: string
+          trigger_output?: Json
           trigger_ref: string
           version_id: string
           workflow_id: string
@@ -12237,6 +12257,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["workflow_run_status"]
           trigger_kind?: Database["public"]["Enums"]["workflow_trigger_kind"]
           trigger_node_id?: string
+          trigger_output?: Json
           trigger_ref?: string
           version_id?: string
           workflow_id?: string
@@ -12332,6 +12353,7 @@ export type Database = {
           run_id: string
           started_at: string
           status: Database["public"]["Enums"]["workflow_step_status"]
+          waiting_on: string | null
           wake_at: string | null
         }
         Insert: {
@@ -12348,6 +12370,7 @@ export type Database = {
           run_id: string
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_step_status"]
+          waiting_on?: string | null
           wake_at?: string | null
         }
         Update: {
@@ -12364,6 +12387,7 @@ export type Database = {
           run_id?: string
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_step_status"]
+          waiting_on?: string | null
           wake_at?: string | null
         }
         Relationships: [
@@ -12617,6 +12641,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      ai_cap_reached: { Args: { p_account_id: string }; Returns: boolean }
       analytics_broker_deal_flow_by_quarter: {
         Args: { p_account_id: string; p_include_revenue?: boolean }
         Returns: {
@@ -13125,6 +13150,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      decide_firm_verdict: {
+        Args: {
+          p_approved: boolean
+          p_reason?: string
+          p_step_run_id: string
+          p_verdict_id: string
+        }
+        Returns: undefined
+      }
+      disconnect_llm_endpoint: {
+        Args: { p_account_id: string }
+        Returns: undefined
+      }
       dr_folder_count_below: { Args: { folder_id: string }; Returns: number }
       edit_deal_update: {
         Args: { body: string; picks: Json; subject: string; update_id: string }
@@ -13424,6 +13462,7 @@ export type Database = {
           room_name: string
         }[]
       }
+      llm_endpoint_api_key: { Args: { p_account_id: string }; Returns: string }
       lookup_cap_reached: { Args: { p_account_id: string }; Returns: boolean }
       main_contact_on_side: {
         Args: {
@@ -13576,9 +13615,29 @@ export type Database = {
         Returns: undefined
       }
       replay_deal: { Args: { p_deal_id: string }; Returns: undefined }
+      reserve_ai_call: {
+        Args: {
+          p_account_id: string
+          p_deal_id?: string
+          p_endpoint_id?: string
+          p_firm_id?: string
+          p_model: string
+        }
+        Returns: string
+      }
       room_close_ready: {
         Args: { room_id: string; room_kind: string }
         Returns: boolean
+      }
+      save_llm_endpoint: {
+        Args: {
+          p_account_id: string
+          p_api_key?: string
+          p_base_url: string
+          p_model: string
+          p_provider: string
+        }
+        Returns: undefined
       }
       search_documents: {
         Args: { p_account_id: string; p_query: string }
@@ -13824,6 +13883,23 @@ export type Database = {
         Args: { rename_limit: Database["public"]["Enums"]["team_rename_limit"] }
         Returns: undefined
       }
+      settled_trigger_events: {
+        Args: {
+          p_after_seq: number
+          p_after_xid: unknown
+          p_event_types: string[]
+          p_limit: number
+          p_log: string
+        }
+        Returns: {
+          account_id: string
+          deal_id: string
+          event_type: string
+          global_seq: number
+          payload: Json
+          xid: string
+        }[]
+      }
       shared_deal_timeline: {
         Args: { deal_id: string }
         Returns: {
@@ -13849,6 +13925,7 @@ export type Database = {
           output: Json
           started_at: string
           status: Database["public"]["Enums"]["workflow_step_status"]
+          waiting_on: string
           wake_at: string
         }[]
       }
@@ -13952,6 +14029,7 @@ export type Database = {
           status: Database["public"]["Enums"]["lender_room_status"]
         }[]
       }
+      team_people_names: { Args: { p_account_id: string }; Returns: string[] }
       team_rename_allowed_at: {
         Args: { last_renamed_at: string }
         Returns: string
@@ -13960,6 +14038,7 @@ export type Database = {
         Args: { new_owner_id: string; target_account_id: string }
         Returns: undefined
       }
+      trigger_event_horizon: { Args: never; Returns: string }
       update_deal_profile: {
         Args: { p_business_name: string; p_deal_id: string; p_payload: Json }
         Returns: undefined

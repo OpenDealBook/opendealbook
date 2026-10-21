@@ -11,7 +11,8 @@ vi.mock(
 );
 vi.mock(
   '@odb/supabase/server',
-  async () => (await import('../../workflow-route-test-kit')).routeMocks.supabase,
+  async () =>
+    (await import('../../workflow-route-test-kit')).routeMocks.supabase,
 );
 vi.mock(
   '../../../../layout',
@@ -46,6 +47,13 @@ const graph = {
       config: { items: [] },
       label: 'Each firm',
     },
+    {
+      id: 'approve-loi',
+      type: 'approval',
+      config: { prompt: 'Send?' },
+      label: 'Approve the LOI',
+    },
+    { id: 'vet-firm', type: 'decision_model', config: { firmId: 'f1' } },
   ],
   edges: [{ id: 'e1', sourceNodeId: 'start', targetNodeId: 'notify-1' }],
 };
@@ -57,12 +65,14 @@ function step(overrides: Record<string, unknown>) {
     attempt: 1,
     status: 'succeeded',
     wake_at: null,
+    waiting_on: null,
     iteration_path: [],
     input: { channel: 'team' },
     output: { delivered: 3 },
     error: null,
     started_at: '2026-10-20T13:59:00Z',
     finished_at: '2026-10-20T13:59:30Z',
+    workflow_approval: [],
     logs: [],
     ...overrides,
   };
@@ -169,7 +179,9 @@ it('labels a loop step from the graph, counts its items, and reports the run bud
 it('says why a run could not start', async () => {
   seed('failed', [], 1, 'Unknown node type');
 
-  expect(await render()).toContain('This run could not start: Unknown node type');
+  expect(await render()).toContain(
+    'This run could not start: Unknown node type',
+  );
 });
 
 it('shows each loop item a step ran for, and when a waiting step wakes', async () => {
@@ -190,4 +202,56 @@ it('shows each loop item a step ran for, and when a waiting step wakes', async (
   expect(html).toContain('Tell the team (item 1)');
   expect(html).toContain('Tell the team (item 2)');
   expect(html).toContain('Waiting until Oct 22, 2026, 9:00 AM');
+});
+
+it("links each step waiting on a deal manager to the team's approvals", async () => {
+  seed('awaiting_approval', [
+    step({
+      id: 's1',
+      node_id: 'approve-loi',
+      status: 'waiting',
+      waiting_on: 'decision',
+      output: null,
+      finished_at: null,
+    }),
+    step({
+      id: 's2',
+      node_id: 'vet-firm',
+      status: 'waiting',
+      waiting_on: 'decision',
+      output: null,
+      finished_at: null,
+    }),
+    step({
+      id: 's3',
+      node_id: 'vet-firm',
+      status: 'waiting',
+      waiting_on: 'cap',
+      output: null,
+      finished_at: null,
+    }),
+  ]);
+
+  const html = await render();
+
+  expect(html.match(/Waiting for approval/g)).toHaveLength(2);
+  expect(html.match(/href="\/home\/acme\/approvals"/g)).toHaveLength(2);
+});
+
+it('shows a decided step the run has yet to pick up as decided', async () => {
+  seed('awaiting_approval', [
+    step({
+      node_id: 'approve-loi',
+      status: 'waiting',
+      waiting_on: 'decision',
+      output: null,
+      finished_at: null,
+      workflow_approval: [{ approved: false }],
+    }),
+  ]);
+
+  const html = await render();
+
+  expect(html).toContain('Decided: rejected; the run continues shortly');
+  expect(html).not.toContain('Waiting for approval');
 });

@@ -7,11 +7,17 @@ import { WorkflowNotFoundError } from '@temporalio/client';
 
 import { getTemporalClient, TASK_QUEUE } from '../client';
 import { isTeamLocked } from '../teamLock';
-import { parseWorkflowGraph } from './graph';
-import { TEAM_UNLOCKED_SIGNAL, workflowRunWorkflowId } from './ids';
+import { parseWorkflowGraph, type StepIo } from './graph';
+import {
+  APPROVAL_DECIDED_SIGNAL,
+  CAP_RAISED_SIGNAL,
+  TEAM_UNLOCKED_SIGNAL,
+  workflowRunWorkflowId,
+} from './ids';
 import type { RunPublishedWorkflowInput } from './workflow';
 
 export { teamTimezone } from './team-timezone';
+export { AI_NODE_TYPES, DECISION_NODE_TYPES } from './nodeKinds';
 export {
   parseWorkflowGraph,
   type RunnableGraph,
@@ -104,6 +110,7 @@ export async function startWorkflowRun(input: {
   triggerKind: Enums<'workflow_trigger_kind'>;
   triggerRef: string;
   triggerNodeId: string;
+  triggerOutput?: StepIo;
 }): Promise<{ runId: string }> {
   const admin = getSupabaseServerAdminClient();
   const { data: inserted } = await admin
@@ -116,6 +123,7 @@ export async function startWorkflowRun(input: {
         trigger_kind: input.triggerKind,
         trigger_ref: input.triggerRef,
         trigger_node_id: input.triggerNodeId,
+        trigger_output: input.triggerOutput,
       },
       { onConflict: 'workflow_id,trigger_ref', ignoreDuplicates: true },
     )
@@ -144,18 +152,17 @@ export async function startWorkflowRun(input: {
 }
 
 export type ScheduledRunRefusal = 'archived' | 'disabled' | 'superseded' | 'team_locked';
+export type EventRunRefusal = 'archived' | 'disabled' | 'superseded' | 'before_enabled';
 
-export async function startScheduledRun(input: {
+async function workflowRefusal(input: {
   accountId: string;
   workflowId: string;
   versionId: string;
-  triggerRef: string;
-  triggerNodeId: string;
-}): Promise<{ runId: string } | { refused: ScheduledRunRefusal }> {
+}) {
   const admin = getSupabaseServerAdminClient();
   const { data: workflow } = await admin
     .from('workflow')
-    .select('enabled, archived_at')
+    .select('enabled, archived_at, enabled_after_deal_seq, enabled_after_account_seq')
     .eq('account_id', input.accountId)
     .eq('id', input.workflowId)
     .single()
@@ -170,19 +177,129 @@ export async function startScheduledRun(input: {
     .single()
     .throwOnError();
 
-  if (workflow.archived_at !== null) {
-    return { refused: 'archived' };
+  const refused =
+    workflow.archived_at !== null
+      ? ('archived' as const)
+      : !workflow.enabled
+        ? ('disabled' as const)
+        : latest.id !== input.versionId
+          ? ('superseded' as const)
+          : null;
+  return { refused, workflow };
+}
+
+async function scheduledRunRefusal(input: {
+  accountId: string;
+  workflowId: string;
+  versionId: string;
+}): Promise<ScheduledRunRefusal | null> {
+  const { refused } = await workflowRefusal(input);
+  if (refused) {
+    return refused;
   }
-  if (!workflow.enabled) {
-    return { refused: 'disabled' };
+  return (await isTeamLocked({ accountId: input.accountId })) ? 'team_locked' : null;
+}
+
+async function eventRunRefusal(input: {
+  accountId: string;
+  workflowId: string;
+  versionId: string;
+  event: { log: EventLogName; globalSeq: number };
+}): Promise<EventRunRefusal | null> {
+  const { refused, workflow } = await workflowRefusal(input);
+  if (refused) {
+    return refused;
   }
-  if (latest.id !== input.versionId) {
-    return { refused: 'superseded' };
+  const mark =
+    input.event.log === 'deal'
+      ? workflow.enabled_after_deal_seq
+      : workflow.enabled_after_account_seq;
+  return input.event.globalSeq > mark! ? null : 'before_enabled';
+}
+
+export async function startScheduledRun(input: {
+  accountId: string;
+  workflowId: string;
+  versionId: string;
+  triggerRef: string;
+  triggerNodeId: string;
+}): Promise<{ runId: string } | { refused: ScheduledRunRefusal }> {
+  const refused = await scheduledRunRefusal(input);
+  return refused ? { refused } : startWorkflowRun({ ...input, triggerKind: 'schedule' });
+}
+
+export type EventLogName = 'deal' | 'account';
+
+export interface TriggeringEvent {
+  log: EventLogName;
+  globalSeq: number;
+  eventType: string;
+  dealId?: string;
+  payload: StepIo;
+}
+
+export function eventTriggerRef(nodeId: string, event: { log: EventLogName; globalSeq: number }): string {
+  return `${nodeId}@${event.log}:${event.globalSeq}`;
+}
+
+export async function startEventRun(input: {
+  accountId: string;
+  workflowId: string;
+  versionId: string;
+  nodeId: string;
+  event: TriggeringEvent;
+}): Promise<{ runId: string } | { refused: EventRunRefusal }> {
+  const refused = await eventRunRefusal(input);
+  const { event } = input;
+  return refused
+    ? { refused }
+    : startWorkflowRun({
+        accountId: input.accountId,
+        workflowId: input.workflowId,
+        versionId: input.versionId,
+        triggerKind: 'event',
+        triggerRef: eventTriggerRef(input.nodeId, event),
+        triggerNodeId: input.nodeId,
+        triggerOutput: {
+          ...event.payload,
+          eventType: event.eventType,
+          ...(event.dealId && { dealId: event.dealId }),
+          accountId: input.accountId,
+          globalSeq: event.globalSeq,
+        },
+      });
+}
+
+export async function signalApprovalDecided(input: {
+  accountId: string;
+  runId: string;
+  stepRunId: string;
+}): Promise<void> {
+  const { data: steps } = await getSupabaseServerAdminClient()
+    .from('workflow_step_run')
+    .select('id, workflow_run!inner(status)')
+    .eq('account_id', input.accountId)
+    .eq('run_id', input.runId)
+    .eq('id', input.stepRunId)
+    .in('workflow_run.status', UNFINISHED_RUN_STATUSES)
+    .throwOnError();
+
+  if (steps.length === 0) {
+    throw new RunActionRefused('run_changed');
   }
-  if (await isTeamLocked({ accountId: input.accountId })) {
-    return { refused: 'team_locked' };
-  }
-  return startWorkflowRun({ ...input, triggerKind: 'schedule' });
+  await (await getTemporalClient()).workflow
+    .getHandle(workflowRunWorkflowId(input.runId))
+    .signal(APPROVAL_DECIDED_SIGNAL, { stepRunId: input.stepRunId });
+}
+
+export async function resumeCappedRuns(input: { accountId: string }): Promise<void> {
+  const { data: runs } = await getSupabaseServerAdminClient()
+    .from('workflow_run')
+    .select('id')
+    .eq('account_id', input.accountId)
+    .in('status', UNFINISHED_RUN_STATUSES)
+    .throwOnError();
+  await signalRuns(runs, CAP_RAISED_SIGNAL);
 }
 
 const RUN_ACTION_REFUSALS = {
@@ -385,6 +502,19 @@ export async function cancelWaitingRuns(input: {
   return { cancelled: cancelled.length, unreached };
 }
 
+async function signalRuns(runs: { id: string }[], signal: string): Promise<void> {
+  const temporal = await getTemporalClient();
+  const signals = await Promise.allSettled(
+    runs.map((run) => temporal.workflow.getHandle(workflowRunWorkflowId(run.id)).signal(signal)),
+  );
+
+  signals.forEach((outcome, index) => {
+    if (outcome.status === 'rejected') {
+      console.error(`Signalling ${signal} to workflow run ${runs[index]!.id} failed`, outcome.reason);
+    }
+  });
+}
+
 export async function resumeLockedWorkflowRuns(input: {
   accountId: string;
 }): Promise<void> {
@@ -394,21 +524,5 @@ export async function resumeLockedWorkflowRuns(input: {
     .eq('account_id', input.accountId)
     .eq('status', 'paused_locked')
     .throwOnError();
-  const temporal = await getTemporalClient();
-  const signals = await Promise.allSettled(
-    runs.map((run) =>
-      temporal.workflow
-        .getHandle(workflowRunWorkflowId(run.id))
-        .signal(TEAM_UNLOCKED_SIGNAL),
-    ),
-  );
-
-  signals.forEach((signal, index) => {
-    if (signal.status === 'rejected') {
-      console.error(
-        `Waking workflow run ${runs[index]!.id} after unlock failed`,
-        signal.reason,
-      );
-    }
-  });
+  await signalRuns(runs, TEAM_UNLOCKED_SIGNAL);
 }

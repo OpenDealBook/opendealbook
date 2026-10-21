@@ -39,6 +39,8 @@ create table if not exists public.workflow (
   enabled boolean not null default false,
   archived_at timestamptz,
   created_at timestamptz not null default now(),
+  enabled_after_deal_seq bigint,
+  enabled_after_account_seq bigint,
   constraint workflow_archived_disabled_check check (not (enabled and archived_at is not null)),
   unique (account_id, system_key),
   unique (id, account_id)
@@ -150,6 +152,26 @@ create trigger refuse_enabling_unpublished_workflow
   for each row when (new.enabled)
   execute function tuckin.refuse_enabling_unpublished_workflow();
 
+-- How far each event log had reached when a workflow was last switched on, so
+-- it starts only on events after that.
+create or replace function tuckin.mark_workflow_enabled()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' or not old.enabled then
+    new.enabled_after_deal_seq := coalesce(pg_sequence_last_value(pg_get_serial_sequence('public.deal_event', 'global_seq')), 0);
+    new.enabled_after_account_seq := coalesce(pg_sequence_last_value(pg_get_serial_sequence('public.account_event', 'global_seq')), 0);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger mark_workflow_enabled
+  before insert or update of enabled on public.workflow
+  for each row when (new.enabled)
+  execute function tuckin.mark_workflow_enabled();
+
 create or replace function tuckin.require_published_version()
   returns trigger
   language plpgsql security definer
@@ -219,6 +241,7 @@ create table if not exists public.workflow_run (
   trigger_kind public.workflow_trigger_kind not null,
   trigger_ref text not null,
   trigger_node_id text not null,
+  trigger_output jsonb not null default '{}'::jsonb,
   status public.workflow_run_status not null default 'running',
   started_at timestamptz not null default now(),
   finished_at timestamptz,
@@ -276,8 +299,9 @@ create trigger refuse_reopening_finished_run
   execute function tuckin.refuse_reopening_finished_run();
 
 -- One row per step execution, keyed by idempotency_key; every retry reuses it and counts attempt on.
--- wake_at is when a waiting step wakes; iteration_path is its item index in each
--- enclosing loop, outermost first, and empty outside loops.
+-- wake_at is when a waiting step wakes, and waiting_on says what it waits for:
+-- a timer, a person's decision, or room under a monthly cap. iteration_path is
+-- its item index in each enclosing loop, outermost first, and empty outside loops.
 create table if not exists public.workflow_step_run (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null,
@@ -292,10 +316,13 @@ create table if not exists public.workflow_step_run (
   started_at timestamptz not null default now(),
   finished_at timestamptz,
   wake_at timestamptz,
+  waiting_on text,
   iteration_path int[] not null default '{}',
   foreign key (run_id, account_id) references public.workflow_run (id, account_id) on delete cascade,
   unique (id, account_id),
-  check ((status in ('succeeded', 'failed', 'cancelled')) = (finished_at is not null))
+  check ((status in ('succeeded', 'failed', 'cancelled')) = (finished_at is not null)),
+  constraint workflow_step_run_waiting_on_kind check (waiting_on in ('timer', 'decision', 'cap')),
+  constraint workflow_step_run_waiting_on_only_waiting check (waiting_on is null or status = 'waiting')
 );
 
 alter table public.workflow_step_run enable row level security;
@@ -306,7 +333,7 @@ create or replace function tuckin.cancel_unfinished_steps()
   set search_path = '' as $$
 begin
   update public.workflow_step_run
-  set status = 'cancelled', finished_at = new.finished_at
+  set status = 'cancelled', finished_at = new.finished_at, waiting_on = null
   where run_id = new.id and status in ('running', 'waiting');
   return null;
 end;
@@ -327,7 +354,7 @@ create or replace function public.start_workflow_step_run(
   p_idempotency_key text,
   p_iteration_path int[],
   p_input jsonb
-) returns table (id uuid, attempt int, status public.workflow_step_status, output jsonb, started_at timestamptz, wake_at timestamptz)
+) returns table (id uuid, attempt int, status public.workflow_step_status, output jsonb, started_at timestamptz, wake_at timestamptz, waiting_on text)
   language sql
   set search_path = '' as $$
   with started as (
@@ -339,11 +366,11 @@ create or replace function public.start_workflow_step_run(
     on conflict (idempotency_key) do update
       set attempt = s.attempt + 1, status = 'running', error = null, finished_at = null, input = excluded.input
       where s.status not in ('succeeded', 'cancelled', 'waiting')
-    returning s.id, s.attempt, s.status, s.output, s.started_at, s.wake_at
+    returning s.id, s.attempt, s.status, s.output, s.started_at, s.wake_at, s.waiting_on
   )
   select * from started
   union all
-  select s.id, s.attempt, s.status, s.output, s.started_at, s.wake_at
+  select s.id, s.attempt, s.status, s.output, s.started_at, s.wake_at, s.waiting_on
   from public.workflow_step_run s
   where s.idempotency_key = p_idempotency_key and not exists (select 1 from started);
 $$;
@@ -594,7 +621,15 @@ create policy workflow_approval_insert on public.workflow_approval
       select 1
       from public.workflow_step_run s
       join public.workflow_run r on r.id = s.run_id
-      where s.id = step_run_id and s.status = 'waiting' and r.status = 'awaiting_approval'
+      join public.workflow_version v on v.id = r.version_id
+      where s.id = step_run_id
+        and s.status = 'waiting'
+        and s.waiting_on = 'decision'
+        and r.status in ('running', 'waiting', 'awaiting_approval', 'paused_locked', 'paused_cap')
+        and exists (
+          select 1 from jsonb_array_elements(v.graph -> 'nodes') node
+          where node ->> 'id' = s.node_id and node ->> 'type' = 'approval'
+        )
     )
   );
 
@@ -660,6 +695,48 @@ $$;
 revoke all on function public.lookup_cap_reached(uuid) from public, anon, authenticated;
 grant execute on function public.lookup_cap_reached(uuid) to service_role;
 
+create or replace function public.ai_cap_reached(p_account_id uuid)
+  returns boolean
+  language sql stable security definer
+  set search_path = '' as $$
+  select count(*) >= coalesce((select ai_monthly_cap from public.outreach_setting where account_id = p_account_id), 0)
+  from public.ai_call_log
+  where account_id = p_account_id
+    and created_at >= date_trunc('month', now() at time zone 'utc') at time zone 'utc';
+$$;
+
+revoke all on function public.ai_cap_reached(uuid) from public, anon, authenticated;
+grant execute on function public.ai_cap_reached(uuid) to service_role;
+
+-- Reserves one AI call against the team's monthly cap: under a per-team lock,
+-- it logs the call unless the cap is reached, and returns the log row's id, or
+-- null when the team is at its cap. Usage is filled in after the call.
+create or replace function public.reserve_ai_call(
+  p_account_id uuid,
+  p_model text,
+  p_endpoint_id uuid default null,
+  p_firm_id uuid default null,
+  p_deal_id uuid default null
+) returns uuid
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  v_call_id uuid;
+begin
+  perform pg_advisory_xact_lock(hashtextextended('ai_call_cap:' || p_account_id::text, 0));
+  if public.ai_cap_reached(p_account_id) then
+    return null;
+  end if;
+  insert into public.ai_call_log (account_id, model, endpoint_id, firm_id, deal_id)
+  values (p_account_id, p_model, p_endpoint_id, p_firm_id, p_deal_id)
+  returning id into v_call_id;
+  return v_call_id;
+end;
+$$;
+
+revoke all on function public.reserve_ai_call(uuid, text, uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.reserve_ai_call(uuid, text, uuid, uuid, uuid) to service_role;
+
 -- Team-wide events that belong to no deal, such as a firm approval. Like
 -- deal_event, rows are appended by their source tables and read in global_seq
 -- order by relays; nobody writes them directly.
@@ -669,10 +746,13 @@ create table if not exists public.account_event (
   account_id uuid not null references public.accounts (id) on delete cascade,
   event_type text not null,
   payload jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default clock_timestamp()
+  created_at timestamptz not null default clock_timestamp(),
+  xid xid8 not null default pg_current_xact_id()
 );
 
 alter table public.account_event enable row level security;
+
+create index ix_account_event_xid on public.account_event (xid, global_seq);
 
 revoke all on public.account_event from anon, authenticated, service_role;
 grant select on public.account_event to authenticated, service_role;
@@ -699,6 +779,49 @@ $$;
 create trigger record_firm_approved
   after insert on public.firm_verdict_approval
   for each row execute function tuckin.record_firm_approved();
+
+-- The transaction that appended each event. global_seq is handed out before
+-- commit, so a lower one can become visible after a higher one; a relay reads
+-- in (xid, global_seq) order and only events of finished transactions, so it
+-- never steps past one that is still to come.
+create or replace function public.trigger_event_horizon()
+  returns text
+  language sql stable
+  set search_path = '' as $$
+  select pg_snapshot_xmin(pg_current_snapshot())::text;
+$$;
+
+revoke all on function public.trigger_event_horizon() from public, anon, authenticated;
+grant execute on function public.trigger_event_horizon() to service_role;
+
+create or replace function public.settled_trigger_events(
+  p_log text,
+  p_after_xid xid8,
+  p_after_seq bigint,
+  p_event_types text[],
+  p_limit int
+) returns table (xid text, global_seq bigint, account_id uuid, deal_id uuid, event_type text, payload jsonb)
+  language sql stable security definer
+  set search_path = '' as $$
+  select e.xid::text, e.global_seq, e.account_id, e.deal_id, e.event_type, e.payload
+  from (
+    select d.xid, d.global_seq, d.account_id, d.deal_id, d.event_type, d.payload
+    from public.deal_event d
+    where p_log = 'deal'
+    union all
+    select a.xid, a.global_seq, a.account_id, null, a.event_type, a.payload
+    from public.account_event a
+    where p_log = 'account'
+  ) e
+  where (e.xid, e.global_seq) > (p_after_xid, p_after_seq)
+    and e.xid < pg_snapshot_xmin(pg_current_snapshot())
+    and e.event_type = any (p_event_types)
+  order by e.xid, e.global_seq
+  limit p_limit;
+$$;
+
+revoke all on function public.settled_trigger_events(text, xid8, bigint, text[], int) from public, anon, authenticated;
+grant execute on function public.settled_trigger_events(text, xid8, bigint, text[], int) to service_role;
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow

@@ -45,6 +45,12 @@ interface RuleScope {
   steps: StepOutputs;
 }
 
+export class MissingValue extends Error {
+  constructor(readonly path: string) {
+    super(`${path} does not name a value`);
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -60,7 +66,7 @@ function resolve(operand: Operand, scope: RuleScope): unknown {
     value = isRecord(value) ? value[key] : undefined;
   }
   if (value === undefined) {
-    throw new Error(`${operand.var} does not name a value`);
+    throw new MissingValue(operand.var);
   }
   return value;
 }

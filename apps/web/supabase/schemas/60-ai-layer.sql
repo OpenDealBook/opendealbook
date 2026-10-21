@@ -1,10 +1,11 @@
 -- AI layer groundwork. pgvector powers embedding search over document chunks;
--- llm_endpoint holds each account's model and endpoint configuration; its
--- api_key_secret_ref names the env or secret-store entry that carries the bearer
--- token, so the raw key never lives in a table row; every
+-- llm_endpoint holds each account's model and endpoint configuration, one per
+-- team; api_key_secret_id points at the Supabase Vault secret holding the
+-- team's own provider key, and the older api_key_secret_ref names an env entry,
+-- so the raw key never lives in a table row; every
 -- model call is written to ai_call_log for audit; document_chunk stores the
--- embedded text spans of data-room documents. ai_redaction_enabled toggles
--- whether an account's prompts are redacted before they leave the tenant.
+-- embedded text spans of data-room documents. Workflow AI calls always redact
+-- people before a prompt leaves; ai_redaction_enabled does not switch that off.
 
 create extension if not exists vector with schema extensions;
 
@@ -14,13 +15,16 @@ create table if not exists public.llm_endpoint (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   provider text not null,
-  model text not null,
+  model text,
   base_url text,
   api_key_secret_ref text,
+  api_key_secret_id uuid,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  constraint llm_endpoint_one_per_team unique (account_id),
+  constraint llm_endpoint_provider check (provider in ('openai', 'anthropic', 'openai_compatible'))
 );
 
 alter table public.llm_endpoint enable row level security;
@@ -28,7 +32,10 @@ alter table public.llm_endpoint enable row level security;
 create index ix_llm_endpoint_account on public.llm_endpoint (account_id);
 
 revoke all on public.llm_endpoint from authenticated, service_role;
-grant select, insert, update, delete on public.llm_endpoint to authenticated;
+grant select (
+  id, account_id, provider, model, chat_model, base_url, api_key_secret_ref,
+  created_at, updated_at, created_by, updated_by
+) on public.llm_endpoint to authenticated;
 grant select, insert, update, delete on public.llm_endpoint to service_role;
 
 create trigger llm_endpoint_timestamps
@@ -42,19 +49,6 @@ create trigger llm_endpoint_user_tracking
 create policy llm_endpoint_read on public.llm_endpoint
   for select to authenticated
   using (public.has_role_on_account(account_id));
-
-create policy llm_endpoint_insert on public.llm_endpoint
-  for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
-
-create policy llm_endpoint_update on public.llm_endpoint
-  for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
-
-create policy llm_endpoint_delete on public.llm_endpoint
-  for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
 
 -- Append-only audit of model calls. created_by defaults to the acting user;
 -- rows are never updated, so no timestamp trigger is wired.
@@ -81,7 +75,10 @@ grant select, insert, update, delete on public.ai_call_log to service_role;
 
 create policy ai_call_log_read on public.ai_call_log
   for select to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  using (
+    public.has_permission((select auth.uid()), account_id, 'settings.manage')
+    or public.has_permission((select auth.uid()), account_id, 'deals.manage')
+  );
 
 -- Embedded spans of a data-room document. Deal-scoped; access mirrors
 -- dr_document so a chunk is reachable exactly when its document is.

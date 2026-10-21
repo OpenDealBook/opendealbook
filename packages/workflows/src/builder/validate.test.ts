@@ -287,6 +287,42 @@ describe('validateWorkflowGraph', () => {
     ]);
   });
 
+  it('treats an event trigger as a trigger and checks the W4 exits', () => {
+    const nodes = [
+      node('event', 'event_trigger', { eventType: 'firm.approved' }),
+      node('ask', 'ask_ai', { prompt: 'Summarize' }),
+      node('fit', 'decision_model', { firmId: '{{steps.event.firmId}}' }),
+      node('gate', 'approval', { prompt: 'Send it?' }),
+      node('sent', 'notify_team', { message: 'Sent' }),
+    ];
+    expect(
+      errorsOf(nodes, [
+        edge('event', 'ask'),
+        edge('ask', 'fit'),
+        edge('fit', 'gate', 'approved'),
+        edge('gate', 'sent', 'approved'),
+      ]),
+    ).toEqual([]);
+    expect(
+      errorsOf(nodes, [
+        edge('event', 'ask'),
+        edge('ask', 'fit', 'approved'),
+        edge('fit', 'gate', 'maybe'),
+        edge('gate', 'sent'),
+        edge('sent', 'event'),
+      ]),
+    ).toEqual([
+      { message: 'This graph has a loop back; use a Loop step' },
+      {
+        nodeId: 'ask',
+        message: 'This step has one exit; remove "approved" from its arrow',
+      },
+      { nodeId: 'fit', message: 'This step has no "maybe" exit' },
+      { nodeId: 'gate', message: 'Choose which exit this arrow leaves from' },
+      { nodeId: 'event', message: 'A trigger cannot have an arrow into it' },
+    ]);
+  });
+
   it('refuses steps no trigger reaches', () => {
     expect(
       errorsOf([node('start', 'manual_trigger'), node('lost', 'merge')], []),

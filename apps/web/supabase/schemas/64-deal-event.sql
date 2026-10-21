@@ -22,6 +22,7 @@ create table if not exists public.deal_event (
   deal_seq bigint not null,
   aggregate_seq bigint not null,
   created_at timestamptz not null default clock_timestamp(),
+  xid xid8 not null default pg_current_xact_id(),
   unique (deal_id, deal_seq),
   unique (aggregate_type, aggregate_id, aggregate_seq)
 );
@@ -31,6 +32,7 @@ alter table public.deal_event enable row level security;
 create index ix_deal_event_deal_seq on public.deal_event (deal_id, deal_seq);
 create index ix_deal_event_aggregate on public.deal_event (aggregate_type, aggregate_id, aggregate_seq);
 create index ix_deal_event_account on public.deal_event (account_id, created_at);
+create index ix_deal_event_xid on public.deal_event (xid, global_seq);
 
 revoke all on public.deal_event from authenticated, service_role;
 grant select on public.deal_event to authenticated, service_role;

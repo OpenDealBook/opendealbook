@@ -24,7 +24,10 @@ const WAITING_ON_PHRASES: Record<string, string> = {
   null: 'no one',
 };
 
-const PHRASES: Record<EventType, Describe> = {
+const PHRASES: Record<
+  EventType | 'deal.loi_signed' | 'lender_room.went_quiet',
+  Describe
+> = {
   'deal.created': (p, stageName) =>
     `created the deal in ${stageName(String(p.stage))}`,
   'deal.updated': () => 'updated the deal',
@@ -39,6 +42,8 @@ const PHRASES: Record<EventType, Describe> = {
   'deal.financials_adopted': () => 'adopted financials',
   'deal.earnings_basis_changed': () => 'changed the earnings basis',
   'deal.close_deadline_set': () => 'set the must-close-by date',
+  'deal.loi_signed': () => 'LOI signed',
+  'lender_room.went_quiet': (p) => `${p.lender_name} went quiet`,
   'deal_box.set': () => 'set the deal box',
   'checklist_item.added': (p) => `added checklist item "${p.title}"`,
   'checklist_item.removed': () => 'removed a checklist item',
@@ -92,7 +97,7 @@ export function describeDealEvent(
   payload: Json,
   stageName: (key: string) => string,
 ): string {
-  const describe = PHRASES[eventType as EventType];
+  const describe = PHRASES[eventType as keyof typeof PHRASES];
 
   return describe
     ? describe(payload as Payload, stageName)

@@ -26,6 +26,12 @@ export function getTeamAccountNavigationConfig(
     { group: 'work', label: 'common.reports', path: `${prefix}/reports` },
     { group: 'work', label: 'common.workflows', path: `${prefix}/workflows` },
     {
+      group: 'work',
+      label: 'common.approvals',
+      path: `${prefix}/approvals`,
+      requires: 'deals.manage',
+    },
+    {
       group: 'settings',
       label: 'account.dealBox',
       path: `${prefix}/underwriting`,

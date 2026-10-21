@@ -3,21 +3,25 @@ import { z } from 'zod';
 
 import { renderLenderNoticeEmail } from '@odb/email-templates';
 
-import { RUN_FAILED_NOTICE_EVENT } from './events';
+import {
+  APPROVAL_WAITING_EVENT,
+  RUN_FAILED_NOTICE_EVENT,
+  RUN_PAUSED_NOTICE_EVENT,
+} from './events';
 
 const payloadSchema = z.object({ message: z.string(), path: z.string() });
 
 export function buildWorkflowRunWorkflows(deps: { siteUrl: string }) {
-  return [
+  const runNotice = (event: string, actionLabel = 'Open the run') =>
     workflow(
-      RUN_FAILED_NOTICE_EVENT,
+      event,
       async ({ step, payload }) => {
         await step.email('email', async () => {
           const email = await renderLenderNoticeEmail({
             productName: 'Open Deal Book',
             subject: payload.message,
             message: payload.message,
-            actionLabel: 'Open the run',
+            actionLabel,
             actionLink: `${deps.siteUrl}${payload.path}`,
           });
 
@@ -25,6 +29,11 @@ export function buildWorkflowRunWorkflows(deps: { siteUrl: string }) {
         });
       },
       { payloadSchema },
-    ),
+    );
+
+  return [
+    runNotice(RUN_FAILED_NOTICE_EVENT),
+    runNotice(RUN_PAUSED_NOTICE_EVENT),
+    runNotice(APPROVAL_WAITING_EVENT, 'Open approvals'),
   ];
 }

@@ -87,6 +87,73 @@ begin
 end;
 $$;
 
+-- The first time a deal's LOI signed date is filled in, however it was set,
+-- the deal log records deal.loi_signed once, so workflows can start on it.
+-- The signing is appended under the deal's lock with the same sequence and
+-- snapshot rules as append_deal_event, which cannot be called here because
+-- the person saving the date is not the service.
+create or replace function tuckin.record_loi_signed()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  v_deal_seq bigint;
+  v_agg_seq bigint;
+begin
+  if current_setting('odb.replay', true) = 'on' then
+    return null;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(new.deal_id::text));
+
+  if exists (
+    select 1 from public.deal_event
+    where deal_id = new.deal_id and event_type = 'deal.loi_signed'
+  ) then
+    return null;
+  end if;
+
+  select coalesce(max(deal_seq), 0) + 1 into v_deal_seq
+  from public.deal_event where deal_id = new.deal_id;
+  select coalesce(max(aggregate_seq), 0) + 1 into v_agg_seq
+  from public.deal_event where aggregate_type = 'deal' and aggregate_id = new.deal_id;
+
+  insert into public.deal_event (
+    account_id, deal_id, aggregate_type, aggregate_id, event_type, payload,
+    actor_kind, actor_via, deal_seq, aggregate_seq
+  )
+  values (
+    new.account_id, new.deal_id, 'deal', new.deal_id, 'deal.loi_signed',
+    jsonb_build_object('milestone_id', new.id, 'signed_on', new.actual_on),
+    'system', 'deal_milestone', v_deal_seq, v_agg_seq
+  );
+
+  if v_agg_seq % 64 = 0 then
+    insert into public.deal_event_snapshot (account_id, deal_id, aggregate_type, aggregate_id, through_seq, state)
+    values (new.account_id, new.deal_id, 'deal', new.deal_id, v_agg_seq,
+            public.deal_aggregate_state('deal', new.deal_id));
+  end if;
+
+  if v_deal_seq % 64 = 0 then
+    insert into public.deal_event_snapshot (account_id, deal_id, aggregate_type, aggregate_id, through_seq, state)
+    values (new.account_id, new.deal_id, 'deal-wide', new.deal_id, v_deal_seq,
+            public.deal_wide_manifest(new.deal_id));
+  end if;
+
+  return null;
+end;
+$$;
+
+create trigger record_loi_signed_on_insert
+  after insert on public.deal_milestone
+  for each row when (new.kind = 'loi_signed' and new.actual_on is not null)
+  execute function tuckin.record_loi_signed();
+
+create trigger record_loi_signed_on_update
+  after update of actual_on on public.deal_milestone
+  for each row when (new.kind = 'loi_signed' and old.actual_on is null and new.actual_on is not null)
+  execute function tuckin.record_loi_signed();
+
 -- ---- What outside parties see ----
 
 -- Lenders, sellers and counsel see the shared milestones' current values,

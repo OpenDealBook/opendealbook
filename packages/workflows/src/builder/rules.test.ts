@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateRule, ruleSchema, type Rule } from './rules';
+import { evaluateRule, MissingValue, ruleSchema, type Rule } from './rules';
 
 const scope = {
   input: { fit: true, score: 72, firm: { state: 'TX' } },
@@ -56,6 +56,14 @@ describe('evaluateRule', () => {
     expect(() =>
       evaluateRule({ '==': [{ var: 'steps.pull.missing' }, 1] }, scope),
     ).toThrow('steps.pull.missing does not name a value');
+    expect(() =>
+      evaluateRule({ '==': [{ var: 'steps.pull.missing' }, 1] }, scope),
+    ).toThrow(
+      expect.objectContaining({
+        constructor: MissingValue,
+        path: 'steps.pull.missing',
+      }),
+    );
   });
 
   it('refuses to order a number against text', () => {

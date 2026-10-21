@@ -179,8 +179,14 @@ const dealInputs = {
   tax_rate: 0.2564,
 };
 
-const funding = [
-  { type: 'sba_7a', amount: 612_152, rate: 0.115, term_years: 10 },
+const funding = () => [
+  {
+    id: crypto.randomUUID(),
+    type: 'sba_7a',
+    amount: 612_152,
+    rate: 0.115,
+    term_years: 10,
+  },
 ];
 
 function firstVersion(price: number) {
@@ -275,24 +281,28 @@ async function acceptedOffer(dealId: string, price: number): Promise<string> {
 }
 
 async function adoptFinancials(dealId: string): Promise<void> {
-  const calcVersionId = (
-    (await (createCalcVersion as unknown as Action)(
-      { deal_id: dealId, type: 'deal' },
+  const created = await (createCalcVersion as unknown as Action)(
+    { deal_id: dealId, type: 'deal' },
+    actor,
+  );
+  expect(created).toMatchObject({ ok: true });
+  const calcVersionId = (created as { value: string }).value;
+  expect(
+    await (saveDealCalc as unknown as Action)(
+      {
+        calc_version_id: calcVersionId,
+        inputs: dealInputs,
+        funding_sources: funding(),
+      },
       actor,
-    )) as { value: string }
-  ).value;
-  await (saveDealCalc as unknown as Action)(
-    {
-      calc_version_id: calcVersionId,
-      inputs: dealInputs,
-      funding_sources: funding,
-    },
-    actor,
-  );
-  await (adoptCalcVersion as unknown as Action)(
-    { deal_id: dealId, calc_version_id: calcVersionId },
-    actor,
-  );
+    ),
+  ).toMatchObject({ ok: true });
+  expect(
+    await (adoptCalcVersion as unknown as Action)(
+      { deal_id: dealId, calc_version_id: calcVersionId },
+      actor,
+    ),
+  ).toMatchObject({ ok: true });
 }
 
 async function seedApaTemplate(): Promise<void> {

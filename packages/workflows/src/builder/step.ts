@@ -1,12 +1,14 @@
 import { ApplicationFailure } from '@temporalio/common';
 import type { z } from 'zod';
 
+import { CapReached } from './caps';
 import type { StepIo, StepTypeName } from './graph';
 
 export interface StepContext {
   accountId: string;
   runId: string;
   idempotencyKey: string;
+  signal?: AbortSignal;
 }
 
 export interface StepDefinition<
@@ -50,7 +52,9 @@ export function defineStep<
     execute: definition.runOnce
       ? (args: Parameters<typeof execute>[0]) =>
           execute(args).catch((error: Error) => {
-            throw ApplicationFailure.nonRetryable(error.message);
+            throw error instanceof CapReached
+              ? error
+              : ApplicationFailure.nonRetryable(error.message);
           })
       : execute,
   };

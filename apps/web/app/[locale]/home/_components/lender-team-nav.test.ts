@@ -24,6 +24,7 @@ describe('the team workspace nav', () => {
       'common.outreach',
       'common.reports',
       'common.workflows',
+      'common.approvals',
     ]);
   });
 
@@ -74,6 +75,17 @@ describe('the team workspace nav', () => {
         (item) => item.label === 'account.lenderSettings',
       )?.path,
     ).toBe('/home/team-one/settings/lenders');
+  });
+
+  it('shows Approvals only to people who can manage deals', () => {
+    expect(labelsIn('work', ['api_keys.manage'])).not.toContain(
+      'common.approvals',
+    );
+    expect(
+      teamNavigationFor('team-one', ['deals.manage']).find(
+        (item) => item.label === 'common.approvals',
+      )?.path,
+    ).toBe('/home/team-one/approvals');
   });
 
   it('shows API keys only to people who can manage API keys', () => {

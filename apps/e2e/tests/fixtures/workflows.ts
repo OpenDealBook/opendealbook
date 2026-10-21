@@ -97,3 +97,19 @@ export function loopTodoGraph(items: string[]): Graph {
     ],
   };
 }
+
+export function approvalGraph(prompt: string): Graph {
+  return {
+    nodes: [
+      trigger,
+      { id: 'ask', type: 'approval', label: 'Ask the team', config: { prompt } },
+      { id: 'yes', type: 'notify_team', label: 'Approved path', config: { message: 'Approved by the team' } },
+      { id: 'no', type: 'notify_team', label: 'Rejected path', config: { message: 'Rejected by the team' } },
+    ],
+    edges: [
+      { id: 'start-ask', sourceNodeId: 'start', targetNodeId: 'ask' },
+      { id: 'ask-yes', sourceNodeId: 'ask', targetNodeId: 'yes', sourceHandle: 'approved' },
+      { id: 'ask-no', sourceNodeId: 'ask', targetNodeId: 'no', sourceHandle: 'rejected' },
+    ],
+  };
+}

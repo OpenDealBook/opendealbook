@@ -6,8 +6,18 @@ import { ruleSchema } from './rules';
 
 export const WORKFLOW_GRAPH_SCHEMA_VERSIONS = [1, 2] as const;
 
-export const TRIGGER_TYPES = ['manual_trigger', 'schedule_trigger'] as const;
-export const STEP_TYPES = ['notify_team', 'create_todo'] as const;
+export const TRIGGER_TYPES = [
+  'manual_trigger',
+  'schedule_trigger',
+  'event_trigger',
+] as const;
+export const STEP_TYPES = [
+  'notify_team',
+  'create_todo',
+  'ask_ai',
+  'decision_model',
+  'approval',
+] as const;
 export const NODE_TYPES = [
   ...TRIGGER_TYPES,
   ...STEP_TYPES,
@@ -22,6 +32,19 @@ export type NodeTypeName = (typeof NODE_TYPES)[number];
 
 export const BRANCH_HANDLES = ['true', 'false'] as const;
 export const LOOP_HANDLES = ['each', 'done'] as const;
+export const DECISION_HANDLES = ['approved', 'rejected'] as const;
+
+export const TRIGGER_EVENT_TYPES = [
+  'deal.created',
+  'deal.stage_changed',
+  'deal.loi_signed',
+  'offer.submitted',
+  'offer.accepted',
+  'checklist_item.status_changed',
+  'dr_document.added',
+  'lender_room.went_quiet',
+  'firm.approved',
+] as const;
 
 export const NODE_HANDLES: Record<NodeTypeName, readonly string[]> = {
   manual_trigger: [],
@@ -32,6 +55,10 @@ export const NODE_HANDLES: Record<NodeTypeName, readonly string[]> = {
   merge: [],
   loop: LOOP_HANDLES,
   create_todo: [],
+  event_trigger: [],
+  approval: DECISION_HANDLES,
+  ask_ai: [],
+  decision_model: DECISION_HANDLES,
 };
 
 const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
@@ -89,6 +116,19 @@ export const NODE_CONFIG_SCHEMAS = {
     ]),
     dueInDays: z.int().positive().optional(),
     dealId: z.string().min(1).optional(),
+  }),
+  event_trigger: z.object({
+    eventType: z.enum(TRIGGER_EVENT_TYPES),
+    filter: ruleSchema.optional(),
+  }),
+  approval: z.object({ prompt: z.string().min(1) }),
+  ask_ai: z.object({
+    prompt: z.string().min(1),
+    output: z.enum(['text', 'json']).default('text'),
+  }),
+  decision_model: z.object({
+    firmId: z.string().min(1),
+    instructions: z.string().optional(),
   }),
 } satisfies Record<NodeTypeName, z.ZodType>;
 

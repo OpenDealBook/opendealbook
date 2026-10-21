@@ -1,10 +1,12 @@
--- How far each long-running event relay has read deal_event, by global_seq, so
--- a restarted relay resumes where it stopped. Service role only.
+-- How far each long-running event relay has read its log, by global_seq (and
+-- by transaction, last_xid, for a relay reading in settled order), so a
+-- restarted relay resumes where it stopped. Service role only.
 
 create table if not exists public.relay_cursor (
   name text primary key,
   last_global_seq bigint not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  last_xid xid8
 );
 
 alter table public.relay_cursor enable row level security;

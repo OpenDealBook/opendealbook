@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
@@ -42,6 +42,57 @@ async function hearFromLender(roomId: string, accountId: string, daysAgo: number
 }
 
 afterAll(removeEverythingSeeded);
+
+async function whileRecordingRoomFails(
+  roomId: string,
+  failures: number,
+  run: () => Promise<void>,
+): Promise<void> {
+  const db = new pg.Client({ connectionString: DB_URL });
+  await db.connect();
+  const name = `test_fail_${roomId.replaceAll('-', '_')}`;
+  try {
+    await db.query(`create sequence public.${name}`);
+    await db.query(
+      `create function public.${name}() returns trigger language plpgsql as $$
+       begin
+         if nextval('public.${name}') <= ${failures} then
+           raise exception 'induced' using errcode = 'serialization_failure';
+         end if;
+         return new;
+       end $$`,
+    );
+    await db.query(
+      `create trigger ${name} before insert on public.deal_event for each row
+       when (new.aggregate_id = '${roomId}') execute function public.${name}()`,
+    );
+    await run();
+  } finally {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await db.query(`drop trigger if exists ${name} on public.deal_event`);
+        break;
+      } catch (error) {
+        if ((error as { code?: string }).code !== '40P01' || attempt === 5) {
+          throw error;
+        }
+      }
+    }
+    await db.query(`drop function if exists public.${name}()`);
+    await db.query(`drop sequence if exists public.${name}`);
+    await db.end();
+  }
+}
+
+async function wentQuietCount(roomId: string): Promise<number> {
+  const { count } = await admin
+    .from('deal_event')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_type', 'lender_room.went_quiet')
+    .eq('aggregate_id', roomId)
+    .throwOnError();
+  return count!;
+}
 
 describe('syncNudgeTodos (integration)', () => {
   it('gives each deal manager one to-do on the deal for a room due a nudge, however often it runs', async () => {
@@ -145,6 +196,85 @@ describe('syncNudgeTodos (integration)', () => {
     await syncNudgeTodos(admin, teamId);
 
     expect(await todosOf(colleague.userId, dealId)).toEqual([]);
+  });
+
+  it('records once per quiet spell, in the deal log, that the lender went quiet', async () => {
+    const { teamId, dealId, roomId } = await seedQuietTeam(30);
+    const wentQuiet = async () => {
+      const { data } = await admin
+        .from('deal_event')
+        .select('deal_id, account_id, aggregate_id, payload')
+        .eq('event_type', 'lender_room.went_quiet')
+        .eq('aggregate_id', roomId)
+        .order('global_seq')
+        .throwOnError();
+      return data;
+    };
+
+    await syncNudgeTodos(admin, teamId);
+    await syncNudgeTodos(admin, teamId);
+    expect(await wentQuiet()).toEqual([
+      {
+        deal_id: dealId,
+        account_id: teamId,
+        aggregate_id: roomId,
+        payload: { lender_name: 'Quiet Bank', due_since: expect.any(String), days_silent: 30 },
+      },
+    ]);
+
+    await hearFromLender(roomId, teamId, 0);
+    await syncNudgeTodos(admin, teamId);
+    expect(await wentQuiet()).toHaveLength(1);
+
+    await hearFromLender(roomId, teamId, 9);
+    await syncNudgeTodos(admin, teamId);
+    const spells = await wentQuiet();
+    expect(spells.map((event) => (event.payload as { days_silent: number }).days_silent)).toEqual([30, 9]);
+    expect((spells[1]!.payload as { due_since: string }).due_since).not.toBe(
+      (spells[0]!.payload as { due_since: string }).due_since,
+    );
+  });
+
+  it('records that the lender went quiet even while the team is locked for billing', async () => {
+    await turnTeamBillingOn(admin);
+    const { teamId, roomId } = await seedQuietTeam(30);
+    await admin
+      .from('accounts')
+      .update({ trial_ends_at: new Date(Date.now() - DAY).toISOString() })
+      .eq('id', teamId)
+      .throwOnError();
+
+    await syncNudgeTodos(admin, teamId);
+
+    const { data } = await admin
+      .from('deal_event')
+      .select('event_type')
+      .eq('aggregate_id', roomId)
+      .throwOnError();
+    expect(data).toEqual([{ event_type: 'lender_room.went_quiet' }]);
+  });
+
+  it('retries a room once when recording that it went quiet hits a conflict', async () => {
+    const { teamId, roomId } = await seedQuietTeam(30);
+
+    await whileRecordingRoomFails(roomId, 1, () => syncNudgeTodos(admin, teamId));
+
+    expect(await wentQuietCount(roomId)).toBe(1);
+  });
+
+  it('logs a failure to record that a lender went quiet and still syncs the to-dos', async () => {
+    const { owner, teamId, dealId, roomId } = await seedQuietTeam(30);
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await whileRecordingRoomFails(roomId, 2, () => syncNudgeTodos(admin, teamId));
+
+    expect(await wentQuietCount(roomId)).toBe(0);
+    expect(logged).toHaveBeenCalledWith(
+      `Recording quiet lenders for team ${teamId} failed`,
+      expect.objectContaining({ code: '40001' }),
+    );
+    logged.mockRestore();
+    expect(await todosOf(owner.userId, dealId)).toHaveLength(1);
   });
 
   it('makes no to-do for a team locked for billing', async () => {

@@ -70,6 +70,52 @@ describe('parseWorkflowGraph', () => {
 });
 
 describe('node config schemas', () => {
+  it('event_trigger takes a known event type and an optional rule filter', () => {
+    const schema = NODE_CONFIG_SCHEMAS.event_trigger;
+
+    expect(schema.safeParse({ eventType: 'deal.loi_signed' }).success).toBe(
+      true,
+    );
+    expect(
+      schema.safeParse({
+        eventType: 'deal.stage_changed',
+        filter: { '==': [{ var: 'stage' }, 'loi'] },
+      }).success,
+    ).toBe(true);
+    expect(schema.safeParse({ eventType: 'deal.deleted' }).success).toBe(false);
+    expect(
+      schema.safeParse({
+        eventType: 'firm.approved',
+        filter: { in: ['x', []] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('approval and decision_model need their text; ask_ai defaults to text output', () => {
+    expect(NODE_CONFIG_SCHEMAS.approval.safeParse({ prompt: '' }).success).toBe(
+      false,
+    );
+    expect(
+      NODE_CONFIG_SCHEMAS.ask_ai.parse({ prompt: 'Summarize {{steps.a.b}}' }),
+    ).toEqual({
+      prompt: 'Summarize {{steps.a.b}}',
+      output: 'text',
+    });
+    expect(
+      NODE_CONFIG_SCHEMAS.ask_ai.safeParse({ prompt: 'x', output: 'xml' })
+        .success,
+    ).toBe(false);
+    expect(
+      NODE_CONFIG_SCHEMAS.decision_model.safeParse({
+        firmId: '{{steps.each.item}}',
+        instructions: 'Prefer Texas firms',
+      }).success,
+    ).toBe(true);
+    expect(NODE_CONFIG_SCHEMAS.decision_model.safeParse({}).success).toBe(
+      false,
+    );
+  });
+
   it('schedule_trigger takes the four presets', () => {
     const schema = NODE_CONFIG_SCHEMAS.schedule_trigger;
 

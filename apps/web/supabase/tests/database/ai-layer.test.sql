@@ -74,8 +74,7 @@ select lives_ok(
 select tests.login_as('ai_a_owner');
 
 select lives_ok(
-  $$ insert into public.llm_endpoint (account_id, provider, model)
-     values (tests.account_id('ai-acct-a'), 'anthropic', 'claude-opus-4-8') $$,
+  $$ select public.save_llm_endpoint(tests.account_id('ai-acct-a'), 'anthropic', 'claude-opus-4-8', null, 'sk-a') $$,
   'an owner with settings.manage can create an llm_endpoint'
 );
 select throws_ok(

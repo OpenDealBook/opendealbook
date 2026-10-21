@@ -20,6 +20,7 @@ function event(fields: Partial<Tables<'deal_event'>>): Tables<'deal_event'> {
     deal_seq: 1,
     aggregate_seq: 1,
     created_at: '2026-10-01T12:00:00Z',
+    xid: '1',
     ...fields,
   };
 }

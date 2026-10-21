@@ -116,7 +116,10 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   expect(contracts[0]!.type).toBe('loi');
 
   await page.goto(`/home/${slug}/deals/${dealId}/financials`);
-  await page.getByRole('button', { name: 'New SDE' }).click();
+  await expect(async () => {
+    await page.getByRole('button', { name: 'New SDE' }).click();
+    await page.waitForURL(/\/financials\/calcs\/[0-9a-f-]{36}$/, { timeout: 8000 });
+  }).toPass({ timeout: 60 * 1000 });
   await expect(page.getByRole('heading', { name: /^SDE v\d+, /, level: 1 })).toBeVisible();
 
   await sdeRow(page, 'Sales').getByRole('textbox').fill('1000000');

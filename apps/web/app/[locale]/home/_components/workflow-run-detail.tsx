@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import type { ActionResult } from '@odb/next/refusal';
@@ -23,8 +24,10 @@ type Step = Pick<
   | 'started_at'
   | 'finished_at'
   | 'wake_at'
+  | 'waiting_on'
   | 'iteration_path'
 > & {
+  workflow_approval: Pick<Tables<'workflow_approval'>, 'approved'>[];
   logs: Pick<
     Tables<'workflow_step_log'>,
     'id' | 'level' | 'message' | 'details' | 'created_at'
@@ -45,6 +48,7 @@ export function WorkflowRunDetail(props: {
   steps: Step[];
   labels: Record<string, string>;
   loops: string[];
+  approvalsHref: string;
   stepDataRemoved: boolean;
   unfinished: boolean;
   canManage: boolean;
@@ -131,6 +135,7 @@ export function WorkflowRunDetail(props: {
               step={step}
               label={props.labels[step.node_id] ?? step.node_id}
               loop={props.loops.includes(step.node_id)}
+              approvalsHref={props.approvalsHref}
             />
           </li>
         ))}
@@ -143,10 +148,12 @@ function StepCard({
   step,
   label,
   loop,
+  approvalsHref,
 }: {
   step: Step;
   label: string;
   loop: boolean;
+  approvalsHref: string;
 }) {
   return (
     <Card>
@@ -171,6 +178,23 @@ function StepCard({
         {step.status === 'waiting' && step.wake_at ? (
           <p className={'text-sm'}>
             Waiting until {workflowTime.format(new Date(step.wake_at))}
+          </p>
+        ) : null}
+        {step.waiting_on === 'decision' && step.workflow_approval[0] ? (
+          <p className={'text-sm'}>
+            Decided:{' '}
+            {step.workflow_approval[0].approved ? 'approved' : 'rejected'}; the
+            run continues shortly
+          </p>
+        ) : step.waiting_on === 'decision' ? (
+          <p className={'flex flex-wrap items-center gap-3 text-sm'}>
+            Waiting for approval
+            <Link
+              href={approvalsHref}
+              className={'font-medium underline-offset-4 hover:underline'}
+            >
+              Decide in Approvals
+            </Link>
           </p>
         ) : null}
         {loop && step.output !== null ? (
@@ -202,7 +226,9 @@ function StepCard({
                     {workflowTime.format(new Date(log.created_at))}
                   </span>
                 </span>
-                <pre className={'bg-muted overflow-x-auto rounded-md p-2 text-xs'}>
+                <pre
+                  className={'bg-muted overflow-x-auto rounded-md p-2 text-xs'}
+                >
                   {JSON.stringify(log.details, null, 2)}
                 </pre>
               </li>

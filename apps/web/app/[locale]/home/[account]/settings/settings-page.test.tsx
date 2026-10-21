@@ -6,6 +6,7 @@ const workspace = vi.hoisted(() => ({
   isOwner: false,
   permissions: ['settings.manage'],
   timezone: 'America/Chicago',
+  aiEndpoint: null as { provider: string; chat_model: string; base_url: string } | null,
 }));
 
 vi.mock('../layout', () => ({
@@ -20,6 +21,9 @@ vi.mock('@odb/supabase/server', () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
+          maybeSingle: () => ({
+            throwOnError: async () => ({ data: workspace.aiEndpoint }),
+          }),
           single: () => ({
             throwOnError: async () => ({
               data: {
@@ -93,6 +97,17 @@ describe('team settings page', () => {
     workspace.permissions = [];
 
     expect(await render()).toMatch(/<select[^>]*disabled/);
+  });
+
+  it("shows members who cannot manage settings the team's AI provider and model", async () => {
+    workspace.permissions = [];
+    workspace.aiEndpoint = {
+      provider: 'anthropic',
+      chat_model: 'claude-sonnet',
+      base_url: 'https://api.anthropic.com/v1',
+    };
+
+    expect(await render()).toContain('Anthropic, claude-sonnet');
   });
 
   it('does not offer reloading sample deals to anyone else', async () => {

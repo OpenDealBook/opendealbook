@@ -590,6 +590,11 @@ begin
     perform public.project_deal_financials(ev);
   elsif ev.aggregate_type = 'deal' and ev.event_type = 'deal.close_deadline_set' then
     perform public.project_deal_close_deadline(ev);
+  -- History only, recorded by the LOI signed date; a workflow trigger reads it from the log.
+  elsif ev.aggregate_type = 'deal' and ev.event_type = 'deal.loi_signed' then
+    if current_setting('odb.replay', true) is distinct from 'on' then
+      raise exception 'only the LOI signed date records a signing' using errcode = 'insufficient_privilege';
+    end if;
   elsif ev.aggregate_type = 'deal' then
     perform public.project_deal(ev);
   elsif ev.aggregate_type = 'deal_box' then

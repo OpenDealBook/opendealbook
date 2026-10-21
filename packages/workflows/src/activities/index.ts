@@ -32,12 +32,21 @@ export { isTeamLocked } from '../teamLock';
 export {
   executeWorkflowStep,
   failWorkflowRun,
+  notifyRunFailed,
+  notifyRunPaused,
   failWorkflowStep,
   releaseLoopItems,
   loadWorkflowRun,
   transitionWorkflowRun,
 } from '../builder/activities';
 export { startScheduledRun } from '../builder/client';
+export {
+  fetchTriggerEvents,
+  loadEventRelayCursor,
+  saveEventRelayCursor,
+  startEventRelayCursorAtLatest,
+  startWorkflowRunsForEvent,
+} from '../builder/eventRelayActivities';
 export { syncLenderReplies } from '../lender-replies/activities';
 export { failStaleSendingOutreach } from '../lender-replies/failStaleSending';
 export { failStaleSendingOutreachMessages } from '../outreach/failStaleSending';
@@ -421,7 +430,7 @@ export async function embedDocumentChunks(
     ? process.env[endpoint.api_key_secret_ref]
     : undefined;
 
-  if (error || !endpoint?.base_url || !apiKey) {
+  if (error || !endpoint?.base_url || !endpoint.model || !apiKey) {
     console.warn(
       `[workflows] embedding ingestion unavailable: no usable llm_endpoint for account ${input.accountId}`,
     );
@@ -531,3 +540,5 @@ export async function failEmbeddingJob(
     throw error;
   }
 }
+export { remindWaitingApprovals } from '../schedules/approvalReminderActivity';
+export { notifyApprovalWaiting } from '../builder/approvalNotice';

@@ -15,6 +15,12 @@ describe('describeDealEvent', () => {
       'set milestone "Lease signed"',
     ],
     ['deal_milestone.set', { kind: 'loi_signed' }, 'set a milestone date'],
+    ['deal.loi_signed', { signed_on: '2026-10-02' }, 'LOI signed'],
+    [
+      'lender_room.went_quiet',
+      { lender_name: 'Harbor Bank', days_silent: 5 },
+      'Harbor Bank went quiet',
+    ],
     [
       'checklist_item.details_set',
       { importance: 'required' },

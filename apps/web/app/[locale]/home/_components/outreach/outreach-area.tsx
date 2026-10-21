@@ -12,12 +12,12 @@ import {
 import { EnrollForm, type EnrollFirm } from './enroll-form';
 import { enrollmentStatusLabel } from './enrollment-status';
 import { MailboxConnectForm } from './mailbox-connect-form';
+import { MonthlyCaps } from './monthly-caps';
+import { loadMonthlyCaps } from './monthly-caps-usage';
 import { SequencesPanel, type Sequence } from './sequences-panel';
 import { SettingsForm } from './settings-form';
+import { DEFAULT_DAILY_CAP, DEFAULT_MAX_TOUCHES } from './outreach-defaults';
 import { SuppressionForm } from './suppression-form';
-
-const DEFAULT_DAILY_CAP = 25;
-const DEFAULT_MAX_TOUCHES = 1;
 
 function formatDate(value: string | null): string {
   return value === null ? '' : new Date(value).toLocaleString();
@@ -35,6 +35,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
     setting,
     enrollments,
     suppressions,
+    monthlyCaps,
   ] = await Promise.all([
     client
       .from('mailbox_connection')
@@ -70,6 +71,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
       .select('id, email, reason, created_at')
       .eq('account_id', accountId)
       .order('created_at', { ascending: false }),
+    loadMonthlyCaps(accountId),
   ]);
 
   const sequences: Sequence[] = (sequenceRows.data ?? []).map((sequence) => ({
@@ -164,6 +166,10 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
           dailyCap={setting.data?.daily_cap ?? DEFAULT_DAILY_CAP}
           maxTouches={setting.data?.max_touches ?? DEFAULT_MAX_TOUCHES}
         />
+      </Section>
+
+      <Section title={'Monthly caps'}>
+        <MonthlyCaps accountId={accountId} caps={monthlyCaps} />
       </Section>
 
       <Section title={'Status'}>

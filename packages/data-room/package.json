@@ -22,7 +22,8 @@
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "catalog:",

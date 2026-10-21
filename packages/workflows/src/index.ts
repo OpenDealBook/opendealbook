@@ -26,6 +26,8 @@ export { ensureMilestoneOverdueSchedule } from './schedules/milestoneOverdue';
 export { ensureWorkflowPruneSchedule } from './schedules/workflowPrune';
 export { ensureCompEventRelay } from './schedules/compEventRelay';
 export { ensureDealEventNotificationRelay } from './schedules/dealEventNotificationRelay';
+export { ensureWorkflowEventRelay } from './builder/eventRelayStart';
+export { ensureApprovalReminderSchedule } from './schedules/approvalReminder';
 export {
   ManualRunRefused,
   resumeLockedWorkflowRuns,

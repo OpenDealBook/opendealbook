@@ -129,6 +129,10 @@ export async function answerDealQuestion(
     throw new Error(`no llm_endpoint configured for account ${accountId}`);
   }
 
+  if (!endpoint.model) {
+    throw new Error(`llm_endpoint ${endpoint.id} has no model`);
+  }
+
   if (!endpoint.chat_model) {
     throw new Error(`llm_endpoint ${endpoint.id} has no chat_model`);
   }

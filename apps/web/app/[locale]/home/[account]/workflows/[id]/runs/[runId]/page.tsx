@@ -37,7 +37,7 @@ export default async function WorkflowRunPage(props: {
     client
       .from('workflow_step_run')
       .select(
-        'id, node_id, attempt, status, input, output, error, started_at, finished_at, wake_at, iteration_path, logs:workflow_step_log(id, level, message, details, created_at)',
+        'id, node_id, attempt, status, input, output, error, started_at, finished_at, wake_at, waiting_on, iteration_path, workflow_approval(approved), logs:workflow_step_log(id, level, message, details, created_at)',
       )
       .eq('run_id', runId)
       .eq('account_id', team.id)
@@ -81,6 +81,7 @@ export default async function WorkflowRunPage(props: {
         steps={steps}
         labels={labels}
         loops={loops}
+        approvalsHref={`/home/${account}/approvals`}
         stepDataRemoved={stepDataRemoved(steps)}
         unfinished={UNFINISHED_RUN_STATUSES.some(
           (status) => status === run.status,

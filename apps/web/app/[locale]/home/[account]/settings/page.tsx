@@ -3,6 +3,7 @@ import { DeleteTeamDialog, UpdateTeamForm } from '@odb/team-accounts';
 
 import { zoneChoices } from '../../_components/time-zones';
 import { loadTeamWorkspace } from '../layout';
+import { AiProviderSetting } from './ai-provider';
 import { ReloadSampleDeals } from './reload-sample-deals';
 import { TeamTimezoneSetting } from './team-timezone';
 
@@ -16,9 +17,8 @@ export default async function TeamSettingsPage({
   const { locale, account } = await params;
   const { team, permissions, isOwner } = await loadTeamWorkspace(account);
   const renameAllowedAt = await loadRenameAllowedAt(team.id);
-  const { legalEntityName, teamPhone, timezone } = await loadTeamDetails(
-    team.id,
-  );
+  const [{ legalEntityName, teamPhone, timezone }, aiEndpoint] =
+    await Promise.all([loadTeamDetails(team.id), loadAiEndpoint(team.id)]);
 
   return (
     <main className={'flex flex-col gap-8 p-8'}>
@@ -36,6 +36,11 @@ export default async function TeamSettingsPage({
         accountId={team.id}
         current={timezone}
         zones={zoneChoices(timezone)}
+        canManage={permissions.includes('settings.manage')}
+      />
+      <AiProviderSetting
+        accountId={team.id}
+        current={aiEndpoint}
         canManage={permissions.includes('settings.manage')}
       />
       {isOwner ? <ReloadSampleDeals accountId={team.id} /> : null}
@@ -77,4 +82,21 @@ async function loadTeamDetails(accountId: string) {
     teamPhone: account.team_phone ?? '',
     timezone: account.timezone!,
   };
+}
+
+async function loadAiEndpoint(accountId: string) {
+  const { data: endpoint } = await getSupabaseServerClient()
+    .from('llm_endpoint')
+    .select('provider, chat_model, base_url')
+    .eq('account_id', accountId)
+    .maybeSingle()
+    .throwOnError();
+
+  return (
+    endpoint && {
+      provider: endpoint.provider,
+      model: endpoint.chat_model!,
+      baseUrl: endpoint.base_url!,
+    }
+  );
 }

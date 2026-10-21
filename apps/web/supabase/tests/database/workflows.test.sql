@@ -85,7 +85,8 @@ select throws_ok(
 
 insert into public.workflow_version (id, account_id, workflow_id, schema_version, graph)
 values ('f1000000-0000-0000-0000-0000000000b1', tests.account_id('wf-co'),
-  'f1000000-0000-0000-0000-0000000000a1', 1, '{"nodes": []}');
+  'f1000000-0000-0000-0000-0000000000a1', 1,
+  '{"nodes": [{"id": "approve", "type": "approval"}, {"id": "vet", "type": "decision_model"}]}');
 
 select throws_ok(
   $$ insert into public.workflow_version (account_id, workflow_id, schema_version, graph)
@@ -262,16 +263,20 @@ select throws_ok(
   'an unfinished run has no finish time'
 );
 
-insert into public.workflow_step_run (id, account_id, run_id, node_id, attempt, status, input, output, idempotency_key, started_at, finished_at)
+insert into public.workflow_step_run (id, account_id, run_id, node_id, attempt, status, input, output, idempotency_key, started_at, finished_at, waiting_on)
 values
   ('f1000000-0000-0000-0000-0000000000d1', tests.account_id('wf-co'), 'f1000000-0000-0000-0000-0000000000c1',
    'lookup', 1, 'succeeded', '{"firm": 1}', '{"email": "a@b.test"}', 'run-c1:lookup:1',
-   now() - interval '91 days', now() - interval '91 days'),
+   now() - interval '91 days', now() - interval '91 days', null),
   ('f1000000-0000-0000-0000-0000000000d2', tests.account_id('wf-co'), 'f1000000-0000-0000-0000-0000000000c1',
    'send', 1, 'succeeded', '{"to": "a@b.test"}', '{"sent": true}', 'run-c1:send:1',
-   now() - interval '89 days', now() - interval '89 days'),
+   now() - interval '89 days', now() - interval '89 days', null),
   ('f1000000-0000-0000-0000-0000000000d3', tests.account_id('wf-co'), 'f1000000-0000-0000-0000-0000000000c1',
-   'approve', 1, 'waiting', '{}', null, 'run-c1:approve:1', now(), null);
+   'approve', 1, 'waiting', '{}', null, 'run-c1:approve:1', now(), null, 'decision'),
+  ('f1000000-0000-0000-0000-0000000000d4', tests.account_id('wf-co'), 'f1000000-0000-0000-0000-0000000000c1',
+   'approve', 1, 'waiting', '{}', null, 'run-c1:approve:2', now(), null, 'cap'),
+  ('f1000000-0000-0000-0000-0000000000d5', tests.account_id('wf-co'), 'f1000000-0000-0000-0000-0000000000c1',
+   'vet', 1, 'waiting', '{}', null, 'run-c1:vet:1', now(), null, 'decision');
 
 select throws_ok(
   $$ insert into public.workflow_step_run (account_id, run_id, node_id, attempt, status, idempotency_key)
@@ -383,12 +388,11 @@ select throws_ok(
   'step logs are append-only'
 );
 
-update public.workflow_run set status = 'awaiting_approval' where id = 'f1000000-0000-0000-0000-0000000000c1';
 
 select tests.login_as('wf_member');
 
 select is((select count(*)::int from public.workflow_run), 5, 'a member reads the team''s runs');
-select is((select count(*)::int from public.workflow_step_run), 6, 'a member reads the team''s steps');
+select is((select count(*)::int from public.workflow_step_run), 8, 'a member reads the team''s steps');
 select is((select count(*)::int from public.workflow_step_log), 2, 'a member reads the team''s step logs');
 
 select throws_ok(
@@ -444,10 +448,24 @@ select throws_ok(
   'only a waiting step can be decided'
 );
 
+select throws_ok(
+  $$ insert into public.workflow_approval (step_run_id, account_id, approved)
+     values ('f1000000-0000-0000-0000-0000000000d4', tests.account_id('wf-co'), true) $$,
+  '42501', null,
+  'an approval step parked under a monthly cap cannot be decided'
+);
+
+select throws_ok(
+  $$ insert into public.workflow_approval (step_run_id, account_id, approved)
+     values ('f1000000-0000-0000-0000-0000000000d5', tests.account_id('wf-co'), true) $$,
+  '42501', null,
+  'a decision model step is not decided through this table'
+);
+
 select lives_ok(
   $$ insert into public.workflow_approval (step_run_id, account_id, approved)
      values ('f1000000-0000-0000-0000-0000000000d3', tests.account_id('wf-co'), true) $$,
-  'a deal manager approves a waiting step'
+  'a deal manager approves a waiting step while another branch keeps its run running'
 );
 
 select is(

@@ -41,9 +41,26 @@ const temporal = vi.hoisted(() => ({
   slept: [] as number[],
   onSleep: async (_ms: number) => {},
   fault: async (_activity: string, _input: unknown) => {},
+  timeouts: [] as [string, string, string | undefined][],
+  conditionTimeouts: [] as (number | string | undefined)[],
 }));
 
 const managers = vi.hoisted(() => ({ beforeLookup: async () => {} }));
+
+const activityContext = vi.hoisted(() => ({
+  cancellation: new AbortController(),
+  heartbeat: vi.fn(),
+  seenSignals: [] as AbortSignal[],
+}));
+
+vi.mock('@temporalio/activity', () => ({
+  Context: {
+    current: () => ({
+      cancellationSignal: activityContext.cancellation.signal,
+      heartbeat: activityContext.heartbeat,
+    }),
+  },
+}));
 
 vi.mock('../dealManagers', async (importOriginal) => {
   const { dealManagerIds } = await importOriginal<typeof import('../dealManagers')>();
@@ -51,6 +68,71 @@ vi.mock('../dealManagers', async (importOriginal) => {
     dealManagerIds: async (accountId: string) => {
       await managers.beforeLookup();
       return dealManagerIds(accountId);
+    },
+  };
+});
+
+vi.mock('./registry', async (importOriginal) => {
+  const { stepRegistry } = await importOriginal<typeof import('./registry')>();
+  const { defineStep } = await import('./step');
+  const { reserveAiCall } = await import('./caps');
+  const { z } = await import('zod');
+  return {
+    stepRegistry: {
+      ...stepRegistry,
+      approval: defineStep({
+        type: 'approval',
+        runOnce: false,
+        configSchema: z.object({ prompt: z.string() }),
+        inputSchema: z.object({}),
+        outputSchema: z.object({ asked: z.boolean() }),
+        async run() {
+          return { asked: true };
+        },
+      }),
+      ask_ai: defineStep({
+        type: 'ask_ai',
+        runOnce: false,
+        configSchema: z.record(z.string(), z.json()),
+        inputSchema: z.object({}),
+        outputSchema: z.object({ text: z.string() }),
+        async run({ context }) {
+          activityContext.seenSignals.push(context.signal!);
+          return { text: 'A short summary' };
+        },
+      }),
+      decision_model: defineStep({
+        type: 'decision_model',
+        runOnce: false,
+        configSchema: z.record(z.string(), z.json()),
+        inputSchema: z.object({}),
+        outputSchema: z.object({ verdictId: z.string(), fit: z.boolean() }),
+        async run({ context }) {
+          const { data: endpoint } = await (await import('@odb/supabase/admin'))
+            .getSupabaseServerAdminClient()
+            .from('llm_endpoint')
+            .select('id, chat_model')
+            .eq('account_id', context.accountId)
+            .single()
+            .throwOnError();
+          await reserveAiCall(context.accountId, {
+            model: endpoint.chat_model!,
+            endpointId: endpoint.id,
+          });
+          return { verdictId: 'a7000000-0000-4000-8000-000000000001', fit: true };
+        },
+      }),
+      create_todo: defineStep({
+        type: 'create_todo',
+        runOnce: false,
+        configSchema: z.record(z.string(), z.json()),
+        inputSchema: z.object({}),
+        outputSchema: z.object({ spent: z.boolean() }),
+        async run({ context }) {
+          await reserveAiCall(context.accountId, { model: 'test-model', endpointId: null });
+          return { spent: true };
+        },
+      }),
     },
   };
 });
@@ -89,9 +171,10 @@ vi.mock('@odb/notifications/server', async (importOriginal) => ({
 vi.mock('@temporalio/workflow', async () => {
   const builderActivities = await import('./activities');
   const { isTeamLocked } = await import('../teamLock');
+  const { notifyApprovalWaiting } = await import('./approvalNotice');
 
   const faulted = Object.fromEntries(
-    Object.entries({ ...builderActivities, isTeamLocked }).map(([name, activity]) => [
+    Object.entries({ ...builderActivities, isTeamLocked, notifyApprovalWaiting }).map(([name, activity]) => [
       name,
       async (input: unknown) => {
         await temporal.fault(name, input);
@@ -101,12 +184,23 @@ vi.mock('@temporalio/workflow', async () => {
   );
 
   return {
-    proxyActivities: () => faulted,
+    proxyActivities: (options: { startToCloseTimeout: string; heartbeatTimeout?: string }) =>
+      Object.fromEntries(
+        Object.entries(faulted).map(([name, activity]) => [
+          name,
+          async (input: unknown) => {
+            temporal.timeouts.push([name, options.startToCloseTimeout, options.heartbeatTimeout]);
+            return activity(input);
+          },
+        ]),
+      ),
     CancellationScope: { nonCancellable: <T>(fn: () => Promise<T>) => fn() },
+    log: { warn: () => {} },
     isCancellation: () => false,
     defineSignal: (name: string) => name,
     setHandler: () => {},
-    condition: async () => {
+    condition: async (_predicate: () => boolean, timeout?: number | string) => {
+      temporal.conditionTimeouts.push(timeout);
       await temporal.onWait();
       return false;
     },
@@ -124,6 +218,7 @@ import { ApplicationFailure } from '@temporalio/common';
 import {
   executeWorkflowStep,
   failWorkflowStep,
+  notifyRunFailed,
   transitionWorkflowRun,
 } from './activities';
 import type { WorkflowNode } from './graph';
@@ -134,10 +229,14 @@ import {
   cancelWorkflowRun,
   ManualRunRefused,
   resumeLockedWorkflowRuns,
+  resumeCappedRuns,
   retryWorkflowRun,
   RunActionRefused,
+  signalApprovalDecided,
+  startEventRun,
   startManualWorkflowRun,
 } from './client';
+import { CapReached, recordAiCallUsage, reserveAiCall } from './caps';
 import type { WorkflowGraph } from './graph';
 import { runPublishedWorkflow } from './workflow';
 
@@ -346,6 +445,10 @@ beforeEach(async () => {
   temporal.slept = [];
   temporal.onSleep = async () => {};
   temporal.fault = async () => {};
+  temporal.timeouts = [];
+  temporal.conditionTimeouts = [];
+  activityContext.heartbeat.mockClear();
+  activityContext.seenSignals = [];
   owner = await provisionAccount();
   teamSlug = `wfb-${crypto.randomUUID().slice(0, 8)}`;
 
@@ -1259,10 +1362,10 @@ describe('the failure notice (integration)', () => {
     await publish(brokenGraph);
     const { runId } = await runManually();
     await recordStep(runId, 'broken', { status: 'failed', error: 'Timed out' });
-    const fail = { runId, from: 'running', to: 'failed' } as const;
+    await setRunStatus(runId, 'failed');
 
-    await expect(transitionWorkflowRun(fail)).rejects.toThrow('Novu unavailable');
-    await transitionWorkflowRun(fail);
+    await expect(notifyRunFailed({ runId })).rejects.toThrow('Novu unavailable');
+    await notifyRunFailed({ runId });
 
     expect(delivered.get(owner.userId)).toBe(1);
     expect(delivered.get(managerId)).toBe(1);
@@ -2081,6 +2184,20 @@ describe('bookkeeping that keeps failing (integration)', () => {
     expect(await runRecord(runId)).toEqual({ status: 'failed', error: 'database unavailable' });
   });
 
+  it('still ends failed when the failure notice cannot be sent', async () => {
+    await publish({ nodes: [trigger, notify('broken', RUNTIME_FAILURE)], edges: [edge('start', 'broken')] });
+    const { runId } = await runManually();
+    temporal.fault = async (activity) => {
+      if (activity === 'notifyRunFailed') {
+        throw new Error('Novu unavailable');
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runRecord(runId)).toEqual({ status: 'failed', error: null });
+  });
+
   it('fails a run whose graph cannot be read', async () => {
     const runId = await insertRun({ nodes: 'not a list', edges: [] });
 
@@ -2341,5 +2458,451 @@ describe('a wait that has started (integration)', () => {
 
     expect(temporal.slept).toHaveLength(1);
     expect(temporal.slept[0]).toBeGreaterThan(4 * 60 * 1000);
+  });
+});
+
+const asks = { id: 'ask', type: 'approval', config: { prompt: 'Go ahead?' } } as const;
+const spends = {
+  id: 'spend',
+  type: 'create_todo',
+  config: { title: 'Spend', assignees: { kind: 'deal_managers' } },
+} as const;
+
+async function recordDecision(stepRunKey: string, approved: boolean) {
+  const { data: step } = await owner.admin
+    .from('workflow_step_run')
+    .select('id')
+    .eq('idempotency_key', stepRunKey)
+    .single()
+    .throwOnError();
+  await owner.user
+    .from('workflow_approval')
+    .insert({ step_run_id: step.id, account_id: teamId, approved })
+    .throwOnError();
+  return step.id;
+}
+
+describe('a step waiting on a person (integration)', () => {
+  it('parks its path, shows awaiting approval only once nothing runs, takes a decision while the run is running, then carries on', async () => {
+    await publish({
+      nodes: [trigger, asks, notify('busy', 'Busy path'), notify('after', 'After the decision')],
+      edges: [edge('start', 'ask'), edge('start', 'busy'), exit('ask', 'approved', 'after')],
+    });
+    const { runId } = await runManually();
+    let askParked!: () => void;
+    const parked = new Promise<void>((resolve) => (askParked = resolve));
+    const seen: string[] = [];
+    managers.beforeLookup = async () => {
+      managers.beforeLookup = async () => {};
+      await parked;
+      seen.push(await runStatus(runId));
+      await recordDecision(`${runId}:ask:0`, true);
+    };
+    temporal.onWait = async () => {
+      askParked();
+      await expect.poll(() => runStatus(runId), { timeout: 15_000 }).toBe('awaiting_approval');
+      seen.push('awaiting_approval');
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(seen).toEqual(['running', 'awaiting_approval']);
+    expect(await notificationCounts('Pipeline review reminder is waiting for approval')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+    expect(await stepRow(runId, 'ask')).toMatchObject({
+      status: 'succeeded',
+      output: { asked: true, approved: true },
+    });
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await notificationCounts('After the decision')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+
+  it('follows the rejected handle when the person says no', async () => {
+    await publish({
+      nodes: [trigger, asks, notify('yes', 'Approved path'), notify('no', 'Rejected path')],
+      edges: [edge('start', 'ask'), exit('ask', 'approved', 'yes'), exit('ask', 'rejected', 'no')],
+    });
+    const { runId } = await runManually();
+    temporal.onWait = async () => {
+      await recordDecision(`${runId}:ask:0`, false);
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await stepRow(runId, 'ask')).toMatchObject({
+      status: 'succeeded',
+      output: { asked: true, approved: false },
+    });
+    expect(await notificationCounts('Rejected path')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+    expect(await stepRow(runId, 'yes')).toBeNull();
+  });
+
+  it('can be cancelled while it waits on a person', async () => {
+    await publish({
+      nodes: [trigger, asks, notify('after', 'After the decision')],
+      edges: [edge('start', 'ask'), exit('ask', 'approved', 'after')],
+    });
+    const { runId } = await runManually();
+    temporal.onWait = async () => {
+      await cancelWorkflowRun({ accountId: teamId, runId });
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runStatus(runId)).toBe('cancelled');
+    expect(await stepRow(runId, 'ask')).toMatchObject({ status: 'cancelled' });
+    expect(await stepRow(runId, 'after')).toBeNull();
+  });
+
+  it('signals the run when a decision is recorded, only for its own step and team', async () => {
+    await publish(oneStepGraph);
+    const { runId } = await runManually();
+    await recordStep(runId, 'notify', { status: 'running' });
+    const { data: step } = await owner.admin
+      .from('workflow_step_run')
+      .select('id')
+      .eq('run_id', runId)
+      .single()
+      .throwOnError();
+
+    await signalApprovalDecided({ accountId: teamId, runId, stepRunId: step.id });
+    for (const wrong of [
+      { accountId: crypto.randomUUID(), runId, stepRunId: step.id },
+      { accountId: teamId, runId, stepRunId: crypto.randomUUID() },
+    ]) {
+      await expect(signalApprovalDecided(wrong)).rejects.toMatchObject({ reason: 'run_changed' });
+    }
+
+    expect(temporal.signal.mock.calls).toEqual([[`workflow-run-${runId}`, 'approvalDecided']]);
+  });
+
+  it('notices the managers once while it waits, keeps the run awaiting approval across rechecks, and survives a failing notice', async () => {
+    await publish({
+      nodes: [trigger, asks, notify('after', 'After the decision')],
+      edges: [edge('start', 'ask'), exit('ask', 'approved', 'after')],
+    });
+    const { runId } = await runManually();
+    const statuses: string[] = [];
+    let noticeCalls = 0;
+    temporal.fault = async (activity, input) => {
+      if (activity === 'transitionWorkflowRun') {
+        statuses.push((input as { to: string }).to);
+      }
+      if (activity === 'notifyApprovalWaiting') {
+        noticeCalls += 1;
+        throw new Error('Novu unavailable');
+      }
+    };
+    let waits = 0;
+    temporal.onWait = async () => {
+      waits += 1;
+      if (waits === 3) {
+        await recordDecision(`${runId}:ask:0`, true);
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(noticeCalls).toBe(1);
+    expect(statuses).toEqual(['awaiting_approval', 'running', 'succeeded']);
+    expect(await runStatus(runId)).toBe('succeeded');
+  });
+});
+
+describe('a monthly cap (integration)', () => {
+  async function setCaps(caps: { ai_monthly_cap?: number; lookup_monthly_cap?: number }) {
+    await owner.admin
+      .from('outreach_setting')
+      .upsert({ account_id: teamId, daily_cap: 20, ...caps }, { onConflict: 'account_id' })
+      .throwOnError();
+  }
+
+  it('pauses the run before an AI call past the cap, tells the managers once, and resumes when the cap is raised', async () => {
+    await setCaps({ ai_monthly_cap: 1 });
+    await owner.admin
+      .from('ai_call_log')
+      .insert({ account_id: teamId, model: 'test-model' })
+      .throwOnError();
+    await publish({
+      nodes: [trigger, spends, notify('after', 'After the AI step')],
+      edges: [edge('start', 'spend'), edge('spend', 'after')],
+    });
+    const { runId } = await runManually();
+    const seen: string[] = [];
+    let waits = 0;
+    temporal.onWait = async () => {
+      waits += 1;
+      seen.push(await runStatus(runId));
+      if (waits === 2) {
+        await setCaps({ ai_monthly_cap: 2 });
+        await resumeCappedRuns({ accountId: teamId });
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(seen).toEqual(['paused_cap', 'paused_cap']);
+    const now = new Date();
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+    expect(Math.abs((temporal.conditionTimeouts[0] as number) - (monthStart - Date.now()))).toBeLessThan(60_000);
+    expect(temporal.signal.mock.calls).toEqual([[`workflow-run-${runId}`, 'capRaised']]);
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await notificationCounts('Pipeline review reminder paused: the monthly AI limit is reached')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+    expect(await notificationCounts('After the AI step')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+
+  it('reserves AI calls atomically so two at once cannot pass a cap of one, then records usage', async () => {
+    await setCaps({ ai_monthly_cap: 1 });
+
+    const outcomes = await Promise.allSettled([
+      reserveAiCall(teamId, { model: 'test-model', endpointId: null }),
+      reserveAiCall(teamId, { model: 'test-model', endpointId: null }),
+    ]);
+
+    const reserved = outcomes.flatMap((outcome) => (outcome.status === 'fulfilled' ? [outcome.value] : []));
+    const refused = outcomes.flatMap((outcome) => (outcome.status === 'rejected' ? [outcome.reason] : []));
+    expect(reserved).toHaveLength(1);
+    expect(refused).toHaveLength(1);
+    expect(refused[0]).toBeInstanceOf(CapReached);
+
+    await recordAiCallUsage(reserved[0]!.callId, { promptTokens: 12, completionTokens: 34 });
+    const { data: logged } = await owner.admin
+      .from('ai_call_log')
+      .select('model, prompt_tokens, completion_tokens')
+      .eq('account_id', teamId)
+      .throwOnError();
+    expect(logged).toEqual([{ model: 'test-model', prompt_tokens: 12, completion_tokens: 34 }]);
+  });
+
+  it('keeps going when the pause notice fails', async () => {
+    await setCaps({ ai_monthly_cap: 0 });
+    await publish({
+      nodes: [trigger, spends],
+      edges: [edge('start', 'spend')],
+    });
+    const { runId } = await runManually();
+    temporal.fault = async (activity) => {
+      if (activity === 'notifyRunPaused') {
+        throw new Error('Novu unavailable');
+      }
+    };
+    temporal.onWait = async () => {
+      await setCaps({ ai_monthly_cap: 5 });
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runStatus(runId)).toBe('succeeded');
+  });
+});
+
+describe('a run started by an event (integration)', () => {
+  const eventGraph: WorkflowGraph = {
+    nodes: [
+      { id: 'onOffer', type: 'event_trigger', config: { eventType: 'offer.submitted' } },
+      notify('tell', '{{steps.onOffer.eventType}} for {{steps.onOffer.amount}} on {{steps.onOffer.dealId}}'),
+    ],
+    edges: [edge('onOffer', 'tell')],
+  };
+  const dealId = '11111111-1111-4111-8111-111111111111';
+
+  async function latestVersion() {
+    const { data } = await owner.admin
+      .from('workflow_version')
+      .select('id')
+      .eq('workflow_id', workflowId)
+      .order('published_at', { ascending: false })
+      .limit(1)
+      .single()
+      .throwOnError();
+    return data.id;
+  }
+
+  async function enable() {
+    const { data } = await owner.admin
+      .from('workflow')
+      .update({ enabled: true })
+      .eq('id', workflowId)
+      .select('enabled_after_deal_seq, enabled_after_account_seq')
+      .single()
+      .throwOnError();
+    return { deal: Number(data.enabled_after_deal_seq), account: Number(data.enabled_after_account_seq) };
+  }
+
+  async function startFor(log: 'deal' | 'account', globalSeq: number) {
+    return startEventRun({
+      accountId: teamId,
+      workflowId,
+      versionId: await latestVersion(),
+      nodeId: 'onOffer',
+      event: { log, globalSeq, eventType: 'offer.submitted', dealId, payload: { amount: 250000 } },
+    });
+  }
+
+  it('starts one run per trigger node, log and sequence, and refuses a disabled workflow', async () => {
+    await publish(eventGraph);
+
+    expect(await startFor('deal', 42)).toEqual({ refused: 'disabled' });
+    const marks = await enable();
+    const first = await startFor('deal', marks.deal + 1);
+    const again = await startFor('deal', marks.deal + 1);
+    await startFor('account', marks.account + 1);
+
+    expect(again).toEqual(first);
+    const { data: runs } = await owner.admin
+      .from('workflow_run')
+      .select('trigger_kind, trigger_ref, trigger_node_id')
+      .eq('workflow_id', workflowId)
+      .order('trigger_ref')
+      .throwOnError();
+    expect(runs).toEqual([
+      { trigger_kind: 'event', trigger_ref: `onOffer@account:${marks.account + 1}`, trigger_node_id: 'onOffer' },
+      { trigger_kind: 'event', trigger_ref: `onOffer@deal:${marks.deal + 1}`, trigger_node_id: 'onOffer' },
+    ]);
+  });
+
+  it('refuses an event at or before its log mark from when the workflow was enabled', async () => {
+    await publish(eventGraph);
+    const marks = await enable();
+
+    expect(await startFor('deal', marks.deal)).toEqual({ refused: 'before_enabled' });
+    expect(await startFor('account', marks.account)).toEqual({ refused: 'before_enabled' });
+    expect(await runCount()).toBe(0);
+  });
+
+  it('creates the run of a team locked for billing so it pauses like any run', async () => {
+    await publish(eventGraph);
+    const marks = await enable();
+    const unlock = await lockTeam();
+
+    try {
+      expect(await startFor('deal', marks.deal + 1)).toEqual({ runId: expect.any(String) });
+    } finally {
+      await unlock();
+    }
+  });
+
+  it('hands the event to the steps as the trigger output', async () => {
+    await publish(eventGraph);
+    const marks = await enable();
+    const started = await startFor('deal', marks.deal + 1);
+
+    await runPublishedWorkflow({ runId: (started as { runId: string }).runId });
+
+    expect(await notificationCounts(`offer.submitted for 250000 on ${dealId}`)).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+});
+
+
+describe('a workflow with AI steps (integration)', () => {
+  const aiGraph = {
+    nodes: [trigger, { id: 'think', type: 'ask_ai', config: { prompt: 'Summarise', output: 'text' } }],
+    edges: [edge('start', 'think')],
+  } as unknown as WorkflowGraph;
+
+  async function connectAi() {
+    await owner.user
+      .rpc('save_llm_endpoint', {
+        p_account_id: teamId,
+        p_provider: 'openai',
+        p_model: 'gpt-test',
+        p_base_url: 'https://ai.test/v1',
+        p_api_key: 'sk-test',
+      })
+      .throwOnError();
+  }
+
+  it('fails at once when the team has no usable AI provider', async () => {
+    await owner.admin
+      .from('llm_endpoint')
+      .insert({ account_id: teamId, provider: 'openai', model: 'gpt-test' })
+      .throwOnError();
+    await publish(aiGraph);
+
+    const runId = await runToEnd();
+
+    expect(await runRecord(runId)).toEqual({ status: 'failed', error: 'Connect an AI provider first' });
+  });
+
+  it('gives an AI step longer than its provider call, heartbeats it and hands it the cancellation signal', async () => {
+    await connectAi();
+    await publish({
+      nodes: [...(aiGraph.nodes as WorkflowNode[]), notify('after', 'After thinking')],
+      edges: [...aiGraph.edges, edge('think', 'after')],
+    });
+
+    await runToEnd();
+
+    const executions = temporal.timeouts.filter(([name]) => name === 'executeWorkflowStep');
+    expect(executions.map(([, timeout, heartbeat]) => [timeout, heartbeat])).toEqual([
+      ['150 seconds', '30 seconds'],
+      ['5 minutes', undefined],
+    ]);
+    expect(activityContext.heartbeat).toHaveBeenCalled();
+    expect(activityContext.seenSignals).toEqual([activityContext.cancellation.signal]);
+  });
+
+  it('runs a decision model again after its cap is raised, then waits for the decision', async () => {
+    await connectAi();
+    await owner.admin
+      .from('outreach_setting')
+      .upsert({ account_id: teamId, daily_cap: 20, ai_monthly_cap: 0 }, { onConflict: 'account_id' })
+      .throwOnError();
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'vet', type: 'decision_model', config: { firmId: crypto.randomUUID(), instructions: 'Fit?' } },
+        notify('no', 'Rejected firm'),
+      ],
+      edges: [edge('start', 'vet'), exit('vet', 'rejected', 'no')],
+    } as unknown as WorkflowGraph);
+    const { runId } = await runManually();
+    let waits = 0;
+    temporal.onWait = async () => {
+      waits += 1;
+      if (waits === 1) {
+        await owner.admin
+          .from('outreach_setting')
+          .update({ ai_monthly_cap: 5 })
+          .eq('account_id', teamId)
+          .throwOnError();
+      } else {
+        const { data: step } = await owner.admin
+          .from('workflow_step_run')
+          .select('id')
+          .eq('idempotency_key', `${runId}:vet:0`)
+          .single()
+          .throwOnError();
+        await owner.user
+          .rpc('decide_firm_verdict', {
+            p_step_run_id: step.id,
+            p_verdict_id: 'a7000000-0000-4000-8000-000000000001',
+            p_approved: false,
+          })
+          .throwOnError();
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await stepRow(runId, 'vet')).toMatchObject({
+      status: 'succeeded',
+      output: { verdictId: 'a7000000-0000-4000-8000-000000000001', fit: true, approved: false },
+    });
+    expect(await notificationCounts('Rejected firm')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
   });
 });

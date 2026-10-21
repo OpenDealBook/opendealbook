@@ -30,3 +30,5 @@ export { compEventRelay } from './compEventRelay';
 export { dealEventNotificationRelay } from './dealEventNotificationRelay';
 export { runPublishedWorkflow } from '../builder/workflow';
 export { runScheduledTrigger } from '../builder/scheduleWorkflow';
+export { workflowEventRelay } from '../builder/eventRelay';
+export { sendApprovalReminders } from '../schedules/approvalReminderWorkflow';

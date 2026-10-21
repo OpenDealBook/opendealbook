@@ -1,6 +1,7 @@
 import { NativeConnection, Worker } from '@temporalio/worker';
 
 import {
+  ensureApprovalReminderSchedule,
   ensureCompEventRelay,
   ensureContractReviewReminderEmailSchedule,
   ensureContractReviewTodoSyncSchedule,
@@ -14,6 +15,7 @@ import {
   ensureOutreachDispatchSchedule,
   ensureOutreachStaleSweepSchedule,
   ensureUploadCleanupSchedule,
+  ensureWorkflowEventRelay,
   ensureWorkflowPruneSchedule,
 } from '@odb/workflows';
 import * as activities from '@odb/workflows/activities';
@@ -44,6 +46,7 @@ const client = await getTemporalClient();
 for (const ensure of [
   ensureCompEventRelay,
   ensureDealEventNotificationRelay,
+  ensureWorkflowEventRelay,
   ensureUploadCleanupSchedule,
   ensureOrphanDealFileSweepSchedule,
   ensureMilestoneOverdueSchedule,
@@ -56,6 +59,7 @@ for (const ensure of [
   ensureOutreachDispatchSchedule,
   ensureOutreachStaleSweepSchedule,
   ensureWorkflowPruneSchedule,
+  ensureApprovalReminderSchedule,
 ]) {
   try {
     await ensure(client);
