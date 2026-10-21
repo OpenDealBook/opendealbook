@@ -161,8 +161,8 @@ const seenBy: DocumentSeenBy[] = [
   {
     documentId: 'term-sheet',
     documentName: 'Term sheet draft.pdf',
-    userId: 'user-zac',
-    email: 'zac@buyer.com',
+    userId: 'user-jordan',
+    email: 'jordan@buyer.test',
     name: null,
     isRemoved: false,
     side: 'internal',
@@ -183,8 +183,8 @@ const seenBy: DocumentSeenBy[] = [
   {
     documentId: 'tax-v2',
     documentName: 'Tax return.pdf',
-    userId: 'user-zac',
-    email: 'zac@buyer.com',
+    userId: 'user-jordan',
+    email: 'jordan@buyer.test',
     name: null,
     isRemoved: false,
     side: 'internal',
@@ -278,7 +278,7 @@ describe('room files as the deal team sees them', () => {
       /Ana Diaz \(ana@firstbank\.com\) previewed .*Oct 12, 2026.* downloaded .*Oct 13, 2026/,
     );
     expect(taxReturn).toMatch(
-      /zac@buyer\.com Internal previewed .*Oct 11, 2026/,
+      /jordan@buyer\.test Internal previewed .*Oct 11, 2026/,
     );
     expect(taxReturn).not.toContain('Not seen by the lender yet');
     expect(rowOf('Summary.pdf')).toContain('Not seen by the lender yet');
@@ -289,7 +289,7 @@ describe('room files as the deal team sees them', () => {
 
     const termSheet = rowOf('Term sheet draft.pdf');
 
-    expect(termSheet).toMatch(/zac@buyer\.com Internal previewed/);
+    expect(termSheet).toMatch(/jordan@buyer\.test Internal previewed/);
     expect(termSheet).toContain('Not seen by the lender yet');
   });
 
@@ -650,7 +650,7 @@ describe('room activity', () => {
       {
         ...entry,
         id: 'a2',
-        email: 'zac@buyer.com',
+        email: 'jordan@buyer.test',
         side: 'internal',
         action: 'folder_opened',
         documentId: null,
@@ -672,7 +672,7 @@ describe('room activity', () => {
     );
     expect(rows[0]).not.toContain('Internal');
     expect(rows[1]).toMatch(
-      /zac@buyer\.com.*Internal.*Opened folder.*Financials/,
+      /jordan@buyer\.test.*Internal.*Opened folder.*Financials/,
     );
     expect(rows[2]).toContain('Downloaded a zip');
   });
@@ -754,7 +754,7 @@ describe('room activity', () => {
         kind: 'thread_file',
         id: 'c1',
         side: 'internal',
-        email: 'zac@buyer.com',
+        email: 'jordan@buyer.test',
         name: null,
         askId: 'form-1',
         askKind: 'form',
@@ -794,7 +794,7 @@ describe('room activity', () => {
     expect(rows[2]).toMatch(/Filed automatically.*Filed the signed form/);
 
     expect(rows[0]).toMatch(
-      /zac@buyer\.com.*Internal.*Returned a completed form.*PFS completed\.pdf.*PFS/,
+      /jordan@buyer\.test.*Internal.*Returned a completed form.*PFS completed\.pdf.*PFS/,
     );
     expect(rows[1]).toMatch(/Attached a file.*Rent roll/);
     expect(linkTo('Download PFS completed.pdf')).toBe(

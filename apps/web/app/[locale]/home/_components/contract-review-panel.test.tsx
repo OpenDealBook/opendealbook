@@ -221,14 +221,14 @@ describe('ContractReviewPanel', () => {
     expect(buttonNames()).not.toContain('Override and send');
 
     await press('Send for signature');
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
+    await type('Signer 1 name', 'Jordan Reyes');
+    await type('Signer 1 email', 'jordan@buyer.test');
     await confirmInDialog('Send for signature');
 
     expect(fakeServer.inputsTo('sendContractForSignature')).toEqual([
       {
         contract_version_id: VERSION,
-        signers: [{ name: 'Zac Clifton', email: 'zac@buyer.com' }],
+        signers: [{ name: 'Jordan Reyes', email: 'jordan@buyer.test' }],
       },
     ]);
     expect(dialogText()).toBeNull();
@@ -242,8 +242,8 @@ describe('ContractReviewPanel', () => {
 
     await press('Override and send');
     await type('Reason', 'Seller signing today');
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
+    await type('Signer 1 name', 'Jordan Reyes');
+    await type('Signer 1 email', 'jordan@buyer.test');
     await confirmInDialog('Override and send');
 
     expect(fakeServer.inputsTo('overrideContractSigning')).toEqual([
@@ -252,7 +252,7 @@ describe('ContractReviewPanel', () => {
     expect(fakeServer.inputsTo('sendContractForSignature')).toEqual([
       {
         contract_version_id: VERSION,
-        signers: [{ name: 'Zac Clifton', email: 'zac@buyer.com' }],
+        signers: [{ name: 'Jordan Reyes', email: 'jordan@buyer.test' }],
       },
     ]);
   });
@@ -272,8 +272,8 @@ describe('ContractReviewPanel', () => {
 
     await press('Override and send');
     await type('Reason', 'Seller signing today');
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
+    await type('Signer 1 name', 'Jordan Reyes');
+    await type('Signer 1 email', 'jordan@buyer.test');
     await confirmInDialog('Override and send');
 
     expect(fakeServer.inputsTo('sendContractForSignature')).toEqual([]);

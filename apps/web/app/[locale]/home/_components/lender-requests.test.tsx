@@ -410,8 +410,8 @@ describe('a lender form', () => {
     };
     showForm('esign');
 
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
+    await type('Signer 1 name', 'Jordan Reyes');
+    await type('Signer 1 email', 'jordan@buyer.test');
     await press('Add signer');
     await type('Signer 2 name', 'Pat Partner');
     await type('Signer 2 email', 'pat@buyer.com');
@@ -421,7 +421,7 @@ describe('a lender form', () => {
       {
         formId: FORM,
         signers: [
-          { name: 'Zac Clifton', email: 'zac@buyer.com' },
+          { name: 'Jordan Reyes', email: 'jordan@buyer.test' },
           { name: 'Pat Partner', email: 'pat@buyer.com' },
         ],
       },
@@ -448,13 +448,13 @@ describe('a lender form', () => {
         id: 'signature-1',
         status: 'draft',
         created_at: '2026-10-12T12:00:00.000Z',
-        signer_names: ['Zac Clifton'],
+        signer_names: ['Jordan Reyes'],
         editor_url: 'https://documenso.test/documents/77/edit',
       },
     ]);
 
     expect(pageText()).toContain('Draft in Documenso');
-    expect(pageText()).toContain('Zac Clifton');
+    expect(pageText()).toContain('Jordan Reyes');
     expect(linkTo('Open in Documenso to place signature fields')).toBe(
       'https://documenso.test/documents/77/edit',
     );
@@ -472,8 +472,8 @@ describe('a lender form', () => {
     fakeServer.refusal = 'whatever the server says';
     showForm('esign');
 
-    await type('Signer 1 name', 'Zac Clifton');
-    await type('Signer 1 email', 'zac@buyer.com');
+    await type('Signer 1 name', 'Jordan Reyes');
+    await type('Signer 1 email', 'jordan@buyer.test');
     await press('Request signature');
 
     expect(alerts()).toEqual(['whatever the server says']);
@@ -483,7 +483,7 @@ describe('a lender form', () => {
     id: 'signature-1',
     status: 'draft' as const,
     created_at: '2026-10-12T12:00:00.000Z',
-    signer_names: ['Zac Clifton'],
+    signer_names: ['Jordan Reyes'],
     editor_url: 'https://documenso.test/documents/77/edit',
   };
 
@@ -527,7 +527,7 @@ describe('a lender form', () => {
         id: 'signature-1',
         status: 'cancelled',
         created_at: '2026-10-12T12:00:00.000Z',
-        signer_names: ['Zac Clifton'],
+        signer_names: ['Jordan Reyes'],
         editor_url: null,
       },
     ]);
@@ -544,7 +544,7 @@ describe('a lender form', () => {
         id: 'signature-1',
         status: 'declined',
         created_at: '2026-10-12T12:00:00.000Z',
-        signer_names: ['Zac Clifton'],
+        signer_names: ['Jordan Reyes'],
         editor_url: null,
       },
     ]);

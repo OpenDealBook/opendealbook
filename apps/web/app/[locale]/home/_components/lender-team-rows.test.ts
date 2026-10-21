@@ -96,9 +96,9 @@ const contact = {
   room_status: 'reviewing',
   brand_name: 'First Bank',
   brand_logo_path: 'firstbank.com/logo',
-  invited_by: 'user-zac',
-  invited_by_email: 'zac@buyer.com',
-  invited_by_name: 'Zac Clifton',
+  invited_by: 'user-jordan',
+  invited_by_email: 'jordan@buyer.test',
+  invited_by_name: 'Jordan Reyes',
   deal_description: 'Accounting firm in Ohio',
   invited_at: '2026-09-20T09:00:00.000Z',
   removed_at: null,
@@ -149,9 +149,9 @@ describe('team lender contacts', () => {
       },
     ]);
 
-    expect(named?.invitedBy).toBe('Zac Clifton');
+    expect(named?.invitedBy).toBe('Jordan Reyes');
     expect(named?.dealLabel).toBe('Harborview Tax');
-    expect(unnamed?.invitedBy).toBe('zac@buyer.com');
+    expect(unnamed?.invitedBy).toBe('jordan@buyer.test');
     expect(unnamed?.dealLabel).toBe('Accounting firm in Ohio');
   });
 

@@ -26,7 +26,7 @@ describe('what each lender person has done', () => {
         act('ana', 'document_downloaded', '2026-10-03T10:04:00.000Z', 'doc-2'),
         act('ana', 'zip_downloaded', '2026-10-03T10:05:00.000Z'),
         act('ana', 'folder_opened', '2026-10-03T10:06:00.000Z'),
-        act('zac', 'document_previewed', '2026-10-04T10:00:00.000Z', 'doc-9'),
+        act('jordan', 'document_previewed', '2026-10-04T10:00:00.000Z', 'doc-9'),
         {
           kind: 'reply' as const,
           userId: 'ana',

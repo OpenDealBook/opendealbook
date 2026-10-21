@@ -141,7 +141,7 @@ const ana: TeamContact & { logoUrl: string | null } = {
   institution: 'First Bank',
   logoPath: null,
   logoUrl: null,
-  invitedBy: 'Zac Clifton',
+  invitedBy: 'Jordan Reyes',
   invitedAt: '2026-09-20T09:00:00.000Z',
   removedAt: null,
   firstVisitAt: '2026-09-21T09:00:00.000Z',
@@ -179,7 +179,7 @@ describe('every lender person across the team', () => {
     expect(first).toContain('Harborview Tax');
     expect(first).toContain('Reviewing');
     expect(first).toContain('Signed in');
-    expect(first).toMatch(/Invited by Zac Clifton on .*Sep 20, 2026/);
+    expect(first).toMatch(/Invited by Jordan Reyes on .*Sep 20, 2026/);
     expect(first).toMatch(/First visit .*Sep 21, 2026/);
     expect(first).toMatch(/Last visit .*Oct 1, 2026/);
     expect(first).toContain('3 files viewed');
