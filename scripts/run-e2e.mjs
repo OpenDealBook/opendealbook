@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const webDir = fileURLToPath(new URL('../apps/web', import.meta.url));
 const WORKERS_ENV_FILE = 'apps/e2e/.e2e-workers.env';
-const WEB_PORTS = [3000, Number(process.env.E2E_VARIANT_PORT ?? 3110)];
+const WEB_PORT = 3000;
 const TASK_QUEUE_URL =
   'http://localhost:8233/api/v1/namespaces/default/task-queues/opendealbook?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW';
 const WORKER_POLL_DEADLINE_MS = 120_000;
@@ -89,15 +89,9 @@ async function freshPollerSince(startedAt) {
   );
 }
 
-const busyPorts = (
-  await Promise.all(
-    WEB_PORTS.map(async (port) => ((await listens(port)) ? [port] : [])),
-  )
-).flat();
-
-if (busyPorts.length > 0) {
+if (await listens(WEB_PORT)) {
   console.error(
-    `Port ${busyPorts.join(' and ')} in use. e2e needs ports ${WEB_PORTS.join(' and ')}; stop pnpm run-dev first, or whatever else holds them.`,
+    `Port ${WEB_PORT} in use. e2e needs it; stop pnpm run-dev first, or whatever else holds it.`,
   );
   process.exit(1);
 }

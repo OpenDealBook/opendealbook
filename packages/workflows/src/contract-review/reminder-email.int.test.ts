@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import { emailContractReviewReminders } from './reminder-email';
 import {
   recordingNovu,
@@ -409,6 +411,7 @@ describe('emailContractReviewReminders (integration)', () => {
 
   it('sends nothing to a team locked for billing', async () => {
     const review = await seedReview({});
+    await turnTeamBillingOn(review.admin);
     await review.admin
       .from('accounts')
       .update({

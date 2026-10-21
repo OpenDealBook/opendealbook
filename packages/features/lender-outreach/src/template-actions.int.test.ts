@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { Database } from '@odb/supabase';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
@@ -147,6 +149,7 @@ describe('the team outreach template', () => {
   });
 
   it('is read-only while the team is in billing lock', async () => {
+    await turnTeamBillingOn(admin);
     await lockTeam(lockedTeamId);
 
     expect(

@@ -1,6 +1,8 @@
 import pg from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import {
   admin,
   removeEverythingSeeded,
@@ -146,6 +148,7 @@ describe('syncNudgeTodos (integration)', () => {
   });
 
   it('makes no to-do for a team locked for billing', async () => {
+    await turnTeamBillingOn(admin);
     const { owner, teamId, dealId } = await seedQuietTeam(30);
     await admin
       .from('accounts')

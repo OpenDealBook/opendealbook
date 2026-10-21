@@ -7,6 +7,7 @@ const eq = vi.fn(() => ({ single }));
 const select = vi.fn(() => ({ eq }));
 const from = vi.fn(() => ({ select }));
 const stopTrialDrip = vi.fn();
+const resumeLockedWorkflowRuns = vi.fn();
 
 vi.mock('@odb/stripe', () => ({
   createStripeWebhookHandler: () => ({ handleEvent }),
@@ -18,16 +19,32 @@ vi.mock('@odb/supabase/server', () => ({
 
 vi.mock('@odb/workflows/client', () => ({ stopTrialDrip }));
 
+vi.mock('@odb/workflows/builder/client', () => ({
+  resumeLockedWorkflowRuns,
+}));
+
 const { handleBillingWebhook } = await import('./handle-billing-webhook');
 
+function teamLockedAfterUpsert(locked: boolean) {
+  rpc.mockImplementation(async (name: string) =>
+    name === 'is_account_locked'
+      ? { data: locked, error: null }
+      : { data: null, error: null },
+  );
+}
+
 function activeSubscriptionEvent() {
+  return subscriptionEvent('active');
+}
+
+function subscriptionEvent(status: string) {
   return {
     type: 'subscription.updated',
     subscription: {
       id: 'sub_123',
       accountId: 'acc_123',
       customerId: 'cus_123',
-      status: 'active',
+      status,
       currency: 'usd',
       cancelAtPeriodEnd: false,
       periodStartsAt: '2026-01-01T00:00:00Z',
@@ -56,6 +73,8 @@ describe('handleBillingWebhook', () => {
       data: { primary_owner_user_id: 'user_owner_123' },
     });
     stopTrialDrip.mockResolvedValue(undefined);
+    resumeLockedWorkflowRuns.mockResolvedValue(undefined);
+    teamLockedAfterUpsert(false);
   });
 
   it('upserts the subscription with the mapped payload on subscription.updated', async () => {
@@ -109,5 +128,51 @@ describe('handleBillingWebhook', () => {
     ).resolves.toBeUndefined();
 
     expect(rpc).toHaveBeenCalled();
+  });
+
+  it('resumes the paused workflow runs of a team the subscription change unlocks', async () => {
+    handleEvent.mockResolvedValue(activeSubscriptionEvent());
+    teamLockedAfterUpsert(false);
+
+    await handleBillingWebhook('raw-body', 'signature');
+
+    expect(resumeLockedWorkflowRuns).toHaveBeenCalledWith({
+      accountId: 'acc_123',
+    });
+  });
+
+  it('leaves workflow runs paused when the team stays locked after the subscription change', async () => {
+    handleEvent.mockResolvedValue(subscriptionEvent('canceled'));
+    teamLockedAfterUpsert(true);
+
+    await handleBillingWebhook('raw-body', 'signature');
+
+    expect(resumeLockedWorkflowRuns).not.toHaveBeenCalled();
+  });
+
+  it('still processes the webhook when resuming workflow runs rejects', async () => {
+    handleEvent.mockResolvedValue(activeSubscriptionEvent());
+    resumeLockedWorkflowRuns.mockRejectedValue(
+      new Error('Temporal unavailable'),
+    );
+
+    await expect(
+      handleBillingWebhook('raw-body', 'signature'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('leaves workflow runs paused when the lock check fails', async () => {
+    handleEvent.mockResolvedValue(activeSubscriptionEvent());
+    rpc.mockImplementation(async (name: string) =>
+      name === 'is_account_locked'
+        ? { data: null, error: new Error('lock check failed') }
+        : { data: null, error: null },
+    );
+
+    await expect(
+      handleBillingWebhook('raw-body', 'signature'),
+    ).resolves.toBeUndefined();
+
+    expect(resumeLockedWorkflowRuns).not.toHaveBeenCalled();
   });
 });

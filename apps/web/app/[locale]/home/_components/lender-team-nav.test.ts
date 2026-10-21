@@ -23,6 +23,7 @@ describe('the team workspace nav', () => {
       'common.lenders',
       'common.outreach',
       'common.reports',
+      'common.workflows',
     ]);
   });
 

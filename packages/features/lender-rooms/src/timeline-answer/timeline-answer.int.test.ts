@@ -8,6 +8,8 @@ import {
   vi,
 } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { ActionResult } from '../actions/refusal';
 import { unwrap } from '../actions/test-support/unwrap';
 import {
@@ -401,6 +403,8 @@ describe('our team recording the answer by hand', () => {
   });
 
   it('is told the team is read-only while billing is locked, recording nothing', async () => {
+    await turnTeamBillingOn(admin);
+
     await expect(
       as(us, recordTimelineAnswer)({ roomId: lockedRoom.roomId, answer: 'no' }),
     ).rejects.toThrow('This team is read-only until billing is updated.');

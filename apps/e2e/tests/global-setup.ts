@@ -1,14 +1,13 @@
 import {
   MAILPIT_SMTP_PORT,
-  VARIANT_URL,
   WEB_URL,
   WEB_URL_FROM_DOCKER,
 } from './fixtures/stack';
+import { rpc } from './fixtures/db';
 import { documensoApiKey } from './stack/documenso';
 import {
   SENDER,
   mainServerEnv,
-  variantServerEnv,
   workersEnv,
 } from './stack/env';
 import { novuApiKey, pointNovuEmailAt, syncNovuBridge } from './stack/novu';
@@ -62,17 +61,11 @@ export default async function globalSetup() {
     ]);
   }
 
-  const builds = Promise.all([
-    buildWebServer({
-      name: 'main',
-      env: mainServerEnv({ novuApiKey: 'build', documensoApiKey: 'build' }),
-    }),
-    buildWebServer({
-      name: 'variant',
-      env: variantServerEnv({ novuApiKey: 'build' }),
-    }),
-  ]);
-  builds.catch(() => undefined);
+  const build = buildWebServer({
+    name: 'main',
+    env: mainServerEnv({ novuApiKey: 'build', documensoApiKey: 'build' }),
+  });
+  build.catch(() => undefined);
 
   const stopStandIns = await startStandIns();
   const novuKey = await novuApiKey();
@@ -101,27 +94,21 @@ export default async function globalSetup() {
     }),
   );
 
-  await builds;
+  await build;
 
-  const stopServers = await Promise.all([
-    startWebServer({
-      name: 'main',
-      url: WEB_URL,
-      env: mainServerEnv({
-        novuApiKey: novuKey,
-        documensoApiKey: documensoKey,
-      }),
+  const stopServer = await startWebServer({
+    name: 'main',
+    url: WEB_URL,
+    env: mainServerEnv({
+      novuApiKey: novuKey,
+      documensoApiKey: documensoKey,
     }),
-    startWebServer({
-      name: 'variant',
-      url: VARIANT_URL,
-      env: variantServerEnv({ novuApiKey: novuKey }),
-    }),
-  ]);
+  });
   await syncNovuBridge(novuKey, `${WEB_URL_FROM_DOCKER}/api/novu`);
 
   return async () => {
-    stopServers.forEach((stop) => stop());
+    stopServer();
     await stopStandIns();
+    await rpc('set_team_account_billing', { enabled: true });
   };
 }

@@ -3,6 +3,8 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { Database } from '@odb/supabase';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
@@ -347,6 +349,7 @@ describe('quiet days', () => {
   });
 
   it('refuses while the team is locked for billing', async () => {
+    await turnTeamBillingOn(admin);
     await admin
       .from('accounts')
       .update({ trial_ends_at: new Date(Date.now() - DAY).toISOString() })

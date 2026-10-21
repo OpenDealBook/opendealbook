@@ -11,6 +11,7 @@ import {
 } from 'vitest';
 
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 const SUPABASE_URL = 'http://127.0.0.1:54321';
 
@@ -524,15 +525,7 @@ describe('inviteSeller', () => {
 
   it('refuses a locked team up front, before opening a room', async () => {
     const dealId = await newDeal();
-    const { data: config } = await admin
-      .from('config')
-      .select('enable_team_account_billing')
-      .single()
-      .throwOnError();
-
-    await admin
-      .rpc('set_team_account_billing', { enabled: true })
-      .throwOnError();
+    await turnTeamBillingOn(admin);
     await admin
       .from('accounts')
       .update({
@@ -560,11 +553,6 @@ describe('inviteSeller', () => {
           trial_ends_at: new Date(Date.now() + 86_400_000).toISOString(),
         })
         .eq('id', teamId)
-        .throwOnError();
-      await admin
-        .rpc('set_team_account_billing', {
-          enabled: config.enable_team_account_billing,
-        })
         .throwOnError();
     }
   });

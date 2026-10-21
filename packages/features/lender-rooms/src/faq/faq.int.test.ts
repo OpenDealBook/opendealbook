@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import { DATA_ROOM_BUCKET } from '@odb/data-room/storage';
 
 import { unwrap } from '../actions/test-support/unwrap';
@@ -656,6 +658,7 @@ describe('a refused save writes nothing', () => {
 
 describe('a locked team', () => {
   it('is told the team is read-only and saves nothing', async () => {
+    await turnTeamBillingOn(admin);
     const colleague = await provisionPerson();
     const teamDeal = await seedTeamDeal(owner, colleague);
     seededDealIds.push(teamDeal.dealId);

@@ -85,7 +85,7 @@ export async function runPublishedWorkflow({
         .map(async (node) => {
           const execution = { runId, accountId, node, iteration: 0 };
           await sharedLockCheck();
-          const output = await executeWorkflowStep({
+          const result = await executeWorkflowStep({
             ...execution,
             input: previous,
             steps,
@@ -93,8 +93,11 @@ export async function runPublishedWorkflow({
             failed = true;
             await failWorkflowStep({ ...execution, error: failureMessage(error) });
           });
-          if (output) {
-            await runAfter(node.id, output, { ...steps, [node.id]: output });
+          if (result?.kind === 'succeeded') {
+            await runAfter(node.id, result.output, {
+              ...steps,
+              [node.id]: result.output,
+            });
           }
         }),
     );

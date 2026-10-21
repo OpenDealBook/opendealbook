@@ -48,6 +48,7 @@ export {
 } from '../contract-review/activities';
 export { deleteUnfinishedUploads } from '../uploadCleanup/activities';
 export { deleteOrphanedDealObjects } from '../storageSweep/activities';
+export { pruneWorkflowStepData } from '../schedules/workflowPruneActivity';
 export { notifyOverdueMilestones } from '@odb/deal-timeline/overdue.ts';
 export { deliverDocumentToSeller } from '../sellerDelivery/activities';
 export {

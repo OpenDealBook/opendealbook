@@ -143,18 +143,22 @@ describe('documents sent into the room', () => {
     });
 
     expect((await share()).first_viewed_at).not.toBeNull();
-    expect(await openings()).toEqual([
-      {
-        user_id: partner.userId,
-        action: 'document_previewed',
-        payload: { share_id: shareId },
-      },
-      {
-        user_id: recipient.userId,
-        action: 'document_previewed',
-        payload: { share_id: shareId },
-      },
-    ]);
+    const recorded = await openings();
+    expect(recorded).toHaveLength(2);
+    expect(recorded).toEqual(
+      expect.arrayContaining([
+        {
+          user_id: partner.userId,
+          action: 'document_previewed',
+          payload: { share_id: shareId },
+        },
+        {
+          user_id: recipient.userId,
+          action: 'document_previewed',
+          payload: { share_id: shareId },
+        },
+      ]),
+    );
   });
 
   it('answers 404 to someone who is not in the room', async () => {

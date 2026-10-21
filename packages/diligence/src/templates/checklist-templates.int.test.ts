@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import {
   provisionAccount,
   type IntegrationAccount,
@@ -293,6 +295,7 @@ describe('checklist template editing', () => {
   });
 
   it('refuses a team in billing lock', async () => {
+    await turnTeamBillingOn(owner.admin);
     actAs(owner);
 
     expect(

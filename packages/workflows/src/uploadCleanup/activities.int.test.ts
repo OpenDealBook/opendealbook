@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 import '../../test-support/integration-harness';
 import { deleteUnfinishedUploads } from './activities';
@@ -106,13 +107,7 @@ async function objectExists(upload: Upload): Promise<boolean> {
 }
 
 async function lockTeam(): Promise<() => Promise<void>> {
-  const { data: config } = await admin
-    .from('config')
-    .select('enable_team_account_billing')
-    .single()
-    .throwOnError();
-
-  await admin.rpc('set_team_account_billing', { enabled: true }).throwOnError();
+  await turnTeamBillingOn(admin);
   await admin
     .from('accounts')
     .update({ trial_ends_at: new Date(Date.now() - 24 * HOUR).toISOString() })
@@ -129,11 +124,6 @@ async function lockTeam(): Promise<() => Promise<void>> {
       .from('accounts')
       .update({ trial_ends_at: new Date(Date.now() + 24 * HOUR).toISOString() })
       .eq('id', teamId)
-      .throwOnError();
-    await admin
-      .rpc('set_team_account_billing', {
-        enabled: config.enable_team_account_billing,
-      })
       .throwOnError();
   };
 }

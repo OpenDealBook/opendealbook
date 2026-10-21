@@ -36,15 +36,13 @@ After the checks, the global setup:
 4. Signs in to Documenso as a fixed e2e user through its UI, signing up on the
    first run. It adds the app's webhook and mints an API token. Set
    `E2E_DOCUMENSO_API_KEY` to reuse a token instead of minting one.
-5. Starts two web servers and syncs the Novu bridge:
-   - `chromium` tests run against `http://localhost:3000` with the full e2e env.
-   - `variant` tests (`*.variant.spec.ts`) run against `http://localhost:3110`
-     (set `E2E_VARIANT_PORT` to move it)
-     with `ENABLE_MARKETING=false`, `ENABLE_BILLING=false`,
-     and no `DOCUMENSO_*`.
+5. Starts the web server on `http://localhost:3000` with the full e2e env and
+   `ENABLE_BILLING=true`, then syncs the Novu bridge.
 
-Each server builds into its own `NEXT_DIST_DIR` under `apps/web/.next`, so a
-developer's own `next dev` keeps its dev lock. Ports 3000 and 3110 must be free.
+The server writes `ENABLE_BILLING` into the database's shared config row at
+boot, and the global teardown sets team billing back on. The server builds into
+its own `NEXT_DIST_DIR` under `apps/web/.next`, so a developer's own `next dev`
+keeps its dev lock. Port 3000 must be free.
 Server output goes to `apps/e2e/.stack-logs/`.
 
 ## Writing a test
@@ -81,7 +79,7 @@ pnpm run-e2e                  # the whole suite
 pnpm run-e2e auth.spec --headed   # extra args go to `playwright test`
 ```
 
-`pnpm run-e2e` refuses to start while port 3000 or the variant port is in use. It brings up
+`pnpm run-e2e` refuses to start while port 3000 is in use. It brings up
 the compose profiles and Supabase, and mints `apps/e2e/.e2e-workers.env` with a
 global-setup-only run when the file is missing. It then starts a worker with
 that env and waits for it to poll `opendealbook`. Last, it runs Playwright, stops
@@ -91,8 +89,8 @@ the worker, and exits with Playwright's code.
 
 ## Speed and fix loops
 
-- The web servers run a production build (`next build`, then `next start`) into
-  `apps/web/.next/e2e-main` and `.next/e2e-variant`. The build is skipped when
+- The web server runs a production build (`next build`, then `next start`) into
+  `apps/web/.next/e2e-main`. The build is skipped when
   nothing under `apps/web`, `packages` or `tests/stack` is newer than the last
   build. `E2E_SKIP_BUILD=1` reuses the last build regardless; `E2E_DEV=1` falls
   back to `next dev` for debugging. Build output is in `.stack-logs/*-build.log`.

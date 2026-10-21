@@ -13749,6 +13749,21 @@ export type Database = {
           target_on: string
         }[]
       }
+      start_workflow_step_run: {
+        Args: {
+          p_account_id: string
+          p_idempotency_key: string
+          p_input: Json
+          p_node_id: string
+          p_run_id: string
+        }
+        Returns: {
+          attempt: number
+          id: string
+          output: Json
+          status: Database["public"]["Enums"]["workflow_step_status"]
+        }[]
+      }
       storage_object_team_locked: {
         Args: { bucket: string; object_name: string }
         Returns: boolean

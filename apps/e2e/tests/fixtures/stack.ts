@@ -1,5 +1,4 @@
 export const WEB_URL = 'http://localhost:3000';
-export const VARIANT_URL = `http://localhost:${process.env.E2E_VARIANT_PORT ?? 3110}`;
 
 // How the Novu and Documenso containers reach the e2e web server on the host.
 export const WEB_URL_FROM_DOCKER = 'http://host.docker.internal:3000';

@@ -32,10 +32,14 @@ export function defineStep<
     config: unknown;
     input: unknown;
   }): Promise<StepIo> {
+    const config = definition.configSchema.safeParse(args.config);
+    if (!config.success) {
+      throw ApplicationFailure.nonRetryable(config.error.message);
+    }
     return definition.outputSchema.parse(
       await definition.run({
         context: args.context,
-        config: definition.configSchema.parse(args.config),
+        config: config.data,
         input: definition.inputSchema.parse(args.input),
       }),
     );

@@ -12,7 +12,6 @@ import {
   STAND_INS,
   STRIPE_WEBHOOK_SECRET,
   SUPABASE_URL,
-  VARIANT_URL,
   WEB_URL,
 } from '../fixtures/stack';
 
@@ -65,7 +64,7 @@ function webEnv(novuApiKey: string, siteUrl: string) {
   };
 }
 
-// Each server builds into its own distDir so neither takes the dev lock of a
+// The server builds into its own distDir so it does not take the dev lock of a
 // developer's own `next dev` in apps/web.
 export function mainServerEnv({
   novuApiKey,
@@ -77,21 +76,9 @@ export function mainServerEnv({
   return {
     ...webEnv(novuApiKey, WEB_URL),
     NEXT_DIST_DIR: '.next/e2e-main',
+    ENABLE_BILLING: 'true',
     DOCUMENSO_URL,
     DOCUMENSO_API_KEY: documensoApiKey,
     DOCUMENSO_WEBHOOK_SECRET,
-  };
-}
-
-export function variantServerEnv({
-  novuApiKey,
-}: {
-  novuApiKey: string;
-}): Record<string, string> {
-  return {
-    ...webEnv(novuApiKey, VARIANT_URL),
-    NEXT_DIST_DIR: '.next/e2e-variant',
-    ENABLE_MARKETING: 'false',
-    ENABLE_BILLING: 'false',
   };
 }

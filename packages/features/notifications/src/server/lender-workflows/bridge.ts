@@ -15,6 +15,7 @@ import {
   type SellerWorkflowDeps,
 } from '../seller-workflows/workflows';
 import { buildTodoWorkflows } from '../todo-workflows/workflows';
+import { buildWorkflowRunWorkflows } from '../workflow-run-workflows/workflows';
 import { buildLenderWorkflows, type LenderWorkflowDeps } from './workflows';
 
 export type { SellerDigestItem } from '../seller-workflows/workflows';
@@ -43,6 +44,7 @@ export function createLenderBridge(
       ...buildDealEventWorkflows(deps),
       ...buildTodoWorkflows(deps),
       ...buildSellerCounselWorkflows(deps),
+      ...buildWorkflowRunWorkflows(deps),
     ],
     handler: (request: Request) => ({
       body: () => request.json(),

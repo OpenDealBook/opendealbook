@@ -175,14 +175,16 @@ select throws_ok(
 select tests.login_as_service_role();
 select lives_ok(
   $$ select public.append_deal_event('5c700000-0000-0000-0000-0000000000d1', 'seller_counsel_message',
-       (select id from public.seller_counsel_message where author_side = 'seller'),
+       (select id from public.seller_counsel_message
+        where deal_id = '5c700000-0000-0000-0000-0000000000d1' and author_side = 'seller'),
        'seller_counsel_message.posted', '{}'::jsonb, null, 'service') $$,
   'a posted message goes into the deal history for the email relay'
 );
 reset role;
 insert into public.deal_event_snapshot (account_id, deal_id, aggregate_type, aggregate_id, through_seq, state)
 select tests.account_id('sct-team'), '5c700000-0000-0000-0000-0000000000d1', 'seller_counsel_message', id, 1, '{}'
-from public.seller_counsel_message where author_side = 'seller';
+from public.seller_counsel_message
+where deal_id = '5c700000-0000-0000-0000-0000000000d1' and author_side = 'seller';
 select is_empty(
   $$ select 1 from jsonb_object_keys(public.deal_wide_manifest('5c700000-0000-0000-0000-0000000000d1') -> 'heads') k
      where k like 'seller_counsel_message:%' $$,

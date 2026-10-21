@@ -24,6 +24,7 @@ export function getTeamAccountNavigationConfig(
     },
     { group: 'work', label: 'common.outreach', path: `${prefix}/outreach` },
     { group: 'work', label: 'common.reports', path: `${prefix}/reports` },
+    { group: 'work', label: 'common.workflows', path: `${prefix}/workflows` },
     {
       group: 'settings',
       label: 'account.dealBox',

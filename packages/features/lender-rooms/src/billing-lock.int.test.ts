@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 import { appendDealEvent } from '@odb/events';
 import type { Database } from '@odb/supabase';
@@ -222,6 +224,8 @@ afterAll(async () => {
 });
 
 describe('a locked team in its lender rooms', { timeout: 60_000 }, () => {
+  beforeEach(() => turnTeamBillingOn(admin));
+
   it('cannot add a folder to the lender package', async () => {
     session.user = owner.client;
 

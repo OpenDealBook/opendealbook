@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { VARIANT_URL, WEB_URL } from './tests/fixtures/stack';
+import { WEB_URL } from './tests/fixtures/stack';
 
-// Global setup starts both web servers itself, after it has minted the Novu and
-// Documenso keys their env needs; see tests/global-setup.ts.
+// Global setup starts the web server itself, after it has minted the Novu and
+// Documenso keys its env needs; see tests/global-setup.ts.
 export default defineConfig({
   testDir: './tests',
   globalSetup: './tests/global-setup.ts',
@@ -24,7 +24,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: ['**/*.variant.spec.ts', '**/full-deal.spec.ts', '**/gotenberg-down.spec.ts'],
+      testIgnore: ['**/full-deal.spec.ts', '**/gotenberg-down.spec.ts'],
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
     },
     {
@@ -38,11 +38,6 @@ export default defineConfig({
       dependencies: ['chromium', 'full-deal'],
       fullyParallel: false,
       use: { ...devices['Desktop Chrome'], baseURL: WEB_URL },
-    },
-    {
-      name: 'variant',
-      testMatch: '**/*.variant.spec.ts',
-      use: { ...devices['Desktop Chrome'], baseURL: VARIANT_URL },
     },
   ],
 });

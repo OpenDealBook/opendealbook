@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import { TEAM_READ_ONLY } from '@odb/next';
 
 import {
@@ -325,6 +327,7 @@ describe('refusals (integration)', () => {
   });
 
   it('tells a billing-locked team it is read-only and changes nothing', async () => {
+    await turnTeamBillingOn(account.admin);
     await account.admin
       .from('accounts')
       .update({

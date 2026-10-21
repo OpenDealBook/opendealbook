@@ -23,6 +23,7 @@ export {
   ensureContractReviewTodoSyncSchedule,
 } from './contract-review/schedule';
 export { ensureMilestoneOverdueSchedule } from './schedules/milestoneOverdue';
+export { ensureWorkflowPruneSchedule } from './schedules/workflowPrune';
 export { ensureCompEventRelay } from './schedules/compEventRelay';
 export { ensureDealEventNotificationRelay } from './schedules/dealEventNotificationRelay';
 export {

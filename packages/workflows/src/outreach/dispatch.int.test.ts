@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import {
   provisionAccount,
   type IntegrationAccount,
@@ -449,6 +451,7 @@ describe('dispatchAccountOutreach for a locked team (integration)', () => {
     await switchToTeam();
     await setSetting(10, 5);
     await enroll('held@target.test');
+    await turnTeamBillingOn(account.admin);
     await setTrialEnd(-86_400_000);
 
     const whileLocked = await dispatchAccountOutreach({ accountId: account.accountId });

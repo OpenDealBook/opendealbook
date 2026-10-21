@@ -14,6 +14,7 @@ import {
   ensureOutreachDispatchSchedule,
   ensureOutreachStaleSweepSchedule,
   ensureUploadCleanupSchedule,
+  ensureWorkflowPruneSchedule,
 } from '@odb/workflows';
 import * as activities from '@odb/workflows/activities';
 import { getTemporalClient, TASK_QUEUE } from '@odb/workflows/client';
@@ -54,6 +55,7 @@ for (const ensure of [
   ensureContractReviewReminderEmailSchedule,
   ensureOutreachDispatchSchedule,
   ensureOutreachStaleSweepSchedule,
+  ensureWorkflowPruneSchedule,
 ]) {
   try {
     await ensure(client);

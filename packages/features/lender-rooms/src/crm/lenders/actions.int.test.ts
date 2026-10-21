@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { Database } from '@odb/supabase';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
@@ -486,6 +488,7 @@ describe('a team member who cannot manage deals', () => {
 
 describe('a team in billing read-only lock', () => {
   it('is refused every lender action', async () => {
+    await turnTeamBillingOn(admin);
     const lenderId = await newLender(
       `locked-${suffix}.com`,
       'First Bank',

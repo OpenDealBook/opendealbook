@@ -13,6 +13,7 @@ export { dealUpdateDelivery } from './dealUpdateDelivery';
 export { outreachDispatch } from './outreachDispatch';
 export { cleanUpUnfinishedUploads } from './cleanUpUnfinishedUploads';
 export { sweepOrphanedDealObjects } from '../storageSweep/workflow';
+export { pruneWorkflowStepDataDaily } from '../schedules/workflowPruneWorkflow';
 export { syncLenderRepliesHourly } from '../lender-replies/workflow';
 export { sweepStaleLenderOutreach } from '../lender-replies/staleSweepWorkflow';
 export { sweepStaleOutreachMessages } from '../outreach/staleSweepWorkflow';

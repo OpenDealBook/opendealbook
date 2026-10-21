@@ -2,6 +2,7 @@ import type { BillingWebhookEvent } from '@odb/billing-gateway';
 import { getLogger } from '@odb/shared/logger';
 import { createStripeWebhookHandler } from '@odb/stripe';
 import { getSupabaseServerAdminClient } from '@odb/supabase/server';
+import { resumeLockedWorkflowRuns } from '@odb/workflows/builder/client';
 import { stopTrialDrip } from '@odb/workflows/client';
 
 type AdminClient = ReturnType<typeof getSupabaseServerAdminClient>;
@@ -42,6 +43,7 @@ export async function persistBillingEvent(
         await stopTrialDripForAccount(client, event.subscription.accountId);
       }
 
+      await resumeWorkflowRunsIfUnlocked(client, event.subscription.accountId);
       return;
 
     case 'subscription.deleted':
@@ -105,6 +107,30 @@ async function stopTrialDripForAccount(
     await stopTrialDrip(data!.primary_owner_user_id);
   } catch (error) {
     getLogger().warn({ error, accountId }, 'Failed to stop trial drip');
+  }
+}
+
+async function resumeWorkflowRunsIfUnlocked(
+  client: AdminClient,
+  accountId: string,
+): Promise<void> {
+  try {
+    const { data: locked, error } = await client.rpc('is_account_locked', {
+      target_account_id: accountId,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!locked) {
+      await resumeLockedWorkflowRuns({ accountId });
+    }
+  } catch (error) {
+    getLogger().warn(
+      { error, accountId },
+      'Failed to resume locked workflow runs',
+    );
   }
 }
 

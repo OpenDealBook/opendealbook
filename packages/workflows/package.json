@@ -13,6 +13,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
+    "./builder/client": "./src/builder/client.ts",
     "./activities": "./src/activities/index.ts"
   },
   "scripts": {

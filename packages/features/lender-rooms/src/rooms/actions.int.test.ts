@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { Database } from '@odb/supabase';
 
 const caller = vi.hoisted(() => ({
@@ -963,6 +965,7 @@ describe('closeLenderRoom (integration)', () => {
   });
 
   it('refuses to start a close while the team is read-only', async () => {
+    await turnTeamBillingOn(admin);
     const roomId = await newRoom(await newDeal());
     const lockFor = async (days: number) =>
       admin

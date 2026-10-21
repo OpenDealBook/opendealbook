@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { Database } from '@odb/supabase';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
@@ -245,6 +247,8 @@ describe('sendLenderOutreach', () => {
   });
 
   it('refuses while the team is in billing lock', async () => {
+    await turnTeamBillingOn(admin);
+
     expect(await sendLenderOutreach(review(lockedRoomId))).toEqual({
       ok: false,
       refusal: READ_ONLY,

@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { NovuClient } from '@odb/notifications/server';
 
 import {
@@ -131,6 +133,7 @@ describe('emailLendersToNudge (integration)', () => {
   });
 
   it('sends nothing to a team locked for billing', async () => {
+    await turnTeamBillingOn(admin);
     const { teamId } = await seedQuietTeam(30);
     await admin
       .from('accounts')

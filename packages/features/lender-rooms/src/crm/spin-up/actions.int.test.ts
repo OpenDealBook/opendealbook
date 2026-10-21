@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import type { Database } from '@odb/supabase';
 
 const caller = vi.hoisted(() => ({
@@ -599,6 +601,7 @@ describe('spinUpLenderRooms', () => {
   });
 
   it('refuses while the team is read-only for billing', async () => {
+    await turnTeamBillingOn(admin);
     const lockedTeamId = await newTeam(ownerUserId, 'Locked Team');
     await admin
       .from('accounts')

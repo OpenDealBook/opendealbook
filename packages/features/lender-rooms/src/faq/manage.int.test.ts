@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+
 import { DATA_ROOM_BUCKET } from '@odb/data-room/storage';
 import type { Database } from '@odb/supabase';
 
@@ -226,6 +228,7 @@ async function lockedTeamEntry(
   status: Database['public']['Enums']['lender_faq_status'],
 ) {
   const entry = await teamDealEntry(status);
+  await turnTeamBillingOn(admin);
   await setTeamLocked(entry.accountId, true);
 
   return entry;
