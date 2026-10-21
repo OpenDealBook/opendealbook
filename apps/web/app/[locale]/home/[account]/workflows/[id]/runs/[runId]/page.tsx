@@ -28,7 +28,7 @@ export default async function WorkflowRunPage(props: {
   const [{ data: run }, { data: steps }] = await Promise.all([
     client
       .from('workflow_run')
-      .select('id, status, workflow_version(schema_version, graph)')
+      .select('id, status, error, loop_items_processed, loop_items_total, workflow_version(schema_version, graph)')
       .eq('id', runId)
       .eq('workflow_id', id)
       .eq('account_id', team.id)
@@ -37,7 +37,7 @@ export default async function WorkflowRunPage(props: {
     client
       .from('workflow_step_run')
       .select(
-        'id, node_id, attempt, status, input, output, error, started_at, finished_at, logs:workflow_step_log(id, level, message, details, created_at)',
+        'id, node_id, attempt, status, input, output, error, started_at, finished_at, wake_at, iteration_path, logs:workflow_step_log(id, level, message, details, created_at)',
       )
       .eq('run_id', runId)
       .eq('account_id', team.id)
@@ -50,13 +50,16 @@ export default async function WorkflowRunPage(props: {
     notFound();
   }
 
-  const { steps: stepNodes } = parseWorkflowGraph({
+  const { nodes } = parseWorkflowGraph({
     schemaVersion: run.workflow_version.schema_version,
     graph: run.workflow_version.graph,
   });
   const labels = Object.fromEntries(
-    stepNodes.flatMap((node) => (node.label ? [[node.id, node.label]] : [])),
+    nodes.flatMap((node) => (node.label ? [[node.id, node.label]] : [])),
   );
+  const loops = nodes
+    .filter((node) => node.type === 'loop')
+    .map((node) => node.id);
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
@@ -68,9 +71,16 @@ export default async function WorkflowRunPage(props: {
       </Link>
       <WorkflowRunDetail
         accountId={team.id}
-        run={{ id: run.id, status: run.status }}
+        run={{
+          id: run.id,
+          status: run.status,
+          error: run.error,
+          loop_items_processed: run.loop_items_processed,
+          loop_items_total: run.loop_items_total,
+        }}
         steps={steps}
         labels={labels}
+        loops={loops}
         stepDataRemoved={stepDataRemoved(steps)}
         unfinished={UNFINISHED_RUN_STATUSES.some(
           (status) => status === run.status,

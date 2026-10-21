@@ -24,7 +24,12 @@ function zoneSelect() {
 
 async function render(current: string | null) {
   await act(async () => {
-    root.render(<TimezoneSetting current={current} />);
+    root.render(
+      <TimezoneSetting
+        current={current}
+        zones={['UTC', 'Asia/Tokyo', 'Europe/Lisbon']}
+      />,
+    );
   });
 }
 
@@ -42,14 +47,12 @@ afterEach(() => {
 });
 
 describe('the time zone setting', () => {
-  it('offers every time zone the browser knows, showing the saved one', async () => {
+  it('offers exactly the zones it is given, showing the saved one', async () => {
     await render('Europe/Lisbon');
 
     const offered = [...zoneSelect().options].map((option) => option.value);
 
-    expect(offered).toEqual(
-      expect.arrayContaining(Intl.supportedValuesOf('timeZone')),
-    );
+    expect(offered).toEqual(['', 'UTC', 'Asia/Tokyo', 'Europe/Lisbon']);
     expect(zoneSelect().value).toBe('Europe/Lisbon');
   });
 
@@ -69,5 +72,11 @@ describe('the time zone setting', () => {
     await render(null);
 
     expect(zoneSelect().value).toBe('');
+  });
+
+  it('shows a person saved as UTC as UTC', async () => {
+    await render('UTC');
+
+    expect(zoneSelect().value).toBe('UTC');
   });
 });

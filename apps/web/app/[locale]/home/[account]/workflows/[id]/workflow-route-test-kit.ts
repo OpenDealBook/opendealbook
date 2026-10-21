@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+process.env.TZ = 'UTC';
+
 export const tables: Record<string, unknown> = {};
 
 export const workspace = { permissions: [] as string[] };

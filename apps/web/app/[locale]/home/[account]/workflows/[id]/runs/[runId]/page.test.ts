@@ -40,6 +40,12 @@ const graph = {
   nodes: [
     { id: 'start', type: 'manual_trigger', config: {} },
     { id: 'notify-1', type: 'notify_team', config: {}, label: 'Tell the team' },
+    {
+      id: 'each-firm',
+      type: 'loop',
+      config: { items: [] },
+      label: 'Each firm',
+    },
   ],
   edges: [{ id: 'e1', sourceNodeId: 'start', targetNodeId: 'notify-1' }],
 };
@@ -50,6 +56,8 @@ function step(overrides: Record<string, unknown>) {
     node_id: 'notify-1',
     attempt: 1,
     status: 'succeeded',
+    wake_at: null,
+    iteration_path: [],
     input: { channel: 'team' },
     output: { delivered: 3 },
     error: null,
@@ -60,11 +68,19 @@ function step(overrides: Record<string, unknown>) {
   };
 }
 
-function seed(status: string, steps: unknown[], schemaVersion = 1) {
+function seed(
+  status: string,
+  steps: unknown[],
+  schemaVersion = 1,
+  error: string | null = null,
+) {
   Object.assign(tables, {
     workflow_run: {
       id: RUN,
       status,
+      error,
+      loop_items_processed: 500,
+      loop_items_total: 730,
       workflow_version: { schema_version: schemaVersion, graph },
     },
     workflow_step_run: steps,
@@ -100,7 +116,7 @@ it('labels steps from the parsed version graph', async () => {
 });
 
 it('refuses to show a run whose version uses an unknown schema version', async () => {
-  seed('succeeded', [step({})], 2);
+  seed('succeeded', [step({})], 99);
 
   await expect(render()).rejects.toThrow();
 });
@@ -133,4 +149,45 @@ it('offers Cancel on each unfinished status the runner lists, and not on a faile
 
   seed('failed', [step({ status: 'failed', output: null, error: 'boom' })]);
   expect(await render()).not.toContain('Cancel run');
+});
+
+it('labels a loop step from the graph, counts its items, and reports the run budget', async () => {
+  seed('succeeded', [
+    step({
+      node_id: 'each-firm',
+      output: { items: [1, 2, 3], processed: 500, total: 730, resumes: 0 },
+    }),
+  ]);
+
+  const html = await render();
+
+  expect(html).toContain('Each firm');
+  expect(html).toContain('3 items');
+  expect(html).toContain('500 of 730 loop items; the rest run next time');
+});
+
+it('says why a run could not start', async () => {
+  seed('failed', [], 1, 'Unknown node type');
+
+  expect(await render()).toContain('This run could not start: Unknown node type');
+});
+
+it('shows each loop item a step ran for, and when a waiting step wakes', async () => {
+  seed('waiting', [
+    step({ id: 's1', iteration_path: [0] }),
+    step({ id: 's2', iteration_path: [1] }),
+    step({
+      id: 's3',
+      status: 'waiting',
+      output: null,
+      finished_at: null,
+      wake_at: '2026-10-22T09:00:00Z',
+    }),
+  ]);
+
+  const html = await render();
+
+  expect(html).toContain('Tell the team (item 1)');
+  expect(html).toContain('Tell the team (item 2)');
+  expect(html).toContain('Waiting until Oct 22, 2026, 9:00 AM');
 });

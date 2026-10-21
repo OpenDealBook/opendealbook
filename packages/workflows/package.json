@@ -14,6 +14,7 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./builder/client": "./src/builder/client.ts",
+    "./builder/schedule": "./src/builder/schedule.ts",
     "./activities": "./src/activities/index.ts"
   },
   "scripts": {

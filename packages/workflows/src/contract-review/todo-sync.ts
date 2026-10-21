@@ -2,22 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@odb/supabase';
 
-import { createHash } from 'node:crypto';
-
 import { dealManagerIds } from '../dealManagers';
+import { uuidFromKey } from '../uuidFromKey';
 import { shortDate, timezonesOf } from './local-time';
 import { listPendingReviews, type PendingReview } from './pending';
 
 type Stage = 'share' | 'waiting';
-
-// A retry after a crash between the two inserts must find the to-do it already
-// made, so its id is derived from what the to-do stands for.
-function todoId(link: string): string {
-  const hex = createHash('sha256').update(link).digest('hex');
-  const variant = ((parseInt(hex[16]!, 16) & 0x3) | 0x8).toString(16);
-
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-}
 
 function stageOf(review: PendingReview): Stage {
   return review.side === 'seller' && !review.shownToSeller ? 'share' : 'waiting';
@@ -99,7 +89,9 @@ export async function syncContractReviewTodos(
       }
 
       const stage = stageOf(review);
-      const id = todoId(
+      // A retry after a crash between the two inserts must find the to-do it
+      // already made, so its id is derived from what the to-do stands for.
+      const id = uuidFromKey(
         `${review.versionId}/${review.side}/${userId}/${review.requestId}/${stage}`,
       );
       await admin

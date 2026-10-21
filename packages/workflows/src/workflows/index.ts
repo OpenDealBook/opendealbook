@@ -29,3 +29,4 @@ export { notifyOverdueMilestonesDaily } from './notifyOverdueMilestones';
 export { compEventRelay } from './compEventRelay';
 export { dealEventNotificationRelay } from './dealEventNotificationRelay';
 export { runPublishedWorkflow } from '../builder/workflow';
+export { runScheduledTrigger } from '../builder/scheduleWorkflow';

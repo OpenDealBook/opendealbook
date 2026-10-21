@@ -38,6 +38,9 @@ const temporal = vi.hoisted(() => ({
   signal: vi.fn(async (_workflowId: string, _signal: string) => undefined),
   cancel: vi.fn(async (_workflowId: string) => undefined),
   onWait: async () => {},
+  slept: [] as number[],
+  onSleep: async (_ms: number) => {},
+  fault: async (_activity: string, _input: unknown) => {},
 }));
 
 const managers = vi.hoisted(() => ({ beforeLookup: async () => {} }));
@@ -87,13 +90,30 @@ vi.mock('@temporalio/workflow', async () => {
   const builderActivities = await import('./activities');
   const { isTeamLocked } = await import('../teamLock');
 
+  const faulted = Object.fromEntries(
+    Object.entries({ ...builderActivities, isTeamLocked }).map(([name, activity]) => [
+      name,
+      async (input: unknown) => {
+        await temporal.fault(name, input);
+        return (activity as (input: unknown) => unknown)(input);
+      },
+    ]),
+  );
+
   return {
-    proxyActivities: () => ({ ...builderActivities, isTeamLocked }),
+    proxyActivities: () => faulted,
+    CancellationScope: { nonCancellable: <T>(fn: () => Promise<T>) => fn() },
+    isCancellation: () => false,
     defineSignal: (name: string) => name,
     setHandler: () => {},
     condition: async () => {
       await temporal.onWait();
       return false;
+    },
+    sleep: async (ms: number) => {
+      temporal.slept.push(ms);
+      await temporal.onSleep(ms);
+      vi.setSystemTime(Date.now() + ms);
     },
   };
 });
@@ -106,6 +126,9 @@ import {
   failWorkflowStep,
   transitionWorkflowRun,
 } from './activities';
+import type { WorkflowNode } from './graph';
+
+type NodeConfigValue = WorkflowNode['config'][string];
 import {
   cancelWaitingRuns,
   cancelWorkflowRun,
@@ -119,6 +142,7 @@ import type { WorkflowGraph } from './graph';
 import { runPublishedWorkflow } from './workflow';
 
 const HOUR = 60 * 60 * 1000;
+const RUNTIME_FAILURE = '{{steps.start.missing}}';
 const message = 'Weekly pipeline review is due';
 
 let owner: IntegrationAccount;
@@ -319,6 +343,9 @@ beforeEach(async () => {
   managers.beforeLookup = async () => {};
   novu.trigger.mockClear();
   temporal.onWait = async () => {};
+  temporal.slept = [];
+  temporal.onSleep = async () => {};
+  temporal.fault = async () => {};
   owner = await provisionAccount();
   teamSlug = `wfb-${crypto.randomUUID().slice(0, 8)}`;
 
@@ -350,6 +377,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   delete process.env.NOVU_API_KEY;
   delete process.env.NOVU_API_URL;
   await owner.admin.from('workflow_run').delete().eq('account_id', teamId);
@@ -397,7 +425,7 @@ describe('a published workflow run manually (integration)', () => {
       runId,
       accountId: teamId,
       node: { id: 'notify', type: 'notify_team', config: { message } },
-      iteration: 0,
+      iterationPath: [],
       input: {},
       steps: { start: {} },
     });
@@ -439,7 +467,7 @@ describe('a published workflow run manually (integration)', () => {
     await publish({
       nodes: [
         trigger,
-        { id: 'broken', type: 'notify_team', config: { message: '' } },
+        { id: 'broken', type: 'notify_team', config: { message: RUNTIME_FAILURE } },
         { id: 'after', type: 'notify_team', config: { message: 'After broken' } },
         { id: 'side', type: 'notify_team', config: { message: 'Side branch' } },
       ],
@@ -457,7 +485,7 @@ describe('a published workflow run manually (integration)', () => {
     expect(broken).toMatchObject({
       node_id: 'broken',
       status: 'failed',
-      error: expect.stringContaining('message'),
+      error: expect.stringContaining('steps.start.missing'),
       workflow_step_log: [
         { level: 'info', message: 'Step started' },
         { level: 'error', message: 'Step failed' },
@@ -479,7 +507,7 @@ describe('a published workflow run manually (integration)', () => {
         type: 'notify_team',
         config: { message: '{{steps.missing.field}}' },
       },
-      iteration: 0,
+      iterationPath: [],
       input: {},
       steps: { start: {} },
     }).catch((error: unknown) => error);
@@ -638,7 +666,7 @@ const brokenGraph: WorkflowGraph = {
       id: 'broken',
       type: 'notify_team',
       label: 'Send reminder',
-      config: { message: '' },
+      config: { message: RUNTIME_FAILURE },
     },
   ],
   edges: [edge('start', 'broken')],
@@ -653,7 +681,7 @@ describe('a failed workflow run (integration)', () => {
       runId,
       accountId: teamId,
       node: { id: 'broken', type: 'notify_team', config: { message: '' } },
-      iteration: 0,
+      iterationPath: [],
       input: {},
       steps: { start: {} },
     }).catch((error: unknown) => error);
@@ -689,7 +717,7 @@ describe('a failed workflow run (integration)', () => {
     process.env.NOVU_API_KEY = 'secret';
     process.env.NOVU_API_URL = 'https://novu.test';
     await publish({
-      nodes: [trigger, { id: 'broken', type: 'notify_team', config: { message: '' } }],
+      nodes: [trigger, { id: 'broken', type: 'notify_team', config: { message: RUNTIME_FAILURE } }],
       edges: [edge('start', 'broken')],
     });
     const { runId } = await runManually();
@@ -1052,7 +1080,7 @@ describe('a run action the runner cannot carry out (integration)', () => {
           runId,
           accountId: teamId,
           node: { id: nodeId, type: 'notify_team', config: { message } },
-          iteration: 0,
+          iterationPath: [],
           input: {},
           steps: { start: {} },
         }),
@@ -1152,7 +1180,7 @@ describe('step attempts that overlap (integration)', () => {
       runId,
       accountId: teamId,
       node: { id: 'notify', type: 'notify_team', config: { message } },
-      iteration: 0,
+      iterationPath: [],
       input: {},
       steps: { start: {} },
     } as const;
@@ -1175,7 +1203,7 @@ describe('step attempts that overlap (integration)', () => {
       runId,
       accountId: teamId,
       node: { id: 'notify', type: 'notify_team', config: { message } },
-      iteration: 0,
+      iterationPath: [],
       input: {},
       steps: { start: {} },
     } as const;
@@ -1193,7 +1221,7 @@ describe('step attempts that overlap (integration)', () => {
       runId,
       accountId: teamId,
       node: { id: 'notify', type: 'notify_team', config: { message } },
-      iteration: 0,
+      iterationPath: [],
       error: 'database unavailable',
     });
 
@@ -1278,5 +1306,1040 @@ describe('Run now and archiving (integration)', () => {
 
     expect((await runRow(runId)).status).toBe('succeeded');
     expect(await notificationCounts()).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+  });
+});
+
+async function runToEnd(): Promise<string> {
+  const { runId } = await runManually();
+  await runPublishedWorkflow({ runId });
+  return runId;
+}
+
+async function stepRow(runId: string, nodeId: string, iteration = 0) {
+  const { data } = await owner.admin
+    .from('workflow_step_run')
+    .select('status, output, error, started_at, finished_at')
+    .eq('idempotency_key', `${runId}:${nodeId}:${iteration}`)
+    .maybeSingle()
+    .throwOnError();
+  return data;
+}
+
+async function runStatus(runId: string): Promise<string> {
+  return (await runRow(runId)).status;
+}
+
+const notify = (id: string, text: string) =>
+  ({ id, type: 'notify_team', config: { message: text } }) as const;
+const exit = (sourceNodeId: string, sourceHandle: string, targetNodeId: string) => ({
+  ...edge(sourceNodeId, targetNodeId),
+  id: `${sourceNodeId}-${sourceHandle}-${targetNodeId}`,
+  sourceHandle,
+});
+const decide = (rule: NodeConfigValue): WorkflowNode => ({ id: 'decide', type: 'branch', config: { rule } });
+const firstNotifiedIs = (count: number) => ({ '==': [{ var: 'steps.first.notified' }, count] });
+
+describe('a branch (integration)', () => {
+  it('follows only the edges from the handle its rule chose', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        notify('first', 'First'),
+        decide(firstNotifiedIs(2)),
+        notify('onTrue', 'Took true'),
+        notify('onFalse', 'Took false'),
+      ],
+      edges: [
+        edge('start', 'first'),
+        edge('first', 'decide'),
+        exit('decide', 'true', 'onTrue'),
+        exit('decide', 'false', 'onFalse'),
+      ],
+    });
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await stepRow(runId, 'decide')).toMatchObject({ status: 'succeeded' });
+    expect(await notificationCounts('Took true')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+    expect(await stepRow(runId, 'onFalse')).toBeNull();
+  });
+
+  it('fails at once when its rule reads a value that is missing', async () => {
+    const graph = {
+      nodes: [
+        trigger,
+        notify('first', 'First'),
+        decide({ '==': [{ var: 'steps.first.missing' }, 2] }),
+        notify('onTrue', 'Took true'),
+        notify('onFalse', 'Took false'),
+      ],
+      edges: [
+        edge('start', 'first'),
+        edge('first', 'decide'),
+        exit('decide', 'true', 'onTrue'),
+        exit('decide', 'false', 'onFalse'),
+      ],
+    };
+    await publish(graph);
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('failed');
+    expect(await stepRow(runId, 'decide')).toMatchObject({
+      status: 'failed',
+      error: 'steps.first.missing does not name a value',
+    });
+    expect(await stepRow(runId, 'onTrue')).toBeNull();
+    expect(await stepRow(runId, 'onFalse')).toBeNull();
+
+    const failure = await executeWorkflowStep({
+      runId: (await runManually()).runId,
+      accountId: teamId,
+      node: graph.nodes[2]!,
+      iterationPath: [],
+      input: {},
+      steps: { start: {}, first: { notified: 2 } },
+    }).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ApplicationFailure);
+    expect(failure).toMatchObject({
+      nonRetryable: true,
+      message: 'steps.first.missing does not name a value',
+    });
+  });
+});
+
+describe('a merge (integration)', () => {
+  it('does not wait for the path a branch did not take and keys its output by step id', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        notify('first', 'First'),
+        decide(firstNotifiedIs(2)),
+        notify('onTrue', 'Took true'),
+        notify('onFalse', 'Took false'),
+        { id: 'join', type: 'merge', config: {} },
+        notify('after', 'After join'),
+      ],
+      edges: [
+        edge('start', 'first'),
+        edge('first', 'decide'),
+        exit('decide', 'true', 'onTrue'),
+        exit('decide', 'false', 'onFalse'),
+        edge('onTrue', 'join'),
+        edge('onFalse', 'join'),
+        edge('join', 'after'),
+      ],
+    });
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await stepRow(runId, 'join')).toMatchObject({
+      status: 'succeeded',
+      output: { onTrue: { notified: 2 } },
+    });
+    expect(await notificationCounts('After join')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+  });
+
+  it('waits for every incoming path that runs', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        notify('left', 'Left'),
+        notify('right', 'Right'),
+        { id: 'join', type: 'merge', config: {} },
+      ],
+      edges: [
+        edge('start', 'left'),
+        edge('start', 'right'),
+        edge('left', 'join'),
+        edge('right', 'join'),
+      ],
+    });
+
+    const runId = await runToEnd();
+
+    expect(await stepRow(runId, 'join')).toMatchObject({
+      status: 'succeeded',
+      output: { left: { notified: 2 }, right: { notified: 2 } },
+    });
+  });
+
+  it('does not run when an incoming path failed', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        notify('left', RUNTIME_FAILURE),
+        notify('right', 'Right'),
+        { id: 'join', type: 'merge', config: {} },
+        notify('after', 'After join'),
+      ],
+      edges: [
+        edge('start', 'left'),
+        edge('start', 'right'),
+        edge('left', 'join'),
+        edge('right', 'join'),
+        edge('join', 'after'),
+      ],
+    });
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('failed');
+    expect(await stepRow(runId, 'right')).toMatchObject({ status: 'succeeded' });
+    expect(await stepRow(runId, 'join')).toBeNull();
+    expect(await stepRow(runId, 'after')).toBeNull();
+  });
+});
+
+type LoopOutput = { items: unknown[]; processed: number; total: number };
+
+async function loopBudget(runId: string) {
+  const { data } = await owner.admin
+    .from('workflow_run')
+    .select('loop_items_processed, loop_items_total')
+    .eq('id', runId)
+    .single()
+    .throwOnError();
+  return data;
+}
+
+async function savedWork() {
+  const { data } = await owner.admin
+    .from('workflow_loop_saved_work')
+    .select('node_id, items, saved_by_run_id, claimed_by_run_id')
+    .eq('workflow_id', workflowId)
+    .order('created_at')
+    .throwOnError();
+  return data;
+}
+
+const loopGraph = (config: WorkflowNode['config']): WorkflowGraph => ({
+  nodes: [
+    trigger,
+    { id: 'items', type: 'loop', config },
+    notify('each', 'Item {{steps.items.item}}'),
+    notify('done', 'All items done'),
+  ],
+  edges: [edge('start', 'items'), exit('items', 'each', 'each'), exit('items', 'done', 'done')],
+});
+
+describe('a loop (integration)', () => {
+  it('runs its each path once per item in order under the item index, then its done path', async () => {
+    await publish(loopGraph({ items: ['a', 'b', 'c'] }));
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    const each = await Promise.all([0, 1, 2].map((index) => stepRow(runId, 'each', index)));
+    for (const [index, text] of ['a', 'b', 'c'].entries()) {
+      expect(each[index]).toMatchObject({ status: 'succeeded' });
+      expect(await notificationCounts(`Item ${text}`)).toEqual({
+        [owner.userId]: 1,
+        [managerId]: 1,
+      });
+    }
+    expect(each[0]!.finished_at! <= each[1]!.started_at).toBe(true);
+    expect(each[1]!.finished_at! <= each[2]!.started_at).toBe(true);
+    const done = await stepRow(runId, 'done');
+    expect(done!.started_at >= each[2]!.finished_at!).toBe(true);
+  });
+
+  it('runs its items in parallel when asked, then its done path once', async () => {
+    await publish(loopGraph({ items: ['a', 'b', 'c'], parallel: true }));
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    for (const index of [0, 1, 2]) {
+      expect(await stepRow(runId, 'each', index)).toMatchObject({ status: 'succeeded' });
+    }
+    expect(await notificationCounts('All items done')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+
+  it('does 500 items, saves the rest for the next run, and hands saved items out once', async () => {
+    const items = Array.from({ length: 502 }, (_, index) => index);
+    await publish({
+      nodes: [trigger, { id: 'items', type: 'loop', config: { items } }],
+      edges: [edge('start', 'items')],
+    });
+
+    const first = await runToEnd();
+    expect(await stepRow(first, 'items')).toMatchObject({
+      status: 'succeeded',
+      output: { processed: 500, total: 502, items: items.slice(0, 500) },
+    });
+    expect(await loopBudget(first)).toEqual({ loop_items_processed: 500, loop_items_total: 502 });
+    expect(await savedWork()).toEqual([
+      { node_id: 'items', items: [500, 501], saved_by_run_id: first, claimed_by_run_id: null },
+    ]);
+
+    const together = [(await runManually()).runId, (await runManually()).runId];
+    await Promise.all(together.map((runId) => runPublishedWorkflow({ runId })));
+
+    const outputs = await Promise.all(
+      together.map(async (runId) => (await stepRow(runId, 'items'))!.output as LoopOutput),
+    );
+    expect(outputs.map((output) => output.total).sort()).toEqual([502, 504]);
+    const claimer = together[outputs.findIndex((output) => output.total === 504)];
+    expect(outputs.find((output) => output.total === 504)!.items.slice(0, 3)).toEqual([500, 501, 0]);
+    expect((await savedWork()).filter((row) => row.saved_by_run_id === first)).toEqual([
+      { node_id: 'items', items: [500, 501], saved_by_run_id: first, claimed_by_run_id: claimer },
+    ]);
+  });
+});
+
+describe('a wait (integration)', () => {
+  const waitGraph = (config: WorkflowNode['config']): WorkflowGraph => ({
+    nodes: [trigger, { id: 'pause', type: 'wait', config }, notify('after', 'After the wait')],
+    edges: [edge('start', 'pause'), edge('pause', 'after')],
+  });
+
+  it('parks its path on a durable timer for the duration, shows the run waiting, then carries on', async () => {
+    await publish(waitGraph({ kind: 'duration', amount: 5, unit: 'minutes' }));
+    const { runId } = await runManually();
+    const seen: unknown[] = [];
+    temporal.onSleep = async () => {
+      seen.push(await runStatus(runId), (await stepRow(runId, 'pause'))!.status);
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(seen).toEqual(['waiting', 'waiting']);
+    expect(temporal.slept).toHaveLength(1);
+    expect(temporal.slept[0]).toBeGreaterThan(4 * 60 * 1000);
+    expect(temporal.slept[0]).toBeLessThanOrEqual(5 * 60 * 1000);
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await stepRow(runId, 'pause')).toMatchObject({ status: 'succeeded' });
+    expect(await notificationCounts('After the wait')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+
+  it('waits until a full date and time as given', async () => {
+    const until = new Date(Date.now() + 2 * HOUR).toISOString();
+    await publish(waitGraph({ kind: 'until', until }));
+
+    await runToEnd();
+
+    expect(temporal.slept).toHaveLength(1);
+    expect(Math.abs(temporal.slept[0]! - 2 * HOUR)).toBeLessThan(60 * 1000);
+  });
+
+  it('can be cancelled while waiting, and nothing after it runs', async () => {
+    await publish(waitGraph({ kind: 'duration', amount: 1, unit: 'hours' }));
+    const { runId } = await runManually();
+    temporal.onSleep = async () => {
+      await cancelWorkflowRun({ accountId: teamId, runId });
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runStatus(runId)).toBe('cancelled');
+    expect(await stepRow(runId, 'pause')).toMatchObject({ status: 'cancelled' });
+    expect(await stepRow(runId, 'after')).toBeNull();
+  });
+
+  it('keeps the run running while another path works and shows waiting once every unfinished path waits', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'pause', type: 'wait', config: { kind: 'duration', amount: 5, unit: 'minutes' } },
+        notify('busy', 'Busy path'),
+      ],
+      edges: [edge('start', 'pause'), edge('start', 'busy')],
+    });
+    const { runId } = await runManually();
+    let pathParked!: () => void;
+    const parked = new Promise<void>((resolve) => (pathParked = resolve));
+    const whileBusy: string[] = [];
+    managers.beforeLookup = async () => {
+      managers.beforeLookup = async () => {};
+      await parked;
+      whileBusy.push(await runStatus(runId));
+    };
+    temporal.onSleep = async () => {
+      pathParked();
+      await expect.poll(() => runStatus(runId), { timeout: 15_000 }).toBe('waiting');
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(whileBusy).toEqual(['running']);
+    expect(await runStatus(runId)).toBe('succeeded');
+  });
+});
+
+describe('a run that cannot be loaded (integration)', () => {
+  it('fails the run with the first graph problem and tells the deal managers', async () => {
+    await publish({
+      nodes: [trigger, notify('notify', '')],
+      edges: [edge('start', 'notify')],
+    });
+
+    const runId = await runToEnd();
+
+    const { data: run } = await owner.admin
+      .from('workflow_run')
+      .select('status, error, finished_at')
+      .eq('id', runId)
+      .single()
+      .throwOnError();
+    expect(run).toEqual({
+      status: 'failed',
+      error: 'The message setting is not valid',
+      finished_at: expect.any(String),
+    });
+    expect((await failureNotices(runId)).map((notice) => notice.body)).toEqual([
+      'Pipeline review reminder failed: The message setting is not valid',
+      'Pipeline review reminder failed: The message setting is not valid',
+    ]);
+  });
+
+  it('fails a run whose version has a schema version the runner does not know', async () => {
+    const { data: version } = await owner.admin
+      .from('workflow_version')
+      .insert({
+        account_id: teamId,
+        workflow_id: workflowId,
+        schema_version: 99,
+        graph: oneStepGraph,
+        published_at: new Date().toISOString(),
+        published_by: owner.userId,
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: inserted } = await owner.admin
+      .from('workflow_run')
+      .insert({
+        account_id: teamId,
+        workflow_id: workflowId,
+        version_id: version.id,
+        trigger_kind: 'manual',
+        trigger_ref: crypto.randomUUID(),
+        trigger_node_id: 'start',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+
+    await runPublishedWorkflow({ runId: inserted.id });
+
+    const { data: run } = await owner.admin
+      .from('workflow_run')
+      .select('status, error')
+      .eq('id', inserted.id)
+      .single()
+      .throwOnError();
+    expect(run).toEqual({ status: 'failed', error: 'Schema version 99 is not supported' });
+  });
+});
+
+async function stepRowAt(runId: string, nodeId: string, iteration: string) {
+  const { data } = await owner.admin
+    .from('workflow_step_run')
+    .select('status')
+    .eq('idempotency_key', `${runId}:${nodeId}:${iteration}`)
+    .maybeSingle()
+    .throwOnError();
+  return data;
+}
+
+describe('a loop inside a loop (integration)', () => {
+  it('runs the inner each path per outer item under the full iteration path, reading both items', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        {
+          id: 'outer',
+          type: 'loop',
+          config: {
+            items: [
+              { name: 'A', subs: ['x', 'y'] },
+              { name: 'B', subs: ['z'] },
+            ],
+          },
+        },
+        { id: 'inner', type: 'loop', config: { items: '{{steps.outer.item.subs}}' } },
+        notify('sub', 'Sub {{steps.outer.item.name}} {{steps.inner.item}}'),
+      ],
+      edges: [edge('start', 'outer'), exit('outer', 'each', 'inner'), exit('inner', 'each', 'sub')],
+    });
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    for (const iteration of ['0', '1']) {
+      expect(await stepRowAt(runId, 'inner', iteration)).toEqual({ status: 'succeeded' });
+    }
+    for (const iteration of ['0.0', '0.1', '1.0']) {
+      expect(await stepRowAt(runId, 'sub', iteration)).toEqual({ status: 'succeeded' });
+    }
+    for (const text of ['Sub A x', 'Sub A y', 'Sub B z']) {
+      expect(await notificationCounts(text)).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+    }
+  });
+});
+
+describe('a wait until a plain date (integration)', () => {
+  it("wakes at 09:00 in the team's time zone", async () => {
+    await owner.admin
+      .from('accounts')
+      .update({ timezone: 'America/New_York' })
+      .eq('id', teamId)
+      .throwOnError();
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'pause', type: 'wait', config: { kind: 'until', until: '2027-01-15' } },
+        notify('after', 'After the date'),
+      ],
+      edges: [edge('start', 'pause'), edge('pause', 'after')],
+    });
+    const { runId } = await runManually();
+    const expected = Date.parse('2027-01-15T14:00:00Z') - Date.now();
+
+    await runPublishedWorkflow({ runId });
+
+    expect(temporal.slept).toHaveLength(1);
+    expect(Math.abs(temporal.slept[0]! - expected)).toBeLessThan(60 * 1000);
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await notificationCounts('After the date')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+});
+
+describe('what the run page reads from a step (integration)', () => {
+  it('records when a waiting step wakes', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'pause', type: 'wait', config: { kind: 'duration', amount: 5, unit: 'minutes' } },
+      ],
+      edges: [edge('start', 'pause')],
+    });
+    const { runId } = await runManually();
+    const seen: { started_at: string; wake_at: string | null }[] = [];
+    temporal.onSleep = async () => {
+      const { data } = await owner.admin
+        .from('workflow_step_run')
+        .select('started_at, wake_at')
+        .eq('idempotency_key', `${runId}:pause:0`)
+        .single()
+        .throwOnError();
+      seen.push(data);
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(seen).toHaveLength(1);
+    const waited = Date.parse(seen[0]!.wake_at!) - Date.parse(seen[0]!.started_at);
+    expect(waited).toBeGreaterThanOrEqual(5 * 60 * 1000);
+    expect(waited).toBeLessThan(5 * 60 * 1000 + 5_000);
+  });
+
+  it("records each step's place in its loops, empty outside them", async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'outer', type: 'loop', config: { items: [['x', 'y'], ['z']] } },
+        { id: 'inner', type: 'loop', config: { items: '{{steps.outer.item}}' } },
+        notify('sub', 'Sub {{steps.inner.item}}'),
+      ],
+      edges: [edge('start', 'outer'), exit('outer', 'each', 'inner'), exit('inner', 'each', 'sub')],
+    });
+
+    const runId = await runToEnd();
+
+    const { data } = await owner.admin
+      .from('workflow_step_run')
+      .select('node_id, iteration_path')
+      .eq('run_id', runId)
+      .order('idempotency_key')
+      .throwOnError();
+    expect(data).toEqual([
+      { node_id: 'inner', iteration_path: [0] },
+      { node_id: 'inner', iteration_path: [1] },
+      { node_id: 'outer', iteration_path: [] },
+      { node_id: 'sub', iteration_path: [0, 0] },
+      { node_id: 'sub', iteration_path: [0, 1] },
+      { node_id: 'sub', iteration_path: [1, 0] },
+    ]);
+  });
+
+  it('refuses to retry a run that failed before any step', async () => {
+    await publish({ nodes: [trigger, notify('notify', '')], edges: [edge('start', 'notify')] });
+    const runId = await runToEnd();
+    temporal.start.mockClear();
+
+    const refusal = retryWorkflowRun({ accountId: teamId, runId });
+
+    await expect(refusal).rejects.toBeInstanceOf(RunActionRefused);
+    await expect(refusal).rejects.toMatchObject({
+      reason: 'run_never_started',
+      message: 'This run never started. Fix the workflow, then run it again.',
+    });
+    expect(await runStatus(runId)).toBe('failed');
+    expect(temporal.start).not.toHaveBeenCalled();
+  });
+});
+
+describe('the 500 loop items a run may process (integration)', () => {
+  const nestedGraph: WorkflowGraph = {
+    nodes: [
+      trigger,
+      {
+        id: 'burn',
+        type: 'loop',
+        config: { items: Array.from({ length: 497 }, (_, index) => index) },
+      },
+      {
+        id: 'outer',
+        type: 'loop',
+        config: {
+          items: [
+            { name: 'A', subs: ['a1', 'a2'] },
+            { name: 'B', subs: ['b1'] },
+          ],
+        },
+      },
+      { id: 'inner', type: 'loop', config: { items: '{{steps.outer.item.subs}}' } },
+      notify('sub', 'Sub {{steps.outer.item.name}} {{steps.inner.item}}'),
+    ],
+    edges: [
+      edge('start', 'burn'),
+      exit('burn', 'done', 'outer'),
+      exit('outer', 'each', 'inner'),
+      exit('inner', 'each', 'sub'),
+    ],
+  };
+  const everyManagerOnce = () => ({ [owner.userId]: 1, [managerId]: 1 });
+
+  it('counts items at every loop level against one budget and saves the inner items it could not reach', async () => {
+    await publish(nestedGraph);
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await loopBudget(runId)).toEqual({ loop_items_processed: 500, loop_items_total: 502 });
+    expect(await notificationCounts('Sub A a1')).toEqual(everyManagerOnce());
+    expect(await notificationCounts('Sub A a2')).toEqual({});
+    expect(await notificationCounts('Sub B b1')).toEqual({});
+    expect(await savedWork()).toEqual([
+      { node_id: 'inner', items: ['a2'], saved_by_run_id: runId, claimed_by_run_id: null },
+      { node_id: 'inner', items: ['b1'], saved_by_run_id: runId, claimed_by_run_id: null },
+    ]);
+  });
+
+  it('resumes the saved inner items first in the next run, inside their outer item', async () => {
+    await publish(nestedGraph);
+    const first = await runToEnd();
+
+    const second = await runToEnd();
+
+    expect(await notificationCounts('Sub A a2')).toEqual(everyManagerOnce());
+    expect(await notificationCounts('Sub B b1')).toEqual(everyManagerOnce());
+    expect(await notificationCounts('Sub A a1')).toEqual(everyManagerOnce());
+    expect(await loopBudget(second)).toEqual({ loop_items_processed: 500, loop_items_total: 503 });
+    expect(
+      (await savedWork()).filter((row) => row.saved_by_run_id === first).map((row) => row.claimed_by_run_id),
+    ).toEqual([second, second]);
+    expect((await savedWork()).filter((row) => row.saved_by_run_id === second)).toEqual([
+      { node_id: 'outer', items: [{ name: 'B', subs: ['b1'] }], saved_by_run_id: second, claimed_by_run_id: null },
+      { node_id: 'inner', items: ['a1', 'a2'], saved_by_run_id: second, claimed_by_run_id: null },
+    ]);
+  });
+});
+
+async function insertRun(graph: unknown, schemaVersion = 2): Promise<string> {
+  const { data: version } = await owner.admin
+    .from('workflow_version')
+    .insert({
+      account_id: teamId,
+      workflow_id: workflowId,
+      schema_version: schemaVersion,
+      graph: graph as WorkflowGraph,
+      published_at: new Date().toISOString(),
+      published_by: owner.userId,
+    })
+    .select('id')
+    .single()
+    .throwOnError();
+  const { data: run } = await owner.admin
+    .from('workflow_run')
+    .insert({
+      account_id: teamId,
+      workflow_id: workflowId,
+      version_id: version.id,
+      trigger_kind: 'manual',
+      trigger_ref: crypto.randomUUID(),
+      trigger_node_id: 'start',
+    })
+    .select('id')
+    .single()
+    .throwOnError();
+  return run.id;
+}
+
+async function runRecord(runId: string) {
+  const { data } = await owner.admin
+    .from('workflow_run')
+    .select('status, error')
+    .eq('id', runId)
+    .single()
+    .throwOnError();
+  return data;
+}
+
+async function saveWork(input: {
+  rootNodeId: string;
+  nodeId: string;
+  items: unknown[];
+  steps: Record<string, unknown>;
+}): Promise<string> {
+  const { runId: savedBy } = await runManually();
+  await setRunStatus(savedBy, 'failed');
+  await owner.admin
+    .from('workflow_loop_saved_work')
+    .insert({
+      account_id: teamId,
+      workflow_id: workflowId,
+      root_node_id: input.rootNodeId,
+      node_id: input.nodeId,
+      items: input.items as never,
+      context: { input: {}, steps: input.steps } as never,
+      saved_by_run_id: savedBy,
+    })
+    .throwOnError();
+  return savedBy;
+}
+
+describe('paths that cannot arrive (integration)', () => {
+  it('does not wait at a merge for a path that hangs off a trigger this run did not start from', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'nightly', type: 'schedule_trigger', config: { every: 'day', at: '09:00' } },
+        notify('left', 'Left'),
+        notify('right', 'Right'),
+        { id: 'join', type: 'merge', config: {} },
+        notify('after', 'After join'),
+      ],
+      edges: [
+        edge('start', 'left'),
+        edge('nightly', 'right'),
+        edge('left', 'join'),
+        edge('right', 'join'),
+        edge('join', 'after'),
+      ],
+    });
+
+    const runId = await runToEnd();
+
+    expect(await stepRow(runId, 'join')).toMatchObject({
+      status: 'succeeded',
+      output: { left: { notified: 2 } },
+    });
+    expect(await notificationCounts('After join')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+  });
+});
+
+describe('bookkeeping that keeps failing (integration)', () => {
+  it('still records the run as failed when ending the run keeps failing', async () => {
+    await publish(oneStepGraph);
+    const { runId } = await runManually();
+    temporal.fault = async (activity, input) => {
+      if (activity === 'transitionWorkflowRun' && (input as { to: string }).to === 'succeeded') {
+        throw new Error('database unavailable');
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runRecord(runId)).toEqual({ status: 'failed', error: 'database unavailable' });
+  });
+
+  it('still records the run as failed when recording a step failure keeps failing', async () => {
+    await publish({ nodes: [trigger, notify('broken', RUNTIME_FAILURE)], edges: [edge('start', 'broken')] });
+    const { runId } = await runManually();
+    temporal.fault = async (activity) => {
+      if (activity === 'failWorkflowStep') {
+        throw new Error('database unavailable');
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runRecord(runId)).toEqual({ status: 'failed', error: 'database unavailable' });
+  });
+
+  it('fails a run whose graph cannot be read', async () => {
+    const runId = await insertRun({ nodes: 'not a list', edges: [] });
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runRecord(runId)).toEqual({
+      status: 'failed',
+      error: 'The workflow graph could not be read',
+    });
+  });
+});
+
+describe('recording a step failure (integration)', () => {
+  it('leaves a step that already succeeded or was cancelled as it is', async () => {
+    await publish(oneStepGraph);
+    const { runId } = await runManually();
+    await recordStep(runId, 'done', { status: 'succeeded', output: { notified: 2 } });
+    await recordStep(runId, 'stopped', { status: 'running' });
+    await owner.admin
+      .from('workflow_step_run')
+      .update({ status: 'cancelled', finished_at: new Date().toISOString() })
+      .eq('idempotency_key', `${runId}:stopped:0`)
+      .throwOnError();
+
+    for (const nodeId of ['done', 'stopped']) {
+      await failWorkflowStep({
+        runId,
+        accountId: teamId,
+        node: { id: nodeId, type: 'notify_team', config: { message } },
+        iterationPath: [],
+        error: 'late failure',
+      });
+    }
+
+    expect(await stepRow(runId, 'done')).toMatchObject({
+      status: 'succeeded',
+      error: null,
+      output: { notified: 2 },
+    });
+    expect(await stepRow(runId, 'stopped')).toMatchObject({ status: 'cancelled', error: null });
+  });
+
+  it('never grants a loop twice when its step runs again after the grant committed', async () => {
+    await publish(loopGraph({ items: ['a', 'b', 'c'] }));
+    const { runId } = await runManually();
+    const loopNode: WorkflowNode = { id: 'items', type: 'loop', config: { items: ['a', 'b', 'c'] } };
+    const execution = { runId, accountId: teamId, node: loopNode, iterationPath: [], input: {}, steps: { start: {} } };
+
+    const first = await executeWorkflowStep(execution);
+    const again = await executeWorkflowStep(execution);
+
+    expect(again).toEqual(first);
+    expect(await loopBudget(runId)).toEqual({ loop_items_processed: 3, loop_items_total: 3 });
+  });
+});
+
+describe('carried-over loop items (integration)', () => {
+  const resumeGraph: WorkflowGraph = {
+    nodes: [
+      trigger,
+      { id: 'outer', type: 'loop', config: { items: [{ name: 'A', subs: [{ t: 'a1' }] }] } },
+      { id: 'inner', type: 'loop', config: { items: '{{steps.outer.item.subs}}' } },
+      notify('sub', 'Sub {{steps.inner.item.t}}'),
+      notify('outerDone', 'Outer done'),
+    ],
+    edges: [
+      edge('start', 'outer'),
+      exit('outer', 'each', 'inner'),
+      exit('inner', 'each', 'sub'),
+      exit('outer', 'done', 'outerDone'),
+    ],
+  };
+  const outerContext = { start: {}, outer: { item: { name: 'A', subs: [] }, index: 0 } };
+
+  it('does not run the root done path when a resumed item fails', async () => {
+    await publish(resumeGraph);
+    await saveWork({ rootNodeId: 'outer', nodeId: 'inner', items: [{ bad: 1 }], steps: outerContext });
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('failed');
+    expect(await notificationCounts('Sub a1')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+    expect(await notificationCounts('Outer done')).toEqual({});
+  });
+
+  it('runs a done path only in the run that finishes the last carried-over items', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'items', type: 'loop', config: { items: ['f1'] } },
+        notify('done', 'All items done'),
+      ],
+      edges: [edge('start', 'items'), exit('items', 'done', 'done')],
+    });
+    await saveWork({
+      rootNodeId: 'items',
+      nodeId: 'items',
+      items: Array.from({ length: 500 }, (_, i) => i),
+      steps: { start: {} },
+    });
+
+    await runToEnd();
+    expect(await notificationCounts('All items done')).toEqual({});
+
+    await runToEnd();
+    expect(await notificationCounts('All items done')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+  });
+
+  it('puts claimed items back when the run is cancelled before reaching them', async () => {
+    await publish(loopGraph({ items: ['f1'] }));
+    await saveWork({ rootNodeId: 'items', nodeId: 'items', items: ['s1', 's2'], steps: { start: {} } });
+    const { runId } = await runManually();
+    managers.beforeLookup = async () => {
+      managers.beforeLookup = async () => {};
+      await cancelWorkflowRun({ accountId: teamId, runId });
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runStatus(runId)).toBe('cancelled');
+    expect((await savedWork()).filter((row) => row.saved_by_run_id === runId)).toEqual([
+      { node_id: 'items', items: ['s2'], saved_by_run_id: runId, claimed_by_run_id: null },
+    ]);
+  });
+
+  it('puts claimed items back when the run fails before reaching them, and its retry leaves them for the next run', async () => {
+    await publish(loopGraph({ items: ['f1'] }));
+    await saveWork({ rootNodeId: 'items', nodeId: 'items', items: ['s1', 's2'], steps: { start: {} } });
+    const { runId } = await runManually();
+    let stepFaulted = false;
+    let bookkeepingFaulted = false;
+    temporal.fault = async (activity, input) => {
+      if (
+        activity === 'executeWorkflowStep' &&
+        (input as { node: { id: string } }).node.id === 'each' &&
+        !stepFaulted
+      ) {
+        stepFaulted = true;
+        throw new Error('step failed');
+      }
+      if (activity === 'failWorkflowStep' && !bookkeepingFaulted) {
+        bookkeepingFaulted = true;
+        throw new Error('database unavailable');
+      }
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(await runRecord(runId)).toEqual({ status: 'failed', error: 'database unavailable' });
+    expect((await savedWork()).filter((row) => row.saved_by_run_id === runId)).toEqual([
+      { node_id: 'items', items: ['s2'], saved_by_run_id: runId, claimed_by_run_id: null },
+    ]);
+
+    await retryWorkflowRun({ accountId: teamId, runId });
+    await runPublishedWorkflow({ runId });
+
+    expect(await notificationCounts('Item s1')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+    expect(await notificationCounts('Item s2')).toEqual({});
+    expect(await notificationCounts('Item f1')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
+  });
+});
+
+describe('saved loop work over time (integration)', () => {
+  const overflowGraph = (): WorkflowGraph => ({
+    nodes: [trigger, { id: 'items', type: 'loop', config: { items: Array.from({ length: 502 }, (_, i) => i) } }],
+    edges: [edge('start', 'items')],
+  });
+
+  it('prunes claimed saved work and saved work older than 90 days', async () => {
+    await publish(overflowGraph());
+    const first = await runToEnd();
+    const second = await runToEnd();
+
+    await owner.admin.rpc('prune_workflow_step_data').throwOnError();
+    expect((await savedWork()).map((row) => row.saved_by_run_id)).toEqual([second]);
+
+    await owner.admin
+      .from('workflow_loop_saved_work')
+      .update({ created_at: new Date(Date.now() - 91 * 24 * HOUR).toISOString() })
+      .eq('saved_by_run_id', second)
+      .throwOnError();
+    await owner.admin.rpc('prune_workflow_step_data').throwOnError();
+    expect(await savedWork()).toEqual([]);
+    expect(first).not.toBe(second);
+  });
+
+  it('drops the saved work when a new version is published, including work an older run saves later', async () => {
+    await publish(overflowGraph());
+    await runToEnd();
+    const { runId: olderRun } = await runManually();
+
+    await publish(overflowGraph());
+    expect(await savedWork()).toEqual([]);
+
+    await runPublishedWorkflow({ runId: olderRun });
+    const newer = await runToEnd();
+
+    expect(((await stepRow(newer, 'items'))!.output as LoopOutput).total).toBe(502);
+  });
+
+  it('drops the saved work when a draft is published by setting its publish time', async () => {
+    await publish(overflowGraph());
+    await runToEnd();
+    const { data: draft } = await owner.admin
+      .from('workflow_version')
+      .insert({ account_id: teamId, workflow_id: workflowId, schema_version: 1, graph: overflowGraph() })
+      .select('id')
+      .single()
+      .throwOnError();
+
+    await owner.admin
+      .from('workflow_version')
+      .update({ published_at: new Date().toISOString(), published_by: owner.userId })
+      .eq('id', draft.id)
+      .throwOnError();
+
+    expect(await savedWork()).toEqual([]);
+  });
+});
+
+describe('a wait that has started (integration)', () => {
+  it('keeps the wake time it was given even when the team time zone changes', async () => {
+    await owner.admin.from('accounts').update({ timezone: 'America/New_York' }).eq('id', teamId).throwOnError();
+    await publish({
+      nodes: [trigger, { id: 'pause', type: 'wait', config: { kind: 'until', until: '2027-01-15' } }],
+      edges: [edge('start', 'pause')],
+    });
+    const { runId } = await runManually();
+    temporal.onSleep = async () => {
+      await owner.admin.from('accounts').update({ timezone: 'Pacific/Honolulu' }).eq('id', teamId).throwOnError();
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    expect(temporal.slept).toHaveLength(1);
+    expect(await runStatus(runId)).toBe('succeeded');
+  });
+
+  it('waits its full duration from when it parks in a retried run, however long ago the step first started', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'pause', type: 'wait', config: { kind: 'duration', amount: 5, unit: 'minutes' } },
+      ],
+      edges: [edge('start', 'pause')],
+    });
+    const { runId } = await runManually();
+    await recordStep(runId, 'pause', { status: 'failed', error: 'Timed out' });
+    await owner.admin
+      .from('workflow_step_run')
+      .update({ started_at: new Date(Date.now() - 2 * 24 * HOUR).toISOString() })
+      .eq('idempotency_key', `${runId}:pause:0`)
+      .throwOnError();
+    await setRunStatus(runId, 'failed');
+
+    await retryWorkflowRun({ accountId: teamId, runId });
+    await runPublishedWorkflow({ runId });
+
+    expect(temporal.slept).toHaveLength(1);
+    expect(temporal.slept[0]).toBeGreaterThan(4 * 60 * 1000);
   });
 });

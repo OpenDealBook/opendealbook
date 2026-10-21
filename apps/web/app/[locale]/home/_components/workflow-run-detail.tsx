@@ -22,6 +22,8 @@ type Step = Pick<
   | 'error'
   | 'started_at'
   | 'finished_at'
+  | 'wake_at'
+  | 'iteration_path'
 > & {
   logs: Pick<
     Tables<'workflow_step_log'>,
@@ -36,9 +38,13 @@ type RunAction = (input: {
 
 export function WorkflowRunDetail(props: {
   accountId: string;
-  run: Pick<Tables<'workflow_run'>, 'id' | 'status'>;
+  run: Pick<
+    Tables<'workflow_run'>,
+    'id' | 'status' | 'error' | 'loop_items_processed' | 'loop_items_total'
+  >;
   steps: Step[];
   labels: Record<string, string>;
+  loops: string[];
   stepDataRemoved: boolean;
   unfinished: boolean;
   canManage: boolean;
@@ -64,9 +70,25 @@ export function WorkflowRunDetail(props: {
 
   return (
     <div className={'flex flex-col gap-6'}>
+      {props.run.error ? (
+        <p className={'text-destructive text-sm'}>
+          This run could not start: {props.run.error}
+        </p>
+      ) : null}
+      {props.run.loop_items_total > props.run.loop_items_processed ? (
+        <p className={'text-sm'}>
+          {props.run.loop_items_processed} of {props.run.loop_items_total} loop
+          items; the rest run next time
+        </p>
+      ) : null}
       <div className={'flex flex-wrap items-center gap-3'}>
         <WorkflowRunStatus status={props.run.status} />
-        {retryable && !props.stepDataRemoved ? (
+        {retryable && props.run.error ? (
+          <p className={'text-muted-foreground text-sm'}>
+            This run never started. Fix the workflow, then run it again.
+          </p>
+        ) : null}
+        {retryable && !props.run.error && !props.stepDataRemoved ? (
           <Button
             type={'button'}
             size={'sm'}
@@ -105,7 +127,11 @@ export function WorkflowRunDetail(props: {
       <ol className={'flex flex-col gap-4'}>
         {props.steps.map((step) => (
           <li key={step.id}>
-            <StepCard step={step} label={props.labels[step.node_id] ?? step.node_id} />
+            <StepCard
+              step={step}
+              label={props.labels[step.node_id] ?? step.node_id}
+              loop={props.loops.includes(step.node_id)}
+            />
           </li>
         ))}
       </ol>
@@ -113,11 +139,23 @@ export function WorkflowRunDetail(props: {
   );
 }
 
-function StepCard({ step, label }: { step: Step; label: string }) {
+function StepCard({
+  step,
+  label,
+  loop,
+}: {
+  step: Step;
+  label: string;
+  loop: boolean;
+}) {
   return (
     <Card>
       <CardHeader className={'flex flex-wrap items-center gap-3'}>
-        <CardTitle>{label}</CardTitle>
+        <CardTitle>
+          {step.iteration_path.length > 0
+            ? `${label} (item ${step.iteration_path.map((index) => index + 1).join(', ')})`
+            : label}
+        </CardTitle>
         <WorkflowRunStatus status={step.status} />
         <span className={'text-muted-foreground text-sm'}>
           Attempt {step.attempt}
@@ -130,6 +168,14 @@ function StepCard({ step, label }: { step: Step; label: string }) {
         </span>
       </CardHeader>
       <CardContent className={'flex flex-col gap-4'}>
+        {step.status === 'waiting' && step.wake_at ? (
+          <p className={'text-sm'}>
+            Waiting until {workflowTime.format(new Date(step.wake_at))}
+          </p>
+        ) : null}
+        {loop && step.output !== null ? (
+          <LoopCount output={step.output as LoopOutput} />
+        ) : null}
         {step.error ? (
           <p className={'text-destructive text-sm'}>{step.error}</p>
         ) : null}
@@ -166,6 +212,12 @@ function StepCard({ step, label }: { step: Step; label: string }) {
       </CardContent>
     </Card>
   );
+}
+
+type LoopOutput = { items: unknown[] };
+
+function LoopCount({ output }: { output: LoopOutput }) {
+  return <p className={'text-sm'}>{output.items.length} items</p>;
 }
 
 function JsonBlock({ title, value }: { title: string; value: Step['input'] }) {

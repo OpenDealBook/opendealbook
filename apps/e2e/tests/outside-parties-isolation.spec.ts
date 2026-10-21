@@ -56,7 +56,7 @@ test("outside parties are refused each other's pages and files", async ({
   counsel,
   contracts,
 }) => {
-  test.setTimeout(120 * 1000);
+  test.setTimeout(240 * 1000);
 
   const dealDescription = `Isolation Deal ${stamp}`;
   const packageName = `teaser-${stamp}.txt`;

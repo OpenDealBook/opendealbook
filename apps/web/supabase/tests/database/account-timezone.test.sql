@@ -36,11 +36,9 @@ select throws_ok(
   'an unknown time zone is refused'
 );
 
-select throws_ok(
+select lives_ok(
   $$ update public.accounts set timezone = 'Europe/Paris' where id = tests.account_id('zoneco') $$,
-  '23514',
-  null,
-  'a team account has no time zone'
+  'a team account has its own time zone'
 );
 
 select tests.login_as('tz_other');

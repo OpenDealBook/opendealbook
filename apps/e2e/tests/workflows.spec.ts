@@ -12,6 +12,8 @@ import { addTeamMember } from './fixtures/calc';
 import { waitForMessageContaining } from './fixtures/mail';
 import {
   FAILING_MESSAGE,
+  INVALID_GRAPH_MESSAGE,
+  loopTodoGraph,
   notifyGraph,
   seedWorkflow,
   teamIdOf,
@@ -220,5 +222,63 @@ test('the workflow pages fit the viewport at three widths', async ({ page, auth 
       );
       expect(overflow, `${path} at ${width}px`).toBeLessThanOrEqual(0);
     }
+  }
+});
+
+test('a workflow whose graph is invalid fails as a whole with the reason', async ({ page, auth }) => {
+  test.setTimeout(120 * 1000);
+
+  const { stamp, accountId, ownerId, listPath } = await setUpTeam(page, auth);
+  const name = `Invalid graph ${stamp}`;
+  const workflowId = await seedWorkflow({
+    accountId,
+    name,
+    publishedBy: ownerId,
+    graph: notifyGraph(INVALID_GRAPH_MESSAGE, 'Send reminder'),
+  });
+
+  await page.goto(listPath);
+  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await waitForRun(workflowId, 'failed');
+
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.rows<{ body: string }>(
+            'notifications',
+            `recipient_user_id=eq.${ownerId}&body=eq.${encodeURIComponent(`${name} failed: steps.nope does not come before this step`)}&select=body`,
+          )
+        ).length,
+      { timeout: 60 * 1000 },
+    )
+    .toBe(1);
+});
+
+test('a loop workflow labels each item and creates a to-do per item', async ({ page, auth }) => {
+  test.setTimeout(150 * 1000);
+
+  const { stamp, accountId, ownerId, teamSlug, listPath } = await setUpTeam(page, auth);
+  const name = `Loop todos ${stamp}`;
+  const workflowId = await seedWorkflow({
+    accountId,
+    name,
+    publishedBy: ownerId,
+    graph: loopTodoGraph(['a', 'b', 'c']),
+    schemaVersion: 2,
+  });
+
+  await page.goto(listPath);
+  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  const runId = await waitForRun(workflowId, 'succeeded');
+
+  await page.goto(`${listPath}/${workflowId}/runs/${runId}`);
+  for (const item of [1, 2, 3]) {
+    await expect(page.getByText(`(item ${item})`).first()).toBeVisible();
+  }
+
+  await page.goto(`/home/${teamSlug}/todos`);
+  for (const item of ['a', 'b', 'c']) {
+    await expect(page.getByText(`Check ${item}`, { exact: true })).toBeVisible();
   }
 });

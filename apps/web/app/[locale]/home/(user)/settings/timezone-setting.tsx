@@ -11,7 +11,13 @@ import {
   CardTitle,
 } from '@odb/ui/card';
 
-export function TimezoneSetting({ current }: { current: string | null }) {
+export function TimezoneSetting({
+  current,
+  zones,
+}: {
+  current: string | null;
+  zones: string[];
+}) {
   const router = useRouter();
 
   return (
@@ -37,7 +43,7 @@ export function TimezoneSetting({ current }: { current: string | null }) {
           <option value={''} disabled>
             Pick a time zone
           </option>
-          {Intl.supportedValuesOf('timeZone').map((zone) => (
+          {zones.map((zone) => (
             <option key={zone} value={zone}>
               {zone.replaceAll('_', ' ')}
             </option>

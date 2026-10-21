@@ -6,15 +6,16 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { WorkflowNotFoundError } from '@temporalio/client';
 
 import { getTemporalClient, TASK_QUEUE } from '../client';
+import { isTeamLocked } from '../teamLock';
 import { parseWorkflowGraph } from './graph';
 import { TEAM_UNLOCKED_SIGNAL, workflowRunWorkflowId } from './ids';
 import type { RunPublishedWorkflowInput } from './workflow';
 
+export { teamTimezone } from './team-timezone';
 export {
   parseWorkflowGraph,
   type RunnableGraph,
   type StepIo,
-  type StepNode,
   type TriggerNode,
   type WorkflowEdge,
   type WorkflowGraph,
@@ -86,16 +87,35 @@ export async function startManualWorkflowRun(input: {
     throw new ManualRunRefused('no_manual_trigger');
   }
 
+  return startWorkflowRun({
+    accountId: workflow.account_id,
+    workflowId: input.workflowId,
+    versionId: version.id,
+    triggerKind: 'manual',
+    triggerRef: input.requestId,
+    triggerNodeId: manualTrigger.id,
+  });
+}
+
+export async function startWorkflowRun(input: {
+  accountId: string;
+  workflowId: string;
+  versionId: string;
+  triggerKind: Enums<'workflow_trigger_kind'>;
+  triggerRef: string;
+  triggerNodeId: string;
+}): Promise<{ runId: string }> {
+  const admin = getSupabaseServerAdminClient();
   const { data: inserted } = await admin
     .from('workflow_run')
     .upsert(
       {
-        account_id: workflow.account_id,
+        account_id: input.accountId,
         workflow_id: input.workflowId,
-        version_id: version.id,
-        trigger_kind: 'manual',
-        trigger_ref: input.requestId,
-        trigger_node_id: manualTrigger.id,
+        version_id: input.versionId,
+        trigger_kind: input.triggerKind,
+        trigger_ref: input.triggerRef,
+        trigger_node_id: input.triggerNodeId,
       },
       { onConflict: 'workflow_id,trigger_ref', ignoreDuplicates: true },
     )
@@ -105,7 +125,7 @@ export async function startManualWorkflowRun(input: {
     .from('workflow_run')
     .select('id')
     .eq('workflow_id', input.workflowId)
-    .eq('trigger_ref', input.requestId)
+    .eq('trigger_ref', input.triggerRef)
     .single()
     .throwOnError();
 
@@ -123,11 +143,54 @@ export async function startManualWorkflowRun(input: {
   return { runId: run.id };
 }
 
+export type ScheduledRunRefusal = 'archived' | 'disabled' | 'superseded' | 'team_locked';
+
+export async function startScheduledRun(input: {
+  accountId: string;
+  workflowId: string;
+  versionId: string;
+  triggerRef: string;
+  triggerNodeId: string;
+}): Promise<{ runId: string } | { refused: ScheduledRunRefusal }> {
+  const admin = getSupabaseServerAdminClient();
+  const { data: workflow } = await admin
+    .from('workflow')
+    .select('enabled, archived_at')
+    .eq('account_id', input.accountId)
+    .eq('id', input.workflowId)
+    .single()
+    .throwOnError();
+  const { data: latest } = await admin
+    .from('workflow_version')
+    .select('id')
+    .eq('workflow_id', input.workflowId)
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(1)
+    .single()
+    .throwOnError();
+
+  if (workflow.archived_at !== null) {
+    return { refused: 'archived' };
+  }
+  if (!workflow.enabled) {
+    return { refused: 'disabled' };
+  }
+  if (latest.id !== input.versionId) {
+    return { refused: 'superseded' };
+  }
+  if (await isTeamLocked({ accountId: input.accountId })) {
+    return { refused: 'team_locked' };
+  }
+  return startWorkflowRun({ ...input, triggerKind: 'schedule' });
+}
+
 const RUN_ACTION_REFUSALS = {
   runner_unreachable: "Couldn't reach the runner, try again",
   step_data_removed:
     'Step data was removed after 90 days. Run the workflow again instead.',
   run_changed: 'This run already changed. Refresh to see its status.',
+  run_never_started: 'This run never started. Fix the workflow, then run it again.',
 };
 
 export class RunActionRefused extends Error {
@@ -182,7 +245,7 @@ export async function retryWorkflowRun(input: {
   const admin = getSupabaseServerAdminClient();
   const { data: run } = await admin
     .from('workflow_run')
-    .select('finished_at, workflow_step_run(status, output)')
+    .select('finished_at, error, workflow_step_run(status, output)')
     .eq('account_id', input.accountId)
     .eq('id', input.runId)
     .eq('status', 'failed')
@@ -192,13 +255,16 @@ export async function retryWorkflowRun(input: {
   if (!run) {
     throw new RunActionRefused('run_changed');
   }
+  if (run.error !== null && run.workflow_step_run.length === 0) {
+    throw new RunActionRefused('run_never_started');
+  }
   if (stepDataRemoved(run.workflow_step_run)) {
     throw new RunActionRefused('step_data_removed');
   }
 
   const { data: reopened } = await admin
     .from('workflow_run')
-    .update({ status: 'running', finished_at: null })
+    .update({ status: 'running', finished_at: null, error: null })
     .eq('id', input.runId)
     .eq('status', 'failed')
     .select('id')

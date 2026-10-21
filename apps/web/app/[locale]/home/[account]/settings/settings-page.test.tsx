@@ -2,12 +2,16 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
-const workspace = vi.hoisted(() => ({ isOwner: false }));
+const workspace = vi.hoisted(() => ({
+  isOwner: false,
+  permissions: ['settings.manage'],
+  timezone: 'America/Chicago',
+}));
 
 vi.mock('../layout', () => ({
   loadTeamWorkspace: async () => ({
     team: { id: 'team-1', name: 'Acme' },
-    permissions: ['settings.manage'],
+    permissions: workspace.permissions,
     isOwner: workspace.isOwner,
   }),
 }));
@@ -22,6 +26,7 @@ vi.mock('@odb/supabase/server', () => ({
                 renamed_at: null,
                 legal_entity_name: null,
                 team_phone: '+1 555 0100',
+                timezone: workspace.timezone,
               },
             }),
           }),
@@ -56,6 +61,38 @@ describe('team settings page', () => {
 
   it('fills the team form with the saved team phone', async () => {
     expect(await render()).toContain('+1 555 0100');
+  });
+
+  it("shows the team's saved time zone", async () => {
+    workspace.timezone = 'America/Chicago';
+
+    expect(await render()).toContain(
+      '<option value="America/Chicago" selected="">',
+    );
+  });
+
+  it('shows a UTC team as UTC', async () => {
+    workspace.timezone = 'UTC';
+
+    expect(await render()).toContain('<option value="UTC" selected="">');
+  });
+
+  it('shows a saved zone missing from the offered list as itself', async () => {
+    workspace.timezone = 'Etc/GMT+5';
+
+    expect(await render()).toContain('<option value="Etc/GMT+5" selected="">');
+  });
+
+  it('lets settings managers change the time zone', async () => {
+    workspace.permissions = ['settings.manage'];
+
+    expect(await render()).not.toMatch(/<select[^>]*disabled/);
+  });
+
+  it('shows the time zone read-only to members who cannot manage settings', async () => {
+    workspace.permissions = [];
+
+    expect(await render()).toMatch(/<select[^>]*disabled/);
   });
 
   it('does not offer reloading sample deals to anyone else', async () => {

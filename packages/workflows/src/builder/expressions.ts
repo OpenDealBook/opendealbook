@@ -6,8 +6,8 @@ import type { StepIo } from './graph';
 
 export type StepOutputs = Record<string, StepIo>;
 
-const WHOLE_REFERENCE = /^\{\{\s*(steps(?:\.[^.\s{}]+)+)\s*\}\}$/;
-const REFERENCE = /\{\{\s*(steps(?:\.[^.\s{}]+)+)\s*\}\}/g;
+export const WHOLE_REFERENCE = /^\{\{\s*(steps(?:\.[^.\s{}]+)+)\s*\}\}$/;
+export const REFERENCE = /\{\{\s*(steps(?:\.[^.\s{}]+)+)\s*\}\}/g;
 
 function lookup(reference: string, steps: StepOutputs): Json {
   const [, ...path] = reference.split('.');

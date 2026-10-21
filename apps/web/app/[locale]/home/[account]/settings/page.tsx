@@ -1,8 +1,10 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { DeleteTeamDialog, UpdateTeamForm } from '@odb/team-accounts';
 
+import { zoneChoices } from '../../_components/time-zones';
 import { loadTeamWorkspace } from '../layout';
 import { ReloadSampleDeals } from './reload-sample-deals';
+import { TeamTimezoneSetting } from './team-timezone';
 
 interface TeamSettingsPageProps {
   params: Promise<{ locale: string; account: string }>;
@@ -14,7 +16,9 @@ export default async function TeamSettingsPage({
   const { locale, account } = await params;
   const { team, permissions, isOwner } = await loadTeamWorkspace(account);
   const renameAllowedAt = await loadRenameAllowedAt(team.id);
-  const { legalEntityName, teamPhone } = await loadTeamDetails(team.id);
+  const { legalEntityName, teamPhone, timezone } = await loadTeamDetails(
+    team.id,
+  );
 
   return (
     <main className={'flex flex-col gap-8 p-8'}>
@@ -27,6 +31,12 @@ export default async function TeamSettingsPage({
         permissions={permissions}
         locale={locale}
         renameAllowedAt={renameAllowedAt}
+      />
+      <TeamTimezoneSetting
+        accountId={team.id}
+        current={timezone}
+        zones={zoneChoices(timezone)}
+        canManage={permissions.includes('settings.manage')}
       />
       {isOwner ? <ReloadSampleDeals accountId={team.id} /> : null}
       <DeleteTeamDialog accountId={team.id} isOwner={isOwner} />
@@ -57,7 +67,7 @@ async function loadRenameAllowedAt(accountId: string) {
 async function loadTeamDetails(accountId: string) {
   const { data: account } = await getSupabaseServerClient()
     .from('accounts')
-    .select('legal_entity_name, team_phone')
+    .select('legal_entity_name, team_phone, timezone')
     .eq('id', accountId)
     .single()
     .throwOnError();
@@ -65,5 +75,6 @@ async function loadTeamDetails(accountId: string) {
   return {
     legalEntityName: account.legal_entity_name ?? '',
     teamPhone: account.team_phone ?? '',
+    timezone: account.timezone!,
   };
 }

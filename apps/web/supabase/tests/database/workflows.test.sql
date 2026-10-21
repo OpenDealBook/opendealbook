@@ -487,12 +487,16 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select id from public.workflow_step_log $$,
+  $$ select id from public.workflow_step_log where account_id = tests.account_id('wf-co') $$,
   $$ values ('f1000000-0000-0000-0000-0000000000e2'::uuid) $$,
   'step logs older than 90 days are deleted and newer ones kept'
 );
 
-select is((select count(*)::int from public.workflow_run), 5, 'pruning keeps the run summaries');
+select is(
+  (select count(*)::int from public.workflow_run where account_id = tests.account_id('wf-co')),
+  5,
+  'pruning keeps the run summaries'
+);
 
 select tests.login_as('wf_owner');
 

@@ -31,10 +31,13 @@ export {
 export { isTeamLocked } from '../teamLock';
 export {
   executeWorkflowStep,
+  failWorkflowRun,
   failWorkflowStep,
+  releaseLoopItems,
   loadWorkflowRun,
   transitionWorkflowRun,
 } from '../builder/activities';
+export { startScheduledRun } from '../builder/client';
 export { syncLenderReplies } from '../lender-replies/activities';
 export { failStaleSendingOutreach } from '../lender-replies/failStaleSending';
 export { failStaleSendingOutreachMessages } from '../outreach/failStaleSending';

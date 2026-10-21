@@ -19,6 +19,8 @@ const { RunActionRefused } = vi.hoisted(() => ({
           step_data_removed:
             'Step data was removed after 90 days. Run the workflow again instead.',
           run_changed: 'This run already changed. Refresh to see its status.',
+          run_never_started:
+            'This run never started. Fix the workflow, then run it again.',
         }[reason],
       );
     }
@@ -186,4 +188,17 @@ it('refuses a retry or cancel on a run that already changed, with the runner mes
   await expect(
     cancelRunAction({ accountId: ACCOUNT, runId: RUN }),
   ).resolves.toEqual(changed);
+});
+
+it('refuses a retry on a run that never started, with the runner message', async () => {
+  world.refuse = () => {
+    throw new RunActionRefused('run_never_started');
+  };
+
+  await expect(
+    retryRunAction({ accountId: ACCOUNT, runId: RUN }),
+  ).resolves.toEqual({
+    ok: false,
+    refusal: 'This run never started. Fix the workflow, then run it again.',
+  });
 });

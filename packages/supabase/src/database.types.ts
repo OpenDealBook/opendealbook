@@ -12134,11 +12134,75 @@ export type Database = {
           },
         ]
       }
+      workflow_loop_saved_work: {
+        Row: {
+          account_id: string
+          claimed_by_run_id: string | null
+          context: Json
+          created_at: string
+          id: string
+          items: Json
+          node_id: string
+          root_node_id: string
+          saved_by_run_id: string
+          workflow_id: string
+        }
+        Insert: {
+          account_id: string
+          claimed_by_run_id?: string | null
+          context: Json
+          created_at?: string
+          id?: string
+          items: Json
+          node_id: string
+          root_node_id: string
+          saved_by_run_id: string
+          workflow_id: string
+        }
+        Update: {
+          account_id?: string
+          claimed_by_run_id?: string | null
+          context?: Json
+          created_at?: string
+          id?: string
+          items?: Json
+          node_id?: string
+          root_node_id?: string
+          saved_by_run_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_loop_saved_work_claimed_by_run_id_account_id_fkey"
+            columns: ["claimed_by_run_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_run"
+            referencedColumns: ["id", "account_id"]
+          },
+          {
+            foreignKeyName: "workflow_loop_saved_work_saved_by_run_id_account_id_fkey"
+            columns: ["saved_by_run_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_run"
+            referencedColumns: ["id", "account_id"]
+          },
+          {
+            foreignKeyName: "workflow_loop_saved_work_workflow_id_account_id_fkey"
+            columns: ["workflow_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "workflow"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
       workflow_run: {
         Row: {
           account_id: string
+          error: string | null
           finished_at: string | null
           id: string
+          loop_items_processed: number
+          loop_items_total: number
           started_at: string
           status: Database["public"]["Enums"]["workflow_run_status"]
           trigger_kind: Database["public"]["Enums"]["workflow_trigger_kind"]
@@ -12149,8 +12213,11 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          error?: string | null
           finished_at?: string | null
           id?: string
+          loop_items_processed?: number
+          loop_items_total?: number
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_run_status"]
           trigger_kind: Database["public"]["Enums"]["workflow_trigger_kind"]
@@ -12161,8 +12228,11 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          error?: string | null
           finished_at?: string | null
           id?: string
+          loop_items_processed?: number
+          loop_items_total?: number
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_run_status"]
           trigger_kind?: Database["public"]["Enums"]["workflow_trigger_kind"]
@@ -12256,11 +12326,13 @@ export type Database = {
           id: string
           idempotency_key: string
           input: Json | null
+          iteration_path: number[]
           node_id: string
           output: Json | null
           run_id: string
           started_at: string
           status: Database["public"]["Enums"]["workflow_step_status"]
+          wake_at: string | null
         }
         Insert: {
           account_id: string
@@ -12270,11 +12342,13 @@ export type Database = {
           id?: string
           idempotency_key: string
           input?: Json | null
+          iteration_path?: number[]
           node_id: string
           output?: Json | null
           run_id: string
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_step_status"]
+          wake_at?: string | null
         }
         Update: {
           account_id?: string
@@ -12284,11 +12358,13 @@ export type Database = {
           id?: string
           idempotency_key?: string
           input?: Json | null
+          iteration_path?: number[]
           node_id?: string
           output?: Json | null
           run_id?: string
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_step_status"]
+          wake_at?: string | null
         }
         Relationships: [
           {
@@ -13063,6 +13139,15 @@ export type Database = {
       firm_outreach_approved: { Args: { p_firm_id: string }; Returns: boolean }
       get_config: { Args: never; Returns: Json }
       get_upper_system_role: { Args: never; Returns: string }
+      grant_workflow_loop_items: {
+        Args: {
+          p_context: Json
+          p_items: Json
+          p_root_node_id: string
+          p_step_run_id: string
+        }
+        Returns: Json
+      }
       has_active_subscription: {
         Args: { target_account_id: string }
         Returns: boolean
@@ -13754,6 +13839,7 @@ export type Database = {
           p_account_id: string
           p_idempotency_key: string
           p_input: Json
+          p_iteration_path: number[]
           p_node_id: string
           p_run_id: string
         }
@@ -13761,7 +13847,9 @@ export type Database = {
           attempt: number
           id: string
           output: Json
+          started_at: string
           status: Database["public"]["Enums"]["workflow_step_status"]
+          wake_at: string
         }[]
       }
       storage_object_team_locked: {

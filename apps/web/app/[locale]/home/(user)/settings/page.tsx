@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { PersonalAccountSettingsContainer } from '@odb/accounts/personal-account-settings';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+import { zoneChoices } from '../../_components/time-zones';
 import { PhoneSetting } from './phone-setting';
 import { TimezoneSetting } from './timezone-setting';
 
@@ -34,7 +35,10 @@ export default async function PersonalAccountSettingsPage(props: {
 
       <PersonalAccountSettingsContainer userId={user.id}>
         <PhoneSetting current={account.phone} />
-        <TimezoneSetting current={account.timezone} />
+        <TimezoneSetting
+          current={account.timezone}
+          zones={zoneChoices(account.timezone)}
+        />
       </PersonalAccountSettingsContainer>
     </main>
   );

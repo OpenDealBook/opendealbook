@@ -3,12 +3,13 @@ import { z } from 'zod';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { dealManagerIds } from '../../dealManagers';
+import { NODE_CONFIG_SCHEMAS } from '../graph';
 import { defineStep } from '../step';
 
 export const notifyTeam = defineStep({
   type: 'notify_team',
   runOnce: false,
-  configSchema: z.object({ message: z.string().min(1) }),
+  configSchema: NODE_CONFIG_SCHEMAS.notify_team,
   inputSchema: z.object({}),
   outputSchema: z.object({ notified: z.number().int() }),
   async run({ context, config }) {

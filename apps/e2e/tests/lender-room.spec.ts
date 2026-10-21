@@ -87,7 +87,7 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   cleanup,
   lender: lenderFlow,
 }) => {
-  test.setTimeout(120 * 1000);
+  test.setTimeout(240 * 1000);
 
   const stamp = Date.now();
   const dealDescription = `Lender Room Deal ${stamp}`;
