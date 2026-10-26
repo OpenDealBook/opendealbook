@@ -9,50 +9,22 @@ import {
   ManualRunRefused,
   startManualWorkflowRun,
 } from '@odb/workflows/builder/client';
-import { syncWorkflowSchedules } from '@odb/workflows/builder/schedule';
+
+import {
+  manageWorkflow,
+  refuseIfArchived,
+  syncSchedulesOrRefuse,
+} from './require-workflows-manager';
 
 const UNPUBLISHED_ENABLE_DB_ERROR = 'a workflow needs a published version to be enabled';
 
-async function requireManage(workflowId: string, userId: string) {
-  const client = getSupabaseServerClient();
-  const { data: workflow } = await client
-    .from('workflow')
-    .select('account_id, archived_at')
-    .eq('id', workflowId)
-    .single()
-    .throwOnError();
-  const { data: canManage } = await client
-    .rpc('has_permission', {
-      user_id: userId,
-      account_id: workflow.account_id,
-      permission_name: 'workflows.manage',
-    })
-    .throwOnError();
-
-  if (!canManage) {
-    throw new Refusal('Changing a workflow needs workflows.manage');
-  }
-
-  return {
-    client,
-    accountId: workflow.account_id,
-    archived: workflow.archived_at !== null,
-  };
-}
-
-async function syncSchedulesOrAskToRetry(accountId: string, workflowId: string) {
-  await syncWorkflowSchedules({ accountId, workflowId }).catch(() => {
-    throw new Refusal("Saved, but schedules couldn't be updated; try again");
-  });
-}
+const SAVED_BUT_NOT_SYNCED = "Saved, but schedules couldn't be updated; try again";
 
 export const setWorkflowEnabled = refusableAction(
   async ({ workflowId, enabled }, user) => {
-    const { client, accountId, archived } = await requireManage(workflowId, user.id);
+    const { client, accountId, archived } = await manageWorkflow(workflowId, user.id);
 
-    if (enabled && archived) {
-      throw new Refusal('Unarchive this workflow first');
-    }
+    refuseIfArchived(enabled && archived);
 
     const { error } = await client
       .from('workflow')
@@ -65,14 +37,14 @@ export const setWorkflowEnabled = refusableAction(
     if (error) {
       throw error;
     }
-    await syncSchedulesOrAskToRetry(accountId, workflowId);
+    await syncSchedulesOrRefuse(accountId, workflowId, SAVED_BUT_NOT_SYNCED);
   },
   z.object({ workflowId: z.uuid(), enabled: z.boolean() }),
 );
 
 export const setWorkflowArchived = refusableAction(
   async ({ workflowId, archived }, user) => {
-    const { client, accountId } = await requireManage(workflowId, user.id);
+    const { client, accountId } = await manageWorkflow(workflowId, user.id);
 
     await client
       .from('workflow')
@@ -83,7 +55,7 @@ export const setWorkflowArchived = refusableAction(
       )
       .eq('id', workflowId)
       .throwOnError();
-    await syncSchedulesOrAskToRetry(accountId, workflowId);
+    await syncSchedulesOrRefuse(accountId, workflowId, SAVED_BUT_NOT_SYNCED);
   },
   z.object({ workflowId: z.uuid(), archived: z.boolean() }),
 );

@@ -1,5 +1,6 @@
 import type { Json } from '@odb/supabase';
 
+import { alwaysEarlierSteps, referenceAllowed } from './editor/upstream';
 import { REFERENCE, WHOLE_REFERENCE } from './expressions';
 import {
   NODE_CONFIG_SCHEMAS,
@@ -17,7 +18,7 @@ interface GraphError {
 
 type GraphValidation = { ok: true } | { ok: false; errors: GraphError[] };
 
-const VAR_NODE = /^steps\.([^.]+)/;
+const STEP_PATH = /^steps\.[^.]+/;
 
 const triggerTypes = new Set<NodeTypeName>(TRIGGER_TYPES);
 
@@ -25,21 +26,21 @@ function repeated(ids: string[]): string[] {
   return [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
 }
 
-function referencedNodeIds(value: Json | undefined): string[] {
+function referencedPaths(value: Json | undefined): string[] {
   if (typeof value === 'string') {
-    return [...value.matchAll(REFERENCE)].map(
-      (match) => match[1]!.split('.')[1]!,
-    );
+    return [...value.matchAll(REFERENCE)].map((match) => match[1]!);
   }
   if (Array.isArray(value)) {
-    return value.flatMap(referencedNodeIds);
+    return value.flatMap(referencedPaths);
   }
   if (typeof value === 'object' && value !== null) {
-    return Object.entries(value).flatMap(([key, item]) => {
-      const varNode =
-        key === 'var' && typeof item === 'string' ? VAR_NODE.exec(item) : null;
-      return varNode ? [varNode[1]!] : referencedNodeIds(item);
-    });
+    return Object.entries(value).flatMap(([key, item]) =>
+      key === 'var' && typeof item === 'string'
+        ? STEP_PATH.test(item)
+          ? [item]
+          : []
+        : referencedPaths(item),
+    );
   }
   return [];
 }
@@ -207,6 +208,8 @@ export function validateWorkflowGraph(graph: {
     ];
   };
 
+  const earlier = alwaysEarlierSteps(graph);
+
   const errors: GraphError[] = [
     ...(triggers.length === 0
       ? [{ message: 'Add a trigger to start this workflow' }]
@@ -268,13 +271,18 @@ export function validateWorkflowGraph(graph: {
     ...graph.nodes.filter((node) => node.type === 'merge').flatMap(mergeError),
     ...graph.nodes.flatMap(configError),
     ...graph.nodes.flatMap((node) => {
-      const upstream = walk([node.id], parents);
-      return [...new Set(referencedNodeIds(node.config))]
-        .filter((id) => !upstream.has(id))
-        .map((id) => ({
-          nodeId: node.id,
-          message: `steps.${id} does not come before this step`,
-        }));
+      const messages = referencedPaths(node.config)
+        .filter((path) => !referenceAllowed(graph, node.id, path))
+        .map((path) => {
+          const [, id, field] = path.split('.');
+          return earlier.get(node.id)!.has(id!)
+            ? `steps.${id}.${field} is only available inside its Loop`
+            : `steps.${id} does not come before this step`;
+        });
+      return [...new Set(messages)].map((message) => ({
+        nodeId: node.id,
+        message,
+      }));
     }),
   ];
 

@@ -2,11 +2,21 @@ import { Context } from '@temporalio/activity';
 import { ApplicationFailure } from '@temporalio/common';
 import { z } from 'zod';
 
-import { RUN_FAILED_NOTICE_EVENT, RUN_PAUSED_NOTICE_EVENT } from '@odb/notifications/server';
+import {
+  RUN_FAILED_NOTICE_EVENT,
+  RUN_PAUSED_NOTICE_EVENT,
+} from '@odb/notifications/server';
 import type { Enums, Json } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-import { resolveExpressions, type StepOutputs } from './expressions';
+import { aiProviderProblem } from './aiProvider';
+import { CapReached } from './caps';
+import { UNFINISHED_RUN_STATUSES } from './client';
+import {
+  resolveExpressions,
+  UnknownReference,
+  type StepOutputs,
+} from './expressions';
 import {
   NODE_CONFIG_SCHEMAS,
   parseWorkflowGraph,
@@ -17,8 +27,6 @@ import {
   type StepIo,
   type WorkflowNode,
 } from './graph';
-import { CapReached } from './caps';
-import { UNFINISHED_RUN_STATUSES } from './client';
 import { noticeDealManagers } from './managerNotice';
 import { AI_NODE_TYPES, DECISION_NODE_TYPES } from './nodeKinds';
 import { stepRegistry } from './registry';
@@ -26,6 +34,17 @@ import { evaluateRule } from './rules';
 import { teamTimezone } from './team-timezone';
 import { validateWorkflowGraph } from './validate';
 import { wakeAt } from './wait';
+
+function resolveConfig(config: Json, steps: StepOutputs): Json {
+  try {
+    return resolveExpressions(config, steps);
+  } catch (error) {
+    if (error instanceof UnknownReference) {
+      throw ApplicationFailure.nonRetryable(error.message);
+    }
+    throw error;
+  }
+}
 
 type RunStatus = Enums<'workflow_run_status'>;
 
@@ -45,39 +64,21 @@ export type LoadedWorkflowRun =
     }
   | { kind: 'refused' };
 
-function graphProblem(version: { schema_version: number; graph: Json }): string | null {
+function readGraph(version: {
+  schema_version: number;
+  graph: Json;
+}): { graph: RunnableGraph } | { problem: string } {
   if (!(WORKFLOW_GRAPH_SCHEMA_VERSIONS as readonly number[]).includes(version.schema_version)) {
-    return `Schema version ${version.schema_version} is not supported`;
+    return { problem: `Schema version ${version.schema_version} is not supported` };
   }
   let graph: RunnableGraph;
   try {
     graph = parseWorkflowGraph({ schemaVersion: version.schema_version, graph: version.graph });
   } catch {
-    return 'The workflow graph could not be read';
+    return { problem: 'The workflow graph could not be read' };
   }
   const validation = validateWorkflowGraph(graph);
-  return validation.ok ? null : validation.errors[0]!.message;
-}
-
-async function aiProviderProblem(
-  accountId: string,
-  version: { schema_version: number; graph: Json },
-): Promise<string | null> {
-  const { nodes } = parseWorkflowGraph({
-    schemaVersion: version.schema_version,
-    graph: version.graph,
-  });
-  if (!nodes.some((node) => AI_NODE_TYPES.includes(node.type))) {
-    return null;
-  }
-  const { count } = await getSupabaseServerAdminClient()
-    .from('llm_endpoint')
-    .select('id', { count: 'exact', head: true })
-    .eq('account_id', accountId)
-    .not('api_key_secret_id', 'is', null)
-    .not('chat_model', 'is', null)
-    .throwOnError();
-  return count === 0 ? 'Connect an AI provider first' : null;
+  return validation.ok ? { graph } : { problem: validation.errors[0]!.message };
 }
 
 export async function loadWorkflowRun(input: {
@@ -85,26 +86,30 @@ export async function loadWorkflowRun(input: {
 }): Promise<LoadedWorkflowRun> {
   const { data: run } = await getSupabaseServerAdminClient()
     .from('workflow_run')
-    .select('account_id, trigger_node_id, trigger_output, workflow_version(schema_version, graph)')
+    .select(
+      'account_id, trigger_node_id, trigger_output, workflow_version(schema_version, graph)',
+    )
     .eq('id', input.runId)
     .single()
     .throwOnError();
-  const problem =
-    graphProblem(run.workflow_version) ?? (await aiProviderProblem(run.account_id, run.workflow_version));
-
-  if (problem !== null) {
+  const refuse = async (problem: string): Promise<LoadedWorkflowRun> => {
     await transitionWorkflowRun({ runId: input.runId, from: 'running', to: 'failed', error: problem });
     return { kind: 'refused' };
+  };
+  const read = readGraph(run.workflow_version);
+  if ('problem' in read) {
+    return refuse(read.problem);
+  }
+  const providerProblem = await aiProviderProblem(run.account_id, read.graph);
+  if (providerProblem !== null) {
+    return refuse(providerProblem);
   }
   return {
     kind: 'runnable',
     accountId: run.account_id,
     triggerNodeId: run.trigger_node_id,
     triggerOutput: stepIoSchema.parse(run.trigger_output),
-    graph: parseWorkflowGraph({
-      schemaVersion: run.workflow_version.schema_version,
-      graph: run.workflow_version.graph,
-    }),
+    graph: read.graph,
   };
 }
 
@@ -118,7 +123,9 @@ export async function transitionWorkflowRun(input: {
     .from('workflow_run')
     .update({
       status: input.to,
-      finished_at: FINISHED_RUN_STATUSES.has(input.to) ? new Date().toISOString() : null,
+      finished_at: FINISHED_RUN_STATUSES.has(input.to)
+        ? new Date().toISOString()
+        : null,
       error: input.error,
     })
     .eq('id', input.runId)
@@ -126,16 +133,26 @@ export async function transitionWorkflowRun(input: {
     .throwOnError();
 }
 
-export async function failWorkflowRun(input: { runId: string; error: string }): Promise<void> {
+export async function failWorkflowRun(input: {
+  runId: string;
+  error: string;
+}): Promise<void> {
   await getSupabaseServerAdminClient()
     .from('workflow_run')
-    .update({ status: 'failed', finished_at: new Date().toISOString(), error: input.error })
+    .update({
+      status: 'failed',
+      finished_at: new Date().toISOString(),
+      error: input.error,
+    })
     .eq('id', input.runId)
     .in('status', UNFINISHED_RUN_STATUSES)
     .throwOnError();
 }
 
-function runPath(run: { workflow_id: string; accounts: { slug: string | null } }, runId: string) {
+function runPath(
+  run: { workflow_id: string; accounts: { slug: string | null } },
+  runId: string,
+) {
   return `/home/${run.accounts.slug}/workflows/${run.workflow_id}/runs/${runId}`;
 }
 
@@ -175,7 +192,10 @@ export async function notifyRunFailed(input: { runId: string }): Promise<void> {
   });
 }
 
-export async function notifyRunPaused(input: { runId: string; pause: number }): Promise<void> {
+export async function notifyRunPaused(input: {
+  runId: string;
+  pause: number;
+}): Promise<void> {
   const { data: run } = await getSupabaseServerAdminClient()
     .from('workflow_run')
     .select('account_id, workflow_id, accounts(slug), workflow(name)')
@@ -188,7 +208,8 @@ export async function notifyRunPaused(input: { runId: string; pause: number }): 
     path: runPath(run, input.runId),
     type: 'warning',
     event: RUN_PAUSED_NOTICE_EVENT,
-    dedupeKey: (userId) => `workflow_run_paused:${input.runId}:${input.pause}:${userId}`,
+    dedupeKey: (userId) =>
+      `workflow_run_paused:${input.runId}:${input.pause}:${userId}`,
   });
 }
 
@@ -264,7 +285,9 @@ const loopOutputSchema = z
   .object({
     items: z.array(z.json()),
     saved: z.number(),
-    carried: z.array(z.object({ items: z.array(z.json()), context: loopContextSchema })),
+    carried: z.array(
+      z.object({ items: z.array(z.json()), context: loopContextSchema }),
+    ),
     resumes: z.array(
       z.object({
         nodeId: z.string(),
@@ -288,7 +311,11 @@ function controlConfig<Type extends NodeTypeName>(
   return parsed.data as NodeConfig<Type>;
 }
 
-function chosenHandle(node: WorkflowNode, input: StepIo, steps: StepOutputs): string | undefined {
+function chosenHandle(
+  node: WorkflowNode,
+  input: StepIo,
+  steps: StepOutputs,
+): string | undefined {
   if (node.type !== 'branch') {
     return undefined;
   }
@@ -318,7 +345,11 @@ function storedResult(
 ): StepResult {
   if (awaitsDecision(node)) {
     const stored = stepIoSchema.parse(output);
-    return { kind: 'succeeded', output: stored, handle: stored.approved ? 'approved' : 'rejected' };
+    return {
+      kind: 'succeeded',
+      output: stored,
+      handle: stored.approved ? 'approved' : 'rejected',
+    };
   }
   const step = registryStep(node);
   if (step) {
@@ -335,7 +366,11 @@ function storedResult(
 const AI_HEARTBEAT_EVERY_MS = 10_000;
 
 async function runInstantNode(
-  input: StepExecution & { input: StepIo; steps: StepOutputs; idempotencyKey: string },
+  input: StepExecution & {
+    input: StepIo;
+    steps: StepOutputs;
+    idempotencyKey: string;
+  },
 ): Promise<StepIo> {
   const step = registryStep(input.node);
   if (!step) {
@@ -349,7 +384,7 @@ async function runInstantNode(
         idempotencyKey: input.idempotencyKey,
         signal,
       },
-      config: resolveExpressions(input.node.config, input.steps),
+      config: resolveConfig(input.node.config, input.steps),
       input: input.input,
     });
   if (!AI_NODE_TYPES.includes(input.node.type)) {
@@ -357,7 +392,10 @@ async function runInstantNode(
   }
   const activity = Context.current();
   activity.heartbeat();
-  const beating = setInterval(() => activity.heartbeat(), AI_HEARTBEAT_EVERY_MS);
+  const beating = setInterval(
+    () => activity.heartbeat(),
+    AI_HEARTBEAT_EVERY_MS,
+  );
   try {
     return await execute(activity.cancellationSignal);
   } finally {
@@ -384,7 +422,9 @@ async function settledElsewhere(
   if (stepRun.workflow_run.status === 'cancelled') {
     return { kind: 'run_cancelled' };
   }
-  throw new Error(`Step run ${stepRunId} became ${stepRun.status} while it ran`);
+  throw new Error(
+    `Step run ${stepRunId} became ${stepRun.status} while it ran`,
+  );
 }
 
 async function finishStep(
@@ -394,7 +434,12 @@ async function finishStep(
 ): Promise<boolean> {
   const { data: finished } = await getSupabaseServerAdminClient()
     .from('workflow_step_run')
-    .update({ status: 'succeeded', waiting_on: null, output, finished_at: new Date().toISOString() })
+    .update({
+      status: 'succeeded',
+      waiting_on: null,
+      output,
+      finished_at: new Date().toISOString(),
+    })
     .eq('id', stepRunId)
     .in('status', ['running', 'waiting'])
     .select('id')
@@ -443,10 +488,22 @@ async function completeIfDecided(
   if (!decision) {
     return { kind: 'awaiting_decision', stepRunId: stepRun.id };
   }
-  const output = { ...stepIoSchema.parse(stepRun.output), approved: decision.approved };
+  const output = {
+    ...stepIoSchema.parse(stepRun.output),
+    approved: decision.approved,
+  };
   return (await finishStep(execution, stepRun.id, output))
-    ? { kind: 'succeeded', output, handle: decision.approved ? 'approved' : 'rejected' }
-    : settledElsewhere(execution.node, stepRun.id, execution.input, execution.steps);
+    ? {
+        kind: 'succeeded',
+        output,
+        handle: decision.approved ? 'approved' : 'rejected',
+      }
+    : settledElsewhere(
+        execution.node,
+        stepRun.id,
+        execution.input,
+        execution.steps,
+      );
 }
 
 async function continueWait(
@@ -457,15 +514,25 @@ async function continueWait(
     stepRun.status === 'waiting'
       ? new Date(stepRun.wake_at!)
       : wakeAt(
-          controlConfig('wait', resolveExpressions(execution.node.config, execution.steps)),
+          controlConfig(
+            'wait',
+            resolveConfig(execution.node.config, execution.steps),
+          ),
           new Date(),
           await teamTimezone(execution.accountId),
         );
 
   if (until > new Date()) {
     if (stepRun.status === 'running') {
-      if (!(await parkStep(stepRun.id, 'timer', { wake_at: until.toISOString() }))) {
-        return settledElsewhere(execution.node, stepRun.id, execution.input, execution.steps);
+      if (
+        !(await parkStep(stepRun.id, 'timer', { wake_at: until.toISOString() }))
+      ) {
+        return settledElsewhere(
+          execution.node,
+          stepRun.id,
+          execution.input,
+          execution.steps,
+        );
       }
       await logStep({
         accountId: execution.accountId,
@@ -479,11 +546,20 @@ async function continueWait(
   }
   return (await finishStep(execution, stepRun.id, execution.input))
     ? { kind: 'succeeded', output: execution.input }
-    : settledElsewhere(execution.node, stepRun.id, execution.input, execution.steps);
+    : settledElsewhere(
+        execution.node,
+        stepRun.id,
+        execution.input,
+        execution.steps,
+      );
 }
 
 export async function executeWorkflowStep(
-  input: StepExecution & { input: StepIo; steps: StepOutputs; rootLoopId?: string },
+  input: StepExecution & {
+    input: StepIo;
+    steps: StepOutputs;
+    rootLoopId?: string;
+  },
 ): Promise<StepResult> {
   const client = getSupabaseServerAdminClient();
   const idempotencyKey = stepKey(input);
@@ -534,7 +610,10 @@ export async function executeWorkflowStep(
     return continueWait(input, stepRun);
   }
   if (input.node.type === 'loop') {
-    const { items } = controlConfig('loop', resolveExpressions(input.node.config, input.steps));
+    const { items } = controlConfig(
+      'loop',
+      resolveConfig(input.node.config, input.steps),
+    );
     const { data: output } = await client
       .rpc('grant_workflow_loop_items', {
         p_step_run_id: stepRun.id,
@@ -623,7 +702,11 @@ export async function failWorkflowStep(
 export async function releaseLoopItems(input: {
   runId: string;
   rootNodeId: string;
-  units: { nodeId: string; context: LoopCarried['context']; items: { item: Json; path: string }[] }[];
+  units: {
+    nodeId: string;
+    context: LoopCarried['context'];
+    items: { item: Json; path: string }[];
+  }[];
 }): Promise<void> {
   const admin = getSupabaseServerAdminClient();
   const { data: rootStep } = await admin

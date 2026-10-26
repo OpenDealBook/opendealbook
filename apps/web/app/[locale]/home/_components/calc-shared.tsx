@@ -676,7 +676,15 @@ function pushGuardEntry() {
   );
 }
 
-export function UnsavedChangesGuard(props: { dirty: boolean }) {
+export function UnsavedChangesGuard({
+  title = 'Discard unsaved changes?',
+  description = 'Your edits to this calc have not been saved.',
+  ...props
+}: {
+  dirty: boolean;
+  title?: string;
+  description?: string;
+}) {
   const router = useRouter();
   const [leaving, setLeaving] = useState<Leaving | null>(null);
   const holding =
@@ -784,10 +792,8 @@ export function UnsavedChangesGuard(props: { dirty: boolean }) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Discard unsaved changes?</DialogTitle>
-          <DialogDescription>
-            Your edits to this calc have not been saved.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant={'outline'} onClick={keepEditing}>

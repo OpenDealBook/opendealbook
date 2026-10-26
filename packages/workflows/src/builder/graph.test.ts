@@ -62,6 +62,24 @@ describe('parseWorkflowGraph', () => {
     ]);
   });
 
+  it('allows at most 200 nodes', () => {
+    const graphOf = (count: number) => ({
+      nodes: Array.from({ length: count }, (_, index) => ({
+        id: `n${index}`,
+        type: 'merge',
+        config: {},
+      })),
+      edges: [],
+    });
+
+    expect(
+      parseWorkflowGraph({ schemaVersion: 2, graph: graphOf(200) }).nodes,
+    ).toHaveLength(200);
+    expect(() =>
+      parseWorkflowGraph({ schemaVersion: 2, graph: graphOf(201) }),
+    ).toThrow('A workflow can have at most 200 steps');
+  });
+
   it('refuses an unknown schema version', () => {
     expect(() =>
       parseWorkflowGraph({ schemaVersion: 3, graph: v1Graph }),

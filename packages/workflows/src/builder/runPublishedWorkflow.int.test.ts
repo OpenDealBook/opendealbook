@@ -225,6 +225,7 @@ import type { WorkflowNode } from './graph';
 
 type NodeConfigValue = WorkflowNode['config'][string];
 import {
+  aiProviderProblem,
   cancelWaitingRuns,
   cancelWorkflowRun,
   ManualRunRefused,
@@ -2825,6 +2826,16 @@ describe('a workflow with AI steps (integration)', () => {
       })
       .throwOnError();
   }
+
+  it('tells publishing whether a graph needs an AI provider the team has not connected', async () => {
+    const plainGraph = { nodes: [{ type: 'manual_trigger' }, { type: 'notify_team' }] };
+    const aiNodes = { nodes: [{ type: 'manual_trigger' }, { type: 'decision_model' }] };
+
+    expect(await aiProviderProblem(teamId, plainGraph)).toBeNull();
+    expect(await aiProviderProblem(teamId, aiNodes)).toBe('Connect an AI provider first');
+    await connectAi();
+    expect(await aiProviderProblem(teamId, aiNodes)).toBeNull();
+  });
 
   it('fails at once when the team has no usable AI provider', async () => {
     await owner.admin

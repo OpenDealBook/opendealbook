@@ -9,8 +9,11 @@ vi.mock('../[account]/workflows/actions', () => ({
   setWorkflowArchived: vi.fn(),
   runWorkflowNow: vi.fn(),
 }));
+vi.mock('../[account]/workflows/editor-actions', () => ({
+  createWorkflow: vi.fn(),
+}));
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ refresh: vi.fn() }),
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
 }));
 
 import { WorkflowsList, type WorkflowListRow } from './workflows-list';
@@ -45,6 +48,7 @@ function render(
         workflows={[published, draft]}
         view={'active'}
         canManage={true}
+        accountId={'00000000-0000-4000-8000-0000000000a1'}
         basePath={'/home/team-one/workflows'}
         {...props}
       />,
@@ -149,14 +153,23 @@ describe('WorkflowsList', () => {
     expect(container.querySelectorAll('button')).toHaveLength(0);
   });
 
-  it('says plainly that workflows cannot be created yet when the team has none', () => {
+  it('offers New workflow to a manager, even when the team has none yet', () => {
     render({ workflows: [] });
 
     expect(container.querySelector('table')).toBeNull();
     expect(container.textContent).toContain(
-      'No workflows yet. Creating workflows arrives with the workflow editor.',
+      'No workflows yet. Create one with New workflow.',
     );
-    expect(container.textContent).not.toContain('New workflow');
+    expect(buttonsIn(container)).toEqual(['New workflow']);
+  });
+
+  it('tells a member without workflows.manage that a manager creates workflows', () => {
+    render({ workflows: [], canManage: false });
+
+    expect(container.textContent).toContain(
+      'No workflows yet. A workflows manager can create one.',
+    );
+    expect(buttonsIn(container)).toEqual([]);
   });
 
   it('says when nothing is archived', () => {

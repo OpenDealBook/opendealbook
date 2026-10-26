@@ -160,7 +160,9 @@ const workflowEdgeSchema = z.object({
 });
 
 export const workflowGraphSchema = z.object({
-  nodes: z.array(workflowNodeSchema),
+  nodes: z
+    .array(workflowNodeSchema)
+    .max(200, 'A workflow can have at most 200 steps'),
   edges: z.array(workflowEdgeSchema),
 });
 

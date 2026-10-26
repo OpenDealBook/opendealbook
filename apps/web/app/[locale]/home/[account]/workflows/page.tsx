@@ -39,6 +39,7 @@ export default async function TeamWorkflowsPage({
       <WorkflowsList
         view={view}
         canManage={permissions.includes('workflows.manage')}
+        accountId={team.id}
         basePath={`/home/${account}/workflows`}
         workflows={workflows.map((workflow) => ({
           id: workflow.id,

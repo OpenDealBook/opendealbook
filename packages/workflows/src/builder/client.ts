@@ -17,9 +17,12 @@ import {
 import type { RunPublishedWorkflowInput } from './workflow';
 
 export { teamTimezone } from './team-timezone';
+export { aiProviderProblem } from './aiProvider';
 export { AI_NODE_TYPES, DECISION_NODE_TYPES } from './nodeKinds';
 export {
   parseWorkflowGraph,
+  WORKFLOW_GRAPH_SCHEMA_VERSIONS,
+  workflowGraphSchema,
   type RunnableGraph,
   type StepIo,
   type TriggerNode,

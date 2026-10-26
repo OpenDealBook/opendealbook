@@ -57,7 +57,7 @@ it('names a publisher whose account is gone as Removed user', async () => {
         id: '00000000-0000-4000-8000-0000000000d1',
         published_at: '2026-10-12T15:30:00Z',
         published_by: '00000000-0000-4000-8000-0000000000e1',
-        created_at: '2026-10-11T09:00:00Z',
+        saved_at: '2026-10-11T09:00:00Z',
       },
     ],
     workflow_run: [],

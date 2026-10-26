@@ -83,6 +83,7 @@ select throws_ok(
   'a workflow with no published version cannot be enabled'
 );
 
+reset role;
 insert into public.workflow_version (id, account_id, workflow_id, schema_version, graph)
 values ('f1000000-0000-0000-0000-0000000000b1', tests.account_id('wf-co'),
   'f1000000-0000-0000-0000-0000000000a1', 1,
@@ -94,6 +95,7 @@ select throws_ok(
   '23505', null,
   'a workflow has one draft at a time'
 );
+select tests.login_as('wf_owner');
 
 select throws_ok(
   $$ update public.workflow_version set published_at = now(), published_by = tests.get_uid('wf_admin')
@@ -102,14 +104,18 @@ select throws_ok(
   'a person publishes only under their own name'
 );
 
+reset role;
 update public.workflow_version set published_at = now(), published_by = tests.get_uid('wf_owner')
 where id = 'f1000000-0000-0000-0000-0000000000b1';
+select tests.login_as('wf_owner');
 
+reset role;
 select throws_ok(
   $$ update public.workflow_version set graph = '{"nodes": [1]}' where id = 'f1000000-0000-0000-0000-0000000000b1' $$,
   '55000', null,
   'a published version cannot change'
 );
+select tests.login_as('wf_owner');
 
 select is_empty(
   $$ delete from public.workflow_version where id = 'f1000000-0000-0000-0000-0000000000b1' returning id $$,
@@ -117,11 +123,14 @@ select is_empty(
 );
 
 select lives_ok(
-  $$ insert into public.workflow_version (id, account_id, workflow_id, schema_version, graph)
-     values ('f1000000-0000-0000-0000-0000000000b2', tests.account_id('wf-co'),
-       'f1000000-0000-0000-0000-0000000000a1', 1, '{"nodes": ["next"]}') $$,
+  $$ select public.save_workflow_draft('f1000000-0000-0000-0000-0000000000a1', '{"nodes": ["next"], "edges": []}', '{}') $$,
   'a new draft can follow a published version'
 );
+
+reset role;
+update public.workflow_version set id = 'f1000000-0000-0000-0000-0000000000b2'
+where workflow_id = 'f1000000-0000-0000-0000-0000000000a1' and published_at is null;
+select tests.login_as('wf_owner');
 
 select lives_ok(
   $$ update public.workflow set enabled = true where id = 'f1000000-0000-0000-0000-0000000000a1' $$,

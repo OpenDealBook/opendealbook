@@ -12457,8 +12457,10 @@ export type Database = {
           created_at: string
           graph: Json
           id: string
+          layout: Json
           published_at: string | null
           published_by: string | null
+          saved_at: string
           schema_version: number
           workflow_id: string
         }
@@ -12467,8 +12469,10 @@ export type Database = {
           created_at?: string
           graph: Json
           id?: string
+          layout?: Json
           published_at?: string | null
           published_by?: string | null
+          saved_at?: string
           schema_version: number
           workflow_id: string
         }
@@ -12477,8 +12481,10 @@ export type Database = {
           created_at?: string
           graph?: Json
           id?: string
+          layout?: Json
           published_at?: string | null
           published_by?: string | null
+          saved_at?: string
           schema_version?: number
           workflow_id?: string
         }
@@ -13065,6 +13071,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_workflow: {
+        Args: { p_account_id: string; p_graph: Json; p_name: string }
+        Returns: string
+      }
       current_buyer_profile: {
         Args: { account_id: string }
         Returns: {
@@ -13638,6 +13648,10 @@ export type Database = {
           p_provider: string
         }
         Returns: undefined
+      }
+      save_workflow_draft: {
+        Args: { p_graph: Json; p_layout: Json; p_workflow_id: string }
+        Returns: string
       }
       search_documents: {
         Args: { p_account_id: string; p_query: string }

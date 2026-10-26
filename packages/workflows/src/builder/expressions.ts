@@ -1,5 +1,3 @@
-import { ApplicationFailure } from '@temporalio/common';
-
 import type { Json } from '@odb/supabase';
 
 import type { StepIo } from './graph';
@@ -8,6 +6,12 @@ export type StepOutputs = Record<string, StepIo>;
 
 export const WHOLE_REFERENCE = /^\{\{\s*(steps(?:\.[^.\s{}]+)+)\s*\}\}$/;
 export const REFERENCE = /\{\{\s*(steps(?:\.[^.\s{}]+)+)\s*\}\}/g;
+
+export class UnknownReference extends Error {
+  constructor(readonly reference: string) {
+    super(`${reference} does not name an earlier step output`);
+  }
+}
 
 function lookup(reference: string, steps: StepOutputs): Json {
   const [, ...path] = reference.split('.');
@@ -19,9 +23,7 @@ function lookup(reference: string, steps: StepOutputs): Json {
         : undefined;
   }
   if (value === undefined) {
-    throw ApplicationFailure.nonRetryable(
-      `${reference} does not name an earlier step output`,
-    );
+    throw new UnknownReference(reference);
   }
   return value;
 }

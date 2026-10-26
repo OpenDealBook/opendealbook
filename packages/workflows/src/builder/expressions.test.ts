@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveExpressions } from './expressions';
+import { resolveExpressions, UnknownReference } from './expressions';
 
 const steps = {
   trigger: {},
@@ -17,7 +17,10 @@ describe('resolveExpressions', () => {
   it('interpolates references inside text', () => {
     expect(
       resolveExpressions(
-        { message: 'Review {{ steps.lookup.firm }} at {{steps.lookup.deal.stage}}' },
+        {
+          message:
+            'Review {{ steps.lookup.firm }} at {{steps.lookup.deal.stage}}',
+        },
         steps,
       ),
     ).toEqual({ message: 'Review Acme Partners at loi' });
@@ -42,5 +45,17 @@ describe('resolveExpressions', () => {
     expect(() =>
       resolveExpressions({ message: 'Hi {{steps.lookup.owner}}' }, steps),
     ).toThrow('steps.lookup.owner');
+  });
+
+  it('refuses with a plain UnknownReference error naming the reference', () => {
+    expect(() =>
+      resolveExpressions({ message: '{{steps.later.firm}}' }, steps),
+    ).toThrow(
+      expect.objectContaining({
+        constructor: UnknownReference,
+        reference: 'steps.later.firm',
+        message: 'steps.later.firm does not name an earlier step output',
+      }),
+    );
   });
 });

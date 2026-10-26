@@ -12,6 +12,7 @@ import {
 } from '@odb/ui/table';
 import { cn } from '@odb/ui/utils';
 
+import { NewWorkflowForm } from './new-workflow-form';
 import { SavedAt } from './saved-at';
 import { WorkflowRunStatus } from './workflow-run-status';
 import { WorkflowRowActions } from './workflows-list-actions';
@@ -31,43 +32,52 @@ export function WorkflowsList({
   workflows,
   view,
   canManage,
+  accountId,
   basePath,
 }: {
   workflows: WorkflowListRow[];
   view: 'active' | 'archived';
   canManage: boolean;
+  accountId: string;
   basePath: string;
 }) {
   return (
     <div className={'flex flex-col gap-4'}>
-      <nav aria-label={'Workflow filter'} className={'flex gap-1'}>
-        {(
-          [
-            ['active', 'Active', basePath],
-            ['archived', 'Archived', `${basePath}?view=archived`],
-          ] as const
-        ).map(([key, label, href]) => (
-          <Link
-            key={key}
-            href={href}
-            aria-current={view === key ? 'page' : undefined}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm',
-              view === key
-                ? 'bg-secondary text-secondary-foreground font-medium'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {label}
-          </Link>
-        ))}
-      </nav>
+      <div className={'flex flex-wrap items-center justify-between gap-2'}>
+        <nav aria-label={'Workflow filter'} className={'flex gap-1'}>
+          {(
+            [
+              ['active', 'Active', basePath],
+              ['archived', 'Archived', `${basePath}?view=archived`],
+            ] as const
+          ).map(([key, label, href]) => (
+            <Link
+              key={key}
+              href={href}
+              aria-current={view === key ? 'page' : undefined}
+              className={cn(
+                'rounded-md px-3 py-1.5 text-sm',
+                view === key
+                  ? 'bg-secondary text-secondary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </nav>
+        {canManage ? (
+          <NewWorkflowForm accountId={accountId} basePath={basePath} />
+        ) : null}
+      </div>
 
       {workflows.length === 0 ? (
         <p className={'text-muted-foreground rounded-md border p-6 text-sm'}>
-          {view === 'active'
-            ? 'No workflows yet. Creating workflows arrives with the workflow editor.'
-            : 'No archived workflows.'}
+          {view === 'archived'
+            ? 'No archived workflows.'
+            : canManage
+              ? 'No workflows yet. Create one with New workflow.'
+              : 'No workflows yet. A workflows manager can create one.'}
         </p>
       ) : (
         <Table>

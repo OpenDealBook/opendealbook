@@ -11,9 +11,12 @@ import {
   dialogText,
   fakeActions,
   fakeServer,
+  fields,
   linkTo,
   press,
   show,
+  submit,
+  type,
 } from './lender-test-kit';
 import { WorkflowDetail } from './workflow-detail';
 
@@ -50,19 +53,19 @@ const props: Props = {
       id: 'v-draft',
       published_at: null,
       publisher: null,
-      created_at: '2026-10-20T09:00:00Z',
+      saved_at: '2026-10-21T14:15:00Z',
     },
     {
       id: 'v2',
       published_at: '2026-10-12T15:30:00Z',
       publisher: 'Avery Lind',
-      created_at: '2026-10-11T09:00:00Z',
+      saved_at: '2026-10-11T09:00:00Z',
     },
     {
       id: 'v1',
       published_at: '2026-10-01T15:30:00Z',
       publisher: 'Jordan Pike',
-      created_at: '2026-09-30T09:00:00Z',
+      saved_at: '2026-09-30T09:00:00Z',
     },
   ],
   runs: [
@@ -84,7 +87,10 @@ const props: Props = {
     },
   ],
   canManage: true,
-  ...(fakeActions('cancelWaitingRuns') as Pick<Props, 'cancelWaitingRuns'>),
+  ...(fakeActions('cancelWaitingRuns', 'renameWorkflow') as Pick<
+    Props,
+    'cancelWaitingRuns' | 'renameWorkflow'
+  >),
 };
 
 beforeEach(() => fakeServer.reset());
@@ -92,7 +98,7 @@ afterEach(clearScreen);
 
 it('heads the page with the name and its enabled and archived state', () => {
   show(<WorkflowDetail {...props} />);
-  expect(partsOf('header')).toEqual(['New deal alert Enabled']);
+  expect(partsOf('header')).toEqual(['New deal alert Enabled Rename']);
   clearScreen();
 
   show(
@@ -101,14 +107,51 @@ it('heads the page with the name and its enabled and archived state', () => {
       workflow={{ ...props.workflow, enabled: false, archived_at: '2026-10-19T00:00:00Z' }}
     />,
   );
-  expect(partsOf('header')).toEqual(['New deal alert Disabled Archived']);
+  expect(partsOf('header')).toEqual(['New deal alert Disabled Archived Rename']);
 });
 
-it('lists published versions with publisher and time, and the draft', () => {
+it('renames the workflow in place for a workflows manager', async () => {
+  show(<WorkflowDetail {...props} />);
+
+  await press('Rename');
+  await type('Workflow name', 'Lender alert');
+  await submit('Workflow name');
+
+  expect(fakeServer.inputsTo('renameWorkflow')).toEqual([
+    { workflowId: WORKFLOW, name: 'Lender alert' },
+  ]);
+  expect(fakeServer.refreshes).toBe(1);
+  expect(fields('Workflow name')).toEqual([]);
+});
+
+it('keeps the rename open with the refusal when the server refuses', async () => {
+  fakeServer.refusalFor.renameWorkflow = 'Changing a workflow needs workflows.manage';
+  show(<WorkflowDetail {...props} />);
+
+  await press('Rename');
+  await type('Workflow name', 'Lender alert');
+  await submit('Workflow name');
+
+  expect(alerts()).toEqual(['Changing a workflow needs workflows.manage']);
+  expect(fields('Workflow name')).toHaveLength(1);
+  expect(fakeServer.refreshes).toBe(0);
+});
+
+it('cancels a rename without saving', async () => {
+  show(<WorkflowDetail {...props} />);
+
+  await press('Rename');
+  await press('Cancel');
+
+  expect(fakeServer.inputsTo('renameWorkflow')).toEqual([]);
+  expect(partsOf('header')).toEqual(['New deal alert Enabled Rename']);
+});
+
+it('lists published versions with publisher and time, and the draft with when it was last saved', () => {
   show(<WorkflowDetail {...props} />);
 
   expect(partsOf('li')).toEqual([
-    'Draft Started Oct 20, 2026, 9:00 AM',
+    'Draft Last saved Oct 21, 2026, 2:15 PM',
     'Version 2 Published by Avery Lind Oct 12, 2026, 3:30 PM',
     'Version 1 Published by Jordan Pike Oct 1, 2026, 3:30 PM',
   ]);
@@ -176,7 +219,7 @@ it('hides Cancel waiting runs when nothing is published', () => {
     />,
   );
 
-  expect(buttonNames()).toEqual([]);
+  expect(buttonNames()).toEqual(['Rename']);
 });
 
 it('says how many waiting runs could not be reached', async () => {

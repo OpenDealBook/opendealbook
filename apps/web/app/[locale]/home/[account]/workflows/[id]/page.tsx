@@ -6,6 +6,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 import { areUuids } from '../../../_components/lender-page-params';
 import { WorkflowDetail } from '../../../_components/workflow-detail';
 import { loadTeamWorkspace } from '../../layout';
+import { renameWorkflow } from '../editor-actions';
 import { cancelWaitingRunsAction } from './actions';
 
 export default async function WorkflowDetailPage(props: {
@@ -31,7 +32,7 @@ export default async function WorkflowDetailPage(props: {
         .throwOnError(),
       client
         .from('workflow_version')
-        .select('id, published_at, published_by, created_at')
+        .select('id, published_at, published_by, saved_at')
         .eq('workflow_id', id)
         .eq('account_id', team.id)
         .order('published_at', { ascending: false, nullsFirst: true })
@@ -77,7 +78,7 @@ export default async function WorkflowDetailPage(props: {
         versions={versions.map((version) => ({
           id: version.id,
           published_at: version.published_at,
-          created_at: version.created_at,
+          saved_at: version.saved_at,
           publisher:
             version.published_by &&
             (publisherNames.get(version.published_by) ?? 'Removed user'),
@@ -85,6 +86,7 @@ export default async function WorkflowDetailPage(props: {
         runs={runs}
         canManage={permissions.includes('workflows.manage')}
         cancelWaitingRuns={cancelWaitingRunsAction}
+        renameWorkflow={renameWorkflow}
       />
     </main>
   );

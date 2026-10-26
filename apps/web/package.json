@@ -24,6 +24,8 @@
     "@supabase/supabase-js": "catalog:",
     "@t3-oss/env-core": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@workflowbuilder/sdk": "3.0.0",
+    "@xyflow/react": "12.11.6",
     "@odb/accounts": "workspace:*",
     "@odb/admin": "workspace:*",
     "@odb/ai": "workspace:*",
@@ -71,12 +73,14 @@
     "@odb/ui": "workspace:*",
     "@odb/workbooks": "workspace:*",
     "@odb/workflows": "workspace:*",
+    "elkjs": "0.12.0",
     "next": "catalog:",
     "next-intl": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zustand": "5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",

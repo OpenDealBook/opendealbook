@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@odb/ui/dialog';
+import { Input } from '@odb/ui/input';
 import {
   Table,
   TableBody,
@@ -31,13 +32,18 @@ import { WorkflowRunStatus, workflowTime } from './workflow-run-status';
 
 type Version = Pick<
   Tables<'workflow_version'>,
-  'id' | 'published_at' | 'created_at'
+  'id' | 'published_at' | 'saved_at'
 > & { publisher: string | null };
 
 type Run = Pick<
   Tables<'workflow_run'>,
   'id' | 'status' | 'trigger_kind' | 'version_id' | 'started_at' | 'finished_at'
 >;
+
+type RenameWorkflow = (input: {
+  workflowId: string;
+  name: string;
+}) => Promise<ActionResult<unknown>>;
 
 type CancelWaitingRuns = (input: {
   accountId: string;
@@ -58,7 +64,9 @@ export function WorkflowDetail(props: {
   runs: Run[];
   canManage: boolean;
   cancelWaitingRuns: CancelWaitingRuns;
+  renameWorkflow: RenameWorkflow;
 }) {
+  const [renaming, setRenaming] = useState(false);
   const published = props.versions.filter(
     (version) => version.published_at !== null,
   );
@@ -73,12 +81,32 @@ export function WorkflowDetail(props: {
   return (
     <div className={'flex flex-col gap-6'}>
       <header className={'flex flex-wrap items-center gap-3'}>
-        <h1 className={'text-2xl font-semibold'}>{props.workflow.name}</h1>
+        {renaming ? (
+          <RenameForm
+            name={props.workflow.name}
+            onSave={(name) =>
+              props.renameWorkflow({ workflowId: props.workflow.id, name })
+            }
+            onDone={() => setRenaming(false)}
+          />
+        ) : (
+          <h1 className={'text-2xl font-semibold'}>{props.workflow.name}</h1>
+        )}
         <Badge variant={props.workflow.enabled ? 'default' : 'outline'}>
           {props.workflow.enabled ? 'Enabled' : 'Disabled'}
         </Badge>
         {props.workflow.archived_at ? (
           <Badge variant={'secondary'}>Archived</Badge>
+        ) : null}
+        {props.canManage && !renaming ? (
+          <Button
+            type={'button'}
+            variant={'ghost'}
+            size={'sm'}
+            onClick={() => setRenaming(true)}
+          >
+            Rename
+          </Button>
         ) : null}
       </header>
 
@@ -154,7 +182,7 @@ export function WorkflowDetail(props: {
                 <li className={'flex flex-col'}>
                   <span className={'font-medium'}>Draft</span>
                   <span className={'text-muted-foreground'}>
-                    Started {workflowTime.format(new Date(draft.created_at))}
+                    Last saved {workflowTime.format(new Date(draft.saved_at))}
                   </span>
                 </li>
               ) : null}
@@ -174,6 +202,60 @@ export function WorkflowDetail(props: {
         </Card>
       </div>
     </div>
+  );
+}
+
+function RenameForm(props: {
+  name: string;
+  onSave: (name: string) => ReturnType<RenameWorkflow>;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(props.name);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  return (
+    <form
+      className={'flex flex-wrap items-center gap-2'}
+      onSubmit={(event) => {
+        event.preventDefault();
+        startTransition(async () => {
+          const result = await props.onSave(name);
+
+          if (result.ok) {
+            props.onDone();
+            router.refresh();
+          } else {
+            setRefusal(result.refusal);
+          }
+        });
+      }}
+    >
+      <Input
+        aria-label={'Workflow name'}
+        required
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        className={'w-64'}
+      />
+      <Button type={'submit'} size={'sm'} disabled={isPending}>
+        Save name
+      </Button>
+      <Button
+        type={'button'}
+        variant={'ghost'}
+        size={'sm'}
+        onClick={props.onDone}
+      >
+        Cancel
+      </Button>
+      {refusal ? (
+        <p role={'alert'} className={'text-destructive w-full text-sm'}>
+          {refusal}
+        </p>
+      ) : null}
+    </form>
   );
 }
 

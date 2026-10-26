@@ -32,13 +32,13 @@ const validNodes = [
   node('yes', 'notify_team', { message: 'Fit' }),
   node('no', 'notify_team', { message: 'Not fit' }),
   node('join', 'merge'),
-  node('each', 'loop', { items: '{{steps.yes.ids}}', parallel: true }),
+  node('each', 'loop', { items: '{{steps.join.ids}}', parallel: true }),
   node('todo', 'create_todo', {
     title: 'Call {{steps.each.item}}',
     assignees: { kind: 'members', userIds: ['u1'] },
-    dueInDays: '{{steps.yes.days}}',
+    dueInDays: '{{steps.join.days}}',
   }),
-  node('done', 'notify_team', { message: '{{steps.yes.notified}} notified' }),
+  node('done', 'notify_team', { message: '{{steps.join.notified}} notified' }),
 ];
 
 const validEdges = [
@@ -320,6 +320,64 @@ describe('validateWorkflowGraph', () => {
       { nodeId: 'fit', message: 'This step has no "maybe" exit' },
       { nodeId: 'gate', message: 'Choose which exit this arrow leaves from' },
       { nodeId: 'event', message: 'A trigger cannot have an arrow into it' },
+    ]);
+  });
+
+  it('refuses a reference to a step that only one path before a Merge runs', () => {
+    expect(
+      errorsOf(
+        [
+          node('start', 'manual_trigger'),
+          node('check', 'branch', { rule: { '==': [1, 1] } }),
+          node('a', 'notify_team', { message: 'A' }),
+          node('b', 'notify_team', { message: 'B' }),
+          node('join', 'merge'),
+          node('after', 'notify_team', {
+            message: '{{steps.a.notified}} and {{steps.check.x}}',
+          }),
+        ],
+        [
+          edge('start', 'check'),
+          edge('check', 'a', 'true'),
+          edge('check', 'b', 'false'),
+          edge('a', 'join'),
+          edge('b', 'join'),
+          edge('join', 'after'),
+        ],
+      ),
+    ).toEqual([
+      { nodeId: 'after', message: 'steps.a does not come before this step' },
+    ]);
+  });
+
+  it('refuses a loop item or index outside its each path', () => {
+    expect(
+      errorsOf(
+        [
+          node('start', 'manual_trigger'),
+          node('each', 'loop', { items: [1] }),
+          node('inside', 'notify_team', { message: '{{steps.each.item}}' }),
+          node('after', 'notify_team', { message: 'Last {{steps.each.item}}' }),
+          node('check', 'branch', {
+            rule: { '>': [{ var: 'steps.each.index' }, 1] },
+          }),
+        ],
+        [
+          edge('start', 'each'),
+          edge('each', 'inside', 'each'),
+          edge('each', 'after', 'done'),
+          edge('after', 'check'),
+        ],
+      ),
+    ).toEqual([
+      {
+        nodeId: 'after',
+        message: 'steps.each.item is only available inside its Loop',
+      },
+      {
+        nodeId: 'check',
+        message: 'steps.each.index is only available inside its Loop',
+      },
     ]);
   });
 

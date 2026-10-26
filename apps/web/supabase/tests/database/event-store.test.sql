@@ -52,7 +52,8 @@ select lives_ok(
   'a deal whose lender went quiet replays'
 );
 select is(
-  (select count(*)::int from public.deal_event where event_type = 'lender_room.went_quiet'),
+  (select count(*)::int from public.deal_event
+   where deal_id = 'd4d4d4d4-0000-0000-0000-000000000004' and event_type = 'lender_room.went_quiet'),
   1,
   'replay leaves the quiet lender event in the log once'
 );
