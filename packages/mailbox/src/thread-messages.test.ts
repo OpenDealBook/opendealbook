@@ -5,7 +5,7 @@ const { resolveAccessToken } = vi.hoisted(() => ({
 }));
 vi.mock('./nango', () => ({ resolveAccessToken }));
 
-import { MailboxAccessDenied, listThreadMessages } from './index';
+import { MailboxAccessDenied, MailboxRequestFailed, listThreadMessages } from './index';
 import type { MailboxConnection } from './types';
 
 const gmailConnection: MailboxConnection = {
@@ -117,5 +117,25 @@ describe('listThreadMessages microsoft', () => {
     await expect(
       listThreadMessages(microsoftConnection, 'conv-1'),
     ).rejects.toBeInstanceOf(MailboxAccessDenied);
+  });
+});
+
+describe('listThreadMessages for a thread that cannot be read now', () => {
+  it.each([404, 429])('throws MailboxRequestFailed with status %i from Gmail', async (status) => {
+    fetchMock.mockResolvedValue({ ok: false, status, json: async () => ({ error: {} }) });
+
+    await expect(listThreadMessages(gmailConnection, 'gone')).rejects.toMatchObject({
+      constructor: MailboxRequestFailed,
+      status,
+    });
+  });
+
+  it('throws MailboxRequestFailed with the status from Microsoft', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 429, json: async () => ({ error: {} }) });
+
+    await expect(listThreadMessages(microsoftConnection, 'busy')).rejects.toMatchObject({
+      constructor: MailboxRequestFailed,
+      status: 429,
+    });
   });
 });

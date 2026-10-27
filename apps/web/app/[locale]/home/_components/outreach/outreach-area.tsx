@@ -1,3 +1,4 @@
+import { DEFAULT_MAX_TOUCHES } from '@odb/outreach-app/schema';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Card, CardContent } from '@odb/ui/card';
 import {
@@ -11,12 +12,14 @@ import {
 
 import { EnrollForm, type EnrollFirm } from './enroll-form';
 import { enrollmentStatusLabel } from './enrollment-status';
+import { LetterReturnAddress } from './letter-return-address';
+import { LetterTemplatesPanel } from './letter-templates-panel';
 import { MailboxConnectForm } from './mailbox-connect-form';
 import { MonthlyCaps } from './monthly-caps';
 import { loadMonthlyCaps } from './monthly-caps-usage';
 import { SequencesPanel, type Sequence } from './sequences-panel';
 import { SettingsForm } from './settings-form';
-import { DEFAULT_DAILY_CAP, DEFAULT_MAX_TOUCHES } from './outreach-defaults';
+import { DEFAULT_DAILY_CAP } from './outreach-defaults';
 import { SuppressionForm } from './suppression-form';
 
 function formatDate(value: string | null): string {
@@ -36,6 +39,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
     enrollments,
     suppressions,
     monthlyCaps,
+    letterTemplates,
   ] = await Promise.all([
     client
       .from('mailbox_connection')
@@ -58,7 +62,9 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
       .eq('account_id', accountId),
     client
       .from('outreach_setting')
-      .select('daily_cap, max_touches')
+      .select(
+        'daily_cap, max_touches, letter_return_name, letter_return_address_line1, letter_return_city, letter_return_state, letter_return_postal_code',
+      )
       .eq('account_id', accountId)
       .maybeSingle(),
     client
@@ -72,7 +78,27 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
       .eq('account_id', accountId)
       .order('created_at', { ascending: false }),
     loadMonthlyCaps(accountId),
+    client
+      .from('letter_template')
+      .select('id, name, body')
+      .eq('account_id', accountId)
+      .order('created_at'),
   ]);
+
+  const returnAddress =
+    setting.data?.letter_return_name &&
+    setting.data.letter_return_address_line1 &&
+    setting.data.letter_return_city &&
+    setting.data.letter_return_state &&
+    setting.data.letter_return_postal_code
+      ? {
+          name: setting.data.letter_return_name,
+          addressLine1: setting.data.letter_return_address_line1,
+          city: setting.data.letter_return_city,
+          state: setting.data.letter_return_state,
+          postalCode: setting.data.letter_return_postal_code,
+        }
+      : null;
 
   const sequences: Sequence[] = (sequenceRows.data ?? []).map((sequence) => ({
     id: sequence.id,
@@ -149,6 +175,10 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
         <SequencesPanel accountId={accountId} sequences={sequences} />
       </Section>
 
+      <Section title={'Letter templates'}>
+        <LetterTemplatesPanel accountId={accountId} templates={letterTemplates.data ?? []} />
+      </Section>
+
       <Section title={'Enroll targets'}>
         <EnrollForm
           accountId={accountId}
@@ -166,6 +196,10 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
           dailyCap={setting.data?.daily_cap ?? DEFAULT_DAILY_CAP}
           maxTouches={setting.data?.max_touches ?? DEFAULT_MAX_TOUCHES}
         />
+      </Section>
+
+      <Section title={'Letter return address'}>
+        <LetterReturnAddress accountId={accountId} address={returnAddress} />
       </Section>
 
       <Section title={'Monthly caps'}>

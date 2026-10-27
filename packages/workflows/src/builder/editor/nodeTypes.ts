@@ -13,6 +13,12 @@ export const NODE_TYPE_DISPLAY = {
   branch: { label: 'Branch', icon: 'ArrowsSplit', description: 'Go one way or the other on a rule' },
   merge: { label: 'Merge', icon: 'ArrowsMerge', description: 'Wait for both paths and combine them' },
   loop: { label: 'Loop', icon: 'Repeat', description: 'Run the steps after it once per item' },
+  pull_leads: { label: 'Pull leads', icon: 'DownloadSimple', description: 'Add matching businesses from public records' },
+  registry_lookup: { label: 'Registry lookup', icon: 'Buildings', description: "Look up a firm's state registry record" },
+  email_lookup: { label: 'Find emails', icon: 'At', description: "Find email addresses for a firm's owners" },
+  prepare_firm: { label: 'Prepare firm', icon: 'IdentificationCard', description: 'Write the owner mailing address and a firm profile' },
+  enroll_sequence: { label: 'Start sequence', icon: 'Envelope', description: 'Enroll a firm in an outreach sequence' },
+  send_letter: { label: 'Send letter', icon: 'Mailbox', description: 'Mail a letter to a firm owner' },
 } as const satisfies Record<NodeTypeName, { label: string; icon: string; description: string }>;
 
 export type NodeIcon = (typeof NODE_TYPE_DISPLAY)[NodeTypeName]['icon'];

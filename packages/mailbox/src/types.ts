@@ -14,6 +14,7 @@ export interface OutboundEmail {
   text?: string;
   replyTo?: string;
   inThread?: string;
+  headers?: Record<string, string>;
 }
 
 export interface SendResult {
@@ -28,3 +29,18 @@ export interface ThreadMessage {
 }
 
 export class MailboxAccessDenied extends Error {}
+
+export class MailboxNoResponse extends Error {
+  constructor(action: string, cause: unknown) {
+    super(`${action} got no response`, { cause });
+  }
+}
+
+export class MailboxRequestFailed extends Error {
+  constructor(
+    readonly status: number,
+    action: string,
+  ) {
+    super(`${action} failed with status ${status}`);
+  }
+}

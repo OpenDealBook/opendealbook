@@ -62,7 +62,12 @@ const mocks = vi.hoisted(() => {
 
   const from = vi.fn((table: string) => makeBuilder(table));
 
+  const rpcSpy = vi.fn();
   const rpc = (fn: string, args: { p_firm_id: string }) => ({
+    then: (resolve: (value: unknown) => void) => {
+      rpcSpy(fn, args);
+      return resolve({ data: null, error: null });
+    },
     throwOnError: async () => ({
       data:
         fn === 'firm_outreach_approved' &&
@@ -71,7 +76,7 @@ const mocks = vi.hoisted(() => {
     }),
   });
 
-  return { insertSpy, upsertSpy, updateSpy, deleteSpy, from, rpc, configure };
+  return { insertSpy, upsertSpy, updateSpy, deleteSpy, rpcSpy, from, rpc, configure };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -84,11 +89,13 @@ vi.mock('@odb/supabase/server', () => ({
 
 import {
   connectMailbox,
+  createLetterTemplate,
   createSequence,
   enrollTargets,
   seedDefaultSequences,
   setOutreachSetting,
   suppressEmail,
+  updateLetterTemplate,
   updateSequence,
 } from './outreach-actions';
 
@@ -152,15 +159,31 @@ describe('seedDefaultSequences', () => {
       ([table]) => table === 'outreach_step',
     );
 
-    expect(result.seeded).toBe(2);
-    expect(sequenceInserts).toHaveLength(2);
-    expect(stepInserts).toHaveLength(2);
+    expect(result.seeded).toBe(3);
+    expect(sequenceInserts).toHaveLength(3);
+    expect(stepInserts).toHaveLength(3);
 
     const firstStep = (stepInserts[0]![1] as Record<string, unknown>[])[0]!;
     expect(firstStep.sequence_id).toBe('generated-id');
     expect(firstStep.ordinal).toBe(1);
     expect(firstStep.delay_days).toBe(0);
     expect(typeof firstStep.subject).toBe('string');
+  });
+
+  it('seeds the letter starter turned off, with each step on its channel', async () => {
+    await run(seedDefaultSequences)({ accountId: ACCOUNT }, { id: 'user-1' });
+
+    const sequenceInserts = mocks.insertSpy.mock.calls.filter(([table]) => table === 'outreach_sequence');
+    const stepInserts = mocks.insertSpy.mock.calls.filter(([table]) => table === 'outreach_step');
+
+    expect(sequenceInserts.map(([, row]) => (row as { enabled: boolean }).enabled)).toEqual([true, true, false]);
+    expect(
+      (stepInserts[2]![1] as Record<string, unknown>[]).map((step) => [step.channel, step.delay_days, step.subject === null]),
+    ).toEqual([
+      ['letter', 0, true],
+      ['email', 7, false],
+      ['email', 7, false],
+    ]);
   });
 
   it('skips seeding when the account already has sequences', async () => {
@@ -183,7 +206,7 @@ describe('createSequence', () => {
         accountId: ACCOUNT,
         name: 'Custom',
         description: 'A custom template',
-        steps: [{ ordinal: 1, delayDays: 2, subject: 'Hi', body: 'Body' }],
+        steps: [{ ordinal: 1, delayDays: 2, channel: 'email', subject: 'Hi', body: 'Body' }],
       },
       { id: 'user-1' },
     );
@@ -205,6 +228,95 @@ describe('createSequence', () => {
   });
 });
 
+describe('sequence steps', () => {
+  it('saves every step with its channel, and a letter step without a subject', async () => {
+    await run(createSequence)(
+      {
+        accountId: ACCOUNT,
+        name: 'Letter first',
+        steps: [
+          { ordinal: 1, delayDays: 0, channel: 'letter', body: 'Dear owner' },
+          { ordinal: 2, delayDays: 7, channel: 'email', subject: 'Following up', body: 'Hi' },
+        ],
+      },
+      { id: 'user-1' },
+    );
+
+    const [, steps] = mocks.insertSpy.mock.calls[1] as [string, Record<string, unknown>[]];
+    expect(steps).toEqual([
+      {
+        account_id: ACCOUNT,
+        sequence_id: 'generated-id',
+        ordinal: 1,
+        delay_days: 0,
+        channel: 'letter',
+        subject: null,
+        body: 'Dear owner',
+      },
+      {
+        account_id: ACCOUNT,
+        sequence_id: 'generated-id',
+        ordinal: 2,
+        delay_days: 7,
+        channel: 'email',
+        subject: 'Following up',
+        body: 'Hi',
+      },
+    ]);
+  });
+
+  it('refuses an email step without a subject', async () => {
+    const { createSequenceSchema } = await import('../schema/outreach.schema');
+
+    expect(
+      createSequenceSchema.safeParse({
+        accountId: ACCOUNT,
+        name: 'No subject',
+        steps: [{ ordinal: 1, delayDays: 0, channel: 'email', body: 'Hi' }],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('letter templates', () => {
+  it('adds a team letter template', async () => {
+    await run(createLetterTemplate)(
+      { accountId: ACCOUNT, name: 'Intro', body: 'Dear {{ firm.name }}' },
+      { id: 'user-1' },
+    );
+
+    expect(mocks.insertSpy).toHaveBeenCalledWith('letter_template', {
+      account_id: ACCOUNT,
+      name: 'Intro',
+      body: 'Dear {{ firm.name }}',
+    });
+  });
+
+  it('edits a letter template', async () => {
+    mocks.configure({ singles: { letter_template: { id: SEQUENCE } } });
+
+    const result = await run(updateLetterTemplate)(
+      { accountId: ACCOUNT, templateId: SEQUENCE, name: 'Intro v2', body: 'Hello' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(mocks.updateSpy).toHaveBeenCalledWith('letter_template', { name: 'Intro v2', body: 'Hello' });
+  });
+
+  it('refuses an edit that changes no template', async () => {
+    const result = await run(updateLetterTemplate)(
+      { accountId: ACCOUNT, templateId: SEQUENCE, name: 'Intro v2', body: 'Hello' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can edit letter templates. Ask a deal manager.',
+    });
+  });
+});
+
 describe('updateSequence', () => {
   it('updates the sequence and replaces its steps when steps are given', async () => {
     await run(updateSequence)(
@@ -212,7 +324,7 @@ describe('updateSequence', () => {
         accountId: ACCOUNT,
         sequenceId: SEQUENCE,
         name: 'Renamed',
-        steps: [{ ordinal: 1, delayDays: 0, subject: 'S', body: 'B' }],
+        steps: [{ ordinal: 1, delayDays: 0, channel: 'email', subject: 'S', body: 'B' }],
       },
       { id: 'user-1' },
     );
@@ -224,10 +336,13 @@ describe('updateSequence', () => {
 
     expect(updateTable).toBe('outreach_sequence');
     expect(updatePayload).toEqual({ name: 'Renamed' });
-    expect(mocks.deleteSpy).toHaveBeenCalledWith('outreach_step');
-    expect(
-      mocks.insertSpy.mock.calls.some(([table]) => table === 'outreach_step'),
-    ).toBe(true);
+    expect(mocks.rpcSpy).toHaveBeenCalledWith('replace_outreach_steps', {
+      p_account_id: ACCOUNT,
+      p_sequence_id: SEQUENCE,
+      p_steps: [{ ordinal: 1, delay_days: 0, channel: 'email', subject: 'S', body: 'B' }],
+    });
+    expect(mocks.deleteSpy).not.toHaveBeenCalled();
+    expect(mocks.insertSpy).not.toHaveBeenCalled();
   });
 
   it('leaves steps untouched when no steps are given', async () => {
@@ -236,6 +351,7 @@ describe('updateSequence', () => {
       { id: 'user-1' },
     );
 
+    expect(mocks.rpcSpy).not.toHaveBeenCalled();
     expect(mocks.deleteSpy).not.toHaveBeenCalled();
     expect(mocks.insertSpy).not.toHaveBeenCalled();
   });
@@ -466,6 +582,12 @@ describe('setOutreachSetting', () => {
       max_touches: 3,
     });
     expect(options).toMatchObject({ onConflict: 'account_id' });
+  });
+
+  it('needs max touches; the form sends the default', async () => {
+    const { setOutreachSettingSchema } = await import('../schema/outreach.schema');
+
+    expect(setOutreachSettingSchema.safeParse({ accountId: ACCOUNT, dailyCap: 25 }).success).toBe(false);
   });
 });
 

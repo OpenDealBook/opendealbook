@@ -1,9 +1,41 @@
+import type { Json } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 export class CapReached extends Error {
-  constructor() {
-    super('The monthly AI limit is reached');
+  constructor(message = 'The monthly AI limit is reached') {
+    super(message);
   }
+}
+
+export async function reserveLookup(lookup: {
+  id: string;
+  accountId: string;
+  firmId: string;
+  provider: string;
+}): Promise<void> {
+  const { data: reserved } = await getSupabaseServerAdminClient()
+    .rpc('reserve_lookup', {
+      p_id: lookup.id,
+      p_account_id: lookup.accountId,
+      p_firm_id: lookup.firmId,
+      p_kind: 'email_lookup',
+      p_provider: lookup.provider,
+    })
+    .throwOnError();
+  if (!reserved) {
+    throw new CapReached('The monthly lookup limit is reached');
+  }
+}
+
+export async function recordLookup(
+  id: string,
+  lookup: { outcome: 'found' | 'not_found' | 'failed'; result: Json },
+): Promise<void> {
+  await getSupabaseServerAdminClient()
+    .from('paid_lookup')
+    .update({ outcome: lookup.outcome, result: lookup.result })
+    .eq('id', id)
+    .throwOnError();
 }
 
 export async function reserveAiCall(

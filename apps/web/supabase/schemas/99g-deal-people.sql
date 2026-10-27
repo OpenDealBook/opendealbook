@@ -285,7 +285,7 @@ create or replace function public.deal_people(deal_id uuid)
     join auth.users u on u.id = p.user_id
     union all
     select null, lower(c.email), coalesce(lower(c.email), c.id::text),
-      row('contact', c.id, c.name, c.phone, c.company, dc.side, dc.role::text, null, null,
+      row('contact', c.id, coalesce(c.name, c.email), c.phone, c.company, dc.side, dc.role::text, null, null,
         exists (
           select 1 from public.deal_main_contact mc
           where mc.deal_id = dc.deal_id and mc.side = dc.side and mc.contact_id = c.id

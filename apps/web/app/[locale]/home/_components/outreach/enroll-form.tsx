@@ -18,7 +18,7 @@ import {
 
 export interface EnrollContact {
   id: string;
-  name: string;
+  name: string | null;
   email: string | null;
 }
 
@@ -142,10 +142,12 @@ export function EnrollForm({
                         setContactIds((current) => toggle(current, contact.id))
                       }
                     />
-                    {contact.name}
-                    <span className={'text-muted-foreground'}>
-                      {contact.email ?? 'no email'}
-                    </span>
+                    {contact.name ?? contact.email}
+                    {contact.name !== null ? (
+                      <span className={'text-muted-foreground'}>
+                        {contact.email ?? 'no email'}
+                      </span>
+                    ) : null}
                   </label>
                 ))}
               </div>

@@ -331,7 +331,9 @@ function ContactForm({
               key={contact.id}
               className={'flex flex-wrap items-center gap-2 text-sm'}
             >
-              <span className={'font-medium'}>{contact.name}</span>
+              <span className={'font-medium'}>
+                {contact.name ?? contact.email}
+              </span>
               <span className={'text-muted-foreground'}>
                 {[contact.company, contact.email].filter(Boolean).join(' · ')}
               </span>
@@ -340,7 +342,7 @@ function ContactForm({
                 size={'sm'}
                 variant={'outline'}
                 disabled={disabled}
-                aria-label={`Use ${contact.name}`}
+                aria-label={`Use ${contact.name ?? contact.email}`}
                 onClick={() => search?.onUse(contact, fields)}
               >
                 Use existing contact

@@ -300,7 +300,7 @@ create table if not exists public.lender_room_outreach (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null,
   account_id uuid not null,
-  sent_by uuid references auth.users default auth.uid(),
+  sent_by uuid references auth.users on delete set null default auth.uid(),
   sent_at timestamptz not null default now(),
   kind public.lender_outreach_kind not null default 'outreach',
   status public.lender_outreach_status not null default 'sending',

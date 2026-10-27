@@ -50,6 +50,7 @@ export {
 export { syncLenderReplies } from '../lender-replies/activities';
 export { failStaleSendingOutreach } from '../lender-replies/failStaleSending';
 export { failStaleSendingOutreachMessages } from '../outreach/failStaleSending';
+export { syncOutreachReplies } from '../outreach/replies';
 export {
   emailLendersToNudgeDue,
   syncLenderNudgeTodos,
@@ -61,6 +62,14 @@ export {
 export { deleteUnfinishedUploads } from '../uploadCleanup/activities';
 export { deleteOrphanedDealObjects } from '../storageSweep/activities';
 export { pruneWorkflowStepData } from '../schedules/workflowPruneActivity';
+export {
+  discoverLeadFiles,
+  failLeadImport,
+  importLeadFile,
+  recordUndatedFile,
+  startLeadImport,
+} from '../leadImports/activities';
+export { matchImportedRecords } from '../leadMatch/matchImportedRecords';
 export { notifyOverdueMilestones } from '@odb/deal-timeline/overdue.ts';
 export { deliverDocumentToSeller } from '../sellerDelivery/activities';
 export {
@@ -132,7 +141,7 @@ export async function loadBrokerContacts(input: {
     throw error;
   }
 
-  return data.map((row) => ({ id: row.id, name: row.name, email: row.email! }));
+  return data.map((row) => ({ id: row.id, name: row.name!, email: row.email! }));
 }
 
 export interface ExcludedBroker {
@@ -192,7 +201,7 @@ export async function computeExcludedBrokers(input: {
 
   return brokers.map((broker) => ({
     brokerContactId: broker.id,
-    brokerName: broker.name,
+    brokerName: broker.name!,
   }));
 }
 

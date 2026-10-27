@@ -18,12 +18,16 @@ export const seedDefaultSequencesSchema = z.object({
   accountId: z.uuid(),
 });
 
-export const outreachStepSchema = z.object({
+const sharedStepFields = {
   ordinal: z.number().int(),
   delayDays: z.number().int(),
-  subject: z.string().min(1),
   body: z.string().min(1),
-});
+};
+
+export const outreachStepSchema = z.discriminatedUnion('channel', [
+  z.object({ ...sharedStepFields, channel: z.literal('email'), subject: z.string().min(1) }),
+  z.object({ ...sharedStepFields, channel: z.literal('letter') }),
+]);
 
 export const createSequenceSchema = z.object({
   accountId: z.uuid(),
@@ -48,6 +52,8 @@ export const enrollTargetsSchema = z.object({
   contactIds: z.array(z.uuid()).optional(),
 });
 
+export const DEFAULT_MAX_TOUCHES = 3;
+
 export const setOutreachSettingSchema = z.object({
   accountId: z.uuid(),
   dailyCap: z.number().int().positive(),
@@ -58,4 +64,14 @@ export const suppressEmailSchema = z.object({
   accountId: z.uuid(),
   email: z.email(),
   reason: z.string().min(1),
+});
+
+export const createLetterTemplateSchema = z.object({
+  accountId: z.uuid(),
+  name: z.string().min(1),
+  body: z.string().min(1),
+});
+
+export const updateLetterTemplateSchema = createLetterTemplateSchema.extend({
+  templateId: z.uuid(),
 });

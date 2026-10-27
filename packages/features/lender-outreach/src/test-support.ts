@@ -84,7 +84,16 @@ export async function lockTeam(accountId: string) {
 }
 
 export async function deleteProvisionedPeople() {
+  await admin
+    .from('accounts')
+    .delete()
+    .in('primary_owner_user_id', userIds)
+    .eq('is_personal_account', false)
+    .throwOnError();
   for (const userId of userIds) {
-    await admin.auth.admin.deleteUser(userId);
+    const { error } = await admin.auth.admin.deleteUser(userId);
+    if (error) {
+      throw error;
+    }
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeFieldTokens, renderTemplate } from './merge';
+import { dealBoxMergeFields, mergeFieldTokens, renderTemplate } from './merge';
 
 describe('renderTemplate', () => {
   it('substitutes a top-level dot path', () => {
@@ -60,6 +60,23 @@ describe('mergeFieldTokens', () => {
     expect(tokens).toContain('recipient.name');
     expect(tokens).toContain('firm.name');
     expect(tokens).toContain('dealBox.revenueRange');
+    expect(tokens).toContain('dealBox.industryPhrase');
+    expect(tokens).toContain('dealBox.revenuePhrase');
     expect(tokens).toContain('sender.name');
+  });
+});
+
+describe('dealBoxMergeFields', () => {
+  it('phrases a full deal box as an industry business around a revenue', () => {
+    expect(dealBoxMergeFields({ industries: 'HVAC', revenueRange: '$1,000,000' })).toEqual({
+      industries: 'HVAC',
+      revenueRange: '$1,000,000',
+      industryPhrase: 'HVAC business',
+      revenuePhrase: ' around $1,000,000 in revenue',
+    });
+  });
+
+  it('falls back to a business with no revenue clause for an empty deal box', () => {
+    expect(dealBoxMergeFields({})).toEqual({ industryPhrase: 'business', revenuePhrase: '' });
   });
 });

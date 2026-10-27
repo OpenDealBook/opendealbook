@@ -6,6 +6,7 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { uuidFromKey } from '../../uuidFromKey';
 import { NODE_CONFIG_SCHEMAS } from '../graph';
 import { defineStep } from '../step';
+import { teamRow } from '../teamRow';
 import { askTeamAi, parsedJson } from '../teamAi';
 
 const verdictSchema = z.object({ fit: z.boolean(), reasons: z.array(z.string()) });
@@ -55,18 +56,15 @@ export const decisionModel = defineStep({
       return { verdictId: recorded.id, fit: recorded.fit, reasons: recorded.reasons };
     }
 
-    const { data: firm } = z.guid().safeParse(config.firmId).success
-      ? await admin
-          .from('firm')
-          .select(FIRM_FIELDS)
-          .eq('id', config.firmId)
-          .eq('account_id', context.accountId)
-          .maybeSingle()
-          .throwOnError()
-      : { data: null };
-    if (!firm) {
-      throw ApplicationFailure.nonRetryable('That firm is not on this team');
-    }
+    const firm = await teamRow(config.firmId, 'That firm is not on this team', (id) =>
+      getSupabaseServerAdminClient()
+        .from('firm')
+        .select(FIRM_FIELDS)
+        .eq('id', id)
+        .eq('account_id', context.accountId)
+        .maybeSingle()
+        .throwOnError(),
+    );
 
     const [{ data: dealBox }, { data: facts }] = await Promise.all([
       admin

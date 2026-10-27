@@ -51,7 +51,7 @@ test('a manager runs a published workflow, archives it and brings it back', asyn
   await expect(row.getByText('Disabled')).toBeVisible();
   await expect(row.getByText(/^Published /)).toBeVisible();
   await expect(row.getByText('Never run')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'New workflow' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible();
 
   await row.getByRole('button', { name: 'Run now' }).click();
   const runId = await waitForRun(workflowId, 'succeeded');

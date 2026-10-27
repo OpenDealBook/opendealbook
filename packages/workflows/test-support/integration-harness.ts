@@ -66,7 +66,16 @@ export async function provisionAccount(): Promise<IntegrationAccount> {
     userId,
     accountId: account.id as string,
     cleanup: async () => {
-      await admin.auth.admin.deleteUser(userId);
+      await admin
+        .from('accounts')
+        .delete()
+        .eq('primary_owner_user_id', userId)
+        .eq('is_personal_account', false)
+        .throwOnError();
+      const { error } = await admin.auth.admin.deleteUser(userId);
+      if (error) {
+        throw error;
+      }
     },
   };
 }

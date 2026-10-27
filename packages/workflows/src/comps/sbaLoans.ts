@@ -3,13 +3,7 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import Papa from 'papaparse';
 
-const CKAN_PACKAGE_SHOW = 'https://data.sba.gov/api/3/action/package_show?id=7a-504-foia';
-
-interface CkanResource {
-  url: string;
-  name?: string;
-  format?: string;
-}
+import { fetchSbaFiles } from '../leadImports/discover';
 
 export interface SbaResources {
   sevenA: string[];
@@ -17,27 +11,9 @@ export interface SbaResources {
 }
 
 export async function discoverSbaResources(): Promise<SbaResources> {
-  const response = await fetch(CKAN_PACKAGE_SHOW);
-  const body = (await response.json()) as { result?: { resources?: CkanResource[] } };
-  const resources = body.result?.resources ?? [];
-
-  const sevenA: string[] = [];
-  const fiveOhFour: string[] = [];
-
-  for (const resource of resources) {
-    const isCsv = /csv/i.test(resource.format ?? '') || /\.csv$/i.test(resource.url);
-    if (!isCsv) {
-      continue;
-    }
-    const label = `${resource.name ?? ''} ${resource.url}`;
-    if (/504/.test(label)) {
-      fiveOhFour.push(resource.url);
-    } else if (/7\(?a\)?/i.test(label)) {
-      sevenA.push(resource.url);
-    }
-  }
-
-  return { sevenA, fiveOhFour };
+  const files = await fetchSbaFiles();
+  const urls = (kind: 'sba_7a' | 'sba_504') => files.filter((file) => file.kind === kind).map((file) => file.url);
+  return { sevenA: urls('sba_7a'), fiveOhFour: urls('sba_504') };
 }
 
 export async function loadDealBoxNaicsUnion(): Promise<string[]> {

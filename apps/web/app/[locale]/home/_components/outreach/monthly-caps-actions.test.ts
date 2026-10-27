@@ -137,7 +137,7 @@ describe('saving the monthly caps', () => {
 
     expect(result).toEqual({ ok: true, value: { resumeError: null } });
     expect(world.events).toEqual([
-      `insert outreach_setting account_id=${TEAM_ID} daily_cap=25 max_touches=1 letter_monthly_cap=40 lookup_monthly_cap=200 ai_monthly_cap=1000`,
+      `insert outreach_setting account_id=${TEAM_ID} daily_cap=25 max_touches=3 letter_monthly_cap=40 lookup_monthly_cap=200 ai_monthly_cap=1000`,
       `resume capped runs of ${TEAM_ID}`,
     ]);
   });

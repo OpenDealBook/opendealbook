@@ -35,13 +35,13 @@ function pinnedLookup({ address, family }: VettedAddress): LookupFunction {
     options.all ? callback(null, [{ address, family }]) : callback(null, address, family);
 }
 
-async function post(
+export async function pinnedPost(
   url: string,
   headers: Record<string, string>,
   body: unknown,
-  connection: Connection,
-): Promise<unknown> {
-  const target = await connection.connectTo(url).catch((error: unknown) => {
+  connection: { connectTo?: Connection['connectTo']; timeoutMs: number; signal?: AbortSignal },
+): Promise<{ status: number; text: string }> {
+  const target = await (connection.connectTo ?? publicAddressOf)(url).catch((error: unknown) => {
     if (error instanceof AddressNotFound && !error.retryable) {
       throw ApplicationFailure.nonRetryable(error.message);
     }
@@ -51,7 +51,7 @@ async function post(
     throw ApplicationFailure.nonRetryable('Use a public HTTPS base URL');
   }
   const payload = JSON.stringify(body);
-  const response = await new Promise<{ status: number; text: string }>((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const request = (url.startsWith('https:') ? https : http).request(
       url,
       {
@@ -74,13 +74,26 @@ async function post(
     request.on('error', reject);
     request.end(payload);
   });
+}
+
+async function post(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  connection: Connection,
+): Promise<unknown> {
+  const response = await pinnedPost(url, headers, body, connection);
   if (response.status >= 500) {
     throw new Error(`The AI provider answered ${response.status}`);
   }
   if (response.status >= 300) {
     throw ApplicationFailure.nonRetryable(`The AI provider answered ${response.status}`);
   }
-  return JSON.parse(response.text);
+  try {
+    return JSON.parse(response.text);
+  } catch {
+    throw ApplicationFailure.nonRetryable('The AI provider answered with something that is not JSON');
+  }
 }
 
 export async function completeWithTeamAi(

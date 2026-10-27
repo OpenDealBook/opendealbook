@@ -7,6 +7,7 @@ export { announcementSchedule } from './announcementSchedule';
 export { brokerCatchUp, approveBrokerCatchUp } from './brokerCatchUp';
 export { trialDrip, stopTrialDrip } from './trialDrip';
 export { refreshSbaLoans } from './refreshSbaLoans';
+export { importLeadSource } from '../leadImports/workflow';
 export { writeCloseCompWorkflow } from './writeCloseComp';
 export { sellerDelivery, sellerSendProblem } from './sellerDelivery';
 export { dealUpdateDelivery } from './dealUpdateDelivery';
@@ -17,6 +18,7 @@ export { pruneWorkflowStepDataDaily } from '../schedules/workflowPruneWorkflow';
 export { syncLenderRepliesHourly } from '../lender-replies/workflow';
 export { sweepStaleLenderOutreach } from '../lender-replies/staleSweepWorkflow';
 export { sweepStaleOutreachMessages } from '../outreach/staleSweepWorkflow';
+export { syncOutreachRepliesHourly } from '../outreach/replySyncWorkflow';
 export {
   emailLendersToNudgeHourly,
   syncLenderNudgeTodosHourly,

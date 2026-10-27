@@ -138,14 +138,12 @@ select is(
 );
 
 select lives_ok(
-  $$ insert into public.provider_credential (account_id, kind, provider, api_key_secret_ref)
-     values (tests.account_id('ls-acct-2'), 'letters', 'lob', 'LOB_KEY_ACCT2') $$,
-  'a team stores its own letter provider key reference'
+  $$ select public.save_provider_credential(tests.account_id('ls-acct-2'), 'letters', 'lob-key-acct2') $$,
+  'a team stores its own letter provider key'
 );
 select throws_ok(
-  $$ insert into public.provider_credential (account_id, kind, provider, api_key_secret_ref)
-     values (tests.account_id('ls-acct'), 'letters', 'lob', 'LOB_KEY_STOLEN') $$,
-  '42501', null, 'a team cannot store a key reference on another team'
+  $$ select public.save_provider_credential(tests.account_id('ls-acct'), 'letters', 'lob-key-stolen') $$,
+  '42501', null, 'a team cannot store a key on another team'
 );
 
 select throws_ok(
@@ -238,8 +236,8 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$ insert into public.provider_credential (account_id, kind, provider, api_key_secret_ref)
-     values (tests.account_id('ls-acct-2'), 'letters', 'postgrid', 'PG_KEY') $$,
+  $$ insert into public.provider_credential (account_id, kind, provider)
+     values (tests.account_id('ls-acct-2'), 'letters', 'postgrid') $$,
   '23505', null, 'a team keeps one provider per kind'
 );
 

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { DEFAULT_MAX_TOUCHES } from '@odb/outreach-app/schema';
 import { setOutreachSetting } from '@odb/outreach-app/server';
 import { Button } from '@odb/ui/button';
 import { Input } from '@odb/ui/input';
@@ -36,7 +37,7 @@ export function SettingsForm({
         await setOutreachSetting({
           accountId,
           dailyCap: Number(cap),
-          maxTouches: Number(touches),
+          maxTouches: touches === '' ? DEFAULT_MAX_TOUCHES : Number(touches),
         });
         setSaved(true);
         router.refresh();
@@ -68,7 +69,7 @@ export function SettingsForm({
           id={'max-touches'}
           type={'number'}
           min={1}
-          required
+          placeholder={String(DEFAULT_MAX_TOUCHES)}
           value={touches}
           onChange={(event) => setTouches(event.target.value)}
         />

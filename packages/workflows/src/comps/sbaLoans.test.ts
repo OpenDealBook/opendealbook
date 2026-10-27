@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { sbaUpsertKey } from '@odb/comps';
@@ -53,23 +55,16 @@ afterEach(() => {
 });
 
 describe('discoverSbaResources', () => {
-  it('classifies live CKAN CSV resources into 7(a) and 504 without hard-coding dated file names', async () => {
-    stubFetch(() => ({
-      json: async () => ({
-        result: {
-          resources: [
-            { name: 'FOIA 7a FY2020 Present', url: 'https://sba.test/FOIA_7a_FY2020_Present_asof_260630.csv', format: 'CSV' },
-            { name: 'FOIA 504 FY2010 Present', url: 'https://sba.test/FOIA_504_FY2010_Present_asof_260630.csv', format: 'CSV' },
-            { name: 'Data dictionary', url: 'https://sba.test/7a_504_foia_data_dictionary.xlsx', format: 'XLSX' },
-          ],
-        },
-      }),
-    }));
+  it('splits the CSV links on the SBA dataset page into 7(a) and 504', async () => {
+    const page = readFileSync(new URL('../leadImports/fixtures/sba-dataset-page.html', import.meta.url), 'utf8');
+    stubFetch(() => ({ ok: true, text: async () => page }));
 
     const result = await discoverSbaResources();
 
-    expect(result.sevenA).toEqual(['https://sba.test/FOIA_7a_FY2020_Present_asof_260630.csv']);
-    expect(result.fiveOhFour).toEqual(['https://sba.test/FOIA_504_FY2010_Present_asof_260630.csv']);
+    expect(result).toEqual({
+      sevenA: ['https://data.sba.gov/sites/default/files/uploaded_resources/FOIA_7a_FY2020_Present_asof_260630.csv'],
+      fiveOhFour: ['https://data.sba.gov/sites/default/files/uploaded_resources/FOIA_504_FY2010_Present_asof_260630.csv'],
+    });
   });
 });
 

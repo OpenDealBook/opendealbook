@@ -1,3 +1,6 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeAiProvider, openAiReply } from '../../test-support/fake-ai-provider';
@@ -161,5 +164,26 @@ describe('completeWithTeamAi', () => {
 
     expect(failure).toMatchObject({ message: "We couldn't find that address. Check the base URL." });
     expect((failure as { nonRetryable?: boolean }).nonRetryable === true).toBe(failsAtOnce);
+  });
+
+  it('fails at once when the provider answers success with something that is not JSON', async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/html' });
+      response.end('<html>gateway</html>');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    close = () => server.close();
+    const { port } = server.address() as AddressInfo;
+
+    const failure = await completeWithTeamAi(
+      { provider: 'openai', model: 'gpt-x', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'sk' },
+      'Hi',
+      LOOPBACK_FAKE,
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      nonRetryable: true,
+      message: 'The AI provider answered with something that is not JSON',
+    });
   });
 });

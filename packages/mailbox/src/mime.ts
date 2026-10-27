@@ -2,6 +2,10 @@ import type { MailboxConnection, OutboundEmail } from './types';
 
 const BOUNDARY = 'odb-mailbox-alternative';
 
+function singleLine(value: string): string {
+  return value.replace(/[\r\n]/g, '');
+}
+
 export function buildMimeMessage(
   connection: MailboxConnection,
   email: OutboundEmail,
@@ -10,8 +14,9 @@ export function buildMimeMessage(
   const headers = [
     `From: ${connection.emailAddress}`,
     `To: ${email.to}`,
-    `Subject: ${email.subject}`,
+    `Subject: ${singleLine(email.subject)}`,
     ...threadHeaders,
+    ...Object.entries(email.headers ?? {}).map(([name, value]) => `${name}: ${singleLine(value)}`),
     'MIME-Version: 1.0',
   ];
   if (email.replyTo) {

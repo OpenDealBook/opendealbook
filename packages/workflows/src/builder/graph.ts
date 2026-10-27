@@ -17,6 +17,12 @@ export const STEP_TYPES = [
   'ask_ai',
   'decision_model',
   'approval',
+  'pull_leads',
+  'registry_lookup',
+  'email_lookup',
+  'prepare_firm',
+  'enroll_sequence',
+  'send_letter',
 ] as const;
 export const NODE_TYPES = [
   ...TRIGGER_TYPES,
@@ -59,7 +65,90 @@ export const NODE_HANDLES: Record<NodeTypeName, readonly string[]> = {
   approval: DECISION_HANDLES,
   ask_ai: [],
   decision_model: DECISION_HANDLES,
+  pull_leads: [],
+  registry_lookup: [],
+  email_lookup: [],
+  prepare_firm: [],
+  enroll_sequence: [],
+  send_letter: [],
 };
+
+const LEAD_SOURCES = [
+  'ppp',
+  'sba_7a',
+  'sba_504',
+  'form_5500',
+  'state_registry',
+] as const;
+
+const US_STATE_CODES = [
+  'AL',
+  'AK',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'HI',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
+  'DC',
+  'PR',
+  'GU',
+  'VI',
+  'AS',
+  'MP',
+] as const;
+
+const WIDEN_RANGES = [
+  ['minJobs', 'maxJobs'],
+  ['minPppLoan', 'maxPppLoan'],
+  ['minHeadcount', 'maxHeadcount'],
+] as const;
+
+const firmId = z.string().min(1);
+const count = z.int().nonnegative();
+const dollars = z.number().nonnegative();
 
 const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
@@ -130,6 +219,34 @@ export const NODE_CONFIG_SCHEMAS = {
     firmId: z.string().min(1),
     instructions: z.string().optional(),
   }),
+  pull_leads: z.object({
+    sources: z.array(z.enum(LEAD_SOURCES)).min(1),
+    widen: z
+      .object({
+        states: z.array(z.enum(US_STATE_CODES)).optional(),
+        minJobs: count.optional(),
+        maxJobs: count.optional(),
+        minPppLoan: dollars.optional(),
+        maxPppLoan: dollars.optional(),
+        minAgeYears: count.optional(),
+        minHeadcount: count.optional(),
+        maxHeadcount: count.optional(),
+      })
+      .refine(
+        (widen) =>
+          WIDEN_RANGES.every(
+            ([min, max]) => (widen[min] ?? 0) <= (widen[max] ?? Infinity),
+          ),
+        'Each minimum must be at most its maximum',
+      )
+      .optional(),
+    limit: z.int().min(1).max(500).default(500),
+  }),
+  registry_lookup: z.object({ firmId }),
+  email_lookup: z.object({ firmId }),
+  prepare_firm: z.object({ firmId }),
+  enroll_sequence: z.object({ firmId, sequenceId: z.string().min(1) }),
+  send_letter: z.object({ firmId, templateId: z.string().min(1) }),
 } satisfies Record<NodeTypeName, z.ZodType>;
 
 export type NodeConfig<Type extends NodeTypeName> = z.output<

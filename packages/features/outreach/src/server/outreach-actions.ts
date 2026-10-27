@@ -1,40 +1,45 @@
 'use server';
 
 import { enhanceAction } from '@odb/next/actions';
+import { refusableAction } from '@odb/next/actions/refusable-action';
+import { Refusal } from '@odb/next/refusal';
 import { DEFAULT_OUTREACH_SEQUENCES } from '@odb/outreach';
 import type { TablesInsert, TablesUpdate } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+import type { z } from 'zod';
+
 import {
   connectMailboxSchema,
+  createLetterTemplateSchema,
   createSequenceSchema,
   enrollTargetsSchema,
   seedDefaultSequencesSchema,
   setOutreachSettingSchema,
   suppressEmailSchema,
+  outreachStepSchema,
+  updateLetterTemplateSchema,
   updateSequenceSchema,
 } from '../schema/outreach.schema';
 
-type StepInput = {
-  ordinal: number;
-  delayDays: number;
-  subject: string;
-  body: string;
-};
+type StepInput = z.infer<typeof outreachStepSchema>;
+
+function stepFields(step: StepInput) {
+  return {
+    ordinal: step.ordinal,
+    delay_days: step.delayDays,
+    channel: step.channel,
+    subject: step.channel === 'email' ? step.subject : null,
+    body: step.body,
+  };
+}
 
 function stepRows(
   accountId: string,
   sequenceId: string,
   steps: StepInput[],
 ): TablesInsert<'outreach_step'>[] {
-  return steps.map((step) => ({
-    account_id: accountId,
-    sequence_id: sequenceId,
-    ordinal: step.ordinal,
-    delay_days: step.delayDays,
-    subject: step.subject,
-    body: step.body,
-  }));
+  return steps.map((step) => ({ account_id: accountId, sequence_id: sequenceId, ...stepFields(step) }));
 }
 
 export const connectMailbox = enhanceAction(
@@ -87,6 +92,7 @@ export const seedDefaultSequences = enhanceAction(
           name: sequence.name,
           description: sequence.description,
           is_default: true,
+          enabled: sequence.enabled,
         })
         .select('id')
         .single();
@@ -162,17 +168,13 @@ export const updateSequence = enhanceAction(
       .throwOnError();
 
     if (data.steps !== undefined) {
-      await client
-        .from('outreach_step')
-        .delete()
-        .eq('sequence_id', data.sequenceId)
-        .throwOnError();
-
-      if (data.steps.length > 0) {
-        await client
-          .from('outreach_step')
-          .insert(stepRows(data.accountId, data.sequenceId, data.steps))
-          .throwOnError();
+      const { error } = await client.rpc('replace_outreach_steps', {
+        p_account_id: data.accountId,
+        p_sequence_id: data.sequenceId,
+        p_steps: data.steps.map(stepFields),
+      });
+      if (error) {
+        throw error;
       }
     }
 
@@ -180,6 +182,32 @@ export const updateSequence = enhanceAction(
   },
   { auth: true, schema: updateSequenceSchema },
 );
+
+export const createLetterTemplate = enhanceAction(
+  async (data) => {
+    await getSupabaseServerClient()
+      .from('letter_template')
+      .insert({ account_id: data.accountId, name: data.name, body: data.body })
+      .throwOnError();
+  },
+  { auth: true, schema: createLetterTemplateSchema },
+);
+
+export const updateLetterTemplate = refusableAction(async (data) => {
+  const { data: updated, error } = await getSupabaseServerClient()
+    .from('letter_template')
+    .update({ name: data.name, body: data.body })
+    .eq('id', data.templateId)
+    .eq('account_id', data.accountId)
+    .select('id')
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  if (!updated) {
+    throw new Refusal('Only deal managers can edit letter templates. Ask a deal manager.');
+  }
+}, updateLetterTemplateSchema);
 
 export const enrollTargets = enhanceAction(
   async (data) => {

@@ -1,6 +1,8 @@
 import { buildMimeMessage, encodeBase64Url } from './mime';
 import {
   MailboxAccessDenied,
+  MailboxNoResponse,
+  MailboxRequestFailed,
   type MailboxConnection,
   type OutboundEmail,
   type SendResult,
@@ -11,6 +13,20 @@ function gmailUrl(path: string) {
   return `${process.env.GMAIL_API_BASE ?? 'https://gmail.googleapis.com'}/gmail/v1/users/me${path}`;
 }
 const GRAPH_MESSAGES_URL = 'https://graph.microsoft.com/v1.0/me/messages';
+
+async function send(action: string, url: string, init: RequestInit): Promise<Response> {
+  const response = await fetch(url, init).catch((error: unknown) => {
+    throw new MailboxNoResponse(action, error);
+  });
+  assertOk(response, action);
+  return response;
+}
+
+function assertOk(response: Response, action: string): void {
+  if (!response.ok) {
+    throw new MailboxRequestFailed(response.status, action);
+  }
+}
 
 export async function sendViaGmail(
   accessToken: string,
@@ -25,7 +41,7 @@ export async function sendViaGmail(
     buildMimeMessage(connection, email, threadHeaders),
   );
 
-  const response = await fetch(gmailUrl('/messages/send'), {
+  const response = await send('Gmail send', gmailUrl('/messages/send'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -97,12 +113,13 @@ export async function sendViaMicrosoft(
           `${GRAPH_MESSAGES_URL}/${await latestInConversation(accessToken, email.inThread)}/createReply`,
           { method: 'POST', headers, body: JSON.stringify({ message }) },
         );
+  assertOk(draft, 'Microsoft draft');
   const { id, conversationId } = (await draft.json()) as {
     id: string;
     conversationId: string;
   };
 
-  await fetch(`${GRAPH_MESSAGES_URL}/${id}/send`, { method: 'POST', headers });
+  await send('Microsoft send', `${GRAPH_MESSAGES_URL}/${id}/send`, { method: 'POST', headers });
 
   return { providerMessageId: id, threadId: conversationId };
 }
@@ -139,6 +156,7 @@ export async function listGmailThreadMessages(
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   assertReadable(response);
+  assertOk(response, 'Thread read');
 
   const { messages } = (await response.json()) as {
     messages: {
@@ -170,6 +188,7 @@ export async function listMicrosoftConversationMessages(
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   assertReadable(response);
+  assertOk(response, 'Thread read');
 
   const { value } = (await response.json()) as {
     value: {

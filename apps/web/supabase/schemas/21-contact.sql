@@ -1,14 +1,20 @@
--- Account-scoped contacts, optionally attached to a firm.
+-- Account-scoped contacts, optionally attached to a firm. An email lookup
+-- finds an address before anyone knows the owner's name, so a contact may have
+-- no name, and lookup contacts are marked so a retried lookup cannot add the
+-- same address twice.
+
+create type public.contact_source as enum ('manual', 'email_lookup');
 
 create table if not exists public.contact (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   firm_id uuid references public.firm (id) on delete set null,
-  name varchar(255) not null,
+  name varchar(255),
   email varchar(320),
   phone text,
   company text,
   kind text not null default 'other',
+  source public.contact_source not null default 'manual',
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -19,6 +25,8 @@ alter table public.contact enable row level security;
 
 create index ix_contact_account on public.contact (account_id);
 create index ix_contact_firm on public.contact (firm_id);
+create unique index ux_contact_email_lookup on public.contact (account_id, firm_id, lower(email))
+  where source = 'email_lookup';
 
 revoke all on public.contact from authenticated, service_role;
 grant select, insert, update, delete on public.contact to authenticated;

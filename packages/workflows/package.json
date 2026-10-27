@@ -42,7 +42,9 @@
     "@odb/seller-rooms": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/verification": "workspace:*",
+    "fflate": "0.8.2",
     "papaparse": "catalog:",
+    "tldts": "7.4.18",
     "zod": "catalog:"
   },
   "devDependencies": {

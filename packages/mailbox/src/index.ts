@@ -19,7 +19,7 @@ export type {
   SendResult,
   ThreadMessage,
 } from './types';
-export { MailboxAccessDenied } from './types';
+export { MailboxAccessDenied, MailboxNoResponse, MailboxRequestFailed } from './types';
 
 export async function sendAs(
   connection: MailboxConnection,

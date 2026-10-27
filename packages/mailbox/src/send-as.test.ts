@@ -5,7 +5,7 @@ const { resolveAccessToken } = vi.hoisted(() => ({
 }));
 vi.mock('./nango', () => ({ resolveAccessToken }));
 
-import { sendAs } from './index';
+import { MailboxNoResponse, MailboxRequestFailed, sendAs } from './index';
 import type { MailboxConnection } from './types';
 
 const gmailConnection: MailboxConnection = {
@@ -40,6 +40,7 @@ describe('sendAs gmail against GMAIL_API_BASE', () => {
     vi.stubEnv('GMAIL_API_BASE', 'http://localhost:4513');
     fetchMock
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           messages: [
             { payload: { headers: [{ name: 'Message-ID', value: '<first@mail.gmail.com>' }] } },
@@ -47,6 +48,7 @@ describe('sendAs gmail against GMAIL_API_BASE', () => {
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ id: 'gmail-reply', threadId: 'thread-9' }),
       });
 
@@ -69,6 +71,7 @@ describe('sendAs gmail against GMAIL_API_BASE', () => {
 describe('sendAs gmail', () => {
   it('posts a base64url raw message to the Gmail send endpoint and returns its id', async () => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: async () => ({ id: 'gmail-123', threadId: 'thread-9' }),
     });
 
@@ -102,9 +105,10 @@ describe('sendAs microsoft', () => {
   it('creates a draft, sends it, and returns the draft id and conversation id', async () => {
     fetchMock
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ id: 'msg-1', conversationId: 'conv-1' }),
       })
-      .mockResolvedValueOnce({ status: 202 });
+      .mockResolvedValueOnce({ ok: true, status: 202 });
 
     const result = await sendAs(microsoftConnection, {
       to: 'lead@target.com',
@@ -151,6 +155,7 @@ describe('sendAs replying in a thread', () => {
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ id: 'gmail-reply', threadId: 'thread-9' }),
       });
 
@@ -191,9 +196,10 @@ describe('sendAs replying in a thread', () => {
         }),
       })
       .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ id: 'reply-1', conversationId: 'conv-1' }),
       })
-      .mockResolvedValueOnce({ status: 202 });
+      .mockResolvedValueOnce({ ok: true, status: 202 });
 
     const result = await sendAs(microsoftConnection, {
       to: 'lead@target.com',
@@ -219,5 +225,69 @@ describe('sendAs replying in a thread', () => {
     const [sendUrl, sendInit] = fetchMock.mock.calls[2]!;
     expect(sendUrl).toBe('https://graph.microsoft.com/v1.0/me/messages/reply-1/send');
     expect(sendInit.method).toBe('POST');
+  });
+});
+
+describe('sendAs refuses a failed send', () => {
+  it('throws with the status when Gmail rejects the send', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
+
+    await expect(
+      sendAs(gmailConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+    ).rejects.toMatchObject({ constructor: MailboxRequestFailed, status: 403 });
+  });
+
+  it('throws with the status when Microsoft rejects the draft', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+
+    await expect(
+      sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+    ).rejects.toThrow('401');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws with the status when Microsoft rejects the send', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'msg-1', conversationId: 'conv-1' }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 503 });
+
+    await expect(
+      sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+    ).rejects.toThrow('503');
+  });
+});
+
+describe('sendAs when the provider never answers the send', () => {
+  it('throws MailboxNoResponse when the Gmail send gets no response', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+
+    await expect(
+      sendAs(gmailConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+    ).rejects.toBeInstanceOf(MailboxNoResponse);
+  });
+
+  it('throws MailboxNoResponse when the Microsoft send gets no response', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ id: 'msg-1', conversationId: 'conv-1' }),
+      })
+      .mockRejectedValueOnce(new TypeError('fetch failed'));
+
+    await expect(
+      sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+    ).rejects.toBeInstanceOf(MailboxNoResponse);
+  });
+
+  it('leaves a Microsoft draft that got no response as an ordinary error, since nothing was sent', async () => {
+    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+
+    const sending = sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' });
+
+    await expect(sending).rejects.toThrow('fetch failed');
+    await expect(sending).rejects.not.toBeInstanceOf(MailboxNoResponse);
   });
 });

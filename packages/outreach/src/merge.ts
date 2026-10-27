@@ -1,7 +1,12 @@
 export type MergeContext = {
   recipient?: { name?: string; email?: string; firstName?: string };
   firm?: { name?: string; industry?: string; city?: string; state?: string; website?: string };
-  dealBox?: { revenueRange?: string; industries?: string };
+  dealBox?: {
+    revenueRange?: string;
+    industries?: string;
+    industryPhrase?: string;
+    revenuePhrase?: string;
+  };
   sender?: { name?: string; company?: string; email?: string };
 };
 
@@ -29,8 +34,21 @@ export function mergeFieldTokens(): string[] {
     'firm.website',
     'dealBox.revenueRange',
     'dealBox.industries',
+    'dealBox.industryPhrase',
+    'dealBox.revenuePhrase',
     'sender.name',
     'sender.company',
     'sender.email',
   ];
+}
+
+export function dealBoxMergeFields(dealBox: {
+  industries?: string;
+  revenueRange?: string;
+}): NonNullable<MergeContext['dealBox']> {
+  return {
+    ...dealBox,
+    industryPhrase: dealBox.industries ? `${dealBox.industries} business` : 'business',
+    revenuePhrase: dealBox.revenueRange ? ` around ${dealBox.revenueRange} in revenue` : '',
+  };
 }

@@ -14,6 +14,7 @@ export { ensureOrphanDealFileSweepSchedule } from './schedules/orphanDealFileSwe
 export { ensureLenderReplySyncSchedule } from './lender-replies/schedule';
 export { ensureLenderOutreachStaleSweepSchedule } from './lender-replies/staleSweepSchedule';
 export { ensureOutreachStaleSweepSchedule } from './schedules/outreachStaleSweep';
+export { ensureOutreachReplySyncSchedule } from './outreach/replySyncSchedule';
 export {
   ensureLenderNudgeEmailSchedule,
   ensureLenderNudgeTodoSyncSchedule,
@@ -28,6 +29,7 @@ export { ensureCompEventRelay } from './schedules/compEventRelay';
 export { ensureDealEventNotificationRelay } from './schedules/dealEventNotificationRelay';
 export { ensureWorkflowEventRelay } from './builder/eventRelayStart';
 export { ensureApprovalReminderSchedule } from './schedules/approvalReminder';
+export { ensureLeadImportSchedules } from './leadImports/schedules';
 export {
   ManualRunRefused,
   resumeLockedWorkflowRuns,

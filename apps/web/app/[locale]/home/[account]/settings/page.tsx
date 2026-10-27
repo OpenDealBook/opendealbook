@@ -4,6 +4,7 @@ import { DeleteTeamDialog, UpdateTeamForm } from '@odb/team-accounts';
 import { zoneChoices } from '../../_components/time-zones';
 import { loadTeamWorkspace } from '../layout';
 import { AiProviderSetting } from './ai-provider';
+import { ProviderKeySetting } from './provider-key';
 import { ReloadSampleDeals } from './reload-sample-deals';
 import { TeamTimezoneSetting } from './team-timezone';
 
@@ -17,8 +18,12 @@ export default async function TeamSettingsPage({
   const { locale, account } = await params;
   const { team, permissions, isOwner } = await loadTeamWorkspace(account);
   const renameAllowedAt = await loadRenameAllowedAt(team.id);
-  const [{ legalEntityName, teamPhone, timezone }, aiEndpoint] =
-    await Promise.all([loadTeamDetails(team.id), loadAiEndpoint(team.id)]);
+  const [{ legalEntityName, teamPhone, timezone }, aiEndpoint, providerKeys] =
+    await Promise.all([
+      loadTeamDetails(team.id),
+      loadAiEndpoint(team.id),
+      loadProviderKeys(team.id),
+    ]);
 
   return (
     <main className={'flex flex-col gap-8 p-8'}>
@@ -43,6 +48,15 @@ export default async function TeamSettingsPage({
         current={aiEndpoint}
         canManage={permissions.includes('settings.manage')}
       />
+      {(['email_lookup', 'letters'] as const).map((kind) => (
+        <ProviderKeySetting
+          key={kind}
+          accountId={team.id}
+          kind={kind}
+          current={providerKeys.get(kind) ?? null}
+          canManage={permissions.includes('settings.manage')}
+        />
+      ))}
       {isOwner ? <ReloadSampleDeals accountId={team.id} /> : null}
       <DeleteTeamDialog accountId={team.id} isOwner={isOwner} />
     </main>
@@ -99,4 +113,14 @@ async function loadAiEndpoint(accountId: string) {
       baseUrl: endpoint.base_url!,
     }
   );
+}
+
+async function loadProviderKeys(accountId: string) {
+  const { data: keys } = await getSupabaseServerClient()
+    .from('provider_credential')
+    .select('kind, actor_id')
+    .eq('account_id', accountId)
+    .throwOnError();
+
+  return new Map(keys.map((key) => [key.kind, { actorId: key.actor_id }]));
 }

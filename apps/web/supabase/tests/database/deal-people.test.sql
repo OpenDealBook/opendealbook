@@ -392,6 +392,24 @@ select is(
   7,
   'each person is one row whatever the case of their email'
 );
+
+select tests.login_as('dp_owner');
+insert into public.contact (id, account_id, email)
+values ('dd000000-0000-0000-0000-0000000000c6', tests.account_id('dp-team'), 'nameless@lookup.test');
+insert into public.deal_contact (account_id, deal_id, contact_id, side, role)
+values (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d2', 'dd000000-0000-0000-0000-0000000000c6', 'seller', 'other');
+
+select tests.login_as('dp_member');
+select results_eq(
+  $$ select p.name, e.name from public.deal_people('dd000000-0000-0000-0000-0000000000d2') p
+     cross join unnest(p.entries) e
+     where e.contact_id = 'dd000000-0000-0000-0000-0000000000c6' $$,
+  $$ values ('nameless@lookup.test', 'nameless@lookup.test') $$,
+  'a contact with no name is shown by its email'
+);
+reset role;
+delete from public.deal_contact where contact_id = 'dd000000-0000-0000-0000-0000000000c6';
+delete from public.contact where id = 'dd000000-0000-0000-0000-0000000000c6';
 select results_eq(
   $$ select user_id, name from public.deal_people('dd000000-0000-0000-0000-0000000000d2') order by email $$,
   $$ values

@@ -541,6 +541,13 @@ export type Database = {
             referencedRelation: "firm"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_call_log_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id"]
+          },
         ]
       }
       api_key: {
@@ -852,6 +859,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "broker_intake_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id"]
+          },
+          {
             foreignKeyName: "broker_intake_submitted_by_contact_id_fkey"
             columns: ["submitted_by_contact_id"]
             isOneToOne: false
@@ -868,6 +882,7 @@ export type Database = {
           form_5500_ack_id: string | null
           id: string
           ppp_loan_number: string | null
+          reason: Database["public"]["Enums"]["match_review_reason"]
           registry_entity_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -882,6 +897,7 @@ export type Database = {
           form_5500_ack_id?: string | null
           id?: string
           ppp_loan_number?: string | null
+          reason?: Database["public"]["Enums"]["match_review_reason"]
           registry_entity_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -896,6 +912,7 @@ export type Database = {
           form_5500_ack_id?: string | null
           id?: string
           ppp_loan_number?: string | null
+          reason?: Database["public"]["Enums"]["match_review_reason"]
           registry_entity_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -2275,8 +2292,9 @@ export type Database = {
           firm_id: string | null
           id: string
           kind: string
-          name: string
+          name: string | null
           phone: string | null
+          source: Database["public"]["Enums"]["contact_source"]
           updated_at: string | null
           updated_by: string | null
         }
@@ -2289,8 +2307,9 @@ export type Database = {
           firm_id?: string | null
           id?: string
           kind?: string
-          name: string
+          name?: string | null
           phone?: string | null
+          source?: Database["public"]["Enums"]["contact_source"]
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -2303,8 +2322,9 @@ export type Database = {
           firm_id?: string | null
           id?: string
           kind?: string
-          name?: string
+          name?: string | null
           phone?: string | null
+          source?: Database["public"]["Enums"]["contact_source"]
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -2336,6 +2356,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "firm"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id"]
           },
         ]
       }
@@ -3320,6 +3347,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "firm"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id"]
           },
           {
             foreignKeyName: "deal_stage_pipeline_stage_fk"
@@ -6072,6 +6106,13 @@ export type Database = {
             referencedRelation: "firm"
             referencedColumns: ["id", "account_id"]
           },
+          {
+            foreignKeyName: "firm_email_firm_id_account_id_fkey"
+            columns: ["firm_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id", "account_id"]
+          },
         ]
       }
       firm_verdict: {
@@ -6141,27 +6182,34 @@ export type Database = {
             referencedRelation: "firm"
             referencedColumns: ["id", "account_id"]
           },
+          {
+            foreignKeyName: "firm_verdict_firm_id_account_id_fkey"
+            columns: ["firm_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id", "account_id"]
+          },
         ]
       }
       firm_verdict_approval: {
         Row: {
           account_id: string
           approved_at: string
-          approved_by: string
+          approved_by: string | null
           reason: string | null
           verdict_id: string
         }
         Insert: {
           account_id: string
           approved_at?: string
-          approved_by?: string
+          approved_by?: string | null
           reason?: string | null
           verdict_id: string
         }
         Update: {
           account_id?: string
           approved_at?: string
-          approved_by?: string
+          approved_by?: string | null
           reason?: string | null
           verdict_id?: string
         }
@@ -6751,36 +6799,88 @@ export type Database = {
       }
       lead_import: {
         Row: {
+          as_of: string | null
           created_at: string
+          error: string | null
           filename: string | null
           id: string
           rows_read: number
           rows_rejected: number
+          rows_with_nulled_fields: number
           rows_written: number
           source: Database["public"]["Enums"]["lead_source"]
           status: Database["public"]["Enums"]["lead_import_status"]
         }
         Insert: {
+          as_of?: string | null
           created_at?: string
+          error?: string | null
           filename?: string | null
           id?: string
           rows_read?: number
           rows_rejected?: number
+          rows_with_nulled_fields?: number
           rows_written?: number
           source: Database["public"]["Enums"]["lead_source"]
           status?: Database["public"]["Enums"]["lead_import_status"]
         }
         Update: {
+          as_of?: string | null
           created_at?: string
+          error?: string | null
           filename?: string | null
           id?: string
           rows_read?: number
           rows_rejected?: number
+          rows_with_nulled_fields?: number
           rows_written?: number
           source?: Database["public"]["Enums"]["lead_source"]
           status?: Database["public"]["Enums"]["lead_import_status"]
         }
         Relationships: []
+      }
+      lead_pull: {
+        Row: {
+          account_id: string
+          created_at: string
+          firm_ids: string[]
+          id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          firm_ids: string[]
+          id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          firm_ids?: string[]
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_pull_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_pull_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_pull_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lender: {
         Row: {
@@ -8069,6 +8169,61 @@ export type Database = {
           },
         ]
       }
+      letter_template: {
+        Row: {
+          account_id: string
+          body: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          account_id: string
+          body: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          account_id?: string
+          body?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "letter_template_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "letter_template_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "letter_template_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       llm_endpoint: {
         Row: {
           account_id: string
@@ -9067,6 +9222,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           current_step: number
+          error: string | null
           firm_id: string | null
           id: string
           next_send_at: string
@@ -9074,6 +9230,7 @@ export type Database = {
           sequence_id: string
           status: string
           target_email: string
+          unsubscribe_token: string
           updated_at: string | null
           updated_by: string | null
         }
@@ -9083,6 +9240,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           current_step?: number
+          error?: string | null
           firm_id?: string | null
           id?: string
           next_send_at?: string
@@ -9090,6 +9248,7 @@ export type Database = {
           sequence_id: string
           status?: string
           target_email: string
+          unsubscribe_token?: string
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -9099,6 +9258,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           current_step?: number
+          error?: string | null
           firm_id?: string | null
           id?: string
           next_send_at?: string
@@ -9106,6 +9266,7 @@ export type Database = {
           sequence_id?: string
           status?: string
           target_email?: string
+          unsubscribe_token?: string
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -9146,6 +9307,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "outreach_enrollment_firm_id_fkey"
+            columns: ["firm_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id"]
+          },
+          {
             foreignKeyName: "outreach_enrollment_sequence_id_fkey"
             columns: ["sequence_id"]
             isOneToOne: false
@@ -9161,15 +9329,16 @@ export type Database = {
           city: string
           cost_cents: number | null
           created_at: string
-          enrollment_id: string
+          enrollment_id: string | null
           error: string | null
           id: string
+          idempotency_key: string | null
           postal_code: string
           provider: string
           provider_letter_id: string | null
           state: string
           status: Database["public"]["Enums"]["letter_status"]
-          step_ordinal: number
+          step_ordinal: number | null
         }
         Insert: {
           account_id: string
@@ -9177,15 +9346,16 @@ export type Database = {
           city: string
           cost_cents?: number | null
           created_at?: string
-          enrollment_id: string
+          enrollment_id?: string | null
           error?: string | null
           id?: string
+          idempotency_key?: string | null
           postal_code: string
           provider: string
           provider_letter_id?: string | null
           state: string
           status?: Database["public"]["Enums"]["letter_status"]
-          step_ordinal: number
+          step_ordinal?: number | null
         }
         Update: {
           account_id?: string
@@ -9193,17 +9363,39 @@ export type Database = {
           city?: string
           cost_cents?: number | null
           created_at?: string
-          enrollment_id?: string
+          enrollment_id?: string | null
           error?: string | null
           id?: string
+          idempotency_key?: string | null
           postal_code?: string
           provider?: string
           provider_letter_id?: string | null
           state?: string
           status?: Database["public"]["Enums"]["letter_status"]
-          step_ordinal?: number
+          step_ordinal?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "outreach_letter_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_letter_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outreach_letter_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "outreach_letter_enrollment_id_account_id_fkey"
             columns: ["enrollment_id", "account_id"]
@@ -9218,8 +9410,10 @@ export type Database = {
           body: string
           enrollment_id: string
           error: string | null
+          from_email: string | null
           id: string
           provider_message_id: string | null
+          provider_thread_id: string | null
           sent_at: string | null
           status: string
           step_id: number
@@ -9230,8 +9424,10 @@ export type Database = {
           body: string
           enrollment_id: string
           error?: string | null
+          from_email?: string | null
           id?: string
           provider_message_id?: string | null
+          provider_thread_id?: string | null
           sent_at?: string | null
           status: string
           step_id: number
@@ -9242,8 +9438,10 @@ export type Database = {
           body?: string
           enrollment_id?: string
           error?: string | null
+          from_email?: string | null
           id?: string
           provider_message_id?: string | null
+          provider_thread_id?: string | null
           sent_at?: string | null
           status?: string
           step_id?: number
@@ -9329,6 +9527,11 @@ export type Database = {
           created_by: string | null
           daily_cap: number
           letter_monthly_cap: number
+          letter_return_address_line1: string | null
+          letter_return_city: string | null
+          letter_return_name: string | null
+          letter_return_postal_code: string | null
+          letter_return_state: string | null
           lookup_monthly_cap: number
           max_touches: number
           updated_at: string | null
@@ -9341,6 +9544,11 @@ export type Database = {
           created_by?: string | null
           daily_cap: number
           letter_monthly_cap?: number
+          letter_return_address_line1?: string | null
+          letter_return_city?: string | null
+          letter_return_name?: string | null
+          letter_return_postal_code?: string | null
+          letter_return_state?: string | null
           lookup_monthly_cap?: number
           max_touches?: number
           updated_at?: string | null
@@ -9353,6 +9561,11 @@ export type Database = {
           created_by?: string | null
           daily_cap?: number
           letter_monthly_cap?: number
+          letter_return_address_line1?: string | null
+          letter_return_city?: string | null
+          letter_return_name?: string | null
+          letter_return_postal_code?: string | null
+          letter_return_state?: string | null
           lookup_monthly_cap?: number
           max_touches?: number
           updated_at?: string | null
@@ -9565,6 +9778,13 @@ export type Database = {
             referencedRelation: "firm"
             referencedColumns: ["id", "account_id"]
           },
+          {
+            foreignKeyName: "paid_lookup_firm_id_account_id_fkey"
+            columns: ["firm_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id", "account_id"]
+          },
         ]
       }
       personal_todo: {
@@ -9765,7 +9985,8 @@ export type Database = {
       provider_credential: {
         Row: {
           account_id: string
-          api_key_secret_ref: string
+          actor_id: string | null
+          api_key_secret_id: string | null
           base_url: string | null
           created_at: string | null
           created_by: string | null
@@ -9774,10 +9995,12 @@ export type Database = {
           provider: string
           updated_at: string | null
           updated_by: string | null
+          webhook_secret_id: string | null
         }
         Insert: {
           account_id: string
-          api_key_secret_ref: string
+          actor_id?: string | null
+          api_key_secret_id?: string | null
           base_url?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -9786,10 +10009,12 @@ export type Database = {
           provider: string
           updated_at?: string | null
           updated_by?: string | null
+          webhook_secret_id?: string | null
         }
         Update: {
           account_id?: string
-          api_key_secret_ref?: string
+          actor_id?: string | null
+          api_key_secret_id?: string | null
           base_url?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -9798,6 +10023,7 @@ export type Database = {
           provider?: string
           updated_at?: string | null
           updated_by?: string | null
+          webhook_secret_id?: string | null
         }
         Relationships: [
           {
@@ -12585,6 +12811,77 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_pipeline: {
+        Row: {
+          account_id: string | null
+          approval: string | null
+          business_age_years: number | null
+          city: string | null
+          email_count: number | null
+          firm_id: string | null
+          headcount: number | null
+          jobs: number | null
+          name: string | null
+          needs_review: boolean | null
+          outreach: string | null
+          ppp_loan_amount: number | null
+          sources: Database["public"]["Enums"]["lead_source"][] | null
+          state: string | null
+          verdict: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_pipeline_state: {
+        Row: {
+          account_id: string | null
+          state: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "firm_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_account_workspace: {
         Row: {
           id: string | null
@@ -13173,6 +13470,13 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: undefined
       }
+      disconnect_provider_credential: {
+        Args: {
+          p_account_id: string
+          p_kind: Database["public"]["Enums"]["provider_kind"]
+        }
+        Returns: undefined
+      }
       dr_folder_count_below: { Args: { folder_id: string }; Returns: number }
       edit_deal_update: {
         Args: { body: string; picks: Json; subject: string; update_id: string }
@@ -13472,6 +13776,7 @@ export type Database = {
           room_name: string
         }[]
       }
+      letter_webhook_secret: { Args: { p_account_id: string }; Returns: string }
       llm_endpoint_api_key: { Args: { p_account_id: string }; Returns: string }
       lookup_cap_reached: { Args: { p_account_id: string }; Returns: boolean }
       main_contact_on_side: {
@@ -13539,6 +13844,10 @@ export type Database = {
       }
       next_pool_pseudonym_number: { Args: never; Returns: number }
       open_document_share: { Args: { share_id: string }; Returns: string }
+      outreach_team_emails: {
+        Args: { p_account_id: string }
+        Returns: string[]
+      }
       post_seller_counsel_message: {
         Args: { body: string; deal_id: string; files?: Json }
         Returns: string
@@ -13599,7 +13908,36 @@ export type Database = {
         Args: { ev: Database["public"]["Tables"]["deal_event"]["Row"] }
         Returns: undefined
       }
+      provider_key: {
+        Args: {
+          p_account_id: string
+          p_kind: Database["public"]["Enums"]["provider_kind"]
+        }
+        Returns: {
+          actor_id: string
+          api_key: string
+          base_url: string
+          provider: string
+        }[]
+      }
       prune_workflow_step_data: { Args: never; Returns: undefined }
+      pull_leads: {
+        Args: {
+          p_account_id: string
+          p_limit: number
+          p_max_headcount?: number
+          p_max_jobs?: number
+          p_max_ppp_loan?: number
+          p_min_age_years?: number
+          p_min_headcount?: number
+          p_min_jobs?: number
+          p_min_ppp_loan?: number
+          p_pull_id: string
+          p_sources: Database["public"]["Enums"]["lead_source"][]
+          p_states: string[]
+        }
+        Returns: string[]
+      }
       reads_contracts_as_seller_side: {
         Args: { deal_id: string }
         Returns: boolean
@@ -13624,6 +13962,10 @@ export type Database = {
         Args: { p_codes: string[] }
         Returns: undefined
       }
+      replace_outreach_steps: {
+        Args: { p_account_id: string; p_sequence_id: string; p_steps: Json }
+        Returns: undefined
+      }
       replay_deal: { Args: { p_deal_id: string }; Returns: undefined }
       reserve_ai_call: {
         Args: {
@@ -13634,6 +13976,16 @@ export type Database = {
           p_model: string
         }
         Returns: string
+      }
+      reserve_lookup: {
+        Args: {
+          p_account_id: string
+          p_firm_id: string
+          p_id: string
+          p_kind: Database["public"]["Enums"]["provider_kind"]
+          p_provider: string
+        }
+        Returns: boolean
       }
       room_close_ready: {
         Args: { room_id: string; room_kind: string }
@@ -13646,6 +13998,16 @@ export type Database = {
           p_base_url: string
           p_model: string
           p_provider: string
+        }
+        Returns: undefined
+      }
+      save_provider_credential: {
+        Args: {
+          p_account_id: string
+          p_actor_id?: string
+          p_api_key?: string
+          p_kind: Database["public"]["Enums"]["provider_kind"]
+          p_webhook_secret?: string
         }
         Returns: undefined
       }
@@ -13943,6 +14305,10 @@ export type Database = {
           wake_at: string
         }[]
       }
+      stop_outreach_to: {
+        Args: { p_account_id: string; p_email: string; p_reason: string }
+        Returns: undefined
+      }
       storage_object_team_locked: {
         Args: { bucket: string; object_name: string }
         Returns: boolean
@@ -14053,6 +14419,7 @@ export type Database = {
         Returns: undefined
       }
       trigger_event_horizon: { Args: never; Returns: string }
+      unsubscribe_outreach: { Args: { p_token: string }; Returns: boolean }
       update_deal_profile: {
         Args: { p_business_name: string; p_deal_id: string; p_payload: Json }
         Returns: undefined
@@ -14181,6 +14548,7 @@ export type Database = {
       checklist_status: "not_started" | "requested" | "received" | "reviewed"
       comp_data_class: "external" | "proprietary" | "internal"
       comp_license_status: "active" | "expired" | "revoked"
+      contact_source: "manual" | "email_lookup"
       contract_review_verdict:
         | "approved"
         | "changes_needed"
@@ -14223,7 +14591,7 @@ export type Database = {
       discovery_revenue_trend: "up" | "down" | "flat"
       embedding_job_status: "queued" | "running" | "done" | "failed"
       event_actor_kind: "user" | "service" | "api_key" | "system"
-      lead_import_status: "running" | "succeeded" | "failed"
+      lead_import_status: "running" | "succeeded" | "failed" | "skipped"
       lead_source: "ppp" | "sba_7a" | "sba_504" | "form_5500" | "state_registry"
       lender_activity_action:
         | "room_opened"
@@ -14275,6 +14643,7 @@ export type Database = {
         | "delivered"
         | "returned"
         | "failed"
+      match_review_reason: "weak_match" | "ein_conflict"
       match_review_status: "pending" | "accepted" | "rejected"
       meeting_status: "scheduled" | "held" | "skipped" | "cancelled"
       milestone_kind:
@@ -14555,6 +14924,7 @@ export const Constants = {
       checklist_status: ["not_started", "requested", "received", "reviewed"],
       comp_data_class: ["external", "proprietary", "internal"],
       comp_license_status: ["active", "expired", "revoked"],
+      contact_source: ["manual", "email_lookup"],
       contract_review_verdict: [
         "approved",
         "changes_needed",
@@ -14602,7 +14972,7 @@ export const Constants = {
       discovery_revenue_trend: ["up", "down", "flat"],
       embedding_job_status: ["queued", "running", "done", "failed"],
       event_actor_kind: ["user", "service", "api_key", "system"],
-      lead_import_status: ["running", "succeeded", "failed"],
+      lead_import_status: ["running", "succeeded", "failed", "skipped"],
       lead_source: ["ppp", "sba_7a", "sba_504", "form_5500", "state_registry"],
       lender_activity_action: [
         "room_opened",
@@ -14659,6 +15029,7 @@ export const Constants = {
         "returned",
         "failed",
       ],
+      match_review_reason: ["weak_match", "ein_conflict"],
       match_review_status: ["pending", "accepted", "rejected"],
       meeting_status: ["scheduled", "held", "skipped", "cancelled"],
       milestone_kind: [

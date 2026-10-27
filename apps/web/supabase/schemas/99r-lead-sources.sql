@@ -9,7 +9,7 @@ create type public.lead_source as enum ('ppp', 'sba_7a', 'sba_504', 'form_5500',
 
 create type public.registry_source as enum ('api', 'bulk_file');
 
-create type public.lead_import_status as enum ('running', 'succeeded', 'failed');
+create type public.lead_import_status as enum ('running', 'succeeded', 'failed', 'skipped');
 
 -- One ingest run of one source file or API pull. Service role only.
 create table if not exists public.lead_import (
@@ -20,6 +20,9 @@ create table if not exists public.lead_import (
   rows_read int not null default 0,
   rows_written int not null default 0,
   rows_rejected int not null default 0,
+  as_of date,
+  rows_with_nulled_fields int not null default 0,
+  error text,
   created_at timestamptz not null default now()
 );
 
@@ -108,7 +111,8 @@ create table if not exists public.state_registry_officer (
   id uuid primary key default gen_random_uuid(),
   entity_id uuid not null references public.state_registry_entity (id) on delete cascade,
   name text not null,
-  title text
+  title text,
+  constraint state_registry_officer_entity_name_title_key unique nulls not distinct (entity_id, name, title)
 );
 
 create index ix_ppp_loan_business on public.ppp_loan (business_id);
@@ -117,6 +121,7 @@ create index ix_form_5500_filing_business on public.form_5500_filing (business_i
 create index ix_form_5500_filing_ein on public.form_5500_filing (ein);
 create index ix_state_registry_entity_business on public.state_registry_entity (business_id);
 create index ix_state_registry_officer_entity on public.state_registry_officer (entity_id);
+create index ix_public_business_match_key_prefix on public.public_business (match_key text_pattern_ops);
 
 alter table public.public_business enable row level security;
 revoke all on public.public_business from anon, authenticated, service_role;
@@ -198,8 +203,13 @@ create policy firm_email_read on public.firm_email
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
--- A team's own key for each paid provider. api_key_secret_ref names the secret
--- store entry, as llm_endpoint does, so the raw key never lives in a row.
+-- A team's own key for each paid provider: email lookup runs on Apify, letters
+-- on Lob, and registry takes bulk files only, so it has no key. The key lives
+-- encrypted in Supabase Vault and members never see its secret id; settings
+-- managers write only through save_provider_credential and
+-- disconnect_provider_credential. Each kind has a fixed provider and address,
+-- a changed address needs a fresh key, and email lookup names its Apify actor.
+-- Letters also keep the Lob webhook signing secret in Vault beside the key.
 create type public.provider_kind as enum ('email_lookup', 'registry', 'letters');
 
 create table if not exists public.provider_credential (
@@ -208,7 +218,9 @@ create table if not exists public.provider_credential (
   kind public.provider_kind not null,
   provider text not null,
   base_url text,
-  api_key_secret_ref text not null,
+  api_key_secret_id uuid,
+  actor_id text constraint provider_credential_actor_id check (actor_id ~ '^[A-Za-z0-9_.-]+([/~][A-Za-z0-9_.-]+)?$'),
+  webhook_secret_id uuid,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
@@ -219,7 +231,9 @@ create table if not exists public.provider_credential (
 alter table public.provider_credential enable row level security;
 
 revoke all on public.provider_credential from anon, authenticated, service_role;
-grant select, insert, update, delete on public.provider_credential to authenticated;
+grant select (
+  id, account_id, kind, provider, base_url, actor_id, created_at, updated_at, created_by, updated_by
+) on public.provider_credential to authenticated;
 grant select, insert, update, delete on public.provider_credential to service_role;
 
 create trigger provider_credential_timestamps
@@ -232,20 +246,149 @@ create trigger provider_credential_user_tracking
 
 create policy provider_credential_read on public.provider_credential
   for select to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  using (public.has_role_on_account(account_id));
 
-create policy provider_credential_insert on public.provider_credential
-  for insert to authenticated
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+create or replace function public.save_provider_credential(
+  p_account_id uuid,
+  p_kind public.provider_kind,
+  p_api_key text default null,
+  p_actor_id text default null,
+  p_webhook_secret text default null
+)
+  returns void
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  existing public.provider_credential;
+  secret_id uuid;
+  hook_secret_id uuid;
+  provider text := case p_kind when 'email_lookup' then 'apify' when 'letters' then 'lob' end;
+  base_url text := case p_kind
+    when 'email_lookup' then 'https://api.apify.com/v2'
+    when 'letters' then 'https://api.lob.com/v1'
+  end;
+begin
+  if not public.has_permission((select auth.uid()), p_account_id, 'settings.manage') then
+    raise exception 'changing provider keys needs settings.manage' using errcode = 'insufficient_privilege';
+  end if;
 
-create policy provider_credential_update on public.provider_credential
-  for update to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'))
-  with check (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  if p_kind = 'registry' then
+    raise exception 'registry takes no key' using errcode = 'invalid_parameter_value';
+  end if;
 
-create policy provider_credential_delete on public.provider_credential
-  for delete to authenticated
-  using (public.has_permission((select auth.uid()), account_id, 'settings.manage'));
+  if p_kind <> 'email_lookup' and p_actor_id is not null then
+    raise exception 'only email lookup takes an actor' using errcode = 'invalid_parameter_value';
+  end if;
+
+  if p_actor_id !~ '^[A-Za-z0-9_.-]+([/~][A-Za-z0-9_.-]+)?$' then
+    raise exception 'use an Apify actor id' using errcode = 'invalid_text_representation';
+  end if;
+
+  if p_kind <> 'letters' and p_webhook_secret is not null then
+    raise exception 'only letters take a webhook secret' using errcode = 'invalid_parameter_value';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('provider_credential:' || p_account_id || ':' || p_kind, 0));
+
+  select * into existing from public.provider_credential where account_id = p_account_id and kind = p_kind;
+  secret_id := existing.api_key_secret_id;
+  hook_secret_id := existing.webhook_secret_id;
+
+  if p_api_key is null and (
+    secret_id is null
+    or existing.provider is distinct from provider
+    or existing.base_url is distinct from base_url
+  ) then
+    raise exception 'paste an API key' using errcode = 'check_violation';
+  end if;
+
+  if p_api_key is not null and secret_id is not null then
+    perform vault.update_secret(secret_id, p_api_key);
+  elsif p_api_key is not null then
+    secret_id := vault.create_secret(p_api_key);
+  end if;
+
+  if p_webhook_secret is not null and hook_secret_id is not null then
+    perform vault.update_secret(hook_secret_id, p_webhook_secret);
+  elsif p_webhook_secret is not null then
+    hook_secret_id := vault.create_secret(p_webhook_secret);
+  end if;
+
+  insert into public.provider_credential (account_id, kind, provider, base_url, api_key_secret_id, actor_id, webhook_secret_id)
+  values (
+    p_account_id, p_kind, provider, base_url, secret_id,
+    case when p_kind = 'email_lookup'
+      then coalesce(replace(p_actor_id, '~', '/'), existing.actor_id, 'vdrmota/contact-info-scraper')
+    end,
+    hook_secret_id
+  )
+  on conflict (account_id, kind) do update
+    set provider = excluded.provider,
+        base_url = excluded.base_url,
+        api_key_secret_id = excluded.api_key_secret_id,
+        actor_id = excluded.actor_id,
+        webhook_secret_id = excluded.webhook_secret_id;
+end;
+$$;
+
+revoke all on function public.save_provider_credential(uuid, public.provider_kind, text, text, text) from public, anon;
+grant execute on function public.save_provider_credential(uuid, public.provider_kind, text, text, text) to authenticated;
+
+create or replace function public.disconnect_provider_credential(p_account_id uuid, p_kind public.provider_kind)
+  returns void
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  if not public.has_permission((select auth.uid()), p_account_id, 'settings.manage') then
+    raise exception 'changing provider keys needs settings.manage' using errcode = 'insufficient_privilege';
+  end if;
+
+  delete from public.provider_credential where account_id = p_account_id and kind = p_kind;
+end;
+$$;
+
+revoke all on function public.disconnect_provider_credential(uuid, public.provider_kind) from public, anon;
+grant execute on function public.disconnect_provider_credential(uuid, public.provider_kind) to authenticated;
+
+create or replace function public.provider_key(p_account_id uuid, p_kind public.provider_kind)
+  returns table (api_key text, actor_id text, provider text, base_url text)
+  language sql stable security definer
+  set search_path = '' as $$
+  select s.decrypted_secret, c.actor_id, c.provider, c.base_url
+  from public.provider_credential c
+  join vault.decrypted_secrets s on s.id = c.api_key_secret_id
+  where c.account_id = p_account_id and c.kind = p_kind;
+$$;
+
+revoke all on function public.provider_key(uuid, public.provider_kind) from public, anon, authenticated;
+grant execute on function public.provider_key(uuid, public.provider_kind) to service_role;
+
+create or replace function public.letter_webhook_secret(p_account_id uuid)
+  returns text
+  language sql stable security definer
+  set search_path = '' as $$
+  select s.decrypted_secret
+  from public.provider_credential c
+  join vault.decrypted_secrets s on s.id = c.webhook_secret_id
+  where c.account_id = p_account_id and c.kind = 'letters';
+$$;
+
+revoke all on function public.letter_webhook_secret(uuid) from public, anon, authenticated;
+grant execute on function public.letter_webhook_secret(uuid) to service_role;
+
+create or replace function tuckin.delete_provider_credential_secret()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  delete from vault.secrets where id in (old.api_key_secret_id, old.webhook_secret_id);
+  return null;
+end;
+$$;
+
+create trigger delete_provider_credential_secret
+  after delete on public.provider_credential
+  for each row execute function tuckin.delete_provider_credential_secret();
 
 -- The decision model's call on a firm. A rerun appends a new verdict; a person's
 -- approval is its own row, so an approval always names who gave it and when.
@@ -277,7 +420,7 @@ create policy firm_verdict_read on public.firm_verdict
 create table if not exists public.firm_verdict_approval (
   verdict_id uuid primary key,
   account_id uuid not null,
-  approved_by uuid not null references auth.users default auth.uid(),
+  approved_by uuid references auth.users on delete set null default auth.uid(),
   approved_at timestamptz not null default now(),
   reason text check (btrim(reason) <> ''),
   foreign key (verdict_id, account_id) references public.firm_verdict (id, account_id) on delete cascade,
@@ -518,9 +661,12 @@ create trigger release_held_outreach
 -- A weak match between a shared source record and a public business, as one
 -- team sees it. A team's accept or reject steers only its own pipeline; the
 -- shared records never change. Exactly one source record is named. Scores of
--- 0.9 and above link without review and scores below 0.6 are dropped, so only
--- the band between is stored.
+-- 0.9 and above link without review and scores below 0.6 are dropped. Weak
+-- matches store the band between; a strong match to a business holding a
+-- different EIN is stored as an ein_conflict.
 create type public.match_review_status as enum ('pending', 'accepted', 'rejected');
+
+create type public.match_review_reason as enum ('weak_match', 'ein_conflict');
 
 create table if not exists public.business_match_review (
   id uuid primary key default gen_random_uuid(),
@@ -530,13 +676,20 @@ create table if not exists public.business_match_review (
   sba_loan_id uuid references public.sba_loan (id) on delete cascade,
   form_5500_ack_id text references public.form_5500_filing (ack_id) on delete cascade,
   registry_entity_id uuid references public.state_registry_entity (id) on delete cascade,
-  score numeric not null check (score >= 0.6 and score < 0.9),
+  score numeric not null,
+  reason public.match_review_reason not null default 'weak_match',
   status public.match_review_status not null default 'pending',
   reviewed_by uuid references auth.users,
   reviewed_at timestamptz,
   created_at timestamptz not null default now(),
   check (num_nonnulls(ppp_loan_number, sba_loan_id, form_5500_ack_id, registry_entity_id) = 1),
   check ((status = 'pending') = (reviewed_by is null) and (reviewed_by is null) = (reviewed_at is null)),
+  constraint business_match_review_score_check check (
+    case reason
+      when 'weak_match' then score >= 0.6 and score < 0.9
+      when 'ein_conflict' then score >= 0.9
+    end
+  ),
   unique nulls not distinct (account_id, business_id, ppp_loan_number, sba_loan_id, form_5500_ack_id, registry_entity_id)
 );
 
@@ -563,15 +716,18 @@ create policy business_match_review_update on public.business_match_review
 
 create type public.letter_status as enum ('queued', 'created', 'mailed', 'in_transit', 'delivered', 'returned', 'failed');
 
--- One mailed letter for a letter step. address_* is the address actually used,
--- copied at send time so later edits to the firm do not rewrite history.
--- step_ordinal mirrors outreach_message.step_id. The dispatcher records sends
--- through the service role; the team reads them.
+-- One mailed letter, for a sequence letter step or sent straight from a
+-- workflow. address_* is the verified address actually used, copied at send
+-- time so later edits to the firm do not rewrite history. step_ordinal mirrors
+-- outreach_message.step_id. idempotency_key is the sender's retry key, also sent
+-- to the provider. Senders record letters through the service role; the team
+-- reads them.
 create table if not exists public.outreach_letter (
   id uuid primary key default gen_random_uuid(),
-  account_id uuid not null,
-  enrollment_id uuid not null,
-  step_ordinal int not null,
+  account_id uuid not null references public.accounts (id) on delete cascade,
+  enrollment_id uuid,
+  step_ordinal int,
+  idempotency_key text unique,
   provider text not null,
   provider_letter_id text,
   address_line1 text not null,

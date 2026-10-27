@@ -24,8 +24,17 @@ describe('the team workspace nav', () => {
       'common.outreach',
       'common.reports',
       'common.workflows',
+      'common.leads',
       'common.approvals',
     ]);
+  });
+
+  it('shows Leads to every member', () => {
+    expect(
+      teamNavigationFor('team-one', []).find(
+        (item) => item.label === 'common.leads',
+      )?.path,
+    ).toBe('/home/team-one/leads');
   });
 
   it('puts team administration in the Settings group, starting with the deal box', () => {

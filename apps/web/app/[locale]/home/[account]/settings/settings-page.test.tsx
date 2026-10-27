@@ -7,6 +7,7 @@ const workspace = vi.hoisted(() => ({
   permissions: ['settings.manage'],
   timezone: 'America/Chicago',
   aiEndpoint: null as { provider: string; chat_model: string; base_url: string } | null,
+  providerKeys: [] as { kind: string; actor_id: string | null }[],
 }));
 
 vi.mock('../layout', () => ({
@@ -21,6 +22,7 @@ vi.mock('@odb/supabase/server', () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
+          throwOnError: async () => ({ data: workspace.providerKeys }),
           maybeSingle: () => ({
             throwOnError: async () => ({ data: workspace.aiEndpoint }),
           }),
@@ -108,6 +110,16 @@ describe('team settings page', () => {
     };
 
     expect(await render()).toContain('Anthropic, claude-sonnet');
+  });
+
+  it("shows members who cannot manage settings the team's email lookup and letters providers", async () => {
+    workspace.permissions = [];
+    workspace.providerKeys = [{ kind: 'email_lookup', actor_id: 'acme~site-contacts' }];
+
+    const html = await render();
+
+    expect(html).toContain('Connected to Apify, actor acme~site-contacts');
+    expect(html).toContain('Not connected');
   });
 
   it('does not offer reloading sample deals to anyone else', async () => {

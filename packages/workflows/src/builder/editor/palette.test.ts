@@ -22,6 +22,12 @@ describe('paletteNodeTypes', () => {
       branch: 'Branch',
       merge: 'Merge',
       loop: 'Loop',
+      pull_leads: 'Pull leads',
+      registry_lookup: 'Registry lookup',
+      email_lookup: 'Find emails',
+      prepare_firm: 'Prepare firm',
+      enroll_sequence: 'Start sequence',
+      send_letter: 'Send letter',
     });
   });
 

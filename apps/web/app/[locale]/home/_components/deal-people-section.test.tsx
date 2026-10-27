@@ -404,6 +404,26 @@ describe('DealPeopleSection', () => {
     expect(button('Use Dee Dealer')).not.toBeNull();
   });
 
+  it('shows the email for an address book contact that has no name', () => {
+    act(() =>
+      root.render(
+        <DealPeopleSection
+          dealId={'deal-1'}
+          roster={{
+            people,
+            canEdit: true,
+            addressBook: [{ id: 'c-7', name: null, email: 'owner@harbor.test', company: null }],
+          }}
+        />,
+      ),
+    );
+
+    fill('Contact name', 'harbor');
+
+    const match = button('Use owner@harbor.test')!.closest('li')!;
+    expect(match.querySelector('.font-medium')!.textContent).toBe('owner@harbor.test');
+  });
+
   it('offers no address book matches before anything is typed', () => {
     render(true);
 

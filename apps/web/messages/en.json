@@ -8,6 +8,7 @@
     "reports": "Reports",
     "outreach": "Outreach",
     "workflows": "Workflows",
+    "leads": "Leads",
     "approvals": "Approvals",
     "todos": "My Todos",
     "lenderRooms": "Lender rooms",
@@ -20,7 +21,14 @@
     "notFoundTitle": "Page not found",
     "notFoundBody": "The page you are looking for does not exist.",
     "errorTitle": "Something went wrong",
-    "errorBody": "An unexpected error occurred. Please try again."
+    "errorBody": "An unexpected error occurred. Please try again.",
+    "unsubscribe": {
+      "prompt": "Stop hearing from this sender?",
+      "button": "Unsubscribe",
+      "done": "You are unsubscribed",
+      "doneDetail": "You will not get any more emails or letters from this sender.",
+      "invalid": "This unsubscribe link is not valid"
+    }
   },
   "auth": {
     "signInTitle": "Sign in to your account",

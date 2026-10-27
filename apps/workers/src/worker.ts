@@ -6,6 +6,7 @@ import {
   ensureContractReviewReminderEmailSchedule,
   ensureContractReviewTodoSyncSchedule,
   ensureDealEventNotificationRelay,
+  ensureLeadImportSchedules,
   ensureLenderNudgeEmailSchedule,
   ensureLenderNudgeTodoSyncSchedule,
   ensureLenderOutreachStaleSweepSchedule,
@@ -13,6 +14,7 @@ import {
   ensureMilestoneOverdueSchedule,
   ensureOrphanDealFileSweepSchedule,
   ensureOutreachDispatchSchedule,
+  ensureOutreachReplySyncSchedule,
   ensureOutreachStaleSweepSchedule,
   ensureUploadCleanupSchedule,
   ensureWorkflowEventRelay,
@@ -58,8 +60,10 @@ for (const ensure of [
   ensureContractReviewReminderEmailSchedule,
   ensureOutreachDispatchSchedule,
   ensureOutreachStaleSweepSchedule,
+  ensureOutreachReplySyncSchedule,
   ensureWorkflowPruneSchedule,
   ensureApprovalReminderSchedule,
+  ensureLeadImportSchedules,
 ]) {
   try {
     await ensure(client);
