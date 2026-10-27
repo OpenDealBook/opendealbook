@@ -125,7 +125,7 @@ beforeAll(async () => {
     })
     .throwOnError();
 
-  fitting = await seedBusiness({ name: 'Saipan Plumbing', ...fits });
+  fitting = await seedBusiness({ name: 'Rowan Fixture Plumbing', ...fits });
   fittingToo = await seedBusiness({ name: 'Tinian Electric', ...fits });
   fewJobs = await seedBusiness({ name: 'Tiny Roofing', ...fits, jobs: 4 });
   bigLoan = await seedBusiness({ name: 'Large Loan HVAC', ...fits, loan: 2_000_000 });
@@ -250,7 +250,7 @@ describe('pull_leads step (integration)', () => {
     expect(firms.map((firm: { public_business_id: string }) => firm.public_business_id).sort()).toEqual(
       [fitting, fittingToo].sort(),
     );
-    expect(firms.map((firm: { name: string }) => firm.name).sort()).toEqual(['Saipan Plumbing', 'Tinian Electric']);
+    expect(firms.map((firm: { name: string }) => firm.name).sort()).toEqual(['Rowan Fixture Plumbing', 'Tinian Electric']);
     expect(await teamBusinessIds()).not.toEqual(expect.arrayContaining([fewJobs]));
     expect(await teamBusinessIds()).toEqual([alreadyOurs, fitting, fittingToo].sort());
   });

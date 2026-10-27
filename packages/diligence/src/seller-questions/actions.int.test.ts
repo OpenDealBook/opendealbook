@@ -62,12 +62,7 @@ afterEach(async () => {
 
 describe('poseSellerQuestion (integration)', () => {
   it('inserts a seller_question row and notifies the seller participant', async () => {
-    const dealId = await seedDeal(
-      account.admin,
-      account.accountId,
-      account.userId,
-      { description: 'Gate deal' },
-    );
+    const dealId = await seedDeal(account.admin, account.accountId, account.userId, 'Gate deal');
     await addSellerParticipant(dealId);
 
     const posed = await runPose(
@@ -100,12 +95,7 @@ describe('answerSellerQuestion by an outside seller (integration)', () => {
   it('lets a seller who is not on the buyer account answer, and notifies the deal owner', async () => {
     const seller = await provisionAccount();
     try {
-      const dealId = await seedDeal(
-        account.admin,
-        account.accountId,
-        account.userId,
-        { description: 'Outside seller deal' },
-      );
+      const dealId = await seedDeal(account.admin, account.accountId, account.userId, 'Outside seller deal');
       await appendDealEvent(account.admin, {
         dealId,
         aggregateType: 'deal_participant',
@@ -147,12 +137,7 @@ describe('answerSellerQuestion by an outside seller (integration)', () => {
 
 describe('answerSellerQuestion signed-LOI gate (integration)', () => {
   it('blocks the answer until the deal has a signed LOI, then writes it', async () => {
-    const dealId = await seedDeal(
-      account.admin,
-      account.accountId,
-      account.userId,
-      { description: 'Answer deal' },
-    );
+    const dealId = await seedDeal(account.admin, account.accountId, account.userId, 'Answer deal');
     await addSellerParticipant(dealId);
 
     const posed = await runPose(

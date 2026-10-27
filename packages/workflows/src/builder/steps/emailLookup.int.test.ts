@@ -62,14 +62,14 @@ beforeAll(async () => {
   network.trustedFakeUrl = apify.baseUrl;
   const { data: firm } = await owner.admin
     .from('firm')
-    .insert({ account_id: owner.accountId, name: 'Saipan Plumbing', website: 'https://saipanplumbing.example' })
+    .insert({ account_id: owner.accountId, name: 'Rowan Fixture Plumbing', website: 'https://rowanfixtureplumbing.example' })
     .select('id')
     .single()
     .throwOnError();
   firmId = firm.id;
   await owner.admin
     .from('contact')
-    .insert({ account_id: owner.accountId, firm_id: firmId, name: 'Known Owner', email: 'OWNER@SaipanPlumbing.example' })
+    .insert({ account_id: owner.accountId, firm_id: firmId, name: 'Known Owner', email: 'OWNER@RowanFixturePlumbing.example' })
     .throwOnError();
 });
 
@@ -120,18 +120,18 @@ describe('email_lookup step (integration)', () => {
   it("runs the team's actor on the firm website, records the paid lookup and keeps the emails for this team", async () => {
     await setLookupCap(5);
     apify.reply.body = [
-      { url: 'https://saipanplumbing.example', emails: ['Owner@SaipanPlumbing.example', 'office@saipanplumbing.example'] },
+      { url: 'https://rowanfixtureplumbing.example', emails: ['Owner@RowanFixturePlumbing.example', 'office@rowanfixtureplumbing.example'] },
       {
-        url: 'https://saipanplumbing.example/contact',
+        url: 'https://rowanfixtureplumbing.example/contact',
         emails: [
-          'owner@saipanplumbing.example',
-          'Sales@mail.saipanplumbing.example',
-          'info@saipanplumbing.example',
-          'noreply@saipanplumbing.example',
-          'No-Reply@saipanplumbing.example',
-          'postmaster@saipanplumbing.example',
+          'owner@rowanfixtureplumbing.example',
+          'Sales@mail.rowanfixtureplumbing.example',
+          'info@rowanfixtureplumbing.example',
+          'noreply@rowanfixtureplumbing.example',
+          'No-Reply@rowanfixtureplumbing.example',
+          'postmaster@rowanfixtureplumbing.example',
           'owner@othersite.example',
-          'someone@notsaipanplumbing.example',
+          'someone@notrowanfixtureplumbing.example',
         ],
       },
     ];
@@ -141,16 +141,16 @@ describe('email_lookup step (integration)', () => {
     expect(output).toEqual({
       outcome: 'found',
       emails: [
-        'owner@saipanplumbing.example',
-        'office@saipanplumbing.example',
-        'sales@mail.saipanplumbing.example',
-        'info@saipanplumbing.example',
+        'owner@rowanfixtureplumbing.example',
+        'office@rowanfixtureplumbing.example',
+        'sales@mail.rowanfixtureplumbing.example',
+        'info@rowanfixtureplumbing.example',
       ],
     });
     expect(apify.received).toHaveLength(1);
     expect(apify.received[0]!.path).toBe('/v1/acts/acme~site-contacts/run-sync-get-dataset-items');
     expect(apify.received[0]!.headers.authorization).toBe('Bearer apify-team-key');
-    expect(apify.received[0]!.body).toEqual({ startUrls: [{ url: 'https://saipanplumbing.example' }] });
+    expect(apify.received[0]!.body).toEqual({ startUrls: [{ url: 'https://rowanfixtureplumbing.example' }] });
     expect(await lookups()).toEqual([
       {
         kind: 'email_lookup',
@@ -168,16 +168,16 @@ describe('email_lookup step (integration)', () => {
       .order('email')
       .throwOnError();
     expect(emails).toEqual([
-      { account_id: owner.accountId, email: 'info@saipanplumbing.example', provider: 'apify' },
-      { account_id: owner.accountId, email: 'office@saipanplumbing.example', provider: 'apify' },
-      { account_id: owner.accountId, email: 'owner@saipanplumbing.example', provider: 'apify' },
-      { account_id: owner.accountId, email: 'sales@mail.saipanplumbing.example', provider: 'apify' },
+      { account_id: owner.accountId, email: 'info@rowanfixtureplumbing.example', provider: 'apify' },
+      { account_id: owner.accountId, email: 'office@rowanfixtureplumbing.example', provider: 'apify' },
+      { account_id: owner.accountId, email: 'owner@rowanfixtureplumbing.example', provider: 'apify' },
+      { account_id: owner.accountId, email: 'sales@mail.rowanfixtureplumbing.example', provider: 'apify' },
     ]);
     expect(await firmContacts()).toEqual([
-      { name: null, email: 'info@saipanplumbing.example', source: 'email_lookup' },
-      { name: null, email: 'office@saipanplumbing.example', source: 'email_lookup' },
-      { name: 'Known Owner', email: 'OWNER@SaipanPlumbing.example', source: 'manual' },
-      { name: null, email: 'sales@mail.saipanplumbing.example', source: 'email_lookup' },
+      { name: null, email: 'info@rowanfixtureplumbing.example', source: 'email_lookup' },
+      { name: null, email: 'office@rowanfixtureplumbing.example', source: 'email_lookup' },
+      { name: 'Known Owner', email: 'OWNER@RowanFixturePlumbing.example', source: 'manual' },
+      { name: null, email: 'sales@mail.rowanfixtureplumbing.example', source: 'email_lookup' },
     ]);
   });
 
@@ -187,10 +187,10 @@ describe('email_lookup step (integration)', () => {
     expect(await lookUp('run-1:emails:0')).toEqual({
       outcome: 'found',
       emails: [
-        'owner@saipanplumbing.example',
-        'office@saipanplumbing.example',
-        'sales@mail.saipanplumbing.example',
-        'info@saipanplumbing.example',
+        'owner@rowanfixtureplumbing.example',
+        'office@rowanfixtureplumbing.example',
+        'sales@mail.rowanfixtureplumbing.example',
+        'info@rowanfixtureplumbing.example',
       ],
     });
     expect(apify.received).toEqual([]);
@@ -200,7 +200,7 @@ describe('email_lookup step (integration)', () => {
 
   it("records not found when the actor finds no emails at the firm's own domain", async () => {
     apify.reply.body = [
-      { url: 'https://saipanplumbing.example', emails: ['noreply@saipanplumbing.example', 'owner@othersite.example'] },
+      { url: 'https://rowanfixtureplumbing.example', emails: ['noreply@rowanfixtureplumbing.example', 'owner@othersite.example'] },
     ];
 
     expect(await lookUp('run-1:emails:1')).toEqual({ outcome: 'not_found', emails: [] });
@@ -241,8 +241,8 @@ describe('email_lookup step (integration)', () => {
     });
 
     apify.reply.status = 200;
-    apify.reply.body = [{ emails: ['owner@saipanplumbing.example'] }];
-    expect(await lookUp('run-1:emails:2')).toEqual({ outcome: 'found', emails: ['owner@saipanplumbing.example'] });
+    apify.reply.body = [{ emails: ['owner@rowanfixtureplumbing.example'] }];
+    expect(await lookUp('run-1:emails:2')).toEqual({ outcome: 'found', emails: ['owner@rowanfixtureplumbing.example'] });
     expect(await lookups()).toHaveLength(3);
   });
 

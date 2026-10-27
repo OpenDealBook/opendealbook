@@ -99,15 +99,26 @@ export async function seedDeal(
   admin: SupabaseClient,
   accountId: string,
   ownerUserId: string,
-  payload: Record<string, unknown>,
+  description: string,
 ): Promise<string> {
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: accountId, name: description })
+    .select('id')
+    .single()
+    .throwOnError();
   const dealId = crypto.randomUUID();
   await appendDealEvent(admin, {
     dealId,
     aggregateType: 'deal',
     aggregateId: dealId,
     eventType: 'deal.created',
-    payload: { account_id: accountId, owner_user_id: ownerUserId, ...payload },
+    payload: {
+      account_id: accountId,
+      owner_user_id: ownerUserId,
+      firm_id: firm.id,
+      description,
+    },
   });
   return dealId;
 }

@@ -112,7 +112,7 @@ async function firmRow(firmId: string) {
 
 beforeAll(async () => {
   owner = await provisionAccount();
-  provider = await fakeAiProvider(openAiReply('Saipan Plumbing is a family plumbing firm.'));
+  provider = await fakeAiProvider(openAiReply('Rowan Fixture Plumbing is a family plumbing firm.'));
   await owner.admin
     .from('outreach_setting')
     .insert({ account_id: owner.accountId, daily_cap: 10, ai_monthly_cap: 100 })
@@ -145,7 +145,7 @@ afterAll(async () => {
 
 describe('prepare_firm step (integration)', () => {
   it("writes a clean owner mailing address from the registry and a profile by the team's AI with time and model", async () => {
-    const firmId = await seedFirm('Saipan Plumbing', {
+    const firmId = await seedFirm('Rowan Fixture Plumbing', {
       registry: {
         mailing_address_line1: '  12   beach rd. ',
         mailing_city: ' saipan',
@@ -165,12 +165,12 @@ describe('prepare_firm step (integration)', () => {
       owner_mailing_city: 'SAIPAN',
       owner_mailing_state: 'MP',
       owner_mailing_postal_code: '96950-1234',
-      profile: 'Saipan Plumbing is a family plumbing firm.',
+      profile: 'Rowan Fixture Plumbing is a family plumbing firm.',
       profile_model: 'profile-model',
     });
     expect(Date.now() - Date.parse(firm.profile_generated_at!)).toBeLessThan(60_000);
     const prompt = provider.received[0]!.body.messages[0]!.content;
-    expect(prompt).toContain('Saipan Plumbing');
+    expect(prompt).toContain('Rowan Fixture Plumbing');
     expect(prompt).toContain('Managing Member');
     expect(prompt).not.toContain('Ana Delgado-Ruiz');
     const { count } = await owner.admin
