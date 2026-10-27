@@ -183,7 +183,7 @@ create or replace function public.project_checklist_item(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'checklist_item.added' then
-    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, review_offset_days, review_due_at, source_template_id, kind, owner_role, importance, answer, offer_term_key, created_by, updated_by)
+    insert into public.checklist_item (id, account_id, deal_id, category, title, owner_user_id, due_at, status, priority, deal_killer, schedule_week_id, due_offset_days, review_offset_days, review_due_at, source_template_id, artifact_type, artifact_id, kind, owner_role, importance, answer, offer_term_key, created_by, updated_by)
     values (
       ev.aggregate_id, ev.account_id, ev.deal_id,
       ev.payload ->> 'category',
@@ -198,6 +198,8 @@ begin
       coalesce((ev.payload ->> 'review_offset_days')::int, 3),
       (ev.payload ->> 'review_due_at')::timestamptz,
       (ev.payload ->> 'source_template_id')::uuid,
+      ev.payload ->> 'artifact_type',
+      (ev.payload ->> 'artifact_id')::uuid,
       ev.payload ->> 'kind',
       ev.payload ->> 'owner_role',
       ev.payload ->> 'importance',
@@ -218,6 +220,8 @@ begin
       review_offset_days = excluded.review_offset_days,
       review_due_at = excluded.review_due_at,
       source_template_id = excluded.source_template_id,
+      artifact_type = excluded.artifact_type,
+      artifact_id = excluded.artifact_id,
       kind = excluded.kind,
       owner_role = excluded.owner_role,
       importance = excluded.importance,

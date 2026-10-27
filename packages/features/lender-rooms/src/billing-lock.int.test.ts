@@ -114,6 +114,12 @@ beforeAll(async () => {
   teamId = team.data.id;
 
   dealId = crypto.randomUUID();
+  const firm = await admin
+    .from('firm')
+    .insert({ account_id: teamId, name: 'Locked team deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await appendDealEvent(owner.client, {
     dealId,
     aggregateType: 'deal',
@@ -122,7 +128,7 @@ beforeAll(async () => {
     payload: {
       account_id: teamId,
       owner_user_id: owner.userId,
-      firm_id: null,
+      firm_id: firm.data.id,
       description: 'Locked team deal',
       source: 'manual',
       stage: 'sourcing',

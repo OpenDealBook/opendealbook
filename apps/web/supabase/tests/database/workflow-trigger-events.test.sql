@@ -7,11 +7,11 @@ select tests.login_as_service_role();
 select public.create_team_account('TE Team', tests.get_uid('te_owner'), 'te-team');
 select public.append_deal_event('7e200000-0000-0000-0000-0000000000d1', 'deal',
   '7e200000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('te-team'), 'owner_user_id', tests.get_uid('te_owner'),
+  jsonb_build_object('account_id', tests.account_id('te-team'), 'firm_id', tests.create_firm(tests.account_id('te-team')), 'owner_user_id', tests.get_uid('te_owner'),
     'description', 'Signed by e-sign'), null, 'service');
 select public.append_deal_event('7e200000-0000-0000-0000-0000000000d2', 'deal',
   '7e200000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('te-team'), 'owner_user_id', tests.get_uid('te_owner'),
+  jsonb_build_object('account_id', tests.account_id('te-team'), 'firm_id', tests.create_firm(tests.account_id('te-team')), 'owner_user_id', tests.get_uid('te_owner'),
     'description', 'Signed on paper later'), null, 'service');
 
 -- ---- deal.loi_signed ----
@@ -89,7 +89,7 @@ select is(
 -- ---- deal.loi_signed keeps the log's snapshots ----
 
 select public.append_deal_event(d.id, 'deal', d.id, 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('te-team'), 'owner_user_id', tests.get_uid('te_owner'),
+  jsonb_build_object('account_id', tests.account_id('te-team'), 'firm_id', tests.create_firm(tests.account_id('te-team')), 'owner_user_id', tests.get_uid('te_owner'),
     'description', 'Snapshot deal'), null, 'service')
 from (values ('7e200000-0000-0000-0000-0000000000d3'::uuid), ('7e200000-0000-0000-0000-0000000000d4'::uuid)) d(id);
 select public.append_deal_event('7e200000-0000-0000-0000-0000000000d3', 'deal',

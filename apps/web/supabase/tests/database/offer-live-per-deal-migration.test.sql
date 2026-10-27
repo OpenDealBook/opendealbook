@@ -12,7 +12,7 @@ drop index public.ux_offer_live_per_deal;
 select tests.login_as('lm_owner');
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-0000000000d1', 'deal',
   'd1d1d1d1-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('live-migration-acct'), 'description', 'Duplicate Live Deal'));
+  jsonb_build_object('account_id', tests.account_id('live-migration-acct'), 'firm_id', tests.create_firm(tests.account_id('live-migration-acct')), 'description', 'Duplicate Live Deal'));
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-0000000000d1', 'offer',
   'd1d1d1d1-0000-0000-0000-0000000000e1', 'offer.drafted', '{}'::jsonb);
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-0000000000d1', 'offer',
@@ -26,7 +26,7 @@ select public.append_deal_event('d1d1d1d1-0000-0000-0000-0000000000d1', 'offer',
 
 select public.append_deal_event('d2d2d2d2-0000-0000-0000-0000000000d2', 'deal',
   'd2d2d2d2-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('live-migration-acct'), 'description', 'Duplicate Draft Deal'));
+  jsonb_build_object('account_id', tests.account_id('live-migration-acct'), 'firm_id', tests.create_firm(tests.account_id('live-migration-acct')), 'description', 'Duplicate Draft Deal'));
 select public.append_deal_event('d2d2d2d2-0000-0000-0000-0000000000d2', 'offer',
   'd2d2d2d2-0000-0000-0000-0000000000e4', 'offer.drafted', '{}'::jsonb);
 select public.append_deal_event('d2d2d2d2-0000-0000-0000-0000000000d2', 'offer',

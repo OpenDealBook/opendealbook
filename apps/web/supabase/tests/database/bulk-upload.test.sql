@@ -23,7 +23,7 @@ select public.create_team_account('UB Acct B', tests.get_uid('ub_b_owner'), 'ub-
 
 select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e2', 'deal',
   'bbbbbbbb-0000-0000-0000-0000000000e2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ub-acct-a'), 'owner_user_id', tests.get_uid('ub_a_owner'),
+  jsonb_build_object('account_id', tests.account_id('ub-acct-a'), 'firm_id', tests.create_firm(tests.account_id('ub-acct-a')), 'owner_user_id', tests.get_uid('ub_a_owner'),
     'description', 'Deal A'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name)

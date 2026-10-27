@@ -359,25 +359,6 @@ describe('telling approvers an update awaits approval', () => {
     expect(await notices(member, 'Payoff letter')).toEqual([]);
   });
 
-  it('names a deal with no firm or description "your deal"', async () => {
-    const bareDealId = crypto.randomUUID();
-    await admin
-      .rpc('append_deal_event', {
-        p_deal_id: bareDealId,
-        p_aggregate_type: 'deal',
-        p_aggregate_id: bareDealId,
-        p_event_type: 'deal.created',
-        p_payload: { account_id: teamId, owner_user_id: owner.userId },
-        p_actor_kind: 'service',
-      })
-      .throwOnError();
-    await submitted('Bare deal note', bareDealId);
-
-    expect((await notices(approver, 'Bare deal note'))[0]!.body).toBe(
-      'Avery Author submitted an update on your deal for approval: Bare deal note',
-    );
-  });
-
   it('emails every other approver through Novu', async () => {
     await withFakeNovu(async (triggers) => {
       const updateId = await submitted('Estoppel');

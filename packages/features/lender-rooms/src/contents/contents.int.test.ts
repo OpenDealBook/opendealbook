@@ -110,6 +110,12 @@ const pause = (ms: number) =>
   });
 
 async function createDeal(id: string, account: IntegrationAccount) {
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: account.accountId, name: 'Room contents deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await admin
     .rpc('append_deal_event', {
       p_deal_id: id,
@@ -117,6 +123,7 @@ async function createDeal(id: string, account: IntegrationAccount) {
       p_aggregate_id: id,
       p_event_type: 'deal.created',
       p_payload: {
+        firm_id: firm.id,
         account_id: account.accountId,
         description: 'Room contents deal',
       },

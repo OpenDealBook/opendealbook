@@ -9,7 +9,7 @@ select public.create_team_account('Live Offer Acct', tests.get_uid('lo_owner'), 
 select tests.login_as('lo_owner');
 select public.append_deal_event('c1c1c1c1-0000-0000-0000-0000000000d1', 'deal',
   'c1c1c1c1-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('live-offer-acct'), 'description', 'Live Offer Deal'));
+  jsonb_build_object('account_id', tests.account_id('live-offer-acct'), 'firm_id', tests.create_firm(tests.account_id('live-offer-acct')), 'description', 'Live Offer Deal'));
 
 select public.append_deal_event('c1c1c1c1-0000-0000-0000-0000000000d1', 'offer',
   'c1c1c1c1-0000-0000-0000-0000000000e1', 'offer.drafted', '{}'::jsonb);

@@ -17,11 +17,11 @@ select tests.login_as_service_role();
 select public.create_team_account('CV Team', tests.get_uid('cv_owner'), 'cv-team');
 select public.append_deal_event('c7000000-0000-0000-0000-0000000000d1', 'deal',
   'c7000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cv-team'), 'owner_user_id', tests.get_uid('cv_owner'),
+  jsonb_build_object('account_id', tests.account_id('cv-team'), 'firm_id', tests.create_firm(tests.account_id('cv-team')), 'owner_user_id', tests.get_uid('cv_owner'),
     'description', 'Visibility deal'), null, 'service');
 select public.append_deal_event('c7000000-0000-0000-0000-0000000000d2', 'deal',
   'c7000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cv-team'), 'owner_user_id', tests.get_uid('cv_owner'),
+  jsonb_build_object('account_id', tests.account_id('cv-team'), 'firm_id', tests.create_firm(tests.account_id('cv-team')), 'owner_user_id', tests.get_uid('cv_owner'),
     'description', 'Other deal'), null, 'service');
 
 select tests.login_as('cv_owner');

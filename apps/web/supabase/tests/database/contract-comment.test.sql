@@ -17,11 +17,11 @@ select public.create_team_account('CC Team', tests.get_uid('cc_owner'), 'cc-team
 select public.create_team_account('CC Other', tests.get_uid('cc_other_owner'), 'cc-other');
 select public.append_deal_event('cc000000-0000-0000-0000-0000000000d1', 'deal',
   'cc000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cc-team'), 'owner_user_id', tests.get_uid('cc_owner'),
+  jsonb_build_object('account_id', tests.account_id('cc-team'), 'firm_id', tests.create_firm(tests.account_id('cc-team')), 'owner_user_id', tests.get_uid('cc_owner'),
     'description', 'Comment deal'), null, 'service');
 select public.append_deal_event('cc000000-0000-0000-0000-0000000000d2', 'deal',
   'cc000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cc-other'), 'owner_user_id', tests.get_uid('cc_other_owner'),
+  jsonb_build_object('account_id', tests.account_id('cc-other'), 'firm_id', tests.create_firm(tests.account_id('cc-other')), 'owner_user_id', tests.get_uid('cc_other_owner'),
     'description', 'Other team deal'), null, 'service');
 
 reset role;

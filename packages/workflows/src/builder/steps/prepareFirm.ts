@@ -39,6 +39,51 @@ function cleanAddress(address: Address): Address {
   };
 }
 
+type RegistryAddress = {
+  mailing_address_line1: string | null;
+  mailing_city: string | null;
+  mailing_state: string | null;
+  mailing_postal_code: string | null;
+};
+
+type RecordAddress = {
+  address_line1: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+};
+
+export function firstMailingAddress({
+  registries,
+  ppp,
+  sba,
+  form5500,
+}: {
+  registries: RegistryAddress[];
+  ppp: RecordAddress[];
+  sba: RecordAddress[];
+  form5500: RecordAddress[];
+}): Address | null {
+  return (
+    [
+      ...registries.map((registry) => ({
+        line1: registry.mailing_address_line1,
+        city: registry.mailing_city,
+        state: registry.mailing_state,
+        postalCode: registry.mailing_postal_code,
+      })),
+      ...[...ppp, ...sba, ...form5500].map((record) => ({
+        line1: record.address_line1,
+        city: record.city,
+        state: record.state,
+        postalCode: record.postal_code,
+      })),
+    ]
+      .map(cleanAddress)
+      .find((address) => address.line1 && address.city && address.postalCode) ?? null
+  );
+}
+
 function profilePrompt(facts: unknown): string {
   return [
     'Write a one-page profile of this business for a buyer reviewing it as an acquisition target.',
@@ -122,24 +167,7 @@ export const prepareFirm = defineStep({
       ? await publicRecords(firm.public_business_id)
       : { registries: [], ppp: [], sba: [], form5500: [] };
 
-    const foundAddress = existingAddress
-      ? null
-      : ([
-          ...registries.map((registry) => ({
-            line1: registry.mailing_address_line1,
-            city: registry.mailing_city,
-            state: registry.mailing_state,
-            postalCode: registry.mailing_postal_code,
-          })),
-          ...[...ppp, ...sba, ...form5500].map((record) => ({
-            line1: record.address_line1,
-            city: record.city,
-            state: record.state,
-            postalCode: record.postal_code,
-          })),
-        ]
-          .map(cleanAddress)
-          .find((address) => address.line1 && address.city && address.postalCode) ?? null);
+    const foundAddress = existingAddress ? null : firstMailingAddress({ registries, ppp, sba, form5500 });
 
     const profile = await askTeamAi({
       accountId: context.accountId,

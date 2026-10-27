@@ -69,11 +69,11 @@ select ok(public.registry_entity_needs_fetch('TX', 'stale-1'), 'a stale record i
 
 select tests.login_as('ls_owner_2');
 
-select is((select count(*)::int from public.public_business), 1, 'any signed-in user reads public businesses');
-select is((select count(*)::int from public.ppp_loan), 1, 'any signed-in user reads PPP loans');
-select is((select count(*)::int from public.sba_loan), 1, 'any signed-in user reads SBA loans');
-select is((select count(*)::int from public.form_5500_filing), 1, 'any signed-in user reads Form 5500 filings');
-select is((select count(*)::int from public.state_registry_entity), 3, 'any signed-in user reads registry entities');
+select is((select count(*)::int from public.public_business where id = 'e5000000-0000-0000-0000-0000000000b1'), 1, 'any signed-in user reads public businesses');
+select is((select count(*)::int from public.ppp_loan where loan_number = '1234567890'), 1, 'any signed-in user reads PPP loans');
+select is((select count(*)::int from public.sba_loan where source_key = 'acme-7a-1'), 1, 'any signed-in user reads SBA loans');
+select is((select count(*)::int from public.form_5500_filing where ack_id = '20240101000000NAL0001'), 1, 'any signed-in user reads Form 5500 filings');
+select is((select count(*)::int from public.state_registry_entity where entity_number in ('fresh-1', 'edge-90', 'stale-1')), 3, 'any signed-in user reads registry entities');
 
 select throws_ok(
   $$ insert into public.ppp_loan (loan_number, borrower_name) values ('999', 'Sneaky') $$,

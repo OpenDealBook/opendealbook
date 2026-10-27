@@ -125,6 +125,12 @@ const defaultFolderIds = new Map<string, string[]>();
 async function newDeal(): Promise<string> {
   const dealId = crypto.randomUUID();
 
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: teamAccountId, name: 'Lender room deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await admin
     .rpc('append_deal_event', {
       p_deal_id: dealId,
@@ -132,6 +138,7 @@ async function newDeal(): Promise<string> {
       p_aggregate_id: dealId,
       p_event_type: 'deal.created',
       p_payload: {
+        firm_id: firm.id,
         account_id: teamAccountId,
         description: 'Lender room deal',
       },

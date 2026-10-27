@@ -11,6 +11,7 @@ let otherTeam: IntegrationAccount;
 let einTeam: IntegrationAccount;
 let importId: string;
 let otherImportId: string;
+let bulkMatch: Promise<unknown> = Promise.resolve();
 
 const postal = String(10000 + Math.floor(Math.random() * 89999));
 const runTag = crypto.randomUUID().slice(0, 8);
@@ -118,6 +119,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await Promise.allSettled([bulkMatch]);
   const { admin } = pipelineTeam;
   await admin.from('ppp_loan').delete().like('loan_number', `${runTag}%`).throwOnError();
   await admin.from('form_5500_filing').delete().like('ack_id', `${runTag}%`).throwOnError();
@@ -143,7 +145,7 @@ afterAll(async () => {
   await pipelineTeam.cleanup();
   await otherTeam.cleanup();
   await einTeam.cleanup();
-});
+}, 120_000);
 
 describe('matchImportedRecords', () => {
   it('links a record whose name and address match a business exactly', async () => {
@@ -490,7 +492,8 @@ describe('matchImportedRecords', () => {
       )
       .throwOnError();
 
-    await matchImportedRecords({ source: 'ppp', importId: bulkImport });
+    bulkMatch = matchImportedRecords({ source: 'ppp', importId: bulkImport });
+    await bulkMatch;
 
     const { count } = await admin
       .from('ppp_loan')

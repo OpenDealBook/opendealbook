@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeAiProvider, openAiReply } from '../../test-support/fake-ai-provider';
-import { completeWithTeamAi } from './aiClient';
+import { completeWithTeamAi, pinnedGet } from './aiClient';
 import { publicAddressOf } from './publicUrl';
 
 let close: (() => void) | undefined;
@@ -184,6 +184,53 @@ describe('completeWithTeamAi', () => {
     expect(failure).toMatchObject({
       nonRetryable: true,
       message: 'The AI provider answered with something that is not JSON',
+    });
+  });
+});
+
+describe('pinnedGet', () => {
+  it('sends a GET with the given headers to the vetted address and returns the status and body text', async () => {
+    const seen: { method?: string; url?: string; token?: string } = {};
+    const server = createServer((request, response) => {
+      Object.assign(seen, { method: request.method, url: request.url, token: request.headers.authorization });
+      response.writeHead(418, { 'content-type': 'text/plain' });
+      response.end('short and stout');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    close = () => server.close();
+    const { port } = server.address() as AddressInfo;
+
+    const response = await pinnedGet(
+      `http://127.0.0.1:${port}/api/search/?q=party`,
+      { authorization: 'Token cl-key' },
+      LOOPBACK_FAKE,
+    );
+
+    expect(response).toEqual({ status: 418, text: 'short and stout' });
+    expect(seen).toEqual({ method: 'GET', url: '/api/search/?q=party', token: 'Token cl-key' });
+  });
+
+  it('connects to a vetted public host when the request carries a query string', async () => {
+    let lookups = 0;
+    const publicDns = async () => {
+      lookups += 1;
+      return [{ address: '203.0.113.10' }];
+    };
+
+    const failure = await pinnedGet(
+      'https://courts.example.com/api/rest/v4/search/?type=d&q=party%3A%22Rowan%22#results',
+      {},
+      { connectTo: (url) => publicAddressOf(url, publicDns), timeoutMs: 300 },
+    ).catch((error: unknown) => error);
+
+    expect(lookups).toBe(1);
+    expect(failure).toMatchObject({ name: 'AbortError' });
+  });
+
+  it('refuses at once to call an address that is not public', async () => {
+    await expect(pinnedGet('https://10.0.0.8/api', {}, { timeoutMs: 1_000 })).rejects.toMatchObject({
+      nonRetryable: true,
+      message: 'Use a public HTTPS base URL',
     });
   });
 });

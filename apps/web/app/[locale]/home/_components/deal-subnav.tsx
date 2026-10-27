@@ -28,6 +28,7 @@ const TABS: { segment: string; label: string; pages: Page[] }[] = [
       { segment: 'todos', label: 'To-dos' },
       { segment: 'schedule', label: 'Schedule' },
       { segment: 'meetings', label: 'Meetings' },
+      { segment: 'background', label: 'Background' },
       { segment: '', label: 'Seller Q&A', href: 'parties#seller-room' },
     ],
   },

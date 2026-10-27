@@ -10,7 +10,7 @@ select public.create_team_account('LRL Other', tests.get_uid('lrl_other'), 'lrl-
 
 select public.append_deal_event('1f000000-0000-0000-0000-0000000000d1', 'deal',
   '1f000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lrl-acct')), null, 'service');
+  jsonb_build_object('account_id', tests.account_id('lrl-acct'), 'firm_id', tests.create_firm(tests.account_id('lrl-acct'))), null, 'service');
 
 reset role;
 

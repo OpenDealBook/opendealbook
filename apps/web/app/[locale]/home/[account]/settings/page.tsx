@@ -4,6 +4,7 @@ import { DeleteTeamDialog, UpdateTeamForm } from '@odb/team-accounts';
 import { zoneChoices } from '../../_components/time-zones';
 import { loadTeamWorkspace } from '../layout';
 import { AiProviderSetting } from './ai-provider';
+import { BackgroundSearchSetting } from './background-search';
 import { ProviderKeySetting } from './provider-key';
 import { ReloadSampleDeals } from './reload-sample-deals';
 import { TeamTimezoneSetting } from './team-timezone';
@@ -18,12 +19,15 @@ export default async function TeamSettingsPage({
   const { locale, account } = await params;
   const { team, permissions, isOwner } = await loadTeamWorkspace(account);
   const renameAllowedAt = await loadRenameAllowedAt(team.id);
-  const [{ legalEntityName, teamPhone, timezone }, aiEndpoint, providerKeys] =
-    await Promise.all([
-      loadTeamDetails(team.id),
-      loadAiEndpoint(team.id),
-      loadProviderKeys(team.id),
-    ]);
+  const [
+    { legalEntityName, teamPhone, timezone, nameSpelling },
+    aiEndpoint,
+    providerKeys,
+  ] = await Promise.all([
+    loadTeamDetails(team.id),
+    loadAiEndpoint(team.id),
+    loadProviderKeys(team.id),
+  ]);
 
   return (
     <main className={'flex flex-col gap-8 p-8'}>
@@ -48,7 +52,7 @@ export default async function TeamSettingsPage({
         current={aiEndpoint}
         canManage={permissions.includes('settings.manage')}
       />
-      {(['email_lookup', 'letters'] as const).map((kind) => (
+      {(['email_lookup', 'letters', 'courts'] as const).map((kind) => (
         <ProviderKeySetting
           key={kind}
           accountId={team.id}
@@ -57,6 +61,11 @@ export default async function TeamSettingsPage({
           canManage={permissions.includes('settings.manage')}
         />
       ))}
+      <BackgroundSearchSetting
+        accountId={team.id}
+        current={nameSpelling}
+        canManage={permissions.includes('settings.manage')}
+      />
       {isOwner ? <ReloadSampleDeals accountId={team.id} /> : null}
       <DeleteTeamDialog accountId={team.id} isOwner={isOwner} />
     </main>
@@ -86,7 +95,7 @@ async function loadRenameAllowedAt(accountId: string) {
 async function loadTeamDetails(accountId: string) {
   const { data: account } = await getSupabaseServerClient()
     .from('accounts')
-    .select('legal_entity_name, team_phone, timezone')
+    .select('legal_entity_name, team_phone, timezone, diligence_name_spelling')
     .eq('id', accountId)
     .single()
     .throwOnError();
@@ -95,6 +104,7 @@ async function loadTeamDetails(accountId: string) {
     legalEntityName: account.legal_entity_name ?? '',
     teamPhone: account.team_phone ?? '',
     timezone: account.timezone!,
+    nameSpelling: account.diligence_name_spelling,
   };
 }
 

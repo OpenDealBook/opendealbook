@@ -17,11 +17,11 @@ select public.create_team_account('DC Team', tests.get_uid('dc_owner'), 'dc-team
 select public.create_team_account('DC Other', tests.get_uid('dc_other_owner'), 'dc-other');
 select public.append_deal_event('dc000000-0000-0000-0000-0000000000d1', 'deal',
   'dc000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('dc-team'), 'owner_user_id', tests.get_uid('dc_owner'),
+  jsonb_build_object('account_id', tests.account_id('dc-team'), 'firm_id', tests.create_firm(tests.account_id('dc-team')), 'owner_user_id', tests.get_uid('dc_owner'),
     'description', 'Counsel deal'), null, 'service');
 select public.append_deal_event('dc000000-0000-0000-0000-0000000000d2', 'deal',
   'dc000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('dc-team'), 'owner_user_id', tests.get_uid('dc_owner'),
+  jsonb_build_object('account_id', tests.account_id('dc-team'), 'firm_id', tests.create_firm(tests.account_id('dc-team')), 'owner_user_id', tests.get_uid('dc_owner'),
     'description', 'Second counsel deal'), null, 'service');
 
 reset role;
@@ -424,7 +424,7 @@ select is(
 );
 select results_eq(
   $$ select deal_id, deal_name, team_name, is_open from public.my_seller_rooms() $$,
-  $$ values ('dc000000-0000-0000-0000-0000000000d1'::uuid, null::text, 'DC Team', true) $$,
+  $$ values ('dc000000-0000-0000-0000-0000000000d1'::uuid, 'Fixture business', 'DC Team', true) $$,
   'seller''s counsel find the seller room among their rooms'
 );
 

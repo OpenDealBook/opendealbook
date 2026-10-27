@@ -47,6 +47,8 @@ const temporal = vi.hoisted(() => ({
 
 const managers = vi.hoisted(() => ({ beforeLookup: async () => {} }));
 
+const searchFailures = vi.hoisted(() => [] as Error[]);
+
 const activityContext = vi.hoisted(() => ({
   cancellation: new AbortController(),
   heartbeat: vi.fn(),
@@ -88,6 +90,30 @@ vi.mock('./registry', async (importOriginal) => {
         outputSchema: z.object({ asked: z.boolean() }),
         async run() {
           return { asked: true };
+        },
+      }),
+      diligence_search: defineStep({
+        type: 'diligence_search',
+        runOnce: false,
+        configSchema: z.record(z.string(), z.json()),
+        inputSchema: z.object({}),
+        outputSchema: z.object({ runId: z.string() }),
+        async run() {
+          const failure = searchFailures.shift();
+          if (failure) {
+            throw failure;
+          }
+          return { runId: 'a7000000-0000-4000-8000-0000000000d1' };
+        },
+      }),
+      diligence_report: defineStep({
+        type: 'diligence_report',
+        runOnce: false,
+        configSchema: z.record(z.string(), z.json()),
+        inputSchema: z.object({}),
+        outputSchema: z.object({ reportId: z.string() }),
+        async run() {
+          return { reportId: 'a7000000-0000-4000-8000-0000000000e1' };
         },
       }),
       ask_ai: defineStep({
@@ -237,6 +263,7 @@ import {
   startEventRun,
   startManualWorkflowRun,
 } from './client';
+import { CourtListenerLimit } from '../diligence/sources/courts';
 import { CapReached, recordAiCallUsage, reserveAiCall } from './caps';
 import type { WorkflowGraph } from './graph';
 import { runPublishedWorkflow } from './workflow';
@@ -2663,6 +2690,63 @@ describe('a monthly cap (integration)', () => {
     });
   });
 
+  it('pauses a background search an hour for the CourtListener limit, says why, and resumes by itself', async () => {
+    searchFailures.push(new CourtListenerLimit());
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'search', type: 'diligence_search', config: { dealId: crypto.randomUUID() } },
+        notify('after', 'After the search'),
+      ],
+      edges: [edge('start', 'search'), edge('search', 'after')],
+    } as unknown as WorkflowGraph);
+    const { runId } = await runManually();
+    const parked: unknown[] = [];
+    temporal.onWait = async () => {
+      parked.push(
+        (
+          await owner.admin
+            .from('workflow_step_run')
+            .select('status, waiting_on, wake_at, workflow_step_log(message)')
+            .eq('idempotency_key', `${runId}:search:0`)
+            .single()
+            .throwOnError()
+        ).data,
+        await runStatus(runId),
+      );
+    };
+    const pausedAt = Date.now();
+
+    await runPublishedWorkflow({ runId });
+
+    const hour = 60 * 60 * 1000;
+    expect(Math.abs((temporal.conditionTimeouts[0] as number) - hour)).toBeLessThan(60_000);
+    const [step, status] = parked as [{ wake_at: string; workflow_step_log: { message: string }[] }, string];
+    expect(status).toBe('paused_cap');
+    expect(step).toMatchObject({ status: 'waiting', waiting_on: 'cap' });
+    expect(Math.abs(Date.parse(step.wake_at) - (pausedAt + hour))).toBeLessThan(60_000);
+    expect(step.workflow_step_log.map((log) => log.message)).toContain('Waiting for the CourtListener hourly limit');
+    expect(await notificationCounts('Pipeline review reminder paused: Waiting for the CourtListener hourly limit')).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(await stepRow(runId, 'search')).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('resumes at once when a timed pause is already over by the time the run parks', async () => {
+    searchFailures.push(new CapReached('Waiting for the CourtListener hourly limit', new Date(Date.now() - 60_000)));
+    await publish({
+      nodes: [trigger, { id: 'search', type: 'diligence_search', config: { dealId: crypto.randomUUID() } }],
+      edges: [edge('start', 'search')],
+    } as unknown as WorkflowGraph);
+
+    const runId = await runToEnd();
+
+    expect(temporal.conditionTimeouts).toEqual([0]);
+    expect(await runStatus(runId)).toBe('succeeded');
+  });
+
   it('reserves AI calls atomically so two at once cannot pass a cap of one, then records usage', async () => {
     await setCaps({ ai_monthly_cap: 1 });
 
@@ -2865,6 +2949,46 @@ describe('a workflow with AI steps (integration)', () => {
     ]);
     expect(activityContext.heartbeat).toHaveBeenCalled();
     expect(activityContext.seenSignals).toEqual([activityContext.cancellation.signal]);
+  });
+
+  it('gives a background search half an hour and heartbeats it so a crashed worker is noticed', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'search', type: 'diligence_search', config: { dealId: crypto.randomUUID() } },
+        notify('after', 'After searching'),
+      ],
+      edges: [edge('start', 'search'), edge('search', 'after')],
+    } as unknown as WorkflowGraph);
+
+    await runToEnd();
+
+    const executions = temporal.timeouts.filter(([name]) => name === 'executeWorkflowStep');
+    expect(executions.map(([, timeout, heartbeat]) => [timeout, heartbeat])).toEqual([
+      ['30 minutes', '30 seconds'],
+      ['5 minutes', undefined],
+    ]);
+    expect(activityContext.heartbeat).toHaveBeenCalled();
+  });
+
+  it('gives a background report half an hour and heartbeats it while it rates findings in chunks', async () => {
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'report', type: 'diligence_report', config: { runId: crypto.randomUUID() } },
+        notify('after', 'After reporting'),
+      ],
+      edges: [edge('start', 'report'), edge('report', 'after')],
+    } as unknown as WorkflowGraph);
+
+    await runToEnd();
+
+    const executions = temporal.timeouts.filter(([name]) => name === 'executeWorkflowStep');
+    expect(executions.map(([, timeout, heartbeat]) => [timeout, heartbeat])).toEqual([
+      ['30 minutes', '30 seconds'],
+      ['5 minutes', undefined],
+    ]);
+    expect(activityContext.heartbeat).toHaveBeenCalled();
   });
 
   it('runs a decision model again after its cap is raised, then waits for the decision', async () => {

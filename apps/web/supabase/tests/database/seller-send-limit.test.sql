@@ -12,7 +12,7 @@ select tests.login_as_service_role();
 select public.create_team_account('SSL Team', tests.get_uid('ssl_owner'), 'ssl-team');
 select public.append_deal_event('5d000000-0000-0000-0000-0000000000d1', 'deal',
   '5d000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ssl-team'), 'owner_user_id', tests.get_uid('ssl_owner'),
+  jsonb_build_object('account_id', tests.account_id('ssl-team'), 'firm_id', tests.create_firm(tests.account_id('ssl-team')), 'owner_user_id', tests.get_uid('ssl_owner'),
     'description', 'Send limit deal'), null, 'service');
 
 reset role;

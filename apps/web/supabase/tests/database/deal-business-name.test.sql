@@ -47,23 +47,23 @@ select tests.login_as_service_role();
 
 select public.append_deal_event('b5000000-0000-0000-0000-0000000000d1', 'deal',
   'b5000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('bn-team'), 'description', 'Coastal HVAC: profitable shop'),
+  jsonb_build_object('account_id', tests.account_id('bn-team'), 'firm_id', tests.create_firm(tests.account_id('bn-team')), 'description', 'Coastal HVAC: profitable shop'),
   null, 'service');
 select public.append_deal_event('b5000000-0000-0000-0000-0000000000d2', 'deal',
   'b5000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('bn-team'), 'description', 'Summit Dental; two offices'),
+  jsonb_build_object('account_id', tests.account_id('bn-team'), 'firm_id', tests.create_firm(tests.account_id('bn-team')), 'description', 'Summit Dental; two offices'),
   null, 'service');
 select public.append_deal_event('b5000000-0000-0000-0000-0000000000d3', 'deal',
   'b5000000-0000-0000-0000-0000000000d3', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('bn-team'), 'description', 'Brightwave Marketing. Agency in Austin! Growing.'),
+  jsonb_build_object('account_id', tests.account_id('bn-team'), 'firm_id', tests.create_firm(tests.account_id('bn-team')), 'description', 'Brightwave Marketing. Agency in Austin! Growing.'),
   null, 'service');
 select public.append_deal_event('b5000000-0000-0000-0000-0000000000d4', 'deal',
   'b5000000-0000-0000-0000-0000000000d4', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('bn-team'), 'description', 'Main St. Bakery'),
+  jsonb_build_object('account_id', tests.account_id('bn-team'), 'firm_id', tests.create_firm(tests.account_id('bn-team')), 'description', 'Main St. Bakery'),
   null, 'service');
 select public.append_deal_event('b5000000-0000-0000-0000-0000000000d6', 'deal',
   'b5000000-0000-0000-0000-0000000000d6', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('bn-team')),
+  jsonb_build_object('account_id', tests.account_id('bn-team'), 'firm_id', tests.create_firm(tests.account_id('bn-team'))),
   null, 'service');
 select public.append_deal_event('b5000000-0000-0000-0000-0000000000d5', 'deal',
   'b5000000-0000-0000-0000-0000000000d5', 'deal.created',
@@ -91,7 +91,25 @@ delete from public.dr_folder where deal_id in ('b5000000-0000-0000-0000-00000000
 insert into public.dr_folder (account_id, deal_id, name) values
   (tests.account_id('bn-team'), 'b5000000-0000-0000-0000-0000000000d3', 'Custom');
 
+-- Deals from before every deal had a business: no firm, and a deal.created
+-- that never named one.
+alter table public.deal alter column firm_id drop not null;
+update public.deal set firm_id = null
+where id in ('b5000000-0000-0000-0000-0000000000d1', 'b5000000-0000-0000-0000-0000000000d2',
+  'b5000000-0000-0000-0000-0000000000d3', 'b5000000-0000-0000-0000-0000000000d4',
+  'b5000000-0000-0000-0000-0000000000d6');
+update public.deal_event set payload = payload - 'firm_id'
+where event_type = 'deal.created'
+  and deal_id in ('b5000000-0000-0000-0000-0000000000d1', 'b5000000-0000-0000-0000-0000000000d2',
+    'b5000000-0000-0000-0000-0000000000d3', 'b5000000-0000-0000-0000-0000000000d4',
+    'b5000000-0000-0000-0000-0000000000d6');
+
 select public.backfill_deal_defaults();
+
+select lives_ok(
+  $$ alter table public.deal alter column firm_id set not null $$,
+  'after the backfill every deal has a firm'
+);
 
 select results_eq(
   $$ select d.id::text, f.name::text, f.name_confirmed, f.status from public.deal d join public.firm f on f.id = d.firm_id

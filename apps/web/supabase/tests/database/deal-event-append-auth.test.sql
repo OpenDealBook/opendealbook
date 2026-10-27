@@ -16,14 +16,14 @@ values (tests.account_id('append-acct'), tests.get_uid('ap_member'), 'member');
 select tests.login_as('ap_owner');
 select public.append_deal_event('a9a9a9a9-0000-0000-0000-0000000000d1', 'deal',
   'a9a9a9a9-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('append-acct'), 'description', 'Append Deal A'));
+  jsonb_build_object('account_id', tests.account_id('append-acct'), 'firm_id', tests.create_firm(tests.account_id('append-acct')), 'description', 'Append Deal A'));
 
 -- ---- a non-member cannot create a deal on the account ----
 select tests.login_as('ap_outsider');
 select throws_ok(
   $$ select public.append_deal_event('a9a9a9a9-0000-0000-0000-0000000000d2', 'deal',
        'a9a9a9a9-0000-0000-0000-0000000000d2', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('append-acct'), 'description', 'sneaky')) $$,
+       jsonb_build_object('account_id', tests.account_id('append-acct'), 'firm_id', tests.create_firm(tests.account_id('append-acct')), 'description', 'sneaky')) $$,
   '42501', null,
   'a non-member cannot append deal.created on a foreign account'
 );

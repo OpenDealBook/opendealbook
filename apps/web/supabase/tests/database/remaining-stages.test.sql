@@ -14,11 +14,11 @@ select public.create_team_account('RS Acct B', tests.get_uid('rs_b_owner'), 'rs-
 -- observable in the pipeline analytics.
 select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e1', 'deal',
   'aaaaaaaa-0000-0000-0000-0000000000e1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('rs-acct-a'), 'owner_user_id', tests.get_uid('rs_a_owner'),
+  jsonb_build_object('account_id', tests.account_id('rs-acct-a'), 'firm_id', tests.create_firm(tests.account_id('rs-acct-a')), 'owner_user_id', tests.get_uid('rs_a_owner'),
     'description', 'Deal A', 'asking_price', 1000000), null, 'service');
 select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000e1', 'deal',
   'bbbbbbbb-0000-0000-0000-0000000000e1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('rs-acct-b'), 'owner_user_id', tests.get_uid('rs_b_owner'),
+  jsonb_build_object('account_id', tests.account_id('rs-acct-b'), 'firm_id', tests.create_firm(tests.account_id('rs-acct-b')), 'owner_user_id', tests.get_uid('rs_b_owner'),
     'description', 'Deal B', 'asking_price', 500000), null, 'service');
 
 -- One row per new deal-scoped table under each deal.

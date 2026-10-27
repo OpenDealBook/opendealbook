@@ -14,15 +14,15 @@ select public.create_team_account('LC Acct 2', tests.get_uid('lc_owner_2'), 'lc-
 
 select public.append_deal_event('1c000000-0000-0000-0000-0000000000d1', 'deal',
   '1c000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lc-acct'), 'owner_user_id', tests.get_uid('lc_owner'),
+  jsonb_build_object('account_id', tests.account_id('lc-acct'), 'firm_id', tests.create_firm(tests.account_id('lc-acct')), 'owner_user_id', tests.get_uid('lc_owner'),
     'description', 'CRM deal'), null, 'service');
 select public.append_deal_event('1c000000-0000-0000-0000-0000000000d2', 'deal',
   '1c000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lc-acct-2'), 'owner_user_id', tests.get_uid('lc_owner_2'),
+  jsonb_build_object('account_id', tests.account_id('lc-acct-2'), 'firm_id', tests.create_firm(tests.account_id('lc-acct-2')), 'owner_user_id', tests.get_uid('lc_owner_2'),
     'description', 'Other CRM deal'), null, 'service');
 select public.append_deal_event('1c000000-0000-0000-0000-0000000000d3', 'deal',
   '1c000000-0000-0000-0000-0000000000d3', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lc-acct'), 'owner_user_id', tests.get_uid('lc_owner'),
+  jsonb_build_object('account_id', tests.account_id('lc-acct'), 'firm_id', tests.create_firm(tests.account_id('lc-acct')), 'owner_user_id', tests.get_uid('lc_owner'),
     'description', 'No deadline deal'), null, 'service');
 
 reset role;
@@ -196,7 +196,7 @@ select is(
 );
 select is(
   (select deal_name from public.lender_history('1c000000-0000-0000-0000-00000000e001') where room_id = '1c000000-0000-0000-0000-0000000000b0'),
-  null, 'history names no deal that has no firm'
+  'Fixture business', 'history names every deal by its business'
 );
 select isnt(
   (select room_created_at from public.lender_history('1c000000-0000-0000-0000-00000000e001') where room_id = '1c000000-0000-0000-0000-0000000000a0'),
@@ -514,7 +514,7 @@ select throws_ok(
 select tests.login_as_service_role();
 select public.append_deal_event('1c000000-0000-0000-0000-0000000000d4', 'deal',
   '1c000000-0000-0000-0000-0000000000d4', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lc-acct'), 'owner_user_id', tests.get_uid('lc_owner'),
+  jsonb_build_object('account_id', tests.account_id('lc-acct'), 'firm_id', tests.create_firm(tests.account_id('lc-acct')), 'owner_user_id', tests.get_uid('lc_owner'),
     'description', 'Nudge deal'), null, 'service');
 
 reset role;
@@ -583,8 +583,8 @@ select results_eq(
 select results_eq(
   $$ select lender_id, deal_name, last_heard_at is null from public.lender_rooms_due_nudge(tests.account_id('lc-acct'))
      where room_id = '1c000000-0000-0000-0000-000000000101' $$,
-  $$ values ('1c000000-0000-0000-0000-00000000e002'::uuid, null::text, true) $$,
-  'a room matches its saved lender by domain, and may lack a deal name and a last word'
+  $$ values ('1c000000-0000-0000-0000-00000000e002'::uuid, 'Fixture business', true) $$,
+  'a room matches its saved lender by domain, and may lack a last word'
 );
 select is(
   (select lender_id from public.lender_rooms_due_nudge(tests.account_id('lc-acct')) where room_id = '1c000000-0000-0000-0000-000000000103'),

@@ -6,7 +6,7 @@ import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
-const kindSchema = z.enum(['email_lookup', 'letters']);
+const kindSchema = z.enum(['email_lookup', 'letters', 'courts']);
 
 const REFUSALS: Record<string, string> = {
   '42501': 'Changing provider keys needs settings.manage',

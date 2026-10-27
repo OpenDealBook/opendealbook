@@ -203,14 +203,15 @@ create policy firm_email_read on public.firm_email
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
--- A team's own key for each paid provider: email lookup runs on Apify, letters
--- on Lob, and registry takes bulk files only, so it has no key. The key lives
+-- A team's own key for each provider: email lookup runs on Apify, letters on
+-- Lob, federal courts on a free CourtListener token, and registry takes bulk
+-- files only, so it has no key. The key lives
 -- encrypted in Supabase Vault and members never see its secret id; settings
 -- managers write only through save_provider_credential and
 -- disconnect_provider_credential. Each kind has a fixed provider and address,
 -- a changed address needs a fresh key, and email lookup names its Apify actor.
 -- Letters also keep the Lob webhook signing secret in Vault beside the key.
-create type public.provider_kind as enum ('email_lookup', 'registry', 'letters');
+create type public.provider_kind as enum ('email_lookup', 'registry', 'letters', 'courts');
 
 create table if not exists public.provider_credential (
   id uuid primary key default gen_random_uuid(),
@@ -262,10 +263,15 @@ declare
   existing public.provider_credential;
   secret_id uuid;
   hook_secret_id uuid;
-  provider text := case p_kind when 'email_lookup' then 'apify' when 'letters' then 'lob' end;
+  provider text := case p_kind
+    when 'email_lookup' then 'apify'
+    when 'letters' then 'lob'
+    when 'courts' then 'courtlistener'
+  end;
   base_url text := case p_kind
     when 'email_lookup' then 'https://api.apify.com/v2'
     when 'letters' then 'https://api.lob.com/v1'
+    when 'courts' then 'https://www.courtlistener.com/api/rest/v4'
   end;
 begin
   if not public.has_permission((select auth.uid()), p_account_id, 'settings.manage') then

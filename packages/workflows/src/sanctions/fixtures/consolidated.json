@@ -1,0 +1,412 @@
+{
+  "results": [
+    {
+      "addresses": [
+        {
+          "address": "172 Xibin Rd, Ranghulu District, (Daqing, Heilongjiang Branch)",
+          "city": "Daqing",
+          "state": null,
+          "postal_code": "163453",
+          "country": "CN"
+        },
+        {
+          "address": "9 Dongzhimen North Street, Dongcheng District, (Head Office)",
+          "city": "Beijing",
+          "state": null,
+          "postal_code": "100007",
+          "country": "CN"
+        },
+        {
+          "address": "No. 7 Century Ave, (Registered Office)",
+          "city": "Xinjiang",
+          "state": "Karamay",
+          "postal_code": "834000",
+          "country": "CN"
+        },
+        {
+          "address": "No. 68 Zhongya South Rd, Economic and Technological Development Zone, (Urumqi, Xinjiang Branch)",
+          "city": "Urumqi",
+          "state": null,
+          "postal_code": "830026",
+          "country": "CN"
+        }
+      ],
+      "alt_names": [
+        "KARAMAY URBAN CREDIT COOPERATIVES",
+        "KARAMAY CITY COMMERCIAL BANK CO LTD."
+      ],
+      "entity_number": "15268",
+      "id": "15268",
+      "ids": [
+        {
+          "type": "SWIFT/BIC",
+          "number": "CKLBCNBJ"
+        }
+      ],
+      "name": "BANK OF KUNLUN CO LTD",
+      "programs": [
+        "561-Related"
+      ],
+      "remarks": "United States financial institutions are prohibited from opening or maintaining a correspondent account or a payable-through account for the foreign financial institution listed here, pursuant to 31 C.F.R. section 561.201(c)",
+      "source": "Capta List (CAP) - Treasury Department",
+      "source_information_url": "https://ofac.treasury.gov/other-ofac-sanctions-lists",
+      "source_list_url": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList",
+      "type": "Entity"
+    },
+    {
+      "addresses": [
+        {
+          "address": "3, Gagarinsky Pereulok",
+          "city": "Moscow",
+          "state": null,
+          "postal_code": "119034",
+          "country": "RU"
+        },
+        {
+          "address": "3 Gagarinsky per.",
+          "city": "Moscow",
+          "state": null,
+          "postal_code": "119034",
+          "country": "RU"
+        }
+      ],
+      "alt_names": [
+        "Russian Agricultural Bank",
+        "Russian Agricultural Bank Open Joint Stock Company",
+        "Rosselkhozbank",
+        "Russian Agricultural Bank OJSC",
+        "RusAg"
+      ],
+      "entity_number": "17014",
+      "id": "17014",
+      "ids": [
+        {
+          "type": "Registration Number",
+          "number": "1027700342890",
+          "country": "RU"
+        },
+        {
+          "type": "Government Gazette Number",
+          "number": "52750822",
+          "country": "RU"
+        },
+        {
+          "type": "Website",
+          "number": "http://www.rshb.ru"
+        },
+        {
+          "type": "SWIFT/BIC",
+          "number": "RUAGRUMM"
+        },
+        {
+          "type": "Executive Order 13662 Directive Determination -",
+          "number": "Subject to Directive 1"
+        },
+        {
+          "type": "Executive Order 14024 Directive Information -",
+          "number": "For more information on directives, please visit the following link: https://home.treasury.gov/policy-issues/financial-sanctions/sanctions-programs-and-country-information/russian-harmful-foreign-activities-sanctions#directives"
+        },
+        {
+          "type": "Executive Order 14024 Directive Information",
+          "number": "Subject to Directive 3 - All transactions in, provision of financing for, and other dealings in new debt of longer than 14 days maturity or new equity where such new debt or new equity is issued on or after the 'Effective Date (EO 14024 Directive)' associated with this name are prohibited."
+        },
+        {
+          "type": "Listing Date (EO 14024 Directive 3):",
+          "number": "2022-02-24"
+        },
+        {
+          "type": "Effective Date (EO 14024 Directive 3):",
+          "number": "2022-03-26"
+        },
+        {
+          "type": "Secondary sanctions risk:",
+          "number": "Ukraine-/Russia-Related Sanctions Regulations, 31 CFR 589.201 and/or 589.209"
+        }
+      ],
+      "name": "Joint Stock Company Russian Agricultural Bank",
+      "programs": [
+        "UKRAINE-EO13662",
+        "RUSSIA-EO14024"
+      ],
+      "remarks": "For more information on directives, please visit the following link: http://www.treasury.gov/resource-center/sanctions/Programs/Pages/ukraine.aspx#directives.",
+      "source": "Non-SDN Menu-Based Sanctions List (NS-MBS List) - Treasury Department",
+      "source_information_url": "https://ofac.treasury.gov/other-ofac-sanctions-lists",
+      "source_list_url": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList",
+      "type": "Entity"
+    },
+    {
+      "addresses": [
+        {
+          "address": "3, Gagarinsky Pereulok",
+          "city": "Moscow",
+          "state": null,
+          "postal_code": "119034",
+          "country": "RU"
+        },
+        {
+          "address": "3 Gagarinsky per.",
+          "city": "Moscow",
+          "state": null,
+          "postal_code": "119034",
+          "country": "RU"
+        }
+      ],
+      "alt_names": [
+        "Russian Agricultural Bank",
+        "Russian Agricultural Bank Open Joint Stock Company",
+        "Rosselkhozbank",
+        "Russian Agricultural Bank OJSC",
+        "RusAg"
+      ],
+      "entity_number": "17014",
+      "id": "17014",
+      "ids": [
+        {
+          "type": "Registration Number",
+          "number": "1027700342890",
+          "country": "RU"
+        },
+        {
+          "type": "Government Gazette Number",
+          "number": "52750822",
+          "country": "RU"
+        },
+        {
+          "type": "Website",
+          "number": "http://www.rshb.ru"
+        },
+        {
+          "type": "SWIFT/BIC",
+          "number": "RUAGRUMM"
+        },
+        {
+          "type": "Executive Order 13662 Directive Determination -",
+          "number": "Subject to Directive 1"
+        },
+        {
+          "type": "Executive Order 14024 Directive Information -",
+          "number": "For more information on directives, please visit the following link: https://home.treasury.gov/policy-issues/financial-sanctions/sanctions-programs-and-country-information/russian-harmful-foreign-activities-sanctions#directives"
+        },
+        {
+          "type": "Executive Order 14024 Directive Information",
+          "number": "Subject to Directive 3 - All transactions in, provision of financing for, and other dealings in new debt of longer than 14 days maturity or new equity where such new debt or new equity is issued on or after the 'Effective Date (EO 14024 Directive)' associated with this name are prohibited."
+        },
+        {
+          "type": "Listing Date (EO 14024 Directive 3):",
+          "number": "2022-02-24"
+        },
+        {
+          "type": "Effective Date (EO 14024 Directive 3):",
+          "number": "2022-03-26"
+        },
+        {
+          "type": "Secondary sanctions risk:",
+          "number": "Ukraine-/Russia-Related Sanctions Regulations, 31 CFR 589.201 and/or 589.209"
+        }
+      ],
+      "name": "Joint Stock Company Russian Agricultural Bank",
+      "programs": [
+        "UKRAINE-EO13662",
+        "RUSSIA-EO14024"
+      ],
+      "remarks": "For more information on directives, please visit the following link: http://www.treasury.gov/resource-center/sanctions/Programs/Pages/ukraine.aspx#directives.",
+      "source": "Sectoral Sanctions Identifications List (SSI) - Treasury Department",
+      "source_information_url": "https://ofac.treasury.gov/other-ofac-sanctions-lists",
+      "source_list_url": "https://sanctionslist.ofac.treas.gov/Home/ConsolidatedList",
+      "type": "Entity"
+    },
+    {
+      "addresses": [
+        {
+          "city": "Moscow",
+          "country": "RU",
+          "address": "Kremlin",
+          "state": null,
+          "postal_code": null
+        },
+        {
+          "country": "RU",
+          "address": "Novo-Ogaryevo",
+          "city": null,
+          "state": "Moscow Region",
+          "postal_code": null
+        },
+        {
+          "city": "Sochi",
+          "country": "RU",
+          "address": "Bocharov Ruchey",
+          "state": null,
+          "postal_code": null
+        },
+        {
+          "country": "RU",
+          "address": "Valdai",
+          "city": null,
+          "state": "Novgorod Region",
+          "postal_code": null
+        }
+      ],
+      "alt_names": [
+        "PUTIN, Vladimir"
+      ],
+      "call_sign": null,
+      "citizenships": [
+        "RU"
+      ],
+      "dates_of_birth": [
+        "1952-10-07"
+      ],
+      "end_date": null,
+      "entity_number": "35096",
+      "federal_register_notice": null,
+      "gross_registered_tonnage": null,
+      "gross_tonnage": null,
+      "id": "35096",
+      "ids": [
+        {
+          "type": "Gender",
+          "number": "Male",
+          "issue_date": null,
+          "expiration_date": null
+        },
+        {
+          "type": "Secondary sanctions risk:",
+          "number": "See Section 11 of Executive Order 14024.",
+          "issue_date": null,
+          "expiration_date": null
+        }
+      ],
+      "license_policy": null,
+      "license_requirement": null,
+      "name": "PUTIN, Vladimir Vladimirovich",
+      "nationalities": [
+        "RU"
+      ],
+      "places_of_birth": [
+        "Leningrad, Russia"
+      ],
+      "programs": [
+        "RUSSIA-EO14024"
+      ],
+      "remarks": null,
+      "source": "Specially Designated Nationals (SDN) - Treasury Department",
+      "source_information_url": "https://home.treasury.gov/policy-issues/financial-sanctions/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists",
+      "source_list_url": "https://sanctionslist.ofac.treas.gov/Home/SdnList",
+      "title": "President of the Russian Federation",
+      "type": "Individual",
+      "vessel_flag": null,
+      "vessel_owner": null,
+      "vessel_type": null
+    },
+    {
+      "source": "Entity List (EL) - Bureau of Industry and Security",
+      "name": "Huawei Technologies Co., Ltd.",
+      "addresses": [
+        {
+          "address": "Tsim Sha Tsui, Kowloon",
+          "city": "",
+          "state": "",
+          "postal_code": "",
+          "country": "HK"
+        },
+        {
+          "address": "Tsim Sha Tsui, Kowloon",
+          "city": "Hong Kong",
+          "state": "",
+          "postal_code": "",
+          "country": "CN"
+        },
+        {
+          "address": "Tsim Sha Tsui",
+          "city": "Kowloon",
+          "state": "",
+          "postal_code": "",
+          "country": "HK"
+        }
+      ],
+      "federal_register_notice": "84 FR 22963; 85 FR 29853; 85 FR 36720; 85 FR 51603;  85 FR 83769; 87 FR 6026; 87 FR 55250",
+      "start_date": "2019-05-21",
+      "standard_order": null,
+      "license_policy": "Presumption of denial",
+      "license_requirement": "For All Items Subject to the EAR (See §734.9(e)1, and §744.11 of the EAR)2.",
+      "call_sign": "",
+      "vessel_type": "",
+      "gross_tonnage": "",
+      "gross_registered_tonnage": "",
+      "vessel_flag": "",
+      "vessel_owner": "",
+      "remarks": "",
+      "source_list_url": "https://www.bis.gov/regulations/ear/744#supplement-4-744",
+      "alt_names": null,
+      "source_information_url": "https://www.bis.gov/licensing/guidance-on-end-user-and-end-use-controls-and-us-person-controls",
+      "id": "03af7d6df1cb349107d67791c92fcfba4422eda0c148aad1b730fc89",
+      "title": null
+    },
+    {
+      "addresses": [],
+      "alt_names": [],
+      "call_sign": "CL2192",
+      "citizenships": [],
+      "dates_of_birth": [],
+      "end_date": null,
+      "entity_number": "4238",
+      "federal_register_notice": null,
+      "gross_registered_tonnage": "212",
+      "gross_tonnage": null,
+      "id": "4238",
+      "ids": [],
+      "license_policy": null,
+      "license_requirement": null,
+      "name": "MAR AZUL",
+      "nationalities": [],
+      "places_of_birth": [],
+      "programs": [
+        "CUBA"
+      ],
+      "remarks": null,
+      "source": "Specially Designated Nationals (SDN) - Treasury Department",
+      "source_information_url": "https://home.treasury.gov/policy-issues/financial-sanctions/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists",
+      "source_list_url": "https://sanctionslist.ofac.treas.gov/Home/SdnList",
+      "title": null,
+      "type": "Vessel",
+      "vessel_flag": "Cuba",
+      "vessel_owner": "Samir de Navegacion S.A.",
+      "vessel_type": "Tug"
+    }
+  ],
+  "search_performed_at": "2026-10-27T11:15:00.018748+00:00",
+  "sources_used": [
+    {
+      "last_imported": "2026-10-27T11:15:00.018748+00:00",
+      "source_last_updated": "2026-10-21T16:35:23+00:00",
+      "source": "Capta List (CAP) - Treasury Department",
+      "import_rate": "Hourly"
+    },
+    {
+      "last_imported": "2026-10-27T11:15:00.018748+00:00",
+      "source_last_updated": "2026-08-21T20:19:33+00:00",
+      "source": "Entity List (EL) - Bureau of Industry and Security",
+      "import_rate": "Hourly"
+    },
+    {
+      "last_imported": "2026-10-27T11:15:00.018748+00:00",
+      "source_last_updated": "2026-10-21T16:35:23+00:00",
+      "source": "Non-SDN Menu-Based Sanctions List (NS-MBS List) - Treasury Department",
+      "import_rate": "Hourly"
+    },
+    {
+      "last_imported": "2026-10-27T11:15:00.018748+00:00",
+      "source_last_updated": "2026-10-21T16:35:21+00:00",
+      "source": "Specially Designated Nationals (SDN) - Treasury Department",
+      "import_rate": "Hourly"
+    },
+    {
+      "last_imported": "2026-10-27T11:15:00.018748+00:00",
+      "source_last_updated": "2026-10-21T16:35:23+00:00",
+      "source": "Sectoral Sanctions Identifications List (SSI) - Treasury Department",
+      "import_rate": "Hourly"
+    }
+  ],
+  "offset": 0,
+  "total": 6
+}

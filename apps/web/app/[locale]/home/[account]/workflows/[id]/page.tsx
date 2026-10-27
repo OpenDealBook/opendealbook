@@ -62,7 +62,7 @@ export default async function WorkflowDetailPage(props: {
     )
     .throwOnError();
 
-  const publisherNames = new Map(
+  const publisherNames = new Map<string | null, string>(
     publishers.map((publisher) => [
       publisher.primary_owner_user_id,
       publisher.name,
@@ -80,8 +80,8 @@ export default async function WorkflowDetailPage(props: {
           published_at: version.published_at,
           saved_at: version.saved_at,
           publisher:
-            version.published_by &&
-            (publisherNames.get(version.published_by) ?? 'Removed user'),
+            version.published_at &&
+            (publisherNames.get(version.published_by) ?? 'a removed user'),
         }))}
         runs={runs}
         canManage={permissions.includes('workflows.manage')}

@@ -46,7 +46,10 @@ select is_empty(
 );
 
 -- deleted examples never come back on a later visit
+reset role;
+delete from public.deal where account_id = tests.account_id('sample-team');
 delete from public.firm where account_id = tests.account_id('sample-team');
+select tests.login_as_service_role();
 select is(
   public.seed_sample_deals(tests.account_id('sample-team'), tests.get_uid('sd_owner'), true),
   null,
@@ -80,7 +83,7 @@ select is(
 select public.create_team_account('Reload Team', tests.get_uid('sd_owner'), 'reload-team');
 select public.append_deal_event('5d000000-0000-0000-0000-0000000000d1', 'deal',
   '5d000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('reload-team'), 'owner_user_id', tests.get_uid('sd_owner'),
+  jsonb_build_object('account_id', tests.account_id('reload-team'), 'firm_id', tests.create_firm(tests.account_id('reload-team')), 'owner_user_id', tests.get_uid('sd_owner'),
     'description', 'A real deal'), null, 'service');
 select public.seed_sample_deals(tests.account_id('reload-team'), tests.get_uid('sd_owner'), true);
 create temporary table first_examples as

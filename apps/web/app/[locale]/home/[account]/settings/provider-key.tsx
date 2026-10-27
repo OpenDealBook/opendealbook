@@ -41,6 +41,12 @@ const KINDS = {
     provider: 'Lob',
     stepsFail: 'Letter steps in workflows will fail until you connect it again.',
   },
+  courts: {
+    title: 'Federal courts',
+    description: "Searches federal and bankruptcy court dockets on CourtListener with your team's own free token.",
+    provider: 'CourtListener',
+    stepsFail: 'Diligence will skip federal courts until you connect it again.',
+  },
 };
 
 export function ProviderKeySetting({

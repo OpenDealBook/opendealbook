@@ -18,7 +18,13 @@ import type { LoopCarried, LoopGrant, StepResult } from './activities';
 import type { StepOutputs } from './expressions';
 import type { StepIo, WorkflowEdge, WorkflowNode } from './graph';
 import { APPROVAL_DECIDED_SIGNAL, CAP_RAISED_SIGNAL, TEAM_UNLOCKED_SIGNAL } from './ids';
-import { AI_NODE_TYPES, AI_STEP_HEARTBEAT_TIMEOUT, AI_STEP_TIMEOUT } from './nodeKinds';
+import {
+  AI_NODE_TYPES,
+  AI_STEP_TIMEOUT,
+  SEARCH_NODE_TYPES,
+  SEARCH_STEP_TIMEOUT,
+  STEP_HEARTBEAT_TIMEOUT,
+} from './nodeKinds';
 
 const STEP_RETRY: RetryPolicy = {
   maximumAttempts: 5,
@@ -43,7 +49,13 @@ const {
 
 const { executeWorkflowStep: executeAiStep } = proxyActivities<typeof activities>({
   startToCloseTimeout: AI_STEP_TIMEOUT,
-  heartbeatTimeout: AI_STEP_HEARTBEAT_TIMEOUT,
+  heartbeatTimeout: STEP_HEARTBEAT_TIMEOUT,
+  retry: STEP_RETRY,
+});
+
+const { executeWorkflowStep: executeSearchStep } = proxyActivities<typeof activities>({
+  startToCloseTimeout: SEARCH_STEP_TIMEOUT,
+  heartbeatTimeout: STEP_HEARTBEAT_TIMEOUT,
   retry: STEP_RETRY,
 });
 
@@ -260,7 +272,11 @@ export async function runPublishedWorkflow({
         item.touched = true;
       }
       const execution = { runId, accountId, node, iterationPath: scope.path };
-      const executeStep = AI_NODE_TYPES.includes(node.type) ? executeAiStep : executeWorkflowStep;
+      const executeStep = AI_NODE_TYPES.includes(node.type)
+        ? executeAiStep
+        : SEARCH_NODE_TYPES.includes(node.type)
+          ? executeSearchStep
+          : executeWorkflowStep;
       const result = await executeStep({
         ...execution,
         input,
@@ -321,10 +337,13 @@ export async function runPublishedWorkflow({
           if (!pausedForCap) {
             pausedForCap = true;
             capPauses += 1;
-            await sendNotice(notifyRunPaused({ runId, pause: capPauses }));
+            await sendNotice(notifyRunPaused({ runId, pause: capPauses, reason: result.reason }));
           }
           const raisesSeen = capRaises;
-          await condition(() => capRaises !== raisesSeen, untilNextUtcMonth());
+          await condition(
+            () => capRaises !== raisesSeen,
+            result.until ? Math.max(0, Date.parse(result.until) - Date.now()) : untilNextUtcMonth(),
+          );
           capped -= 1;
         }
         working += 1;

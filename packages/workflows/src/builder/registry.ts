@@ -4,6 +4,8 @@ import { approval } from './steps/approval';
 import { askAi } from './steps/askAi';
 import { createTodo } from './steps/createTodo';
 import { decisionModel } from './steps/decisionModel';
+import { diligenceReport } from './steps/diligenceReport';
+import { diligenceSearch } from './steps/diligenceSearch';
 import { emailLookup } from './steps/emailLookup';
 import { enrollSequence } from './steps/enrollSequence';
 import { notifyTeam } from './steps/notifyTeam';
@@ -24,4 +26,6 @@ export const stepRegistry = {
   prepare_firm: prepareFirm,
   enroll_sequence: enrollSequence,
   send_letter: sendLetter,
+  diligence_search: diligenceSearch,
+  diligence_report: diligenceReport,
 } satisfies Record<StepTypeName, ReturnType<typeof defineStep>>;

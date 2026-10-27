@@ -83,6 +83,14 @@ describe('the deal tabs', () => {
     expect(linkTo('Seller Q&A')).toBe(`${DEAL}/parties#seller-room`);
   });
 
+  it('keep the background search under Diligence', () => {
+    at('/background');
+    show(createElement(DealSubnav));
+
+    expect(current()).toEqual(['Diligence', 'Background']);
+    expect(linkTo('Background')).toBe(`${DEAL}/background`);
+  });
+
   it('keep worksheets and workbooks under Financials', () => {
     at('/workbooks');
     show(createElement(DealSubnav));

@@ -22,12 +22,14 @@ describe('paletteNodeTypes', () => {
       branch: 'Branch',
       merge: 'Merge',
       loop: 'Loop',
+      diligence_report: 'Background report',
       pull_leads: 'Pull leads',
       registry_lookup: 'Registry lookup',
       email_lookup: 'Find emails',
       prepare_firm: 'Prepare firm',
       enroll_sequence: 'Start sequence',
       send_letter: 'Send letter',
+      diligence_search: 'Background search',
     });
   });
 
@@ -54,6 +56,15 @@ describe('paletteNodeTypes', () => {
     expect(item('ask_ai').defaultPropertiesData).toEqual({ output: 'text' });
     expect(item('loop').defaultPropertiesData).toEqual({ parallel: false });
     expect(item('notify_team').defaultPropertiesData).toEqual({});
+    expect(item('diligence_search').defaultPropertiesData).toEqual({ searchAllNames: false });
+  });
+
+  it('offers the background search a checkbox to search news and reviews for every business name', () => {
+    expect(item('diligence_search').schema.properties!.searchAllNames).toMatchObject({
+      type: 'boolean',
+      default: false,
+      title: 'Search news and reviews for every business name',
+    });
   });
 
   it('marks free-text fields as accepting step references and leaves choice fields alone', () => {

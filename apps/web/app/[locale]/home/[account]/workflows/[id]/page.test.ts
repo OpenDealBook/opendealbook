@@ -44,7 +44,7 @@ it('is not found for an unknown or other team workflow', async () => {
   );
 });
 
-it('names a publisher whose account is gone as Removed user', async () => {
+it('names a publisher whose account is gone as a removed user', async () => {
   Object.assign(tables, {
     workflow: {
       id: '00000000-0000-4000-8000-0000000000c1',
@@ -68,5 +68,32 @@ it('names a publisher whose account is gone as Removed user', async () => {
     await open('00000000-0000-4000-8000-0000000000c1'),
   );
 
-  expect(html).toContain('Published by Removed user');
+  expect(html).toContain('Published by a removed user');
+});
+
+it('names the publisher of a version whose publisher was deleted as a removed user', async () => {
+  Object.assign(tables, {
+    workflow: {
+      id: '00000000-0000-4000-8000-0000000000c1',
+      name: 'New deal alert',
+      enabled: false,
+      archived_at: null,
+    },
+    workflow_version: [
+      {
+        id: '00000000-0000-4000-8000-0000000000d1',
+        published_at: '2026-10-12T15:30:00Z',
+        published_by: null,
+        saved_at: '2026-10-11T09:00:00Z',
+      },
+    ],
+    workflow_run: [],
+    accounts: [],
+  });
+
+  const html = renderToStaticMarkup(
+    await open('00000000-0000-4000-8000-0000000000c1'),
+  );
+
+  expect(html).toContain('Published by a removed user');
 });

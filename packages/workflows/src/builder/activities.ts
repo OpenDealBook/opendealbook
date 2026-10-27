@@ -28,7 +28,7 @@ import {
   type WorkflowNode,
 } from './graph';
 import { noticeDealManagers } from './managerNotice';
-import { AI_NODE_TYPES, DECISION_NODE_TYPES } from './nodeKinds';
+import { DECISION_NODE_TYPES, HEARTBEAT_NODE_TYPES } from './nodeKinds';
 import { stepRegistry } from './registry';
 import { evaluateRule } from './rules';
 import { teamTimezone } from './team-timezone';
@@ -195,6 +195,7 @@ export async function notifyRunFailed(input: { runId: string }): Promise<void> {
 export async function notifyRunPaused(input: {
   runId: string;
   pause: number;
+  reason?: string;
 }): Promise<void> {
   const { data: run } = await getSupabaseServerAdminClient()
     .from('workflow_run')
@@ -204,7 +205,7 @@ export async function notifyRunPaused(input: {
     .throwOnError();
   await noticeDealManagers({
     accountId: run.account_id,
-    message: `${run.workflow.name} paused: the monthly AI limit is reached`,
+    message: `${run.workflow.name} paused: ${input.reason ?? 'the monthly AI limit is reached'}`,
     path: runPath(run, input.runId),
     type: 'warning',
     event: RUN_PAUSED_NOTICE_EVENT,
@@ -273,7 +274,7 @@ export type StepResult =
     }
   | { kind: 'waiting'; until: string }
   | { kind: 'awaiting_decision'; stepRunId: string }
-  | { kind: 'capped' }
+  | { kind: 'capped'; until?: string; reason?: string }
   | { kind: 'run_cancelled' };
 
 const stepIoSchema = z.record(z.string(), z.json());
@@ -363,7 +364,7 @@ function storedResult(
   };
 }
 
-const AI_HEARTBEAT_EVERY_MS = 10_000;
+const HEARTBEAT_EVERY_MS = 10_000;
 
 async function runInstantNode(
   input: StepExecution & {
@@ -387,14 +388,14 @@ async function runInstantNode(
       config: resolveConfig(input.node.config, input.steps),
       input: input.input,
     });
-  if (!AI_NODE_TYPES.includes(input.node.type)) {
+  if (!HEARTBEAT_NODE_TYPES.includes(input.node.type)) {
     return execute();
   }
   const activity = Context.current();
   activity.heartbeat();
   const beating = setInterval(
     () => activity.heartbeat(),
-    AI_HEARTBEAT_EVERY_MS,
+    HEARTBEAT_EVERY_MS,
   );
   try {
     return await execute(activity.cancellationSignal);
@@ -635,9 +636,23 @@ export async function executeWorkflowStep(
     if (!(error instanceof CapReached)) {
       throw error;
     }
-    return (await parkStep(stepRun.id, 'cap'))
-      ? { kind: 'capped' }
-      : settledElsewhere(input.node, stepRun.id, input.input, input.steps);
+    if (!error.resumeAt) {
+      return (await parkStep(stepRun.id, 'cap'))
+        ? { kind: 'capped' }
+        : settledElsewhere(input.node, stepRun.id, input.input, input.steps);
+    }
+    const until = error.resumeAt.toISOString();
+    if (!(await parkStep(stepRun.id, 'cap', { wake_at: until }))) {
+      return settledElsewhere(input.node, stepRun.id, input.input, input.steps);
+    }
+    await logStep({
+      accountId: input.accountId,
+      stepRunId: stepRun.id,
+      level: 'info',
+      message: error.message,
+      details: { until },
+    });
+    return { kind: 'capped', until, reason: error.message };
   }
 
   if (awaitsDecision(input.node)) {

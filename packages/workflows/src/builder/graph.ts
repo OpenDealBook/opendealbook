@@ -23,6 +23,8 @@ export const STEP_TYPES = [
   'prepare_firm',
   'enroll_sequence',
   'send_letter',
+  'diligence_search',
+  'diligence_report',
 ] as const;
 export const NODE_TYPES = [
   ...TRIGGER_TYPES,
@@ -71,6 +73,8 @@ export const NODE_HANDLES: Record<NodeTypeName, readonly string[]> = {
   prepare_firm: [],
   enroll_sequence: [],
   send_letter: [],
+  diligence_search: [],
+  diligence_report: [],
 };
 
 const LEAD_SOURCES = [
@@ -247,6 +251,14 @@ export const NODE_CONFIG_SCHEMAS = {
   prepare_firm: z.object({ firmId }),
   enroll_sequence: z.object({ firmId, sequenceId: z.string().min(1) }),
   send_letter: z.object({ firmId, templateId: z.string().min(1) }),
+  diligence_search: z.object({
+    dealId: z.string().min(1),
+    searchAllNames: z
+      .boolean()
+      .default(false)
+      .meta({ title: 'Search news and reviews for every business name' }),
+  }),
+  diligence_report: z.object({ runId: z.string().min(1) }),
 } satisfies Record<NodeTypeName, z.ZodType>;
 
 export type NodeConfig<Type extends NodeTypeName> = z.output<

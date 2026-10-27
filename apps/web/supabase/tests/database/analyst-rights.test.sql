@@ -18,7 +18,7 @@ insert into public.accounts_memberships (account_id, user_id, account_role) valu
 
 select public.append_deal_event('a7000000-0000-0000-0000-0000000000d1', 'deal',
   'a7000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ar-team'), 'owner_user_id', tests.get_uid('ar_owner'),
+  jsonb_build_object('account_id', tests.account_id('ar-team'), 'firm_id', tests.create_firm(tests.account_id('ar-team')), 'owner_user_id', tests.get_uid('ar_owner'),
     'description', 'Analyst rights deal'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name) values
@@ -93,7 +93,7 @@ select tests.login_as('ar_member');
 select lives_ok(
   $$ select public.append_deal_event('a7000000-0000-0000-0000-0000000000d2', 'deal',
        'a7000000-0000-0000-0000-0000000000d2', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ar-team'), 'description', 'Member deal')) $$,
+       jsonb_build_object('account_id', tests.account_id('ar-team'), 'firm_id', tests.create_firm(tests.account_id('ar-team')), 'description', 'Member deal')) $$,
   'a member creates a deal'
 );
 select lives_ok(

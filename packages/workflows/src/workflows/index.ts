@@ -8,6 +8,7 @@ export { brokerCatchUp, approveBrokerCatchUp } from './brokerCatchUp';
 export { trialDrip, stopTrialDrip } from './trialDrip';
 export { refreshSbaLoans } from './refreshSbaLoans';
 export { importLeadSource } from '../leadImports/workflow';
+export { importScreeningList } from '../sanctions/workflow';
 export { writeCloseCompWorkflow } from './writeCloseComp';
 export { sellerDelivery, sellerSendProblem } from './sellerDelivery';
 export { dealUpdateDelivery } from './dealUpdateDelivery';

@@ -144,13 +144,23 @@ async function storedText(path: string) {
 }
 
 async function createDeal(id: string, accountId: string) {
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: accountId, name: 'FAQ deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await admin
     .rpc('append_deal_event', {
       p_deal_id: id,
       p_aggregate_type: 'deal',
       p_aggregate_id: id,
       p_event_type: 'deal.created',
-      p_payload: { account_id: accountId, description: 'FAQ deal' },
+      p_payload: {
+        firm_id: firm.id,
+        account_id: accountId,
+        description: 'FAQ deal',
+      },
       p_actor_kind: 'service',
     })
     .throwOnError();

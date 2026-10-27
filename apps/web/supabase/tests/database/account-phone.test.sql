@@ -59,7 +59,7 @@ select tests.create_user('ph_counsel');
 select tests.login_as_service_role();
 select public.append_deal_event('9e000000-0000-0000-0000-0000000000d1', 'deal',
   '9e000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('phoneco'), 'owner_user_id', tests.get_uid('ph_owner'),
+  jsonb_build_object('account_id', tests.account_id('phoneco'), 'firm_id', tests.create_firm(tests.account_id('phoneco')), 'owner_user_id', tests.get_uid('ph_owner'),
     'description', 'Phone deal'), null, 'service');
 
 reset role;

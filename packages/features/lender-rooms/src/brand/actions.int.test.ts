@@ -110,6 +110,12 @@ async function provisionPerson(): Promise<Person> {
 async function newDeal(person: Person): Promise<string> {
   const id = crypto.randomUUID();
 
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: person.accountId, name: 'Manual logo deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await admin
     .rpc('append_deal_event', {
       p_deal_id: id,
@@ -117,6 +123,7 @@ async function newDeal(person: Person): Promise<string> {
       p_aggregate_id: id,
       p_event_type: 'deal.created',
       p_payload: {
+        firm_id: firm.id,
         account_id: person.accountId,
         owner_user_id: person.userId,
         description: 'Manual logo deal',

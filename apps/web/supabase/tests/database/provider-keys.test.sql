@@ -92,6 +92,17 @@ select throws_ok(
   $$ select public.save_provider_credential(tests.account_id('pk-team-a'), 'letters', 'k', 'acme~scraper') $$,
   '22023', 'only email lookup takes an actor', 'letters take no actor'
 );
+select throws_ok(
+  $$ select public.save_provider_credential(tests.account_id('pk-team-a'), 'courts', 'k', 'acme~scraper') $$,
+  '22023', 'only email lookup takes an actor', 'federal courts take no actor'
+);
+select public.save_provider_credential(tests.account_id('pk-team-a'), 'courts', 'cl-token-a');
+select tests.login_as_service_role();
+select results_eq(
+  $$ select api_key, actor_id, provider, base_url from public.provider_key(tests.account_id('pk-team-a'), 'courts') $$,
+  $$ values ('cl-token-a', null::text, 'courtlistener', 'https://www.courtlistener.com/api/rest/v4') $$,
+  'federal courts use the team''s CourtListener token at the CourtListener v4 address'
+);
 
 select tests.login_as('pk_b_owner');
 select public.save_provider_credential(tests.account_id('pk-team-b'), 'email_lookup', null, 'acme~site-contacts');

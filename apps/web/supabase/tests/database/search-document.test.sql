@@ -12,11 +12,11 @@ select public.create_team_account('SD Acct B', tests.get_uid('sd_b_owner'), 'sd-
 
 select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000d1', 'deal',
   'aaaaaaaa-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('sd-acct-a'), 'owner_user_id', tests.get_uid('sd_a_owner'),
+  jsonb_build_object('account_id', tests.account_id('sd-acct-a'), 'firm_id', tests.create_firm(tests.account_id('sd-acct-a')), 'owner_user_id', tests.get_uid('sd_a_owner'),
     'description', 'Deal A'), null, 'service');
 select public.append_deal_event('bbbbbbbb-0000-0000-0000-0000000000d1', 'deal',
   'bbbbbbbb-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('sd-acct-b'), 'owner_user_id', tests.get_uid('sd_b_owner'),
+  jsonb_build_object('account_id', tests.account_id('sd-acct-b'), 'firm_id', tests.create_firm(tests.account_id('sd-acct-b')), 'owner_user_id', tests.get_uid('sd_b_owner'),
     'description', 'Deal B'), null, 'service');
 
 -- Projection rows: an account-scoped firm row and a deal-scoped document row on

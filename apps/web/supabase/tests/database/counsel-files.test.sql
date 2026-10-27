@@ -11,7 +11,7 @@ select tests.login_as_service_role();
 select public.create_team_account('CF Team', tests.get_uid('cf_owner'), 'cf-team');
 select public.append_deal_event('cf000000-0000-0000-0000-0000000000d1', 'deal',
   'cf000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cf-team'), 'owner_user_id', tests.get_uid('cf_owner'),
+  jsonb_build_object('account_id', tests.account_id('cf-team'), 'firm_id', tests.create_firm(tests.account_id('cf-team')), 'owner_user_id', tests.get_uid('cf_owner'),
     'description', 'Counsel files deal'), null, 'service');
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values (tests.account_id('cf-team'), 'cf000000-0000-0000-0000-0000000000d1', 'buyer',

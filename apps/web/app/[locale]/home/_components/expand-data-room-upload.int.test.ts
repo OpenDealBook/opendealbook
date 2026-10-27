@@ -90,13 +90,23 @@ beforeAll(async () => {
   requestClients.admin = owner.admin;
   dealId = crypto.randomUUID();
 
+  const { data: firm } = await owner.user
+    .from('firm')
+    .insert({ account_id: owner.accountId, name: 'Brennan Tooling' })
+    .select('id')
+    .single()
+    .throwOnError();
   await owner.user
     .rpc('append_deal_event', {
       p_deal_id: dealId,
       p_aggregate_type: 'deal',
       p_aggregate_id: dealId,
       p_event_type: 'deal.created',
-      p_payload: { account_id: owner.accountId, owner_user_id: owner.userId },
+      p_payload: {
+        account_id: owner.accountId,
+        owner_user_id: owner.userId,
+        firm_id: firm.id,
+      },
     })
     .throwOnError();
   const { data: folder } = await owner.user

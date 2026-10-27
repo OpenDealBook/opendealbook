@@ -57,26 +57,37 @@ async function importTwice(file: LeadFile) {
 }
 
 const PPP_LOANS = ['9000000001', '9000000002', '9000000003'];
-const SBA_BORROWERS = [
-  'Hollow Creek Construction, Inc.',
-  'Lantern Row Diner Corp',
-];
 const NY_ENTITIES = ['9424185', '9072354'];
 const ACK_IDS = [
   '20260225154215NAL0000000001001',
   '20260225154432NAL0000000002001',
 ];
 
+const businessIds: string[] = [];
+
 async function clear() {
+  const { data: imports } = await admin
+    .from('lead_import')
+    .select('id')
+    .like('filename', `%?${run}`)
+    .throwOnError();
   await admin
     .from('ppp_loan')
     .delete()
     .in('loan_number', PPP_LOANS)
     .throwOnError();
   await admin
+    .from('public_business')
+    .delete()
+    .in('id', businessIds)
+    .throwOnError();
+  await admin
     .from('sba_loan')
     .delete()
-    .in('borrower_name', SBA_BORROWERS)
+    .in(
+      'import_id',
+      imports.map((row) => row.id),
+    )
     .throwOnError();
   await admin
     .from('form_5500_filing')
@@ -155,6 +166,7 @@ describe('lead file loads', () => {
       .select('id')
       .single()
       .throwOnError();
+    businessIds.push(business.id);
     await admin
       .from('ppp_loan')
       .update({ business_id: business.id })
@@ -170,11 +182,6 @@ describe('lead file loads', () => {
       .single()
       .throwOnError();
     expect(loan.business_id).toBe(business.id);
-    await admin
-      .from('public_business')
-      .delete()
-      .eq('id', business.id)
-      .throwOnError();
   });
 
   it('skips a file whose as-of date already imported successfully, and imports a newer one', async () => {
@@ -198,11 +205,6 @@ describe('lead file loads', () => {
     expect(await startLeadImport({ importId: sameId, file })).toEqual({
       skipped: true,
     });
-    await admin
-      .from('sba_loan')
-      .delete()
-      .eq('import_id', firstId)
-      .throwOnError();
   });
 
   it('loads SBA 7(a) loans once, folding a repeated row into one loan', async () => {

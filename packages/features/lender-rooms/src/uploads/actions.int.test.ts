@@ -83,6 +83,17 @@ const converter = {
   working: true,
 };
 
+async function firmIn(accountId: string, name: string): Promise<string> {
+  const firm = await admin
+    .from('firm')
+    .insert({ account_id: accountId, name })
+    .select('id')
+    .single()
+    .throwOnError();
+
+  return firm.data.id;
+}
+
 async function provisionPerson(): Promise<Person> {
   const unique = crypto.randomUUID().slice(0, 8);
   const email = `int-${unique}@odb.test`;
@@ -331,7 +342,7 @@ beforeAll(async () => {
     payload: {
       account_id: owner.accountId,
       owner_user_id: owner.userId,
-      firm_id: null,
+      firm_id: await firmIn(owner.accountId, 'Lender uploads deal'),
       description: 'Lender uploads deal',
       source: 'manual',
       stage: 'sourcing',
@@ -1243,7 +1254,7 @@ describe('folders a lender makes', { timeout: 60_000 }, () => {
       payload: {
         account_id: owner.accountId,
         owner_user_id: owner.userId,
-        firm_id: null,
+        firm_id: await firmIn(owner.accountId, 'Another deal'),
         description: 'Another deal',
         source: 'manual',
         stage: 'sourcing',
@@ -1964,7 +1975,7 @@ describe(
         payload: {
           account_id: person.accountId,
           owner_user_id: person.userId,
-          firm_id: null,
+          firm_id: await firmIn(person.accountId, 'Package deal'),
           description: 'Package deal',
           source: 'manual',
           stage: 'sourcing',
@@ -2514,7 +2525,7 @@ describe(
           payload: {
             account_id: team.data.id,
             owner_user_id: owner.userId,
-            firm_id: null,
+            firm_id: await firmIn(team.data.id, 'Team package deal'),
             description: 'Team package deal',
             source: 'manual',
             stage: 'sourcing',

@@ -330,8 +330,8 @@ describe('syncTeamSchedules (integration)', () => {
     expect(failure).toBeInstanceOf(SchedulesPartlyUpdated);
     expect(failure).toMatchObject({
       failed: 2,
-      total: 4,
-      message: "2 of 4 workflows' schedules couldn't be updated; try again",
+      total: 5,
+      message: "2 of 5 workflows' schedules couldn't be updated; try again",
     });
     expect(await scheduleOf(versionIds[1]!, 'weekly')).toMatchObject({
       spec: scheduleSpec(weekly, TIME_ZONE),

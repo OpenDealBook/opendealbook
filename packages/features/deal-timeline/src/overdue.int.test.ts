@@ -242,11 +242,21 @@ describe('overdue milestone notice', () => {
 
   it('tells every deal manager when the deal has no owner', async () => {
     dealId = crypto.randomUUID();
+    const { data: firm } = await admin
+      .from('firm')
+      .insert({ account_id: teamId, name: 'Seller room deal' })
+      .select('id')
+      .single()
+      .throwOnError();
     await appendDealEvent({
       aggregateType: 'deal',
       aggregateId: dealId,
       eventType: 'deal.created',
-      payload: { account_id: teamId, description: 'Seller room deal' },
+      payload: {
+        account_id: teamId,
+        firm_id: firm.id,
+        description: 'Seller room deal',
+      },
     });
     await setMilestone({
       kind: 'closing',

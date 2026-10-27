@@ -103,6 +103,7 @@ export type Database = {
           ai_redaction_enabled: boolean
           created_at: string | null
           created_by: string | null
+          diligence_name_spelling: Database["public"]["Enums"]["diligence_name_spelling"]
           email: string | null
           id: string
           is_personal_account: boolean
@@ -129,6 +130,7 @@ export type Database = {
           ai_redaction_enabled?: boolean
           created_at?: string | null
           created_by?: string | null
+          diligence_name_spelling?: Database["public"]["Enums"]["diligence_name_spelling"]
           email?: string | null
           id?: string
           is_personal_account?: boolean
@@ -155,6 +157,7 @@ export type Database = {
           ai_redaction_enabled?: boolean
           created_at?: string | null
           created_by?: string | null
+          diligence_name_spelling?: Database["public"]["Enums"]["diligence_name_spelling"]
           email?: string | null
           id?: string
           is_personal_account?: boolean
@@ -3211,7 +3214,7 @@ export type Database = {
           duplicate_of: string | null
           earnings_basis: string
           ebitda_ttm: number | null
-          firm_id: string | null
+          firm_id: string
           id: string
           listing_status: string
           notes: string | null
@@ -3249,7 +3252,7 @@ export type Database = {
           duplicate_of?: string | null
           earnings_basis?: string
           ebitda_ttm?: number | null
-          firm_id?: string | null
+          firm_id: string
           id?: string
           listing_status?: string
           notes?: string | null
@@ -3286,7 +3289,7 @@ export type Database = {
           duplicate_of?: string | null
           earnings_basis?: string
           ebitda_ttm?: number | null
-          firm_id?: string | null
+          firm_id?: string
           id?: string
           listing_status?: string
           notes?: string | null
@@ -5256,6 +5259,166 @@ export type Database = {
           },
         ]
       }
+      diligence_finding: {
+        Row: {
+          account_id: string
+          created_at: string
+          deal_id: string
+          id: string
+          occurred_on: string | null
+          raw: Json
+          run_id: string
+          severity: Database["public"]["Enums"]["diligence_severity"] | null
+          severity_reason: string | null
+          source: Database["public"]["Enums"]["diligence_source"]
+          source_url: string
+          subject_key: string
+          subject_kind: Database["public"]["Enums"]["diligence_subject_kind"]
+          subject_name: string
+          summary: string
+          title: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          deal_id: string
+          id?: string
+          occurred_on?: string | null
+          raw: Json
+          run_id: string
+          severity?: Database["public"]["Enums"]["diligence_severity"] | null
+          severity_reason?: string | null
+          source: Database["public"]["Enums"]["diligence_source"]
+          source_url: string
+          subject_key: string
+          subject_kind: Database["public"]["Enums"]["diligence_subject_kind"]
+          subject_name: string
+          summary: string
+          title: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+          occurred_on?: string | null
+          raw?: Json
+          run_id?: string
+          severity?: Database["public"]["Enums"]["diligence_severity"] | null
+          severity_reason?: string | null
+          source?: Database["public"]["Enums"]["diligence_source"]
+          source_url?: string
+          subject_key?: string
+          subject_kind?: Database["public"]["Enums"]["diligence_subject_kind"]
+          subject_name?: string
+          summary?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diligence_finding_run_id_deal_id_account_id_fkey"
+            columns: ["run_id", "deal_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "diligence_run"
+            referencedColumns: ["id", "deal_id", "account_id"]
+          },
+        ]
+      }
+      diligence_report: {
+        Row: {
+          account_id: string
+          created_at: string
+          deal_id: string
+          id: string
+          model: string | null
+          run_id: string
+          summary: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          deal_id: string
+          id?: string
+          model?: string | null
+          run_id: string
+          summary: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+          model?: string | null
+          run_id?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diligence_report_run_id_deal_id_account_id_fkey"
+            columns: ["run_id", "deal_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "diligence_run"
+            referencedColumns: ["id", "deal_id", "account_id"]
+          },
+        ]
+      }
+      diligence_run: {
+        Row: {
+          account_id: string
+          deal_id: string
+          id: string
+          workflow_run_id: string
+        }
+        Insert: {
+          account_id: string
+          deal_id: string
+          id?: string
+          workflow_run_id: string
+        }
+        Update: {
+          account_id?: string
+          deal_id?: string
+          id?: string
+          workflow_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diligence_run_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diligence_run_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diligence_run_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diligence_run_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "diligence_run_workflow_run_id_account_id_fkey"
+            columns: ["workflow_run_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_run"
+            referencedColumns: ["id", "account_id"]
+          },
+        ]
+      }
       diligence_schedule: {
         Row: {
           account_id: string
@@ -5317,6 +5480,32 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diligence_search_check: {
+        Row: {
+          run_id: string
+          source: Database["public"]["Enums"]["diligence_source"]
+          subject_key: string
+        }
+        Insert: {
+          run_id: string
+          source: Database["public"]["Enums"]["diligence_source"]
+          subject_key: string
+        }
+        Update: {
+          run_id?: string
+          source?: Database["public"]["Enums"]["diligence_source"]
+          subject_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diligence_search_check_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "diligence_run"
             referencedColumns: ["id"]
           },
         ]
@@ -9720,6 +9909,7 @@ export type Database = {
           account_id: string
           cost_cents: number
           created_at: string
+          deal_id: string | null
           firm_id: string | null
           id: string
           kind: Database["public"]["Enums"]["provider_kind"]
@@ -9731,6 +9921,7 @@ export type Database = {
           account_id: string
           cost_cents: number
           created_at?: string
+          deal_id?: string | null
           firm_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["provider_kind"]
@@ -9742,6 +9933,7 @@ export type Database = {
           account_id?: string
           cost_cents?: number
           created_at?: string
+          deal_id?: string | null
           firm_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["provider_kind"]
@@ -9769,6 +9961,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "paid_lookup_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
             referencedColumns: ["id"]
           },
           {
@@ -10391,6 +10590,92 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      screening_entry: {
+        Row: {
+          addresses: Json
+          alt_names: string[]
+          as_of: string
+          countries: string[]
+          entry_type: string | null
+          id: number
+          import_id: string
+          list_name: string
+          name: string
+          programs: string[]
+          raw: Json
+          source_entry_id: string
+          source_url: string
+        }
+        Insert: {
+          addresses?: Json
+          alt_names?: string[]
+          as_of: string
+          countries?: string[]
+          entry_type?: string | null
+          id?: never
+          import_id: string
+          list_name: string
+          name: string
+          programs?: string[]
+          raw: Json
+          source_entry_id: string
+          source_url: string
+        }
+        Update: {
+          addresses?: Json
+          alt_names?: string[]
+          as_of?: string
+          countries?: string[]
+          entry_type?: string | null
+          id?: never
+          import_id?: string
+          list_name?: string
+          name?: string
+          programs?: string[]
+          raw?: Json
+          source_entry_id?: string
+          source_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_entry_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "screening_import"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screening_import: {
+        Row: {
+          as_of: string | null
+          created_at: string
+          entry_count: number | null
+          error: string | null
+          id: string
+          status: Database["public"]["Enums"]["screening_import_status"]
+          url: string
+        }
+        Insert: {
+          as_of?: string | null
+          created_at?: string
+          entry_count?: number | null
+          error?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["screening_import_status"]
+          url: string
+        }
+        Update: {
+          as_of?: string | null
+          created_at?: string
+          entry_count?: number | null
+          error?: string | null
+          id?: string
+          status?: Database["public"]["Enums"]["screening_import_status"]
+          url?: string
+        }
+        Relationships: []
       }
       sde_line: {
         Row: {
@@ -12882,6 +13167,62 @@ export type Database = {
           },
         ]
       }
+      screening_entry_current: {
+        Row: {
+          addresses: Json | null
+          alt_names: string[] | null
+          as_of: string | null
+          countries: string[] | null
+          entry_type: string | null
+          id: number | null
+          import_id: string | null
+          list_name: string | null
+          name: string | null
+          programs: string[] | null
+          raw: Json | null
+          source_entry_id: string | null
+          source_url: string | null
+        }
+        Insert: {
+          addresses?: Json | null
+          alt_names?: string[] | null
+          as_of?: string | null
+          countries?: string[] | null
+          entry_type?: string | null
+          id?: number | null
+          import_id?: string | null
+          list_name?: string | null
+          name?: string | null
+          programs?: string[] | null
+          raw?: Json | null
+          source_entry_id?: string | null
+          source_url?: string | null
+        }
+        Update: {
+          addresses?: Json | null
+          alt_names?: string[] | null
+          as_of?: string | null
+          countries?: string[] | null
+          entry_type?: string | null
+          id?: number | null
+          import_id?: string | null
+          list_name?: string | null
+          name?: string | null
+          programs?: string[] | null
+          raw?: Json | null
+          source_entry_id?: string | null
+          source_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_entry_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "screening_import"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_account_workspace: {
         Row: {
           id: string | null
@@ -13200,6 +13541,10 @@ export type Database = {
         Args: { p_event_type: string; p_payload: Json }
         Returns: undefined
       }
+      check_deal_created_event: {
+        Args: { p_event_type: string; p_payload: Json }
+        Returns: undefined
+      }
       check_dr_document_event: {
         Args: {
           p_actor_ref: string
@@ -13339,6 +13684,7 @@ export type Database = {
           ai_redaction_enabled: boolean
           created_at: string | null
           created_by: string | null
+          diligence_name_spelling: Database["public"]["Enums"]["diligence_name_spelling"]
           email: string | null
           id: string
           is_personal_account: boolean
@@ -13980,6 +14326,7 @@ export type Database = {
       reserve_lookup: {
         Args: {
           p_account_id: string
+          p_deal_id?: string
           p_firm_id: string
           p_id: string
           p_kind: Database["public"]["Enums"]["provider_kind"]
@@ -14023,6 +14370,10 @@ export type Database = {
           entity_type: string
           rank: number
         }[]
+      }
+      seed_background_search_workflow: {
+        Args: { p_account_id: string }
+        Returns: undefined
       }
       seed_default_industries: {
         Args: { p_account_id: string }
@@ -14570,6 +14921,10 @@ export type Database = {
         | "retention_plan"
         | "process_sop"
         | "marketing_effectiveness"
+      diligence_name_spelling: "source_priority" | "newest_record"
+      diligence_severity: "red" | "amber" | "green"
+      diligence_source: "courts" | "sanctions" | "news" | "reviews"
+      diligence_subject_kind: "business" | "person"
       discovery_counterparty_type: "owner" | "broker"
       discovery_financing_stance: "yes" | "no" | "unsure"
       discovery_owner_dependency: "low" | "medium" | "high"
@@ -14663,8 +15018,9 @@ export type Database = {
       participant_permission: "view" | "comment" | "suggest" | "edit" | "sign"
       participant_scope: "deal" | "contract" | "data_room_folder" | "checklist"
       payment_status: "pending" | "succeeded" | "failed"
-      provider_kind: "email_lookup" | "registry" | "letters"
+      provider_kind: "email_lookup" | "registry" | "letters" | "courts"
       registry_source: "api" | "bulk_file"
+      screening_import_status: "running" | "succeeded" | "failed"
       seller_activity_action:
         | "room_opened"
         | "folder_opened"
@@ -14949,6 +15305,10 @@ export const Constants = {
         "process_sop",
         "marketing_effectiveness",
       ],
+      diligence_name_spelling: ["source_priority", "newest_record"],
+      diligence_severity: ["red", "amber", "green"],
+      diligence_source: ["courts", "sanctions", "news", "reviews"],
+      diligence_subject_kind: ["business", "person"],
       discovery_counterparty_type: ["owner", "broker"],
       discovery_financing_stance: ["yes", "no", "unsure"],
       discovery_owner_dependency: ["low", "medium", "high"],
@@ -15050,8 +15410,9 @@ export const Constants = {
       participant_permission: ["view", "comment", "suggest", "edit", "sign"],
       participant_scope: ["deal", "contract", "data_room_folder", "checklist"],
       payment_status: ["pending", "succeeded", "failed"],
-      provider_kind: ["email_lookup", "registry", "letters"],
+      provider_kind: ["email_lookup", "registry", "letters", "courts"],
       registry_source: ["api", "bulk_file"],
+      screening_import_status: ["running", "succeeded", "failed"],
       seller_activity_action: [
         "room_opened",
         "folder_opened",

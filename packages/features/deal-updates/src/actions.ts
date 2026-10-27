@@ -172,7 +172,7 @@ async function noticeToApprovers(updateId: string, authorId: string) {
     admin
       .from('deal_update')
       .select(
-        'account_id, deal_id, subject, accounts(slug), deal(description, firm(name))',
+        'account_id, deal_id, subject, accounts(slug), deal(firm(name))',
       )
       .eq('id', updateId)
       .single()
@@ -207,7 +207,7 @@ async function noticeToApprovers(updateId: string, authorId: string) {
   const approverIds = members
     .filter((_, index) => approves[index])
     .map(({ user_id }) => user_id);
-  const deal = update.deal.firm?.name ?? update.deal.description ?? 'your deal';
+  const deal = update.deal.firm.name;
 
   await admin
     .from('notifications')

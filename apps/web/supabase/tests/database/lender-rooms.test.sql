@@ -23,15 +23,15 @@ select public.create_team_account('LR Side', tests.get_uid('lr_side_dealer'), 'l
 
 select public.append_deal_event('1e000000-0000-0000-0000-0000000000d1', 'deal',
   '1e000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lr-acct'), 'owner_user_id', tests.get_uid('lr_owner'),
+  jsonb_build_object('account_id', tests.account_id('lr-acct'), 'firm_id', tests.create_firm(tests.account_id('lr-acct')), 'owner_user_id', tests.get_uid('lr_owner'),
     'description', 'Lender deal'), null, 'service');
 select public.append_deal_event('1e000000-0000-0000-0000-0000000000d2', 'deal',
   '1e000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lr-acct-2'), 'owner_user_id', tests.get_uid('lr_owner_2'),
+  jsonb_build_object('account_id', tests.account_id('lr-acct-2'), 'firm_id', tests.create_firm(tests.account_id('lr-acct-2')), 'owner_user_id', tests.get_uid('lr_owner_2'),
     'description', 'Other deal'), null, 'service');
 select public.append_deal_event('1e000000-0000-0000-0000-0000000000d3', 'deal',
   '1e000000-0000-0000-0000-0000000000d3', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lr-acct'), 'owner_user_id', tests.get_uid('lr_owner'),
+  jsonb_build_object('account_id', tests.account_id('lr-acct'), 'firm_id', tests.create_firm(tests.account_id('lr-acct')), 'owner_user_id', tests.get_uid('lr_owner'),
     'description', 'Packageless deal'), null, 'service');
 
 reset role;
@@ -337,7 +337,7 @@ select set_eq(
 select results_eq(
   $$ select deal_name, deal_description, room_name, status::text, is_open, member_count, requests_waiting_on_team, last_lender_activity_at
      from public.team_lender_rooms(tests.account_id('lr-acct')) where room_id = '1e000000-0000-0000-0000-0000000003a0' $$,
-  $$ values (null::text, 'Packageless deal', 'Lender Three', 'invited', true, 2, 1, '2026-03-07'::timestamptz) $$,
+  $$ values ('Fixture business', 'Packageless deal', 'Lender Three', 'invited', true, 2, 1, '2026-03-07'::timestamptz) $$,
   'a room comes with its deal, its members, what waits on the team and when a lender last did anything'
 );
 select results_eq(
@@ -365,7 +365,7 @@ select results_eq(
        requests_waiting_on_team, requests_waiting_on_lender, forms_out_for_signature
      from public.team_lender_contacts(tests.account_id('lr-acct'))
      where room_id = '1e000000-0000-0000-0000-0000000003a0' and user_id = tests.get_uid('lr_lender_b') $$,
-  $$ values ('lr_lender_b@tuckin.test', 'Bo Baker', false, null::text, 'invited', tests.get_uid('lr_owner'), '2026-03-01'::timestamptz, null::timestamptz,
+  $$ values ('lr_lender_b@tuckin.test', 'Bo Baker', false, 'Fixture business', 'invited', tests.get_uid('lr_owner'), '2026-03-01'::timestamptz, null::timestamptz,
        '2026-03-02'::timestamptz, '2026-03-05'::timestamptz, 2, 2, 3, 1, 1, 1) $$,
   'a contact comes with their visits, files viewed, downloads, requests and what waits on whom in that room'
 );
@@ -1092,6 +1092,7 @@ select public.append_deal_event('1e000000-0000-0000-0000-0000000000d9', 'deal',
   '1e000000-0000-0000-0000-0000000000d9', 'deal.created',
   jsonb_build_object(
     'account_id', tests.account_id('lr-side'),
+    'firm_id', tests.create_firm(tests.account_id('lr-side')),
     'description', 'Side deal'));
 insert into public.dr_folder (id, account_id, deal_id, name)
 values (
@@ -1355,8 +1356,8 @@ select tests.login_as('lr_lender_z');
 
 select results_eq(
   $$ select name, deal_name from public.lender_room_view('1e000000-0000-0000-0000-0000000000e0') $$,
-  $$ values ('Lender Z', null::text) $$,
-  'a deal with no firm and no code name has no name to show'
+  $$ values ('Lender Z', 'Fixture business') $$,
+  'a lender sees the business of another account''s deal'
 );
 select is_empty(
   $$ select 1 from public.lender_room_view('1e000000-0000-0000-0000-0000000000a0') $$,
@@ -2099,11 +2100,11 @@ select tests.login_as_service_role();
 select public.create_team_account('LL Buyers', tests.get_uid('ll_owner'), 'll-acct');
 select public.append_deal_event('1e0000ff-0000-0000-0000-0000000000d1', 'deal',
   '1e0000ff-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ll-acct'), 'owner_user_id', tests.get_uid('ll_owner'),
+  jsonb_build_object('account_id', tests.account_id('ll-acct'), 'firm_id', tests.create_firm(tests.account_id('ll-acct')), 'owner_user_id', tests.get_uid('ll_owner'),
     'description', 'List deal one'), null, 'service');
 select public.append_deal_event('1e0000ff-0000-0000-0000-0000000000d2', 'deal',
   '1e0000ff-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ll-acct'), 'owner_user_id', tests.get_uid('ll_owner'),
+  jsonb_build_object('account_id', tests.account_id('ll-acct'), 'firm_id', tests.create_firm(tests.account_id('ll-acct')), 'owner_user_id', tests.get_uid('ll_owner'),
     'description', 'List deal two'), null, 'service');
 reset role;
 

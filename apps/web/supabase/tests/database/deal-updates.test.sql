@@ -35,7 +35,7 @@ select tests.login_as_service_role();
 select public.create_team_account('Other Updates', tests.get_uid('du_outsider'), 'other-updates');
 select public.append_deal_event('d0000000-0000-0000-0000-0000000000d1', 'deal',
   'd0000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('updates-co'), 'owner_user_id', tests.get_uid('du_owner'),
+  jsonb_build_object('account_id', tests.account_id('updates-co'), 'firm_id', tests.create_firm(tests.account_id('updates-co')), 'owner_user_id', tests.get_uid('du_owner'),
     'description', 'Update deal'), null, 'service');
 
 insert into public.contact (id, account_id, name, email)

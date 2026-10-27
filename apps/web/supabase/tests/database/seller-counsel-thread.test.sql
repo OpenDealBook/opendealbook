@@ -17,7 +17,7 @@ insert into public.accounts_memberships (account_id, user_id, account_role) valu
   (tests.account_id('sct-team'), tests.get_uid('sct_analyst'), 'analyst');
 select public.append_deal_event('5c700000-0000-0000-0000-0000000000d1', 'deal',
   '5c700000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('sct-team'), 'owner_user_id', tests.get_uid('sct_owner'),
+  jsonb_build_object('account_id', tests.account_id('sct-team'), 'firm_id', tests.create_firm(tests.account_id('sct-team')), 'owner_user_id', tests.get_uid('sct_owner'),
     'description', 'Seller counsel thread deal'), null, 'service');
 
 select tests.login_as('sct_owner');

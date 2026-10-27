@@ -9,7 +9,7 @@ select public.create_team_account('Manual Due Co', tests.get_uid('md_owner'), 'm
 
 select public.append_deal_event('5d000000-0000-0000-0000-0000000000d1', 'deal',
   '5d000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('md-manual'), 'owner_user_id', tests.get_uid('md_owner'),
+  jsonb_build_object('account_id', tests.account_id('md-manual'), 'firm_id', tests.create_firm(tests.account_id('md-manual')), 'owner_user_id', tests.get_uid('md_owner'),
     'description', 'Manual due'), null, 'service');
 
 select tests.login_as('md_owner');

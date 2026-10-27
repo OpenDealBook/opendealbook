@@ -6,6 +6,7 @@ const workspace = vi.hoisted(() => ({
   isOwner: false,
   permissions: ['settings.manage'],
   timezone: 'America/Chicago',
+  nameSpelling: 'source_priority',
   aiEndpoint: null as { provider: string; chat_model: string; base_url: string } | null,
   providerKeys: [] as { kind: string; actor_id: string | null }[],
 }));
@@ -33,6 +34,7 @@ vi.mock('@odb/supabase/server', () => ({
                 legal_entity_name: null,
                 team_phone: '+1 555 0100',
                 timezone: workspace.timezone,
+                diligence_name_spelling: workspace.nameSpelling,
               },
             }),
           }),
@@ -120,6 +122,25 @@ describe('team settings page', () => {
 
     expect(html).toContain('Connected to Apify, actor acme~site-contacts');
     expect(html).toContain('Not connected');
+  });
+
+  it('shows the federal courts token beside the other provider keys', async () => {
+    workspace.permissions = [];
+    workspace.providerKeys = [{ kind: 'courts', actor_id: null }];
+
+    const html = await render();
+
+    expect(html).toContain('Federal courts');
+    expect(html).toContain('Connected to CourtListener');
+  });
+
+  it("shows the team's background search name spelling", async () => {
+    workspace.nameSpelling = 'newest_record';
+
+    const html = await render();
+
+    expect(html).toContain('Show names as');
+    expect(html).toContain('<option value="newest_record" selected="">');
   });
 
   it('does not offer reloading sample deals to anyone else', async () => {

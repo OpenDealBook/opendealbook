@@ -14,12 +14,12 @@ select public.create_team_account('Iso B', tests.get_uid('iso_b_owner'), 'iso-b'
 select tests.login_as('iso_a_owner');
 select public.append_deal_event('a0a0a0a0-0000-0000-0000-0000000000a1', 'deal',
   'a0a0a0a0-0000-0000-0000-0000000000a1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('iso-a'), 'description', 'Deal A', 'website', 'https://a.test'));
+  jsonb_build_object('account_id', tests.account_id('iso-a'), 'firm_id', tests.create_firm(tests.account_id('iso-a')), 'description', 'Deal A', 'website', 'https://a.test'));
 
 select tests.login_as('iso_b_owner');
 select public.append_deal_event('b0b0b0b0-0000-0000-0000-0000000000b1', 'deal',
   'b0b0b0b0-0000-0000-0000-0000000000b1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('iso-b'), 'description', 'Deal B', 'website', 'https://b.test'));
+  jsonb_build_object('account_id', tests.account_id('iso-b'), 'firm_id', tests.create_firm(tests.account_id('iso-b')), 'description', 'Deal B', 'website', 'https://b.test'));
 select public.append_deal_event('b0b0b0b0-0000-0000-0000-0000000000b1', 'deal',
   'b0b0b0b0-0000-0000-0000-0000000000b1', 'deal.financials_adopted',
   '{"adopted_revenue":800000,"adopted_sde":300000,"adopted_ebitda":250000}'::jsonb);

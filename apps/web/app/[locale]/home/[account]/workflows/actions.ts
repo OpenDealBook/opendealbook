@@ -5,11 +5,9 @@ import { z } from 'zod';
 import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
 import { getSupabaseServerClient } from '@odb/supabase/server';
-import {
-  ManualRunRefused,
-  startManualWorkflowRun,
-} from '@odb/workflows/builder/client';
+import { startManualWorkflowRun } from '@odb/workflows/builder/client';
 
+import { refusingManualRun } from './refusing-manual-run';
 import {
   manageWorkflow,
   refuseIfArchived,
@@ -61,19 +59,13 @@ export const setWorkflowArchived = refusableAction(
 );
 
 export const runWorkflowNow = refusableAction(
-  async ({ workflowId, requestId }) => {
-    try {
-      return await startManualWorkflowRun({
+  async ({ workflowId, requestId }) =>
+    refusingManualRun(() =>
+      startManualWorkflowRun({
         client: getSupabaseServerClient(),
         workflowId,
         requestId,
-      });
-    } catch (error) {
-      if (error instanceof ManualRunRefused) {
-        throw new Refusal(error.message);
-      }
-      throw error;
-    }
-  },
+      }),
+    ),
   z.object({ workflowId: z.uuid(), requestId: z.uuid() }),
 );

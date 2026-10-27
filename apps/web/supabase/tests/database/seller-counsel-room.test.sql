@@ -17,7 +17,7 @@ select tests.login_as_service_role();
 select public.create_team_account('SCR Team', tests.get_uid('scr_owner'), 'scr-team');
 select public.append_deal_event('5c000000-0000-0000-0000-0000000000d1', 'deal',
   '5c000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('scr-team'), 'owner_user_id', tests.get_uid('scr_owner'),
+  jsonb_build_object('account_id', tests.account_id('scr-team'), 'firm_id', tests.create_firm(tests.account_id('scr-team')), 'owner_user_id', tests.get_uid('scr_owner'),
     'description', 'Seller counsel room deal'), null, 'service');
 
 select tests.login_as('scr_owner');

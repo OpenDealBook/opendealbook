@@ -20,11 +20,11 @@ insert into public.accounts_memberships (account_id, user_id, account_role) valu
 
 select public.append_deal_event('c1c00000-0000-0000-0000-0000000000d1', 'deal',
   'c1c00000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cic-team'), 'owner_user_id', tests.get_uid('cic_owner'),
+  jsonb_build_object('account_id', tests.account_id('cic-team'), 'firm_id', tests.create_firm(tests.account_id('cic-team')), 'owner_user_id', tests.get_uid('cic_owner'),
     'description', 'Citation deal'), null, 'service');
 select public.append_deal_event('c1c00000-0000-0000-0000-0000000000d2', 'deal',
   'c1c00000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cic-team'), 'owner_user_id', tests.get_uid('cic_owner'),
+  jsonb_build_object('account_id', tests.account_id('cic-team'), 'firm_id', tests.create_firm(tests.account_id('cic-team')), 'owner_user_id', tests.get_uid('cic_owner'),
     'description', 'Other deal'), null, 'service');
 
 reset role;

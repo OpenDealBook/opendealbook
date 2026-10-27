@@ -139,6 +139,7 @@ afterAll(async () => {
   await owner.admin.from('accounts').delete().eq('id', owner.accountId);
   await owner.admin.from('ppp_loan').delete().in('business_id', businessIds);
   await owner.admin.from('state_registry_entity').delete().in('business_id', businessIds);
+  await owner.admin.from('form_5500_filing').delete().in('business_id', businessIds);
   await owner.admin.from('public_business').delete().in('id', businessIds);
   await owner.cleanup();
 });

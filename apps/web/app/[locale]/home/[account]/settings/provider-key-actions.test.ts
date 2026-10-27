@@ -84,6 +84,23 @@ describe('saving a provider key', () => {
   });
 });
 
+describe('saving the CourtListener token', () => {
+  it('saves the federal courts key', async () => {
+    expect(
+      await saveProviderKeyAction({ accountId: TEAM_ID, kind: 'courts', apiKey: 'cl-team-token', actorId: '' }),
+    ).toEqual({ ok: true, value: undefined });
+    expect(world.calls).toEqual([
+      {
+        name: 'save_provider_credential',
+        p_account_id: TEAM_ID,
+        p_kind: 'courts',
+        p_api_key: 'cl-team-token',
+        p_actor_id: undefined,
+      },
+    ]);
+  });
+});
+
 describe('saving the Lob webhook secret', () => {
   it('saves the webhook secret with the letters key', async () => {
     await saveProviderKeyAction({

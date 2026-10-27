@@ -15,6 +15,7 @@ select public.append_deal_event(
   'f1111111-0000-0000-0000-000000000001', 'deal', 'f1111111-0000-0000-0000-000000000001', 'deal.created',
   jsonb_build_object(
     'account_id', tests.account_id('de-acct'),
+    'firm_id', tests.create_firm(tests.account_id('de-acct')),
     'owner_user_id', tests.get_uid('de_owner'),
     'description', 'Captured deal',
     'capture_method', 'paste_url',
@@ -43,7 +44,7 @@ select is(
 select tests.login_as('de_owner');
 select public.append_deal_event(
   'f2222222-0000-0000-0000-000000000001', 'deal', 'f2222222-0000-0000-0000-000000000001', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('de-acct'), 'description', 'User deal')
+  jsonb_build_object('account_id', tests.account_id('de-acct'), 'firm_id', tests.create_firm(tests.account_id('de-acct')), 'description', 'User deal')
 );
 select is(
   (select created_by_kind from public.deal where id = 'f2222222-0000-0000-0000-000000000001'),

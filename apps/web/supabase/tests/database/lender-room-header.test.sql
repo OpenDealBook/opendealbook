@@ -12,11 +12,11 @@ select public.create_team_account('Harbor Acquisitions', tests.get_uid('lh_owner
 
 select public.append_deal_event('1d000000-0000-0000-0000-0000000000d1', 'deal',
   '1d000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lh-acct'), 'owner_user_id', tests.get_uid('lh_owner'),
+  jsonb_build_object('account_id', tests.account_id('lh-acct'), 'firm_id', tests.create_firm(tests.account_id('lh-acct')), 'owner_user_id', tests.get_uid('lh_owner'),
     'description', 'Secret description'), null, 'service');
 select public.append_deal_event('1d000000-0000-0000-0000-0000000000d2', 'deal',
   '1d000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lh-acct'), 'owner_user_id', tests.get_uid('lh_owner'),
+  jsonb_build_object('account_id', tests.account_id('lh-acct'), 'firm_id', tests.create_firm(tests.account_id('lh-acct')), 'owner_user_id', tests.get_uid('lh_owner'),
     'description', 'Termless deal'), null, 'service');
 
 reset role;

@@ -356,4 +356,35 @@ describe('email_lookup step (integration)', () => {
     });
     expect(apify.received[0]!.body).toEqual({ startUrls: [{ url: 'https://tinianroofing.example' }] });
   });
+
+  it('lets the step retry when the provider is rate limited', async () => {
+    apify.reply.status = 429;
+    apify.reply.body = { error: { type: 'rate-limit-exceeded' } };
+
+    const failure = await lookUp('run-1:emails:429').catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toMatchObject({ nonRetryable: true });
+    expect((await lookups()).at(-1)).toMatchObject({ outcome: 'failed', result: { status: 429 } });
+    apify.reply.status = 200;
+  });
+
+  it('returns emails it already paid for when retried after the team removed its key', async () => {
+    await owner.admin
+      .from('provider_credential')
+      .delete()
+      .eq('account_id', owner.accountId)
+      .eq('kind', 'email_lookup')
+      .throwOnError();
+
+    expect(await lookUp('run-1:emails:0')).toEqual({
+      outcome: 'found',
+      emails: [
+        'owner@rowanfixtureplumbing.example',
+        'office@rowanfixtureplumbing.example',
+        'sales@mail.rowanfixtureplumbing.example',
+        'info@rowanfixtureplumbing.example',
+      ],
+    });
+  });
 });

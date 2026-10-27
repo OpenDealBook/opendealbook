@@ -34,7 +34,7 @@ select is(
 
 select public.append_deal_event('aaaaaaaa-0000-0000-0000-0000000000e2', 'deal',
   'aaaaaaaa-0000-0000-0000-0000000000e2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ai-acct-a'), 'owner_user_id', tests.get_uid('ai_a_owner'),
+  jsonb_build_object('account_id', tests.account_id('ai-acct-a'), 'firm_id', tests.create_firm(tests.account_id('ai-acct-a')), 'owner_user_id', tests.get_uid('ai_a_owner'),
     'description', 'Deal A'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name)

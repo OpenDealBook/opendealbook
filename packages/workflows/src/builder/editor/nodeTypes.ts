@@ -19,6 +19,8 @@ export const NODE_TYPE_DISPLAY = {
   prepare_firm: { label: 'Prepare firm', icon: 'IdentificationCard', description: 'Write the owner mailing address and a firm profile' },
   enroll_sequence: { label: 'Start sequence', icon: 'Envelope', description: 'Enroll a firm in an outreach sequence' },
   send_letter: { label: 'Send letter', icon: 'Mailbox', description: 'Mail a letter to a firm owner' },
+  diligence_search: { label: 'Background search', icon: 'MagnifyingGlass', description: "Search courts, sanctions lists and news for a deal's business and people" },
+  diligence_report: { label: 'Background report', icon: 'FileText', description: 'Rate the background search findings and write a report' },
 } as const satisfies Record<NodeTypeName, { label: string; icon: string; description: string }>;
 
 export type NodeIcon = (typeof NODE_TYPE_DISPLAY)[NodeTypeName]['icon'];

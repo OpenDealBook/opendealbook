@@ -34,6 +34,12 @@ let owner: IntegrationAccount;
 
 async function newDeal(): Promise<string> {
   const dealId = crypto.randomUUID();
+  const { data: firm } = await owner.user
+    .from('firm')
+    .insert({ account_id: owner.accountId, name: 'Schedule deal' })
+    .select('id')
+    .single()
+    .throwOnError();
 
   await appendDealEvent(owner.user, {
     dealId,
@@ -43,7 +49,7 @@ async function newDeal(): Promise<string> {
     payload: {
       account_id: owner.accountId,
       owner_user_id: owner.userId,
-      firm_id: null,
+      firm_id: firm.id,
       description: 'Schedule deal',
       source: 'manual',
       stage: 'sourcing',

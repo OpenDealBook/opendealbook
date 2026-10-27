@@ -38,13 +38,13 @@ select tests.login_as('ps_owner');
 select lives_ok(
   $$ select public.append_deal_event('cccccccc-0000-0000-0000-0000000000f1', 'deal',
        'cccccccc-0000-0000-0000-0000000000f1', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ps-acct'), 'description', 'defaults to sourcing')) $$,
+       jsonb_build_object('account_id', tests.account_id('ps-acct'), 'firm_id', tests.create_firm(tests.account_id('ps-acct')), 'description', 'defaults to sourcing')) $$,
   'a deal defaults to the sourcing stage which exists in the pipeline'
 );
 select throws_ok(
   $$ select public.append_deal_event('cccccccc-0000-0000-0000-0000000000f2', 'deal',
        'cccccccc-0000-0000-0000-0000000000f2', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ps-acct'), 'description', 'bad stage', 'stage', 'nonexistent')) $$,
+       jsonb_build_object('account_id', tests.account_id('ps-acct'), 'firm_id', tests.create_firm(tests.account_id('ps-acct')), 'description', 'bad stage', 'stage', 'nonexistent')) $$,
   '23503',
   null,
   'a deal with a stage outside the account pipeline is rejected by the fk'

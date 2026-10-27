@@ -12,6 +12,14 @@ alter table public.lead_pull enable row level security;
 revoke all on public.lead_pull from anon, authenticated, service_role;
 grant select, insert, update, delete on public.lead_pull to service_role;
 
+create trigger refuse_write_when_team_locked
+  before insert or update or delete on public.lead_pull
+  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+
+create trigger refuse_personal_account_row
+  before insert or update of account_id on public.lead_pull
+  for each row execute function tuckin.refuse_personal_account_row();
+
 create or replace function public.pull_leads(
   p_pull_id uuid,
   p_account_id uuid,
@@ -156,7 +164,8 @@ create or replace function public.reserve_lookup(
   p_account_id uuid,
   p_firm_id uuid,
   p_kind public.provider_kind,
-  p_provider text
+  p_provider text,
+  p_deal_id uuid default null
 )
   returns boolean
   language plpgsql
@@ -169,11 +178,11 @@ begin
   if public.lookup_cap_reached(p_account_id) then
     return false;
   end if;
-  insert into public.paid_lookup (id, account_id, firm_id, kind, provider, cost_cents, outcome, result)
-  values (p_id, p_account_id, p_firm_id, p_kind, p_provider, 0, 'failed', '{}');
+  insert into public.paid_lookup (id, account_id, firm_id, deal_id, kind, provider, cost_cents, outcome, result)
+  values (p_id, p_account_id, p_firm_id, p_deal_id, p_kind, p_provider, 0, 'failed', '{}');
   return true;
 end;
 $$;
 
-revoke all on function public.reserve_lookup(uuid, uuid, uuid, public.provider_kind, text) from public, anon, authenticated;
-grant execute on function public.reserve_lookup(uuid, uuid, uuid, public.provider_kind, text) to service_role;
+revoke all on function public.reserve_lookup(uuid, uuid, uuid, public.provider_kind, text, uuid) from public, anon, authenticated;
+grant execute on function public.reserve_lookup(uuid, uuid, uuid, public.provider_kind, text, uuid) to service_role;

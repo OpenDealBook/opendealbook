@@ -15,7 +15,7 @@ select public.create_team_account('DP Acct', tests.get_uid('dp_owner'), 'dp-acct
 
 select public.append_deal_event('da000000-0000-0000-0000-0000000000d1', 'deal',
   'da000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('dp-acct'), 'owner_user_id', tests.get_uid('dp_owner'),
+  jsonb_build_object('account_id', tests.account_id('dp-acct'), 'firm_id', tests.create_firm(tests.account_id('dp-acct')), 'owner_user_id', tests.get_uid('dp_owner'),
     'description', 'Participant deal'), null, 'service');
 
 reset role;
@@ -67,7 +67,7 @@ select is(
 );
 select results_eq(
   $$ select id, deal_name, stage from public.seller_deal_header('da000000-0000-0000-0000-0000000000d1') $$,
-  $$ values ('da000000-0000-0000-0000-0000000000d1'::uuid, null::text, 'sourcing'::text) $$,
+  $$ values ('da000000-0000-0000-0000-0000000000d1'::uuid, 'Fixture business', 'sourcing'::text) $$,
   'a seller participant reads the deal header'
 );
 select is(

@@ -51,7 +51,7 @@ select isnt_empty(
 select tests.login_as_service_role();
 select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal',
   'dddddddd-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('notif-team'), 'owner_user_id', tests.get_uid('notif_owner'),
+  jsonb_build_object('account_id', tests.account_id('notif-team'), 'firm_id', tests.create_firm(tests.account_id('notif-team')), 'owner_user_id', tests.get_uid('notif_owner'),
     'description', 'A deal', 'stage', 'sourcing'), null, 'service');
 
 select public.append_deal_event('dddddddd-0000-0000-0000-0000000000d1', 'deal_participant',

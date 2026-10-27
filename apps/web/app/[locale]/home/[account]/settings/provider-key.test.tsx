@@ -175,3 +175,32 @@ describe('the letters key setting', () => {
     expect(container.textContent).toContain('Not connected');
   });
 });
+
+describe('the federal courts key setting', () => {
+  it('saves only the CourtListener token', async () => {
+    await render({ kind: 'courts', current: null, canManage: true });
+
+    expect(field('Apify actor')).toBeNull();
+    expect(field('Lob webhook secret')).toBeNull();
+
+    await type('CourtListener API key', 'cl-team-token');
+    await save();
+
+    expect(server.save).toHaveBeenCalledWith({
+      accountId: 'team-1',
+      kind: 'courts',
+      apiKey: 'cl-team-token',
+      actorId: '',
+    });
+  });
+
+  it('warns that diligence skips federal courts once disconnected', async () => {
+    await render({ kind: 'courts', current: { actorId: null }, canManage: true });
+
+    await act(async () => button('Disconnect')!.click());
+    const dialog = document.body.querySelector('[role=dialog]')!;
+
+    expect(dialog.textContent).toContain('Disconnect CourtListener?');
+    expect(dialog.textContent).toContain('Diligence will skip federal courts until you connect it again.');
+  });
+});

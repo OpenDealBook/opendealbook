@@ -20,7 +20,7 @@ values (tests.account_id('cw-team'), tests.get_uid('cw_worker'), 'member'),
   (tests.account_id('cw-team'), tests.get_uid('cw_listonly'), 'cw_list_only');
 select tests.login_as_service_role();
 select public.append_deal_event('cf000000-0000-0000-0000-0000000000d1', 'deal', 'cf000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cw-team'), 'owner_user_id', tests.get_uid('cw_owner'), 'description', 'One'), null, 'service');
+  jsonb_build_object('account_id', tests.account_id('cw-team'), 'firm_id', tests.create_firm(tests.account_id('cw-team')), 'owner_user_id', tests.get_uid('cw_owner'), 'description', 'One'), null, 'service');
 reset role;
 insert into public.dr_folder (id, account_id, deal_id, name)
 values ('cf000000-0000-0000-0000-0000000000f1', tests.account_id('cw-team'), 'cf000000-0000-0000-0000-0000000000d1', 'Financials');
@@ -140,7 +140,7 @@ select results_eq(
 -- ---- Switching a deal's industry to Other ----
 select tests.login_as_service_role();
 select public.append_deal_event('cf000000-0000-0000-0000-0000000000d2', 'deal', 'cf000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cw-team'), 'owner_user_id', tests.get_uid('cw_owner'), 'description', 'Two',
+  jsonb_build_object('account_id', tests.account_id('cw-team'), 'firm_id', tests.create_firm(tests.account_id('cw-team')), 'owner_user_id', tests.get_uid('cw_owner'), 'description', 'Two',
     'industry_id', (select id from public.industry where account_id = tests.account_id('cw-team') order by name limit 1), 'industry', 'Listed'), null, 'service');
 select tests.login_as('cw_owner');
 select public.append_deal_event('cf000000-0000-0000-0000-0000000000d2', 'deal', 'cf000000-0000-0000-0000-0000000000d2', 'deal.updated',

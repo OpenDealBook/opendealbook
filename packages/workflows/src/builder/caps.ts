@@ -2,7 +2,10 @@ import type { Json } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 export class CapReached extends Error {
-  constructor(message = 'The monthly AI limit is reached') {
+  constructor(
+    message = 'The monthly AI limit is reached',
+    readonly resumeAt?: Date,
+  ) {
     super(message);
   }
 }
@@ -11,6 +14,7 @@ export async function reserveLookup(lookup: {
   id: string;
   accountId: string;
   firmId: string;
+  dealId?: string;
   provider: string;
 }): Promise<void> {
   const { data: reserved } = await getSupabaseServerAdminClient()
@@ -20,6 +24,7 @@ export async function reserveLookup(lookup: {
       p_firm_id: lookup.firmId,
       p_kind: 'email_lookup',
       p_provider: lookup.provider,
+      p_deal_id: lookup.dealId,
     })
     .throwOnError();
   if (!reserved) {

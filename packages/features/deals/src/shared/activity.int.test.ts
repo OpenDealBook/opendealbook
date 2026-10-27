@@ -12,6 +12,16 @@ let account: IntegrationAccount;
 let dealId: string;
 let userName: string;
 
+async function firmNamed(name: string): Promise<string> {
+  const { data } = await account.user
+    .from('firm')
+    .insert({ account_id: account.accountId, name })
+    .select('id')
+    .single()
+    .throwOnError();
+  return data.id;
+}
+
 beforeAll(async () => {
   account = await provisionAccount();
   dealId = crypto.randomUUID();
@@ -33,7 +43,7 @@ beforeAll(async () => {
     payload: {
       account_id: account.accountId,
       owner_user_id: account.userId,
-      firm_id: null,
+      firm_id: await firmNamed('Activity deal'),
       description: 'Activity deal',
       source: 'manual',
       stage: 'sourcing',
@@ -92,7 +102,7 @@ describe('fetchDealActivity', () => {
       payload: {
         account_id: account.accountId,
         owner_user_id: account.userId,
-        firm_id: null,
+        firm_id: await firmNamed('Busy deal'),
         description: 'Busy deal',
         source: 'manual',
         stage: 'sourcing',
@@ -143,7 +153,7 @@ describe('fetchDealActivity', () => {
       payload: {
         account_id: account.accountId,
         owner_user_id: account.userId,
-        firm_id: null,
+        firm_id: await firmNamed('Quiet deal'),
         description: 'Quiet deal',
         source: 'manual',
         stage: 'sourcing',

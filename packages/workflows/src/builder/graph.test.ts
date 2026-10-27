@@ -157,6 +157,15 @@ describe('node config schemas', () => {
     );
   });
 
+  it('the background search takes a deal and the background report takes the search run', () => {
+    expect(NODE_CONFIG_SCHEMAS.diligence_search.safeParse({ dealId: '{{steps.signed.dealId}}' }).success).toBe(true);
+    expect(NODE_CONFIG_SCHEMAS.diligence_search.safeParse({}).success).toBe(false);
+    expect(NODE_CONFIG_SCHEMAS.diligence_search.parse({ dealId: 'd' })).toEqual({ dealId: 'd', searchAllNames: false });
+    expect(NODE_CONFIG_SCHEMAS.diligence_search.parse({ dealId: 'd', searchAllNames: true })).toEqual({ dealId: 'd', searchAllNames: true });
+    expect(NODE_CONFIG_SCHEMAS.diligence_report.safeParse({ runId: '{{steps.search.runId}}' }).success).toBe(true);
+    expect(NODE_CONFIG_SCHEMAS.diligence_report.safeParse({}).success).toBe(false);
+  });
+
   it('event_trigger takes a known event type and an optional rule filter', () => {
     const schema = NODE_CONFIG_SCHEMAS.event_trigger;
 

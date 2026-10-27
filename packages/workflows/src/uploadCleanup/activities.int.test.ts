@@ -152,6 +152,12 @@ beforeAll(async () => {
   teamId = team.id;
 
   dealId = crypto.randomUUID();
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: teamId, name: 'Cleanup deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await admin
     .rpc('append_deal_event', {
       p_deal_id: dealId,
@@ -159,6 +165,7 @@ beforeAll(async () => {
       p_aggregate_id: dealId,
       p_event_type: 'deal.created',
       p_payload: {
+        firm_id: firm.id,
         account_id: teamId,
         owner_user_id: ownerId,
         description: 'Cleanup deal',

@@ -8,6 +8,7 @@ export { NOVU_OWNED_CHANNELS, resolveNovuChannels } from './preferences';
 export { createNovuClient } from './client';
 export {
   APPROVAL_WAITING_EVENT,
+  DILIGENCE_RED_FINDING_EVENT,
   RUN_FAILED_NOTICE_EVENT,
   RUN_PAUSED_NOTICE_EVENT,
 } from '../workflow-run-workflows/events';

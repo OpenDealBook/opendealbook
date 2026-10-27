@@ -22,11 +22,11 @@ select public.create_team_account('DP Team', tests.get_uid('dp_owner'), 'dp-team
 select public.create_team_account('DP Other', tests.get_uid('dp_other_owner'), 'dp-other');
 select public.append_deal_event('dd000000-0000-0000-0000-0000000000d1', 'deal',
   'dd000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('dp-team'), 'owner_user_id', tests.get_uid('dp_owner'),
+  jsonb_build_object('account_id', tests.account_id('dp-team'), 'firm_id', tests.create_firm(tests.account_id('dp-team')), 'owner_user_id', tests.get_uid('dp_owner'),
     'description', 'People deal'), null, 'service');
 select public.append_deal_event('dd000000-0000-0000-0000-0000000000d2', 'deal',
   'dd000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('dp-team'), 'owner_user_id', tests.get_uid('dp_owner'),
+  jsonb_build_object('account_id', tests.account_id('dp-team'), 'firm_id', tests.create_firm(tests.account_id('dp-team')), 'owner_user_id', tests.get_uid('dp_owner'),
     'description', 'Second people deal'), null, 'service');
 
 reset role;

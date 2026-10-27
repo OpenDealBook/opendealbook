@@ -14,7 +14,7 @@ insert into public.accounts_memberships (account_id, user_id, account_role) valu
   (tests.account_id('dws-team'), tests.get_uid('dws_analyst'), 'analyst');
 select public.append_deal_event('d5000000-0000-0000-0000-0000000000d1', 'deal',
   'd5000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('dws-team'), 'owner_user_id', tests.get_uid('dws_owner'),
+  jsonb_build_object('account_id', tests.account_id('dws-team'), 'firm_id', tests.create_firm(tests.account_id('dws-team')), 'owner_user_id', tests.get_uid('dws_owner'),
     'description', 'Deal-wide snapshot deal'), null, 'service');
 
 select tests.login_as('dws_owner');

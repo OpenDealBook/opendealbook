@@ -92,11 +92,11 @@ select throws_ok(
 select tests.login_as_service_role();
 select public.append_deal_event('5c000000-0000-0000-0000-0000000000d1', 'deal',
   '5c000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cs-starter'), 'owner_user_id', tests.get_uid('cs_owner'),
+  jsonb_build_object('account_id', tests.account_id('cs-starter'), 'firm_id', tests.create_firm(tests.account_id('cs-starter')), 'owner_user_id', tests.get_uid('cs_owner'),
     'description', 'Anchored'), null, 'service');
 select public.append_deal_event('5c000000-0000-0000-0000-0000000000d2', 'deal',
   '5c000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cs-starter'), 'owner_user_id', tests.get_uid('cs_owner'),
+  jsonb_build_object('account_id', tests.account_id('cs-starter'), 'firm_id', tests.create_firm(tests.account_id('cs-starter')), 'owner_user_id', tests.get_uid('cs_owner'),
     'description', 'Unanchored'), null, 'service');
 
 select tests.login_as('cs_owner');

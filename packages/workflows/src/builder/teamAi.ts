@@ -18,6 +18,8 @@ export async function askTeamAi(args: {
   accountId: string;
   prompt: string;
   firmId?: string;
+  dealId?: string;
+  noProviderMessage?: string;
   signal?: AbortSignal;
 }): Promise<{ text: string; endpointId: string; model: string }> {
   const admin = getSupabaseServerAdminClient();
@@ -33,7 +35,9 @@ export async function askTeamAi(args: {
   ]);
   const model = endpoint?.chat_model;
   if (!endpoint || !model || !apiKey) {
-    throw ApplicationFailure.nonRetryable('Connect an AI provider first');
+    throw ApplicationFailure.nonRetryable(
+      args.noProviderMessage ?? 'Connect an AI provider first',
+    );
   }
 
   args.signal?.throwIfAborted();
@@ -41,6 +45,7 @@ export async function askTeamAi(args: {
     model,
     endpointId: endpoint.id,
     firmId: args.firmId,
+    dealId: args.dealId,
   });
 
   const completion = await completeWithTeamAi(

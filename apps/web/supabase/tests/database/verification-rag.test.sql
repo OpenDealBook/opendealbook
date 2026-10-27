@@ -45,7 +45,7 @@ select public.create_team_account('VR Acct B', tests.get_uid('vr_b_owner'), 'vr-
 
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000a1', 'deal',
   'cccccccc-0000-0000-0000-0000000000a1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('vr-acct-a'),
+  jsonb_build_object('account_id', tests.account_id('vr-acct-a'), 'firm_id', tests.create_firm(tests.account_id('vr-acct-a')),
     'owner_user_id', tests.get_uid('vr_a_owner'), 'description', 'VR Deal A'), null, 'service');
 
 insert into public.dr_folder (id, account_id, deal_id, name)

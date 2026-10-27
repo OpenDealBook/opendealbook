@@ -15,11 +15,11 @@ select tests.login_as_service_role();
 select public.create_team_account('SR Team', tests.get_uid('sr_owner'), 'sr-team');
 select public.append_deal_event('5e000000-0000-0000-0000-0000000000d1', 'deal',
   '5e000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('sr-team'), 'owner_user_id', tests.get_uid('sr_owner'),
+  jsonb_build_object('account_id', tests.account_id('sr-team'), 'firm_id', tests.create_firm(tests.account_id('sr-team')), 'owner_user_id', tests.get_uid('sr_owner'),
     'description', 'Seller room deal'), null, 'service');
 select public.append_deal_event('5e000000-0000-0000-0000-0000000000d2', 'deal',
   '5e000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('sr-team'), 'owner_user_id', tests.get_uid('sr_owner'),
+  jsonb_build_object('account_id', tests.account_id('sr-team'), 'firm_id', tests.create_firm(tests.account_id('sr-team')), 'owner_user_id', tests.get_uid('sr_owner'),
     'description', 'Other seller room deal'), null, 'service');
 
 reset role;
@@ -606,7 +606,7 @@ select results_eq(
 select tests.login_as_service_role();
 select public.append_deal_event('5e000000-0000-0000-0000-0000000000d3', 'deal',
   '5e000000-0000-0000-0000-0000000000d3', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('sr-team'), 'owner_user_id', tests.get_uid('sr_owner'),
+  jsonb_build_object('account_id', tests.account_id('sr-team'), 'firm_id', tests.create_firm(tests.account_id('sr-team')), 'owner_user_id', tests.get_uid('sr_owner'),
     'description', 'Deal to delete'), null, 'service');
 select tests.login_as('sr_owner');
 select public.ensure_seller_room('5e000000-0000-0000-0000-0000000000d3');

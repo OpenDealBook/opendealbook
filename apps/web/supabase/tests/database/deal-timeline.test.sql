@@ -12,11 +12,11 @@ select public.create_team_account('TL Team', tests.get_uid('tl_owner'), 'tl-team
 select public.create_team_account('TL Other', tests.get_uid('tl_other_owner'), 'tl-other');
 select public.append_deal_event('7e000000-0000-0000-0000-0000000000d1', 'deal',
   '7e000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tl-team'), 'owner_user_id', tests.get_uid('tl_owner'),
+  jsonb_build_object('account_id', tests.account_id('tl-team'), 'firm_id', tests.create_firm(tests.account_id('tl-team')), 'owner_user_id', tests.get_uid('tl_owner'),
     'description', 'Timeline deal'), null, 'service');
 select public.append_deal_event('7e000000-0000-0000-0000-0000000000d2', 'deal',
   '7e000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tl-team'), 'owner_user_id', tests.get_uid('tl_owner'),
+  jsonb_build_object('account_id', tests.account_id('tl-team'), 'firm_id', tests.create_firm(tests.account_id('tl-team')), 'owner_user_id', tests.get_uid('tl_owner'),
     'description', 'Second timeline deal'), null, 'service');
 
 reset role;
@@ -241,11 +241,11 @@ select tests.create_user('tl_seller_law');
 select tests.login_as_service_role();
 select public.append_deal_event('7e000000-0000-0000-0000-0000000000d3', 'deal',
   '7e000000-0000-0000-0000-0000000000d3', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tl-team'), 'owner_user_id', tests.get_uid('tl_owner'),
+  jsonb_build_object('account_id', tests.account_id('tl-team'), 'firm_id', tests.create_firm(tests.account_id('tl-team')), 'owner_user_id', tests.get_uid('tl_owner'),
     'description', 'Shared timeline deal'), null, 'service');
 select public.append_deal_event('7e000000-0000-0000-0000-0000000000d4', 'deal',
   '7e000000-0000-0000-0000-0000000000d4', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tl-team'), 'owner_user_id', tests.get_uid('tl_owner'),
+  jsonb_build_object('account_id', tests.account_id('tl-team'), 'firm_id', tests.create_firm(tests.account_id('tl-team')), 'owner_user_id', tests.get_uid('tl_owner'),
     'description', 'Other shared timeline deal'), null, 'service');
 
 select tests.login_as('tl_owner');
@@ -358,11 +358,11 @@ select is_empty(
 select tests.login_as_service_role();
 select public.append_deal_event('7e000000-0000-0000-0000-0000000000d5', 'deal',
   '7e000000-0000-0000-0000-0000000000d5', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tl-team'), 'owner_user_id', tests.get_uid('tl_owner'),
+  jsonb_build_object('account_id', tests.account_id('tl-team'), 'firm_id', tests.create_firm(tests.account_id('tl-team')), 'owner_user_id', tests.get_uid('tl_owner'),
     'description', 'Effective follows closing'), null, 'service');
 select public.append_deal_event('7e000000-0000-0000-0000-0000000000d6', 'deal',
   '7e000000-0000-0000-0000-0000000000d6', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tl-team'), 'owner_user_id', tests.get_uid('tl_owner'),
+  jsonb_build_object('account_id', tests.account_id('tl-team'), 'firm_id', tests.create_firm(tests.account_id('tl-team')), 'owner_user_id', tests.get_uid('tl_owner'),
     'description', 'Closing kept to the team'), null, 'service');
 
 select tests.login_as('tl_owner');

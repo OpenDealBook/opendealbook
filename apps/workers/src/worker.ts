@@ -16,6 +16,8 @@ import {
   ensureOutreachDispatchSchedule,
   ensureOutreachReplySyncSchedule,
   ensureOutreachStaleSweepSchedule,
+  ensureScreeningListLoaded,
+  ensureScreeningListSchedule,
   ensureUploadCleanupSchedule,
   ensureWorkflowEventRelay,
   ensureWorkflowPruneSchedule,
@@ -64,6 +66,8 @@ for (const ensure of [
   ensureWorkflowPruneSchedule,
   ensureApprovalReminderSchedule,
   ensureLeadImportSchedules,
+  ensureScreeningListSchedule,
+  ensureScreeningListLoaded,
 ]) {
   try {
     await ensure(client);

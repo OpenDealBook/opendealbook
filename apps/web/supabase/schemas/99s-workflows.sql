@@ -78,12 +78,12 @@ create table if not exists public.workflow_version (
   schema_version int not null check (schema_version > 0),
   graph jsonb not null,
   published_at timestamptz,
-  published_by uuid references auth.users,
+  published_by uuid references auth.users on delete set null,
   created_at timestamptz not null default now(),
   layout jsonb not null default '{}'::jsonb,
   saved_at timestamptz not null default now(),
   foreign key (workflow_id, account_id) references public.workflow (id, account_id) on delete cascade,
-  check ((published_at is null) = (published_by is null)),
+  check (published_at is not null or published_by is null),
   unique (id, workflow_id)
 );
 
@@ -115,9 +115,17 @@ begin
 end;
 $$;
 
+-- Deleting the publisher clears published_by; nothing else about a published
+-- version changes.
 create trigger refuse_published_version_change
   before update on public.workflow_version
-  for each row when (old.published_at is not null)
+  for each row when (
+    old.published_at is not null
+    and (
+      (to_jsonb(new) - 'published_by') is distinct from (to_jsonb(old) - 'published_by')
+      or new.published_by is distinct from old.published_by and new.published_by is not null
+    )
+  )
   execute function tuckin.refuse_published_version_change();
 
 -- When a draft was last saved; publishing does not count as a save.
@@ -749,6 +757,7 @@ create table if not exists public.paid_lookup (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   firm_id uuid,
+  deal_id uuid references public.deal (id) on delete set null,
   kind public.provider_kind not null check (kind <> 'letters'),
   provider text not null,
   cost_cents int not null check (cost_cents >= 0),
@@ -942,6 +951,10 @@ create trigger refuse_write_when_team_locked
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.paid_lookup
   for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+
+create trigger same_team_deal_id
+  before insert or update on public.paid_lookup
+  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.account_event

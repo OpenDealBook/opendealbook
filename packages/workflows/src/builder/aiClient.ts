@@ -35,13 +35,40 @@ function pinnedLookup({ address, family }: VettedAddress): LookupFunction {
     options.all ? callback(null, [{ address, family }]) : callback(null, address, family);
 }
 
-export async function pinnedPost(
+type PinnedConnection = { connectTo?: Connection['connectTo']; timeoutMs: number; signal?: AbortSignal };
+
+export function pinnedPost(
   url: string,
   headers: Record<string, string>,
   body: unknown,
-  connection: { connectTo?: Connection['connectTo']; timeoutMs: number; signal?: AbortSignal },
+  connection: PinnedConnection,
 ): Promise<{ status: number; text: string }> {
-  const target = await (connection.connectTo ?? publicAddressOf)(url).catch((error: unknown) => {
+  return pinnedRequest(
+    'POST',
+    url,
+    { 'content-type': 'application/json', ...headers },
+    JSON.stringify(body),
+    connection,
+  );
+}
+
+export function pinnedGet(
+  url: string,
+  headers: Record<string, string>,
+  connection: PinnedConnection,
+): Promise<{ status: number; text: string }> {
+  return pinnedRequest('GET', url, headers, undefined, connection);
+}
+
+async function pinnedRequest(
+  method: 'GET' | 'POST',
+  url: string,
+  headers: Record<string, string>,
+  payload: string | undefined,
+  connection: PinnedConnection,
+): Promise<{ status: number; text: string }> {
+  const { origin, pathname } = new URL(url);
+  const target = await (connection.connectTo ?? publicAddressOf)(`${origin}${pathname}`).catch((error: unknown) => {
     if (error instanceof AddressNotFound && !error.retryable) {
       throw ApplicationFailure.nonRetryable(error.message);
     }
@@ -50,13 +77,12 @@ export async function pinnedPost(
   if (!target) {
     throw ApplicationFailure.nonRetryable('Use a public HTTPS base URL');
   }
-  const payload = JSON.stringify(body);
   return new Promise((resolve, reject) => {
     const request = (url.startsWith('https:') ? https : http).request(
       url,
       {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...headers },
+        method,
+        headers,
         lookup: pinnedLookup(target),
         signal: AbortSignal.any([
           AbortSignal.timeout(connection.timeoutMs),

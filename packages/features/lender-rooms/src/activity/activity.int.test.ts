@@ -502,6 +502,12 @@ beforeAll(async () => {
   ownerEmail = await emailOf(owner);
   lenderEmail = await emailOf(lender);
   dealId = crypto.randomUUID();
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: owner.accountId, name: 'Tracked access deal' })
+    .select('id')
+    .single()
+    .throwOnError();
 
   await appendDealEvent(owner.user, {
     dealId,
@@ -511,6 +517,7 @@ beforeAll(async () => {
     payload: {
       account_id: owner.accountId,
       owner_user_id: owner.userId,
+      firm_id: firm.id,
       description: 'Tracked access deal',
     },
   });
@@ -1012,6 +1019,15 @@ describe('respondToPackageDocumentRequest', () => {
         account_role: 'member',
       })
       .throwOnError();
+    const { data: teamFirm } = await admin
+      .from('firm')
+      .insert({
+        account_id: teamAccountId,
+        name: 'Team deal with a lender package',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
     await appendDealEvent(manager.user, {
       dealId: teamDealId,
       aggregateType: 'deal',
@@ -1020,6 +1036,7 @@ describe('respondToPackageDocumentRequest', () => {
       payload: {
         account_id: teamAccountId,
         owner_user_id: manager.userId,
+        firm_id: teamFirm.id,
         description: 'Team deal with a lender package',
       },
     });

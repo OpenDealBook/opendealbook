@@ -10,7 +10,7 @@ select tests.login_as_service_role();
 select public.create_team_account('AG Team', tests.get_uid('ag_owner'), 'ag-team');
 select public.append_deal_event('a9000000-0000-0000-0000-0000000000a1', 'deal',
   'a9000000-0000-0000-0000-0000000000a1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ag-team'), 'owner_user_id', tests.get_uid('ag_owner'),
+  jsonb_build_object('account_id', tests.account_id('ag-team'), 'firm_id', tests.create_firm(tests.account_id('ag-team')), 'owner_user_id', tests.get_uid('ag_owner'),
     'description', 'Gate deal', 'stage', 'loi_accepted'), null, 'service');
 
 -- ---- No skipping past pa_accepted ----
@@ -74,7 +74,7 @@ select throws_ok(
 select tests.login_as_service_role();
 select public.append_deal_event('a9000000-0000-0000-0000-0000000000a2', 'deal',
   'a9000000-0000-0000-0000-0000000000a2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ag-team'), 'owner_user_id', tests.get_uid('ag_owner'),
+  jsonb_build_object('account_id', tests.account_id('ag-team'), 'firm_id', tests.create_firm(tests.account_id('ag-team')), 'owner_user_id', tests.get_uid('ag_owner'),
     'description', 'Reordered gate deal', 'stage', 'loi_accepted'), null, 'service');
 
 reset role;
@@ -109,7 +109,7 @@ where account_id = tests.account_id('ag-renamed') and key = 'pa_accepted';
 select tests.login_as_service_role();
 select public.append_deal_event('a9000000-0000-0000-0000-0000000000b1', 'deal',
   'a9000000-0000-0000-0000-0000000000b1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ag-renamed'), 'owner_user_id', tests.get_uid('ag_renamed_owner'),
+  jsonb_build_object('account_id', tests.account_id('ag-renamed'), 'firm_id', tests.create_firm(tests.account_id('ag-renamed')), 'owner_user_id', tests.get_uid('ag_renamed_owner'),
     'description', 'Renamed gate deal', 'stage', 'loi_accepted'), null, 'service');
 
 select tests.login_as('ag_renamed_owner');
@@ -121,7 +121,7 @@ select lives_ok(
 select lives_ok(
   $$ select public.append_deal_event('a9000000-0000-0000-0000-0000000000b2', 'deal',
        'a9000000-0000-0000-0000-0000000000b2', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ag-renamed'), 'owner_user_id', tests.get_uid('ag_renamed_owner'),
+       jsonb_build_object('account_id', tests.account_id('ag-renamed'), 'firm_id', tests.create_firm(tests.account_id('ag-renamed')), 'owner_user_id', tests.get_uid('ag_renamed_owner'),
          'description', 'Renamed late deal', 'stage', 'integration')) $$,
   'a team that renamed pa_accepted creates a deal at integration'
 );
@@ -131,7 +131,7 @@ select tests.login_as('ag_owner');
 select throws_ok(
   $$ select public.append_deal_event('a9000000-0000-0000-0000-0000000000a3', 'deal',
        'a9000000-0000-0000-0000-0000000000a3', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ag-team'), 'owner_user_id', tests.get_uid('ag_owner'),
+       jsonb_build_object('account_id', tests.account_id('ag-team'), 'firm_id', tests.create_firm(tests.account_id('ag-team')), 'owner_user_id', tests.get_uid('ag_owner'),
          'description', 'Late deal', 'stage', 'pa_accepted')) $$,
   'P0001',
   'A new deal cannot start at PA Accepted or a later stage',
@@ -140,7 +140,7 @@ select throws_ok(
 select throws_ok(
   $$ select public.append_deal_event('a9000000-0000-0000-0000-0000000000a3', 'deal',
        'a9000000-0000-0000-0000-0000000000a3', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ag-team'), 'owner_user_id', tests.get_uid('ag_owner'),
+       jsonb_build_object('account_id', tests.account_id('ag-team'), 'firm_id', tests.create_firm(tests.account_id('ag-team')), 'owner_user_id', tests.get_uid('ag_owner'),
          'description', 'Late deal', 'stage', 'integration')) $$,
   'P0001',
   'A new deal cannot start at PA Accepted or a later stage',
@@ -149,7 +149,7 @@ select throws_ok(
 select lives_ok(
   $$ select public.append_deal_event('a9000000-0000-0000-0000-0000000000a4', 'deal',
        'a9000000-0000-0000-0000-0000000000a4', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ag-team'), 'owner_user_id', tests.get_uid('ag_owner'),
+       jsonb_build_object('account_id', tests.account_id('ag-team'), 'firm_id', tests.create_firm(tests.account_id('ag-team')), 'owner_user_id', tests.get_uid('ag_owner'),
          'description', 'Submitted deal', 'stage', 'pa_submitted')) $$,
   'a user creates a deal at pa_submitted'
 );
@@ -158,7 +158,7 @@ select tests.login_as_service_role();
 select lives_ok(
   $$ select public.append_deal_event('a9000000-0000-0000-0000-0000000000a5', 'deal',
        'a9000000-0000-0000-0000-0000000000a5', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('ag-team'), 'owner_user_id', tests.get_uid('ag_owner'),
+       jsonb_build_object('account_id', tests.account_id('ag-team'), 'firm_id', tests.create_firm(tests.account_id('ag-team')), 'owner_user_id', tests.get_uid('ag_owner'),
          'description', 'Seeded late deal', 'stage', 'integration'), null, 'service') $$,
   'seeding and system imports create a deal past pa_accepted'
 );

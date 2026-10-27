@@ -14,16 +14,16 @@ select public.create_team_account('ES Acct', tests.get_uid('es_owner'), 'es-acct
 select tests.login_as('es_owner');
 select public.append_deal_event('d1d1d1d1-0000-0000-0000-000000000001', 'deal',
   'd1d1d1d1-0000-0000-0000-000000000001', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal One'));
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'firm_id', tests.create_firm(tests.account_id('es-acct')), 'description', 'Deal One'));
 select public.append_deal_event('d2d2d2d2-0000-0000-0000-000000000002', 'deal',
   'd2d2d2d2-0000-0000-0000-000000000002', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal Two'));
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'firm_id', tests.create_firm(tests.account_id('es-acct')), 'description', 'Deal Two'));
 select public.append_deal_event('d3d3d3d3-0000-0000-0000-000000000003', 'deal',
   'd3d3d3d3-0000-0000-0000-000000000003', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal Three'));
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'firm_id', tests.create_firm(tests.account_id('es-acct')), 'description', 'Deal Three'));
 select public.append_deal_event('d4d4d4d4-0000-0000-0000-000000000004', 'deal',
   'd4d4d4d4-0000-0000-0000-000000000004', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('es-acct'), 'description', 'Deal Four'));
+  jsonb_build_object('account_id', tests.account_id('es-acct'), 'firm_id', tests.create_firm(tests.account_id('es-acct')), 'description', 'Deal Four'));
 insert into public.dr_folder (id, account_id, deal_id, name) values
   ('f1f1f1f1-0000-0000-0000-000000000001', tests.account_id('es-acct'), 'd1d1d1d1-0000-0000-0000-000000000001', 'Root'),
   ('f1f1f1f1-0000-0000-0000-0000000000b2', tests.account_id('es-acct'), 'd1d1d1d1-0000-0000-0000-000000000001', 'Financials');
@@ -352,7 +352,7 @@ select is(
 -- ---- deal.created is authorised on the account and projected ----
 select public.append_deal_event('d5d5d5d5-0000-0000-0000-000000000005', 'deal',
   'd5d5d5d5-0000-0000-0000-000000000005', 'deal.created',
-  ('{"account_id":"' || tests.account_id('es-acct')::text || '","description":"Born of an event"}')::jsonb);
+  ('{"account_id":"' || tests.account_id('es-acct')::text || '","firm_id":"' || tests.create_firm(tests.account_id('es-acct'))::text || '","description":"Born of an event"}')::jsonb);
 select tests.login_as_service_role();
 select is(
   (select description from public.deal where id = 'd5d5d5d5-0000-0000-0000-000000000005'),
@@ -380,7 +380,7 @@ select tests.login_as('es_owner');
 -- deal.created carries the financial and box fields, not only description.
 select public.append_deal_event('d6d6d6d6-0000-0000-0000-000000000006', 'deal',
   'd6d6d6d6-0000-0000-0000-000000000006', 'deal.created',
-  ('{"account_id":"' || tests.account_id('es-acct')::text || '","description":"Rich deal","asking_price":1250000,"revenue_ttm":800000,"sde_ttm":300000,"ebitda_ttm":250000,"notes":"hot lead","deal_box_version":2}')::jsonb);
+  ('{"account_id":"' || tests.account_id('es-acct')::text || '","firm_id":"' || tests.create_firm(tests.account_id('es-acct'))::text || '","description":"Rich deal","asking_price":1250000,"revenue_ttm":800000,"sde_ttm":300000,"ebitda_ttm":250000,"notes":"hot lead","deal_box_version":2}')::jsonb);
 select is(
   (select asking_price from public.deal where id = 'd6d6d6d6-0000-0000-0000-000000000006'),
   1250000::numeric, 'deal.created projects asking_price');

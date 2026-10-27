@@ -16,7 +16,7 @@ select public.create_team_account('Other Co', tests.get_uid('bl_open_owner'), 'o
 
 select public.append_deal_event('b1000000-0000-0000-0000-0000000000d1', 'deal',
   'b1000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('locked-co'), 'owner_user_id', tests.get_uid('bl_owner'),
+  jsonb_build_object('account_id', tests.account_id('locked-co'), 'firm_id', tests.create_firm(tests.account_id('locked-co')), 'owner_user_id', tests.get_uid('bl_owner'),
     'description', 'Locked deal'), null, 'service');
 select public.append_deal_event('b1000000-0000-0000-0000-0000000000d1', 'deal_participant',
   gen_random_uuid(), 'deal_participant.added',
@@ -24,7 +24,7 @@ select public.append_deal_event('b1000000-0000-0000-0000-0000000000d1', 'deal_pa
 
 select public.append_deal_event('b1000000-0000-0000-0000-0000000000d2', 'deal',
   'b1000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('open-co'), 'owner_user_id', tests.get_uid('bl_open_owner'),
+  jsonb_build_object('account_id', tests.account_id('open-co'), 'firm_id', tests.create_firm(tests.account_id('open-co')), 'owner_user_id', tests.get_uid('bl_open_owner'),
     'description', 'Open deal'), null, 'service');
 
 reset role;

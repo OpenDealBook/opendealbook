@@ -17,11 +17,11 @@ select public.create_team_account('LF Acct 2', tests.get_uid('lf_owner_2'), 'lf-
 
 select public.append_deal_event('1f000000-0000-0000-0000-0000000000d1', 'deal',
   '1f000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lf-acct'), 'owner_user_id', tests.get_uid('lf_owner'),
+  jsonb_build_object('account_id', tests.account_id('lf-acct'), 'firm_id', tests.create_firm(tests.account_id('lf-acct')), 'owner_user_id', tests.get_uid('lf_owner'),
     'description', 'FAQ deal'), null, 'service');
 select public.append_deal_event('1f000000-0000-0000-0000-0000000000d2', 'deal',
   '1f000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('lf-acct-2'), 'owner_user_id', tests.get_uid('lf_owner_2'),
+  jsonb_build_object('account_id', tests.account_id('lf-acct-2'), 'firm_id', tests.create_firm(tests.account_id('lf-acct-2')), 'owner_user_id', tests.get_uid('lf_owner_2'),
     'description', 'Other FAQ deal'), null, 'service');
 
 reset role;

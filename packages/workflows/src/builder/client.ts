@@ -7,7 +7,7 @@ import { WorkflowNotFoundError } from '@temporalio/client';
 
 import { getTemporalClient, TASK_QUEUE } from '../client';
 import { isTeamLocked } from '../teamLock';
-import { parseWorkflowGraph, type StepIo } from './graph';
+import { type NodeTypeName, parseWorkflowGraph, type StepIo, TRIGGER_TYPES } from './graph';
 import {
   APPROVAL_DECIDED_SIGNAL,
   CAP_RAISED_SIGNAL,
@@ -35,6 +35,9 @@ const REFUSALS = {
   archived: 'This workflow is archived',
   not_published: 'Publish this workflow first',
   no_manual_trigger: 'Add a manual trigger to run this workflow',
+  search_not_permitted: 'Only deal managers can run a background search. Ask a deal manager.',
+  search_running: 'A background search is already running for this deal',
+  search_changed: 'This workflow was changed, so running it needs workflows.manage',
 };
 
 export class ManualRunRefused extends Error {
@@ -106,6 +109,100 @@ export async function startManualWorkflowRun(input: {
   });
 }
 
+export async function startBackgroundSearchRun(input: {
+  client: SupabaseClient<Database>;
+  dealId: string;
+  requestId: string;
+}): Promise<{ runId: string }> {
+  const { data: canManage } = await input.client
+    .rpc('has_deal_permission', { deal_id: input.dealId, permission: 'deals.manage' })
+    .throwOnError();
+
+  if (!canManage) {
+    throw new ManualRunRefused('search_not_permitted');
+  }
+
+  const admin = getSupabaseServerAdminClient();
+  const { data: deal } = await admin
+    .from('deal')
+    .select('account_id')
+    .eq('id', input.dealId)
+    .single()
+    .throwOnError();
+  const { data: workflow } = await admin
+    .from('workflow')
+    .select('id')
+    .eq('account_id', deal.account_id)
+    .eq('system_key', 'background_search')
+    .single()
+    .throwOnError();
+  const { data: version } = await admin
+    .from('workflow_version')
+    .select('id, schema_version, graph')
+    .eq('workflow_id', workflow.id)
+    .not('published_at', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(1)
+    .single()
+    .throwOnError();
+  const graph = parseWorkflowGraph({
+    schemaVersion: version.schema_version,
+    graph: version.graph,
+  });
+
+  if (graph.nodes.some((node) => !BACKGROUND_SEARCH_NODE_TYPES.has(node.type))) {
+    await refuseWithoutWorkflowsManage(input.client, deal.account_id);
+  }
+
+  const [trigger] = graph.triggers;
+
+  return startWorkflowRun({
+    accountId: deal.account_id,
+    workflowId: workflow.id,
+    versionId: version.id,
+    triggerKind: 'manual',
+    triggerRef: input.requestId,
+    triggerNodeId: trigger!.id,
+    triggerOutput: { dealId: input.dealId, accountId: deal.account_id },
+  }).catch((error: unknown) => {
+    if (isUnfinishedSearchConflict(error)) {
+      throw new ManualRunRefused('search_running');
+    }
+    throw error;
+  });
+}
+
+const BACKGROUND_SEARCH_NODE_TYPES = new Set<NodeTypeName>([
+  ...TRIGGER_TYPES,
+  'diligence_search',
+  'diligence_report',
+]);
+
+async function refuseWithoutWorkflowsManage(
+  client: SupabaseClient<Database>,
+  accountId: string,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  const { data: canManage } = await client
+    .rpc('has_permission', {
+      user_id: user!.id,
+      account_id: accountId,
+      permission_name: 'workflows.manage',
+    })
+    .throwOnError();
+
+  if (!canManage) {
+    throw new ManualRunRefused('search_changed');
+  }
+}
+
+function isUnfinishedSearchConflict(error: unknown): boolean {
+  const { code, message } = error as { code?: string; message?: string };
+  return code === '23505' && message === REFUSALS.search_running;
+}
+
 export async function startWorkflowRun(input: {
   accountId: string;
   workflowId: string;
@@ -155,7 +252,7 @@ export async function startWorkflowRun(input: {
 }
 
 export type ScheduledRunRefusal = 'archived' | 'disabled' | 'superseded' | 'team_locked';
-export type EventRunRefusal = 'archived' | 'disabled' | 'superseded' | 'before_enabled';
+export type EventRunRefusal = 'archived' | 'disabled' | 'superseded' | 'before_enabled' | 'search_running';
 
 async function workflowRefusal(input: {
   accountId: string;
@@ -270,6 +367,11 @@ export async function startEventRun(input: {
           accountId: input.accountId,
           globalSeq: event.globalSeq,
         },
+      }).catch((error: unknown) => {
+        if (isUnfinishedSearchConflict(error)) {
+          return { refused: 'search_running' as const };
+        }
+        throw error;
       });
 }
 

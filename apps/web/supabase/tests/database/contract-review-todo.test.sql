@@ -8,7 +8,7 @@ select tests.login_as_service_role();
 select public.create_team_account('CRT Team', tests.get_uid('crt_owner'), 'crt-team');
 select public.append_deal_event('c8000000-0000-0000-0000-0000000000d1', 'deal',
   'c8000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('crt-team'), 'owner_user_id', tests.get_uid('crt_owner'),
+  jsonb_build_object('account_id', tests.account_id('crt-team'), 'firm_id', tests.create_firm(tests.account_id('crt-team')), 'owner_user_id', tests.get_uid('crt_owner'),
     'description', 'Reviewed deal'), null, 'service');
 
 reset role;

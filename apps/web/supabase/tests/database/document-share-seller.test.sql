@@ -11,7 +11,7 @@ select tests.login_as_service_role();
 select public.create_team_account('DS Team', tests.get_uid('ds_owner'), 'ds-team');
 select public.append_deal_event('2d000000-0000-0000-0000-0000000000d1', 'deal',
   '2d000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('ds-team'), 'owner_user_id', tests.get_uid('ds_owner'),
+  jsonb_build_object('account_id', tests.account_id('ds-team'), 'firm_id', tests.create_firm(tests.account_id('ds-team')), 'owner_user_id', tests.get_uid('ds_owner'),
     'description', 'Seller share deal'), null, 'service');
 
 reset role;

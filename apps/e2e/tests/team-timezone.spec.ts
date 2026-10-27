@@ -22,7 +22,13 @@ test('a manager changes the team time zone and a member sees it read-only', asyn
   await page.goto(settings);
   const zone = page.getByLabel('Time zone', { exact: true });
   await expect(zone).toBeEnabled();
-  await zone.selectOption('Asia/Tokyo');
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.request().postData()?.includes('"timezone":"Asia/Tokyo"') ?? false,
+    ),
+    zone.selectOption('Asia/Tokyo'),
+  ]);
+  await expect(zone).toBeEnabled();
   await expect(page.locator('p[role=alert]')).toHaveCount(0);
   await expect(async () => {
     await page.reload();

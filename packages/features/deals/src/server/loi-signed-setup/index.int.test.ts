@@ -36,13 +36,24 @@ async function seedDeal(
   ownerUserId: string,
   payload: Record<string, unknown>,
 ) {
+  const { data: firm } = await client
+    .from('firm')
+    .insert({ account_id: accountId, name: 'LOI signed firm' })
+    .select('id')
+    .single()
+    .throwOnError();
   const dealId = crypto.randomUUID();
   await appendDealEvent(client, {
     dealId,
     aggregateType: 'deal',
     aggregateId: dealId,
     eventType: 'deal.created',
-    payload: { account_id: accountId, owner_user_id: ownerUserId, ...payload },
+    payload: {
+      account_id: accountId,
+      owner_user_id: ownerUserId,
+      firm_id: firm.id,
+      ...payload,
+    },
   });
 
   return dealId;

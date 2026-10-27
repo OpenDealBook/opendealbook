@@ -5,6 +5,7 @@ import { renderLenderNoticeEmail } from '@odb/email-templates';
 
 import {
   APPROVAL_WAITING_EVENT,
+  DILIGENCE_RED_FINDING_EVENT,
   RUN_FAILED_NOTICE_EVENT,
   RUN_PAUSED_NOTICE_EVENT,
 } from './events';
@@ -35,5 +36,6 @@ export function buildWorkflowRunWorkflows(deps: { siteUrl: string }) {
     runNotice(RUN_FAILED_NOTICE_EVENT),
     runNotice(RUN_PAUSED_NOTICE_EVENT),
     runNotice(APPROVAL_WAITING_EVENT, 'Open approvals'),
+    runNotice(DILIGENCE_RED_FINDING_EVENT, 'Open background findings'),
   ];
 }

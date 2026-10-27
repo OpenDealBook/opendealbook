@@ -51,4 +51,20 @@ describe('providerKey', () => {
       baseUrl: 'https://api.lob.com/v1',
     });
   });
+
+  it("returns the team's CourtListener token once connected", async () => {
+    await owner.user
+      .rpc('save_provider_credential', {
+        p_account_id: owner.accountId,
+        p_kind: 'courts',
+        p_api_key: 'cl-team-token',
+      })
+      .throwOnError();
+
+    expect(await providerKey(owner.accountId, 'courts')).toEqual({
+      apiKey: 'cl-team-token',
+      provider: 'courtlistener',
+      baseUrl: 'https://www.courtlistener.com/api/rest/v4',
+    });
+  });
 });

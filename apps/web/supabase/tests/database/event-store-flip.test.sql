@@ -15,7 +15,7 @@ select tests.login_as('fl_owner');
 -- ---- append still writes projections after the DML revoke ----
 select public.append_deal_event('f1000000-0000-0000-0000-000000000001', 'deal',
   'f1000000-0000-0000-0000-000000000001', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('fl-acct'), 'description', 'Flip deal'));
+  jsonb_build_object('account_id', tests.account_id('fl-acct'), 'firm_id', tests.create_firm(tests.account_id('fl-acct')), 'description', 'Flip deal'));
 select is(
   (select description from public.deal where id = 'f1000000-0000-0000-0000-000000000001'),
   'Flip deal',

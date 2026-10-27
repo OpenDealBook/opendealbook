@@ -10,8 +10,8 @@ export function providerKey(
   accountId: string,
   kind: 'email_lookup',
 ): Promise<(ProviderKey & { actorId: string }) | null>;
-export function providerKey(accountId: string, kind: 'letters'): Promise<ProviderKey | null>;
-export async function providerKey(accountId: string, kind: 'email_lookup' | 'letters') {
+export function providerKey(accountId: string, kind: 'letters' | 'courts'): Promise<ProviderKey | null>;
+export async function providerKey(accountId: string, kind: 'email_lookup' | 'letters' | 'courts') {
   const { data } = await getSupabaseServerAdminClient()
     .rpc('provider_key', { p_account_id: accountId, p_kind: kind })
     .maybeSingle()

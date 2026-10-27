@@ -12,7 +12,7 @@ select public.create_team_account('Tier B', tests.get_uid('tier_b_owner'), 'tier
 
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'deal',
   'cccccccc-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('tier-a'), 'owner_user_id', tests.get_uid('tier_a_owner'),
+  jsonb_build_object('account_id', tests.account_id('tier-a'), 'firm_id', tests.create_firm(tests.account_id('tier-a')), 'owner_user_id', tests.get_uid('tier_a_owner'),
     'description', 'Tier A deal'), null, 'service');
 
 select public.append_deal_event('cccccccc-0000-0000-0000-0000000000d1', 'deal_participant',

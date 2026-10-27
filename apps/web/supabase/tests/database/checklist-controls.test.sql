@@ -26,9 +26,9 @@ grant select on locked_template to authenticated;
 
 select tests.login_as_service_role();
 select public.append_deal_event('cc000000-0000-0000-0000-0000000000d1', 'deal', 'cc000000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cc-team'), 'owner_user_id', tests.get_uid('cc_owner'), 'description', 'One'), null, 'service');
+  jsonb_build_object('account_id', tests.account_id('cc-team'), 'firm_id', tests.create_firm(tests.account_id('cc-team')), 'owner_user_id', tests.get_uid('cc_owner'), 'description', 'One'), null, 'service');
 select public.append_deal_event('cc000000-0000-0000-0000-0000000000d2', 'deal', 'cc000000-0000-0000-0000-0000000000d2', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('cc-team'), 'owner_user_id', tests.get_uid('cc_owner'), 'description', 'Two'), null, 'service');
+  jsonb_build_object('account_id', tests.account_id('cc-team'), 'firm_id', tests.create_firm(tests.account_id('cc-team')), 'owner_user_id', tests.get_uid('cc_owner'), 'description', 'Two'), null, 'service');
 
 -- ---- Making a template the default ----
 select tests.login_as('cc_owner');

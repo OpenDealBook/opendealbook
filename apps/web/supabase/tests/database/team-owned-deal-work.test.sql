@@ -59,7 +59,7 @@ select tests.login_as('tw_owner');
 select throws_ok(
   $$ select public.append_deal_event('7e000000-0000-0000-0000-0000000000d1', 'deal',
        '7e000000-0000-0000-0000-0000000000d1', 'deal.created',
-       jsonb_build_object('account_id', tests.get_uid('tw_owner'), 'description', 'Personal deal')) $$,
+       jsonb_build_object('account_id', tests.get_uid('tw_owner'), 'firm_id', tests.create_firm(tests.get_uid('tw_owner')), 'description', 'Personal deal')) $$,
   '23514', null,
   'a deal cannot be opened on a personal account'
 );
@@ -67,7 +67,7 @@ select throws_ok(
 select lives_ok(
   $$ select public.append_deal_event('7e000000-0000-0000-0000-0000000000d2', 'deal',
        '7e000000-0000-0000-0000-0000000000d2', 'deal.created',
-       jsonb_build_object('account_id', tests.account_id('tw-team'), 'description', 'Team deal')) $$,
+       jsonb_build_object('account_id', tests.account_id('tw-team'), 'firm_id', tests.create_firm(tests.account_id('tw-team')), 'description', 'Team deal')) $$,
   'a deal is opened on a team'
 );
 

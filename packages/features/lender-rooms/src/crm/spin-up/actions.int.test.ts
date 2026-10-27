@@ -114,13 +114,23 @@ async function provisionOwner(handle = `spin-${suffix}`) {
 async function newDeal(accountId = teamAccountId) {
   const dealId = crypto.randomUUID();
 
+  const { data: firm } = await admin
+    .from('firm')
+    .insert({ account_id: accountId, name: 'Spin up deal' })
+    .select('id')
+    .single()
+    .throwOnError();
   await admin
     .rpc('append_deal_event', {
       p_deal_id: dealId,
       p_aggregate_type: 'deal',
       p_aggregate_id: dealId,
       p_event_type: 'deal.created',
-      p_payload: { account_id: accountId, description: 'Spin up deal' },
+      p_payload: {
+        firm_id: firm.id,
+        account_id: accountId,
+        description: 'Spin up deal',
+      },
       p_actor_kind: 'service',
     })
     .throwOnError();

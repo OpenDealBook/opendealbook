@@ -5,7 +5,7 @@
 create table if not exists public.deal (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
-  firm_id uuid references public.firm (id) on delete set null,
+  firm_id uuid not null references public.firm (id) on delete restrict,
   owner_user_id uuid references auth.users,
   description text,
   code_name text check (char_length(code_name) between 2 and 40),
@@ -154,3 +154,22 @@ $$;
 create trigger firm_name_not_inside_code_name
   before update of name on public.firm
   for each row execute function public.refuse_firm_name_inside_code_name();
+
+-- A firm with deals cannot be deleted while its team stands; deleting the team
+-- still takes its firms and deals together.
+create or replace function public.refuse_firm_delete_with_deals()
+  returns trigger
+  language plpgsql
+  set search_path = '' as $$
+begin
+  if exists (select 1 from public.deal d where d.firm_id = old.id)
+    and exists (select 1 from public.accounts a where a.id = old.account_id) then
+    raise exception 'Move or delete its deals first' using errcode = 'foreign_key_violation';
+  end if;
+  return old;
+end;
+$$;
+
+create trigger firm_keeps_its_deals
+  before delete on public.firm
+  for each row execute function public.refuse_firm_delete_with_deals();

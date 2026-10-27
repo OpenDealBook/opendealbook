@@ -70,7 +70,7 @@ select hasnt_column('public', 'notifications', 'read_at', 'read state no longer 
 
 select public.append_deal_event('b0400000-0000-0000-0000-0000000000d1', 'deal',
   'b0400000-0000-0000-0000-0000000000d1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('nread-team'), 'owner_user_id', tests.get_uid('nread_owner'),
+  jsonb_build_object('account_id', tests.account_id('nread-team'), 'firm_id', tests.create_firm(tests.account_id('nread-team')), 'owner_user_id', tests.get_uid('nread_owner'),
     'description', 'Read state deal'), null, 'service');
 select public.append_deal_event('b0400000-0000-0000-0000-0000000000d1', 'deal_participant',
   gen_random_uuid(), 'deal_participant.added',

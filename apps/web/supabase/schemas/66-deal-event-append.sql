@@ -160,6 +160,19 @@ begin
 end;
 $$;
 
+-- Every deal has its business from the start.
+create or replace function public.check_deal_created_event(
+  p_event_type text,
+  p_payload jsonb
+) returns void
+  language plpgsql set search_path = '' as $$
+begin
+  if p_event_type = 'deal.created' and p_payload ->> 'firm_id' is null then
+    raise exception 'a new deal needs a firm' using errcode = 'check_violation';
+  end if;
+end;
+$$;
+
 -- contract.created overwrites the status of a contract that already exists;
 -- contract.version_set changes it only when the payload names one. A new
 -- contract starts as a draft.
@@ -270,6 +283,7 @@ begin
     perform public.check_contract_event(p_deal_id, p_aggregate_id, p_event_type, p_payload);
   elsif p_aggregate_type = 'deal' then
     perform public.check_deal_close_deadline_event(p_event_type, p_payload);
+    perform public.check_deal_created_event(p_event_type, p_payload);
   elsif p_aggregate_type = 'checklist_item' then
     perform public.check_checklist_item_event(p_deal_id, v_account_id, p_payload);
   end if;

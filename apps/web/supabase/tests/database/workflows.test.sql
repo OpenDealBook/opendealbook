@@ -199,8 +199,8 @@ select is_empty(
   'a member cannot change a workflow'
 );
 
-select is((select count(*)::int from public.workflow), 1, 'a member reads only the team''s workflows');
-select is((select count(*)::int from public.workflow_version), 2, 'a member reads the team''s versions');
+select is((select count(*)::int from public.workflow where system_key is null), 1, 'a member reads only the team''s workflows');
+select is((select count(*)::int from public.workflow_version v join public.workflow w on w.id = v.workflow_id where w.system_key is null), 2, 'a member reads the team''s versions');
 select is((select count(*)::int from public.workflow_trigger), 1, 'a member reads the team''s triggers');
 
 select tests.login_as_service_role();

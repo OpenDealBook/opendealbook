@@ -14,7 +14,7 @@ export async function notifyOverdueMilestones(today: string): Promise<void> {
   const { data: overdue } = await admin
     .from('deal_milestone')
     .select(
-      'id, account_id, deal_id, kind, label, target_on, deal!inner(owner_user_id, description, firm(name), accounts!deal_account_id_fkey(slug))',
+      'id, account_id, deal_id, kind, label, target_on, deal!inner(owner_user_id, firm(name), accounts!deal_account_id_fkey(slug))',
     )
     .lt('target_on', today)
     .is('actual_on', null)
@@ -68,7 +68,7 @@ export async function notifyOverdueMilestones(today: string): Promise<void> {
       milestone.kind === 'custom'
         ? milestone.label!
         : FIXED_MILESTONES[milestone.kind].label;
-    const dealName = deal.firm?.name ?? deal.description ?? 'your deal';
+    const dealName = deal.firm.name;
     const dueOn = new Date(
       `${milestone.target_on}T00:00:00Z`,
     ).toLocaleDateString('en-US', {

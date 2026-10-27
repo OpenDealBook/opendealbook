@@ -8,7 +8,7 @@ select public.create_team_account('Years', tests.get_uid('years_owner'), 'years'
 select tests.login_as('years_owner');
 select public.append_deal_event('c0c0c0c0-0000-0000-0000-0000000000c1', 'deal',
   'c0c0c0c0-0000-0000-0000-0000000000c1', 'deal.created',
-  jsonb_build_object('account_id', tests.account_id('years'), 'description', 'Deal C', 'website', 'https://c.test'));
+  jsonb_build_object('account_id', tests.account_id('years'), 'firm_id', tests.create_firm(tests.account_id('years')), 'description', 'Deal C', 'website', 'https://c.test'));
 
 select public.append_deal_event('c0c0c0c0-0000-0000-0000-0000000000c1', 'deal',
   'c0c0c0c0-0000-0000-0000-0000000000c1', 'deal.financials_adopted',

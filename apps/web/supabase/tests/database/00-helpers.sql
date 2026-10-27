@@ -44,6 +44,13 @@ create or replace function tests.account_id(slug text)
   select id from public.accounts where accounts.slug = account_id.slug limit 1;
 $$ language sql;
 
+create or replace function tests.create_firm(account_id uuid)
+  returns uuid
+  security definer
+  set search_path = '' as $$
+  insert into public.firm (account_id, name) values (create_firm.account_id, 'Fixture business') returning id;
+$$ language sql;
+
 create or replace function tests.login_as(identifier text)
   returns void as $$
 declare
