@@ -8,7 +8,7 @@ import {
 } from './fixtures';
 import { addTeamMember } from './fixtures/calc';
 
-test('a manager connects, refuses an unsafe URL and disconnects the AI provider; a member sees it read-only', async ({
+test('a manager connects a local stand-in URL on the e2e stack and disconnects the AI provider; a member sees it read-only', async ({
   page,
   browser,
   auth,
@@ -26,10 +26,6 @@ test('a manager connects, refuses an unsafe URL and disconnects the AI provider;
   await page.getByLabel('API key', { exact: true }).fill('sk-not-a-real-key');
   await page.getByLabel('Base URL', { exact: true }).fill('http://127.0.0.1:9999/v1');
   await page.getByRole('button', { name: 'Save', exact: true }).first().click();
-  await expect(page.locator('p[role=alert]').filter({ hasText: /public HTTPS/i })).toBeVisible();
-
-  await page.getByLabel('Base URL', { exact: true }).fill('https://example.com/v1');
-  await page.getByRole('button', { name: 'Save', exact: true }).first().click();
   await expect(page.getByLabel('API key', { exact: true })).toBeEnabled({ timeout: 60 * 1000 });
   await page.reload();
   await expect(page.getByLabel('API key', { exact: true })).toHaveAttribute(
@@ -37,7 +33,8 @@ test('a manager connects, refuses an unsafe URL and disconnects the AI provider;
     'Saved. Paste a new key to replace it',
   );
   await expect(page.getByLabel('Model', { exact: true })).toHaveValue('llama-test');
-  await expect(page.getByLabel('Base URL', { exact: true })).toHaveValue('https://example.com/v1');
+  await expect(page.getByLabel('Base URL', { exact: true })).toHaveValue('http://127.0.0.1:9999/v1');
+  await expect(page.locator('p[role=alert]')).toHaveCount(0);
   await expect(page.getByLabel('API key', { exact: true })).toHaveValue('');
   await expect(page.getByLabel('API key', { exact: true })).toHaveAttribute('type', 'password');
 

@@ -4,6 +4,15 @@ import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { runVerification } from '@odb/verification';
 
+import {
+  ADD_EMBEDDING_MODEL,
+  ANTHROPIC_HAS_NO_EMBEDDINGS,
+  CapReached,
+  CONNECT_AI_PROVIDER,
+  meterTeamAiCall,
+  resolveTeamAi,
+} from '../builder/teamAiKey';
+
 export {
   discoverSbaResources,
   loadDealBoxNaicsUnion,
@@ -67,6 +76,7 @@ export {
   failLeadImport,
   importLeadFile,
   recordUndatedFile,
+  skipLeadImport,
   startLeadImport,
 } from '../leadImports/activities';
 export { matchImportedRecords } from '../leadMatch/matchImportedRecords';
@@ -428,38 +438,46 @@ export interface EmbedDocumentChunksInput {
   markdown: string;
 }
 
+async function skipEmbedding(jobId: string, reason: string): Promise<{ skippedReason: string }> {
+  await getSupabaseServerAdminClient()
+    .from('embedding_job')
+    .update({ status: 'skipped', skipped_reason: reason })
+    .eq('id', jobId)
+    .throwOnError();
+  return { skippedReason: reason };
+}
+
 export async function embedDocumentChunks(
   input: EmbedDocumentChunksInput,
-): Promise<{ chunkCount: number; model: string }> {
-  const client = getSupabaseServerAdminClient();
+): Promise<{ chunkCount: number; model: string } | { skippedReason: string }> {
+  const ai = await resolveTeamAi(input.accountId, 'embedding');
 
-  const { data: endpoint, error } = await client
-    .from('llm_endpoint')
-    .select('model, base_url, api_key_secret_ref')
-    .eq('account_id', input.accountId)
-    .limit(1)
-    .single();
+  if (!ai) {
+    const hasKey = (await resolveTeamAi(input.accountId, 'chat')) !== null;
+    return skipEmbedding(input.jobId, hasKey ? ADD_EMBEDDING_MODEL : CONNECT_AI_PROVIDER);
+  }
 
-  const apiKey = endpoint?.api_key_secret_ref
-    ? process.env[endpoint.api_key_secret_ref]
-    : undefined;
-
-  if (error || !endpoint?.base_url || !endpoint.model || !apiKey) {
-    console.warn(
-      `[workflows] embedding ingestion unavailable: no usable llm_endpoint for account ${input.accountId}`,
-    );
-    return { chunkCount: 0, model: '' };
+  if (ai.provider === 'anthropic') {
+    return skipEmbedding(input.jobId, ANTHROPIC_HAS_NO_EMBEDDINGS);
   }
 
   const chunks = chunkMarkdown(input.markdown);
-  const vectors = await embedTexts(
-    {
-      baseUrl: endpoint.base_url,
-      model: endpoint.model,
-      apiKey,
-    },
-    chunks,
-  );
+  let vectors: number[][];
+  try {
+    vectors = await meterTeamAiCall(ai, { dealId: input.dealId }, async () => ({
+      result: await embedTexts(
+        { baseUrl: ai.baseUrl, model: ai.model, apiKey: ai.apiKey },
+        chunks,
+      ),
+      promptTokens: null,
+      completionTokens: null,
+    }));
+  } catch (error) {
+    if (error instanceof CapReached) {
+      return skipEmbedding(input.jobId, error.message);
+    }
+    throw error;
+  }
 
   const rows = chunks.map((content, index) => ({
     account_id: input.accountId,
@@ -470,7 +488,7 @@ export async function embedDocumentChunks(
     embedding: JSON.stringify(vectors[index]),
   }));
 
-  const { error: insertError } = await client
+  const { error: insertError } = await getSupabaseServerAdminClient()
     .from('document_chunk')
     .insert(rows);
 
@@ -478,15 +496,7 @@ export async function embedDocumentChunks(
     throw insertError;
   }
 
-  await client.from('ai_call_log').insert({
-    account_id: input.accountId,
-    deal_id: input.dealId,
-    model: endpoint.model,
-    prompt_tokens: null,
-    completion_tokens: null,
-  });
-
-  return { chunkCount: rows.length, model: endpoint.model };
+  return { chunkCount: rows.length, model: ai.model };
 }
 
 export interface CompleteEmbeddingJobInput {
@@ -532,6 +542,7 @@ export async function runDealVerification(
     runnableChecks,
     notify: (notification) =>
       triggerNotification({ novu: createNovuClient(), client }, notification),
+    skipReason: (error) => (error instanceof CapReached ? error.message : null),
   });
 }
 

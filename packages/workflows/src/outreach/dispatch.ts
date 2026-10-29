@@ -16,7 +16,7 @@ const DAY_MS = 86_400_000;
 
 const DELIVERED_LETTER_STATUSES = ['created', 'mailed', 'in_transit', 'delivered', 'returned'] as const;
 
-type OutreachMessageStatus = 'sending' | 'sent' | 'failed' | 'unknown';
+type OutreachMessageStatus = 'sending' | 'sent' | 'failed' | 'unknown' | 'retried';
 
 interface OutreachSettingRow {
   daily_cap: number;
@@ -65,6 +65,7 @@ interface OutreachMessageRow {
   status: OutreachMessageStatus;
   sent_at: string | null;
   provider_thread_id: string | null;
+  outreach_enrollment: { status: string };
 }
 
 interface FirstEmail {
@@ -162,7 +163,13 @@ export async function dispatchAccountOutreach(
   const touches = new Map<string, number>();
   const addTouch = (email: string) =>
     touches.set(email.toLowerCase(), (touches.get(email.toLowerCase()) ?? 0) + 1);
-  messages.filter((message) => message.status === 'sent').forEach((message) => addTouch(message.to_email));
+  messages
+    .filter(
+      (message) =>
+        message.status === 'sent' ||
+        (message.status === 'unknown' && message.outreach_enrollment.status === 'failed'),
+    )
+    .forEach((message) => addTouch(message.to_email));
   letterTargets.forEach(addTouch);
   const atTouchLimit = (enrollment: OutreachEnrollmentRow) =>
     (touches.get(enrollment.target_email.toLowerCase()) ?? 0) >= setting.max_touches;
@@ -370,6 +377,7 @@ async function deliverOutreach(args: {
         .delete()
         .eq('enrollment_id', enrollment.id)
         .eq('step_id', enrollment.current_step)
+        .neq('status', 'retried')
         .throwOnError();
       await holdForNextTick(client, enrollment, 'email', message);
     }
@@ -399,6 +407,7 @@ async function settleRecordedStep(
     .select('status')
     .eq('enrollment_id', enrollment.id)
     .eq('step_id', enrollment.current_step)
+    .neq('status', 'retried')
     .single()
     .throwOnError();
 
@@ -523,6 +532,7 @@ async function markMessage(
     .update(outcome)
     .eq('enrollment_id', enrollment.id)
     .eq('step_id', enrollment.current_step)
+    .neq('status', 'retried')
     .throwOnError();
 }
 
@@ -543,6 +553,7 @@ async function loadMergeContext(
   return {
     recipient: {
       name: recipient?.name ?? undefined,
+      firstName: recipient?.name?.trim().split(/\s+/)[0],
       email: recipient?.email ?? enrollment.target_email,
     },
     firm: firm
@@ -617,7 +628,7 @@ async function loadAccountMessages(
   const { data } = await client
     .from('outreach_message')
     .select(
-      'enrollment_id, step_id, to_email, subject, status, sent_at, provider_thread_id, outreach_enrollment!inner(account_id)',
+      'enrollment_id, step_id, to_email, subject, status, sent_at, provider_thread_id, outreach_enrollment!inner(account_id, status)',
     )
     .eq('outreach_enrollment.account_id', accountId)
     .throwOnError();

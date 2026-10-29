@@ -7,6 +7,7 @@ import {
 
 const holder = vi.hoisted(() => ({
   client: null as unknown,
+  admin: null as unknown,
   userId: '',
 }));
 
@@ -19,6 +20,11 @@ vi.mock('@odb/next/actions', () => ({
 
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => holder.client,
+  getSupabaseServerAdminClient: () => holder.admin,
+}));
+
+vi.mock('@odb/workflows/builder/client', () => ({
+  cancelRuns: async () => ({ cancelled: [], unreached: [] }),
 }));
 
 import {
@@ -26,6 +32,7 @@ import {
   archiveDeal,
   createDeal,
   createDealCore,
+  deleteDeal,
   setDealResolution,
   starDeal,
   unarchiveDeal,
@@ -59,6 +66,7 @@ function newDeal(description: string): Promise<string> {
 beforeAll(async () => {
   account = await provisionAccount();
   holder.client = account.user;
+  holder.admin = account.admin;
   holder.userId = account.userId;
   actor = { id: account.userId };
 });
@@ -288,5 +296,41 @@ describe('archive toggle (integration)', () => {
       .single();
 
     expect(unarchived.data?.archived_at).toBeNull();
+  });
+});
+
+describe('deleteDeal (integration)', () => {
+  it('deletes an archived deal and removes its files from storage', async () => {
+    const dealId = await newDeal('Deal to delete');
+    const path = `deal/${dealId}/1-p-and-l.pdf`;
+
+    const upload = await account.admin.storage
+      .from('data-room')
+      .upload(path, new Blob(['p and l']));
+
+    expect(upload.error).toBeNull();
+
+    await (archiveDeal as unknown as Action)({ deal_id: dealId }, actor);
+
+    const result = await (deleteDeal as unknown as Action)(
+      { deal_id: dealId, confirm_name: 'Deal to delete' },
+      actor,
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    const deal = await account.admin
+      .from('deal')
+      .select('id')
+      .eq('id', dealId)
+      .maybeSingle();
+
+    expect(deal.data).toBeNull();
+
+    const files = await account.admin.storage
+      .from('data-room')
+      .list(`deal/${dealId}`);
+
+    expect(files.data).toEqual([]);
   });
 });

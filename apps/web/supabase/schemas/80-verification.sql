@@ -8,7 +8,7 @@
 -- access, mirroring dr_document, and never writes directly.
 
 create type public.verification_severity as enum ('info', 'warning', 'error');
-create type public.verification_run_status as enum ('queued', 'running', 'done', 'failed');
+create type public.verification_run_status as enum ('queued', 'running', 'done', 'failed', 'skipped');
 create type public.verification_finding_status as enum ('open', 'resolved', 'dismissed');
 
 create table if not exists public.verification_run (
@@ -19,6 +19,7 @@ create table if not exists public.verification_run (
   trigger text not null,
   started_at timestamptz,
   finished_at timestamptz,
+  skipped_reason text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users default auth.uid()

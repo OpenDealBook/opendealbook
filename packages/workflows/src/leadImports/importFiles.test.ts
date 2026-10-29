@@ -31,6 +31,7 @@ describe('importFiles', () => {
         failures.push(failure);
       },
       recordUndatedFile: async () => {},
+      skipLeadImport: async () => {},
     });
 
     expect(failures).toEqual([
@@ -55,6 +56,7 @@ describe('importFiles', () => {
       matchImportedRecords: async () => {},
       failLeadImport: async () => {},
       recordUndatedFile: async () => {},
+      skipLeadImport: async () => {},
     });
 
     expect(imported).toEqual([]);
@@ -82,6 +84,7 @@ describe('importFiles', () => {
         },
         failLeadImport: async () => {},
         recordUndatedFile: async () => {},
+        skipLeadImport: async () => {},
       },
     );
 
@@ -113,6 +116,7 @@ describe('importFiles', () => {
         failures.push(failure);
       },
       recordUndatedFile: async () => {},
+      skipLeadImport: async () => {},
     });
 
     expect(failures).toEqual([
@@ -134,7 +138,7 @@ describe('importFiles', () => {
       [
         {
           kind: 'state_registry',
-          state: 'NY',
+          dataset: 'NY',
           url: 'https://ny.test/rows.csv',
           failure: 'HEAD answered 503',
         },
@@ -151,6 +155,7 @@ describe('importFiles', () => {
         recordUndatedFile: async ({ importId, reason }) => {
           recorded.push({ importId, reason });
         },
+        skipLeadImport: async () => {},
       },
     );
 
@@ -159,5 +164,65 @@ describe('importFiles', () => {
     ]);
     expect(imported).toEqual(['https://sba.test/fine.csv']);
     expect(result).toEqual({ failed: ['https://ny.test/rows.csv'] });
+  });
+
+  it('skips a detail file, with a reason, when its parent file failed or was skipped in the same run', async () => {
+    const imported: string[] = [];
+    const skips: { importId: string; url: string; reason: string }[] = [];
+    let ids = 0;
+    const registry = (dataset: string, parent?: string): LeadFile => ({
+      kind: 'state_registry',
+      dataset,
+      url: `https://registry.test/${dataset}.csv`,
+      asOf: '2026-10-25',
+      ...(parent ? { parent } : {}),
+    });
+
+    const result = await importFiles(
+      [
+        registry('CT'),
+        registry('CT principals', 'CT'),
+        registry('OR'),
+        registry('OR officers', 'OR'),
+        registry('IA'),
+        registry('NY'),
+        registry('NY officers', 'NY'),
+      ],
+      {
+        newId: () => `import-${(ids += 1)}`,
+        startLeadImport: async ({ file }) => ({
+          skipped: file.url.endsWith('/OR.csv'),
+        }),
+        importLeadFile: async ({ file }) => {
+          if (file.url.endsWith('/CT.csv')) throw new Error('CT answered 503');
+          imported.push(file.url);
+        },
+        matchImportedRecords: async () => {},
+        failLeadImport: async () => {},
+        recordUndatedFile: async () => {},
+        skipLeadImport: async ({ importId, file, reason }) => {
+          skips.push({ importId, url: file.url, reason });
+        },
+      },
+    );
+
+    expect(skips).toEqual([
+      {
+        importId: 'import-2',
+        url: 'https://registry.test/CT principals.csv',
+        reason: 'CT did not load in this run',
+      },
+      {
+        importId: 'import-4',
+        url: 'https://registry.test/OR officers.csv',
+        reason: 'OR did not load in this run',
+      },
+    ]);
+    expect(imported).toEqual([
+      'https://registry.test/IA.csv',
+      'https://registry.test/NY.csv',
+      'https://registry.test/NY officers.csv',
+    ]);
+    expect(result).toEqual({ failed: ['https://registry.test/CT.csv'] });
   });
 });

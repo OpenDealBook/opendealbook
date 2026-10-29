@@ -19,7 +19,7 @@ export default async function TeamDealLayout({
   params: Promise<{ account: string; id: string }>;
 }) {
   const { account, id } = await params;
-  const { user, team, permissions } = await loadTeamWorkspace(account);
+  const { user, team, permissions, isOwner } = await loadTeamWorkspace(account);
   const client = getSupabaseServerClient();
 
   const [
@@ -73,6 +73,7 @@ export default async function TeamDealLayout({
         stages={stages}
         starred={deal.deal_star.some((star) => star.user_id === user.id)}
         canManage={permissions.includes('deals.manage')}
+        isOwner={isOwner}
         dealsHref={`/home/${account}/deals`}
         industries={industries}
         otherBusinessNames={otherDeals.map((other) => other.firm.name)}

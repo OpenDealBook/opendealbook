@@ -35,6 +35,8 @@
     "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",
+    "@odb/workflows": "workspace:*",
+    "server-only": "^0.0.1",
     "unpdf": "1.8.1",
     "zod": "catalog:"
   },

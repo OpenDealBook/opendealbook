@@ -35,19 +35,6 @@ export const updatePersonalAccountNameAction = enhanceAction(
   { auth: true, schema: UpdateAccountNameSchema },
 );
 
-export const rememberDetectedTimezoneAction = enhanceAction(
-  async (data, user) => {
-    await getSupabaseServerClient()
-      .from('accounts')
-      .update({ timezone: data.timezone })
-      .eq('primary_owner_user_id', user.id)
-      .eq('is_personal_account', true)
-      .is('timezone', null)
-      .throwOnError();
-  },
-  { auth: true, schema: UpdateTimezoneSchema },
-);
-
 export const updatePersonalTimezoneAction = enhanceAction(
   async (data, user) => {
     await getSupabaseServerClient()

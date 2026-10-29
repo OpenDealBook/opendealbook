@@ -32,9 +32,6 @@ export const DOCUMENSO_WEBHOOK_SECRET =
 export const STRIPE_WEBHOOK_SECRET = 'whsec_e2e_opendealbook_stand_in_secret';
 export const NANGO_SECRET_KEY = 'nango-e2e-stand-in-secret';
 
-// llm_endpoint.api_key_secret_ref names this variable; the web server and the
-// workers must both carry it for the LLM stand-in to be reachable.
-export const LLM_API_KEY_ENV = 'E2E_LLM_API_KEY';
 export const LLM_API_KEY = 'sk-e2e-stand-in';
 
 export const serviceHeaders = {

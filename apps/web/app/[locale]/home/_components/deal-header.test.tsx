@@ -63,6 +63,7 @@ function render(props: Partial<ComponentProps<typeof DealHeader>> = {}) {
         stages={stages}
         starred={false}
         canManage={true}
+        isOwner={false}
         dealsHref={'/home/harbor/deals'}
         industries={[]}
         otherBusinessNames={[]}
@@ -103,6 +104,19 @@ afterEach(() => {
 });
 
 describe('DealHeader', () => {
+  it('lets the team owner delete an archived deal by typing its business name', () => {
+    render({
+      deal: { ...deal, archived_at: '2026-10-01T00:00:00Z' },
+      isOwner: true,
+    });
+
+    act(() => button('Delete').click());
+
+    expect(document.body.textContent).toContain(
+      'Type Brennan Climate Services to confirm.',
+    );
+  });
+
   it('names the deal by its business name with its stage and a way back to Deals', () => {
     render();
 

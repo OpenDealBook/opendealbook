@@ -88,7 +88,7 @@ function run(idempotencyKey: string, config: Record<string, unknown>, signal?: A
 }
 
 describe('ask_ai step (integration)', () => {
-  it("sends the prompt to the team's endpoint with people redacted, returns the text and logs the call", async () => {
+  it("sends the prompt to the team's endpoint unchanged, team people included, returns the text and logs the call", async () => {
     provider.reply.body = openAiReply('Three firms look promising.').body;
     provider.received.length = 0;
 
@@ -98,7 +98,7 @@ describe('ask_ai step (integration)', () => {
 
     expect(output).toEqual({ text: 'Three firms look promising.' });
     expect(provider.received.map((call) => call.body.messages[0]!.content)).toEqual([
-      'Summarise [name] ([email], [phone]) pipeline for [name], cc [name]',
+      'Summarise Priya Okafor (priya@okafor.test, 555-201-3344) pipeline for Rosa, cc Delgado',
     ]);
     const { data: log } = await owner.admin
       .from('ai_call_log')
@@ -106,6 +106,26 @@ describe('ask_ai step (integration)', () => {
       .eq('account_id', owner.accountId)
       .throwOnError();
     expect(log).toEqual([{ model: 'team-model', prompt_tokens: 12, completion_tokens: 5 }]);
+  });
+
+  it('reaches a private provider address only when private AI URLs are allowed on a local stack', async () => {
+    const privateProvider = await fakeAiProvider(openAiReply('From the stand-in.'));
+    await pointEndpointAt(privateProvider.baseUrl);
+    vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', undefined);
+    vi.stubEnv('ODB_STACK', undefined);
+
+    try {
+      await expect(run('run-1:ask:private:0', { prompt: 'Hi' })).rejects.toThrow('Use a public HTTPS base URL');
+      expect(privateProvider.received).toEqual([]);
+
+      vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
+      vi.stubEnv('ODB_STACK', 'local');
+      expect(await run('run-1:ask:private:1', { prompt: 'Hi' })).toEqual({ text: 'From the stand-in.' });
+    } finally {
+      vi.unstubAllEnvs();
+      privateProvider.close();
+      await pointEndpointAt(provider.baseUrl);
+    }
   });
 
   it('saves the settings model as the chat model only, leaving the embedding model unset', async () => {

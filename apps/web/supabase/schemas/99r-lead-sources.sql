@@ -22,6 +22,7 @@ create table if not exists public.lead_import (
   rows_rejected int not null default 0,
   as_of date,
   rows_with_nulled_fields int not null default 0,
+  rows_unmatched int not null default 0,
   error text,
   created_at timestamptz not null default now()
 );
@@ -92,6 +93,7 @@ create table if not exists public.state_registry_entity (
   id uuid primary key default gen_random_uuid(),
   state text not null,
   entity_number text not null,
+  source_id text,
   business_id uuid references public.public_business (id) on delete set null,
   import_id uuid references public.lead_import (id) on delete set null,
   name text not null,
@@ -110,9 +112,11 @@ create table if not exists public.state_registry_entity (
 create table if not exists public.state_registry_officer (
   id uuid primary key default gen_random_uuid(),
   entity_id uuid not null references public.state_registry_entity (id) on delete cascade,
+  dataset text,
+  import_id uuid references public.lead_import (id) on delete set null,
   name text not null,
   title text,
-  constraint state_registry_officer_entity_name_title_key unique nulls not distinct (entity_id, name, title)
+  constraint state_registry_officer_entity_dataset_name_title_key unique nulls not distinct (entity_id, dataset, name, title)
 );
 
 create index ix_ppp_loan_business on public.ppp_loan (business_id);
@@ -120,6 +124,7 @@ create index ix_sba_loan_business on public.sba_loan (business_id);
 create index ix_form_5500_filing_business on public.form_5500_filing (business_id);
 create index ix_form_5500_filing_ein on public.form_5500_filing (ein);
 create index ix_state_registry_entity_business on public.state_registry_entity (business_id);
+create unique index ux_state_registry_entity_source_id on public.state_registry_entity (state, source_id);
 create index ix_state_registry_officer_entity on public.state_registry_officer (entity_id);
 create index ix_public_business_match_key_prefix on public.public_business (match_key text_pattern_ops);
 
@@ -175,6 +180,182 @@ $$;
 
 revoke all on function public.registry_entity_needs_fetch(text, text) from public, anon, authenticated;
 grant execute on function public.registry_entity_needs_fetch(text, text) to service_role;
+
+-- A newer import of a file is the truth for the fields that file carries, so
+-- what it leaves blank is cleared; later batches of the same import only fill
+-- in. Officers remember the file and import that last listed them, so a newer
+-- import removes the ones it no longer lists for an entity, and only its own.
+-- source_id is the id a state's other files use to refer to the entity, so
+-- principals and agents published separately attach through it. A state that
+-- publishes only active businesses marks the active bulk-file entities it
+-- stopped listing, unless the file shrank below 80% of the last good one. A
+-- row whose source id another row or entity already holds is refused rather
+-- than failing the import.
+create or replace function public.upsert_state_registry_entities(p_rows jsonb, p_supplied text[])
+  returns table (id uuid, entity_number text)
+  language sql
+  set search_path = '' as $$
+  with incoming as (
+    select * from jsonb_populate_recordset(null::public.state_registry_entity, p_rows) with ordinality
+  ),
+  claimable as (
+    select i.* from incoming i
+    where i.source_id is null
+      or not exists (
+        select 1 from public.state_registry_entity held
+        where held.state = i.state
+          and held.source_id = i.source_id
+          and held.entity_number <> i.entity_number
+      )
+  ),
+  accepted as (
+    select c.* from claimable c
+    where c.source_id is null
+      or not exists (
+        select 1 from claimable earlier
+        where earlier.state = c.state
+          and earlier.source_id = c.source_id
+          and earlier.ordinality < c.ordinality
+      )
+  )
+  insert into public.state_registry_entity as e (
+    state, entity_number, source_id, import_id, name, status, formation_date,
+    registered_agent, mailing_address_line1, mailing_city, mailing_state,
+    mailing_postal_code, source, fetched_at
+  )
+  select
+    r.state, r.entity_number, r.source_id, r.import_id, r.name, r.status, r.formation_date,
+    r.registered_agent, r.mailing_address_line1, r.mailing_city, r.mailing_state,
+    r.mailing_postal_code, r.source, r.fetched_at
+  from accepted r
+  on conflict (state, entity_number) do update set
+    source_id = case when e.import_id = excluded.import_id or not 'source_id' = any (p_supplied)
+      then coalesce(excluded.source_id, e.source_id) else excluded.source_id end,
+    status = case when e.import_id = excluded.import_id or not 'status' = any (p_supplied)
+      then coalesce(excluded.status, e.status) else excluded.status end,
+    formation_date = case when e.import_id = excluded.import_id or not 'formation_date' = any (p_supplied)
+      then coalesce(excluded.formation_date, e.formation_date) else excluded.formation_date end,
+    registered_agent = case when e.import_id = excluded.import_id or not 'registered_agent' = any (p_supplied)
+      then coalesce(excluded.registered_agent, e.registered_agent) else excluded.registered_agent end,
+    mailing_address_line1 = case when e.import_id = excluded.import_id or not 'mailing_address_line1' = any (p_supplied)
+      then coalesce(excluded.mailing_address_line1, e.mailing_address_line1) else excluded.mailing_address_line1 end,
+    mailing_city = case when e.import_id = excluded.import_id or not 'mailing_city' = any (p_supplied)
+      then coalesce(excluded.mailing_city, e.mailing_city) else excluded.mailing_city end,
+    mailing_state = case when e.import_id = excluded.import_id or not 'mailing_state' = any (p_supplied)
+      then coalesce(excluded.mailing_state, e.mailing_state) else excluded.mailing_state end,
+    mailing_postal_code = case when e.import_id = excluded.import_id or not 'mailing_postal_code' = any (p_supplied)
+      then coalesce(excluded.mailing_postal_code, e.mailing_postal_code) else excluded.mailing_postal_code end,
+    import_id = excluded.import_id,
+    name = excluded.name,
+    source = excluded.source,
+    fetched_at = greatest(e.fetched_at, excluded.fetched_at)
+  returning e.id, e.entity_number;
+$$;
+
+revoke all on function public.upsert_state_registry_entities(jsonb, text[]) from public, anon, authenticated;
+grant execute on function public.upsert_state_registry_entities(jsonb, text[]) to service_role;
+
+create or replace function public.replace_state_registry_officers(
+  p_dataset text,
+  p_import_id uuid,
+  p_entity_ids uuid[],
+  p_officers jsonb
+)
+  returns void
+  language sql
+  set search_path = '' as $$
+  insert into public.state_registry_officer (entity_id, dataset, import_id, name, title)
+  select distinct o.entity_id, p_dataset, p_import_id, o.name, o.title
+  from jsonb_to_recordset(p_officers) as o (entity_id uuid, name text, title text)
+  on conflict (entity_id, dataset, name, title) do update set import_id = excluded.import_id;
+
+  delete from public.state_registry_officer
+  where entity_id = any (p_entity_ids)
+    and dataset = p_dataset
+    and import_id is distinct from p_import_id;
+$$;
+
+revoke all on function public.replace_state_registry_officers(text, uuid, uuid[], jsonb) from public, anon, authenticated;
+grant execute on function public.replace_state_registry_officers(text, uuid, uuid[], jsonb) to service_role;
+
+create or replace function public.attach_state_registry_details(
+  p_state text,
+  p_dataset text,
+  p_import_id uuid,
+  p_rows jsonb
+)
+  returns int
+  language sql
+  set search_path = '' as $$
+  update public.state_registry_entity e
+  set registered_agent = r.registered_agent
+  from jsonb_to_recordset(p_rows) as r (source_id text, registered_agent text)
+  where e.state = p_state
+    and e.source_id = r.source_id
+    and r.registered_agent is not null;
+
+  select public.replace_state_registry_officers(
+    p_dataset,
+    p_import_id,
+    array(
+      select e.id
+      from jsonb_to_recordset(p_rows) as r (source_id text)
+      join public.state_registry_entity e on e.state = p_state and e.source_id = r.source_id
+    ),
+    (
+      select coalesce(jsonb_agg(jsonb_build_object('entity_id', e.id, 'name', o.name, 'title', o.title)), '[]'::jsonb)
+      from jsonb_to_recordset(p_rows) as r (source_id text, officers jsonb)
+      join public.state_registry_entity e on e.state = p_state and e.source_id = r.source_id
+      cross join jsonb_to_recordset(r.officers) as o (name text, title text)
+    )
+  );
+
+  select coalesce(sum(r.rows), 0)::int
+  from jsonb_to_recordset(p_rows) as r (source_id text, rows int)
+  where not exists (
+    select 1 from public.state_registry_entity e
+    where e.state = p_state and e.source_id = r.source_id
+  );
+$$;
+
+revoke all on function public.attach_state_registry_details(text, text, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.attach_state_registry_details(text, text, uuid, jsonb) to service_role;
+
+create or replace function public.mark_unlisted_state_registry_entities(
+  p_state text,
+  p_import_id uuid,
+  p_rows_read int
+)
+  returns boolean
+  language plpgsql
+  set search_path = '' as $$
+declare
+  v_baseline int;
+begin
+  select l.rows_read into v_baseline
+  from public.lead_import l
+  where l.filename = (select c.filename from public.lead_import c where c.id = p_import_id)
+    and l.status = 'succeeded'
+    and l.id <> p_import_id
+  order by l.created_at desc
+  limit 1;
+
+  if v_baseline is null or p_rows_read < 0.8 * v_baseline then
+    return false;
+  end if;
+
+  update public.state_registry_entity
+  set status = 'inactive (no longer listed)'
+  where state = p_state
+    and source = 'bulk_file'
+    and import_id <> p_import_id
+    and status = 'active';
+  return true;
+end;
+$$;
+
+revoke all on function public.mark_unlisted_state_registry_entities(text, uuid, int) from public, anon, authenticated;
+grant execute on function public.mark_unlisted_state_registry_entities(text, uuid, int) to service_role;
 
 alter table public.firm
   add column public_business_id uuid references public.public_business (id) on delete set null;

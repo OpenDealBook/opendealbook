@@ -53,10 +53,19 @@ function deal(overrides: Partial<DealListItem> = {}): DealListItem {
 let container: HTMLDivElement;
 let root: Root;
 
-async function render(item: DealListItem, ownerName: string | null) {
+async function render(
+  item: DealListItem,
+  ownerName: string | null,
+  isOwner = false,
+) {
   await act(async () => {
     root.render(
-      <DealCard deal={item} ownerName={ownerName} detailBasePath={'/home/t/deals'} />,
+      <DealCard
+        deal={item}
+        ownerName={ownerName}
+        isOwner={isOwner}
+        detailBasePath={'/home/t/deals'}
+      />,
     );
   });
 }
@@ -112,5 +121,24 @@ describe('DealCard', () => {
     );
 
     expect(container.textContent).toContain('Site visit, Nov 2, 2026');
+  });
+
+  it('lets the team owner delete an archived deal by typing its business name', async () => {
+    await render(deal({ archivedAt: '2026-10-01T00:00:00Z' }), 'Morgan Reyes', true);
+
+    const trigger = [...container.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent === 'Actions',
+    )!;
+    act(() => {
+      trigger.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      );
+    });
+    const remove = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+      (item) => item.textContent === 'Delete',
+    ) as HTMLElement;
+    act(() => remove.click());
+
+    expect(document.body.textContent).toContain(`Type ${NAME} to confirm.`);
   });
 });

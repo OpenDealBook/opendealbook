@@ -1,10 +1,6 @@
 import { ApplicationFailure } from '@temporalio/common';
 
-import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
-
-import { type AiEndpoint, completeWithTeamAi } from './aiClient';
-import { recordAiCallUsage, reserveAiCall } from './caps';
-import { redactPeople } from './redact';
+import { completeMetered, CONNECT_AI_PROVIDER, resolveTeamAi } from './teamAiKey';
 
 export function parsedJson(text: string): unknown {
   try {
@@ -22,44 +18,17 @@ export async function askTeamAi(args: {
   noProviderMessage?: string;
   signal?: AbortSignal;
 }): Promise<{ text: string; endpointId: string; model: string }> {
-  const admin = getSupabaseServerAdminClient();
-  const [{ data: endpoint }, { data: apiKey }, { data: names }] = await Promise.all([
-    admin
-      .from('llm_endpoint')
-      .select('id, provider, chat_model, base_url')
-      .eq('account_id', args.accountId)
-      .maybeSingle()
-      .throwOnError(),
-    admin.rpc('llm_endpoint_api_key', { p_account_id: args.accountId }).throwOnError(),
-    admin.rpc('team_people_names', { p_account_id: args.accountId }).throwOnError(),
-  ]);
-  const model = endpoint?.chat_model;
-  if (!endpoint || !model || !apiKey) {
-    throw ApplicationFailure.nonRetryable(
-      args.noProviderMessage ?? 'Connect an AI provider first',
-    );
+  const ai = await resolveTeamAi(args.accountId, 'chat');
+  if (!ai) {
+    throw ApplicationFailure.nonRetryable(args.noProviderMessage ?? CONNECT_AI_PROVIDER);
   }
 
   args.signal?.throwIfAborted();
-  const { callId } = await reserveAiCall(args.accountId, {
-    model,
-    endpointId: endpoint.id,
-    firmId: args.firmId,
-    dealId: args.dealId,
-  });
-
-  const completion = await completeWithTeamAi(
-    {
-      provider: endpoint.provider as AiEndpoint['provider'],
-      model,
-      baseUrl: endpoint.base_url!,
-      apiKey,
-    },
-    redactPeople(args.prompt, names!),
-    { signal: args.signal },
+  const text = await completeMetered(
+    ai,
+    { firmId: args.firmId, dealId: args.dealId, signal: args.signal },
+    args.prompt,
   );
 
-  await recordAiCallUsage(callId, completion);
-
-  return { text: completion.text, endpointId: endpoint.id, model };
+  return { text, endpointId: ai.endpointId, model: ai.model };
 }

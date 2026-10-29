@@ -18,7 +18,7 @@ select enum_has_labels('public', 'verification_severity',
   array['info', 'warning', 'error'], 'verification_severity carries its three labels');
 select has_type('public', 'verification_run_status', 'verification_run_status enum exists');
 select enum_has_labels('public', 'verification_run_status',
-  array['queued', 'running', 'done', 'failed'], 'verification_run_status carries its four labels');
+  array['queued', 'running', 'done', 'failed', 'skipped'], 'verification_run_status carries its five labels');
 select has_type('public', 'verification_finding_status', 'verification_finding_status enum exists');
 select enum_has_labels('public', 'verification_finding_status',
   array['open', 'resolved', 'dismissed'], 'verification_finding_status carries its three labels');

@@ -1,0 +1,6 @@
+corp_number,legal_name,corporation_type,effective_date,registered_agent,ra_address_1,ra_address_2,ra_city,ra_state,ra_zip,ra_latitude,ra_longitude,ra_location,home_office,ho_address_1,ho_address_2,ho_city,ho_state,ho_zip,ho_country,ho_latitude,ho_longitude,ho_location
+600101,Sample Iowa Co 1,Domestic Profit,2004-05-11,Morgan Fictional,1 Agent St,,Ames,IA,50010,,,,,1 Sample Rd,,Ames,IA,50014,,,,
+600102,Sample Iowa Co 2,Domestic Profit,2004-05-12,Morgan Fictional,1 Agent St,,Ames,IA,50010,,,,,2 Sample Rd,,Ames,IA,50014,,,,
+600103,Sample Iowa Co 3,Domestic Profit,2004-05-13,Morgan Fictional,1 Agent St,,Ames,IA,50010,,,,,3 Sample Rd,,Ames,IA,50014,,,,
+600104,Sample Iowa Co 4,Domestic Profit,2004-05-14,Morgan Fictional,1 Agent St,,Ames,IA,50010,,,,,4 Sample Rd,,Ames,IA,50014,,,,
+600105,Sample Iowa Co 5,Domestic Profit,2004-05-15,Morgan Fictional,1 Agent St,,Ames,IA,50010,,,,,5 Sample Rd,,Ames,IA,50014,,,,

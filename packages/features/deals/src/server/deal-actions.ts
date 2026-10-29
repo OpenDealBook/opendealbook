@@ -1,8 +1,20 @@
 'use server';
 
+import { z } from 'zod';
+
 import { appendDealEvent, appendDealEvents, type DealEventInput } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
-import { getSupabaseServerClient } from '@odb/supabase/server';
+import { DEAL_DELETED_WORKFLOW_ID } from '@odb/notifications/relay';
+import {
+  createNovuClient,
+  triggerNotification,
+} from '@odb/notifications/server';
+import { getLogger } from '@odb/shared/logger';
+import {
+  getSupabaseServerAdminClient,
+  getSupabaseServerClient,
+} from '@odb/supabase/server';
+import { cancelRuns } from '@odb/workflows/builder/client';
 
 import {
   approvalSchema,
@@ -384,6 +396,156 @@ export const unarchiveDeal = refusableAction(
     dealId: (data) => data.deal_id,
   },
 );
+
+const DEAL_DELETE_REFUSED = 'ODB02';
+const STORAGE_REMOVE_LIMIT = 1000;
+
+const deleteDealSchema = dealIdSchema.extend({ confirm_name: z.string() });
+
+const deletedDealSchema = z.object({
+  account_id: z.string(),
+  deal_id: z.string(),
+  team_name: z.string(),
+  files: z.array(z.object({ bucket: z.string(), path: z.string() })),
+  run_ids: z.array(z.string()),
+  recipients: z.array(
+    z.object({ user_id: z.string(), email: z.string(), deal_name: z.string() }),
+  ),
+});
+
+type DeletedDeal = z.infer<typeof deletedDealSchema>;
+
+interface Cleanup<Left> {
+  left: Left[];
+  errors: string[];
+}
+
+function messageOf(error: unknown): string {
+  return (error as { message: string }).message;
+}
+
+async function removeFiles(
+  files: DeletedDeal['files'],
+): Promise<Cleanup<DeletedDeal['files'][number]>> {
+  const storage = getSupabaseServerAdminClient().storage;
+  const cleanup: Cleanup<DeletedDeal['files'][number]> = { left: [], errors: [] };
+
+  for (const [bucket, inBucket] of Map.groupBy(files, (file) => file.bucket)) {
+    for (let start = 0; start < inBucket.length; start += STORAGE_REMOVE_LIMIT) {
+      const batch = inBucket.slice(start, start + STORAGE_REMOVE_LIMIT);
+      const removed = await storage
+        .from(bucket)
+        .remove(batch.map((file) => file.path))
+        .catch((thrown: unknown) => ({ error: thrown }));
+
+      if (removed.error) {
+        cleanup.left.push(...batch);
+        cleanup.errors.push(messageOf(removed.error));
+      }
+    }
+  }
+
+  return cleanup;
+}
+
+async function cancelDealRuns(runIds: string[]): Promise<Cleanup<string>> {
+  return cancelRuns(runIds).then(
+    (runs) => ({ left: runs.unreached, errors: [] }),
+    (error: unknown) => ({ left: runIds, errors: [messageOf(error)] }),
+  );
+}
+
+async function tellOutsideParties(
+  deleted: DeletedDeal,
+): Promise<Cleanup<string>> {
+  const everyone = deleted.recipients.map((recipient) => recipient.user_id);
+
+  if (!process.env.NOVU_API_KEY || !process.env.NOVU_API_URL) {
+    return { left: everyone, errors: ['Email is not set up'] };
+  }
+
+  const deps = {
+    novu: createNovuClient(),
+    client: getSupabaseServerAdminClient(),
+  };
+  const sent = await Promise.allSettled(
+    deleted.recipients.map((recipient) =>
+      triggerNotification(deps, {
+        eventType: DEAL_DELETED_WORKFLOW_ID,
+        recipientUserId: recipient.user_id,
+        email: recipient.email,
+        payload: { teamName: deleted.team_name, dealName: recipient.deal_name },
+      }),
+    ),
+  );
+  const failed = sent.flatMap((outcome, index) =>
+    outcome.status === 'rejected'
+      ? [{ userId: everyone[index]!, error: messageOf(outcome.reason) }]
+      : [],
+  );
+
+  return {
+    left: failed.map((failure) => failure.userId),
+    errors: failed.map((failure) => failure.error),
+  };
+}
+
+export const deleteDeal = refusableAction(async (data) => {
+  const { data: result, error } = await getSupabaseServerClient().rpc(
+    'delete_deal',
+    { p_deal_id: data.deal_id, p_confirm_name: data.confirm_name },
+  );
+
+  if (error?.code === DEAL_DELETE_REFUSED) {
+    throw new Refusal(error.message);
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  const parsed = deletedDealSchema.safeParse(result);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Deal ${data.deal_id} was deleted, but its cleanup list could not be read`,
+      { cause: parsed.error },
+    );
+  }
+
+  const deleted = parsed.data;
+  const files = await removeFiles(deleted.files);
+  const runs = await cancelDealRuns(deleted.run_ids);
+  const emails = await tellOutsideParties(deleted).catch((error: unknown) => ({
+    left: deleted.recipients.map((recipient) => recipient.user_id),
+    errors: [messageOf(error)],
+  }));
+  const leftovers = {
+    files: files.left,
+    run_ids: runs.left,
+    recipients: emails.left,
+  };
+
+  if (Object.values(leftovers).every((left) => left.length === 0)) {
+    return;
+  }
+
+  getLogger().error(
+    {
+      dealId: deleted.deal_id,
+      leftovers,
+      errors: [...files.errors, ...runs.errors, ...emails.errors],
+    },
+    'Deal deleted, but its cleanup did not finish',
+  );
+  await getSupabaseServerAdminClient()
+    .rpc('record_deal_delete_cleanup_failed', {
+      p_account_id: deleted.account_id,
+      p_deal_id: deleted.deal_id,
+      p_leftovers: leftovers,
+    })
+    .throwOnError();
+}, deleteDealSchema);
 
 export const setDealListingStatus = refusableAction(
   async (data) => {

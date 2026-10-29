@@ -128,7 +128,7 @@ describe('matchSubjects', () => {
     });
 
     it('ignores them for a business screened against an untyped entry', () => {
-      expect(scores(business('Siemens'), listed('Siemens GmbH', null))).toEqual([1]);
+      expect(scores(business('Harrow Werke'), listed('Harrow Werke GmbH', null))).toEqual([1]);
     });
 
     it('keeps them in the name of a person subject', () => {

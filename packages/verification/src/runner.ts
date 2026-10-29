@@ -28,13 +28,12 @@ export interface RunVerificationOptions {
   runnableChecks: RunnableCheck<unknown>[];
   notify: Notifier;
   period?: string;
+  skipReason?: (error: unknown) => string | null;
 }
 
-export interface RunVerificationResult {
-  runId: string;
-  status: 'done';
-  findingCount: number;
-}
+export type RunVerificationResult =
+  | { runId: string; status: 'done'; findingCount: number }
+  | { runId: string; status: 'skipped'; reason: string };
 
 function isActionable(finding: ReconciliationFinding): boolean {
   return finding.severity === 'warning' || finding.severity === 'error';
@@ -43,7 +42,7 @@ function isActionable(finding: ReconciliationFinding): boolean {
 export async function runVerification(
   options: RunVerificationOptions,
 ): Promise<RunVerificationResult> {
-  const { client, dealId, trigger, runnableChecks, notify, period } = options;
+  const { client, dealId, trigger, runnableChecks, notify, period, skipReason } = options;
 
   const { data: deal, error: dealError } = await client
     .from('deal')
@@ -124,14 +123,21 @@ export async function runVerification(
 
     return { runId: run.id, status: 'done', findingCount: findings.length };
   } catch (error) {
+    const reason = skipReason?.(error) ?? null;
+
     await client
       .from('verification_run')
       .update({
-        status: 'failed',
+        status: reason === null ? 'failed' : 'skipped',
+        skipped_reason: reason,
         finished_at: new Date().toISOString(),
       })
       .eq('id', run.id);
 
-    throw error;
+    if (reason === null) {
+      throw error;
+    }
+
+    return { runId: run.id, status: 'skipped', reason };
   }
 }

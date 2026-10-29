@@ -2,12 +2,18 @@
 
 import { useEffect } from 'react';
 
-import { rememberDetectedTimezoneAction } from '@odb/accounts/server/personal-account-actions';
-
 export function DetectTimezone() {
   useEffect(() => {
-    void rememberDetectedTimezoneAction({
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const refused = `unsupported_timezone=${encodeURIComponent(timezone)}`;
+
+    if (document.cookie.split('; ').includes(refused)) {
+      return;
+    }
+
+    void fetch('/api/detected-timezone', {
+      method: 'POST',
+      body: JSON.stringify({ timezone }),
     });
   }, []);
 

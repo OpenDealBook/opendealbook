@@ -40,6 +40,11 @@ schema, not a wish list.
   elevation.
 - [Configuration](configuration.md) - what must be set to go live, keyed by feature.
 
+## Proposed specifications
+
+- [Seller and partner interests workflow](specs/seller-partner-interests.md): proposed
+  capture, evidence review, validation, and pre-meeting briefing workflows; not yet implemented.
+
 ## Conventions used in this guide
 
 - "Account" is the tenant. Everything is scoped by `account_id` and enforced by

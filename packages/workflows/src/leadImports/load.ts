@@ -17,10 +17,15 @@ import {
   parseSba,
 } from './sources';
 import {
+  type DetailAdapter,
+  type EntityAdapter,
+  type RegistryDetail,
   type RegistryEntry,
   parseRegistry,
+  parseRegistryDetail,
   registryAdapter,
   registryColumns,
+  suppliedFields,
 } from './stateRegistries';
 
 import type { Readable } from 'node:stream';
@@ -31,10 +36,15 @@ type Client = ReturnType<typeof getSupabaseServerAdminClient>;
 
 interface SourceSpec<T> {
   columns: string[];
-  parse: (reader: RecordReader) => T;
+  parse: (reader: RecordReader) => T | null;
   key: (row: T) => string;
   merge?: (earlier: T, later: T) => T;
-  write: (client: Client, importId: string, rows: T[]) => PromiseLike<unknown>;
+  write: (client: Client, importId: string, rows: T[]) => Promise<number>;
+  finish?: (
+    client: Client,
+    importId: string,
+    rowsRead: number,
+  ) => PromiseLike<unknown>;
 }
 
 function upserting<T>(
@@ -50,11 +60,13 @@ function upserting<T>(
     columns,
     parse,
     key,
-    write: (client, importId, rows) =>
-      upsert(
+    write: async (client, importId, rows) => {
+      await upsert(
         client,
         rows.map((row) => ({ ...row, import_id: importId })),
-      ),
+      );
+      return 0;
+    },
   };
 }
 
@@ -96,55 +108,117 @@ const form5500 = (
         .throwOnError(),
   );
 
-const registry = (state: string, asOf: string): SourceSpec<RegistryEntry> => ({
-  columns: registryColumns(registryAdapter(state)),
-  parse: parseRegistry(registryAdapter(state)),
+function coalesced<T extends object>(earlier: T, later: T): T {
+  return {
+    ...earlier,
+    ...Object.fromEntries(
+      Object.entries(later).filter(([, value]) => value !== null),
+    ),
+  };
+}
+
+const registryEntities = (
+  adapter: EntityAdapter,
+  asOf: string,
+): SourceSpec<RegistryEntry> => ({
+  columns: registryColumns(adapter),
+  parse: parseRegistry(adapter),
   key: (row) => row.entity.entity_number,
   merge: (earlier, later) => ({
-    ...later,
+    entity: coalesced(earlier.entity, later.entity),
     officers: [...earlier.officers, ...later.officers],
   }),
   write: async (client, importId, rows) => {
     const { data: entities } = await client
-      .from('state_registry_entity')
-      .upsert(
-        rows.map(({ entity }) => ({
+      .rpc('upsert_state_registry_entities', {
+        p_rows: rows.map(({ entity }) => ({
           ...entity,
           import_id: importId,
-          source: 'bulk_file' as const,
+          source: 'bulk_file',
           fetched_at: asOf,
         })),
-        { onConflict: 'state,entity_number' },
-      )
-      .select('id, entity_number')
+        p_supplied: suppliedFields(adapter),
+      })
       .throwOnError();
     const entityIds = new Map(
       entities.map((entity) => [entity.entity_number, entity.id]),
     );
-    const entityId = (entityNumber: string) => {
-      const id = entityIds.get(entityNumber);
-      if (id === undefined) {
-        throw new Error(
-          `registry upsert returned no id for entity ${entityNumber}`,
-        );
-      }
-      return id;
-    };
     const officers = rows.flatMap(({ entity, officers }) => {
-      const id = entityId(entity.entity_number);
-      return officers.map((officer) => ({ ...officer, entity_id: id }));
+      const id = entityIds.get(entity.entity_number);
+      return id === undefined
+        ? []
+        : officers.map((officer) => ({ ...officer, entity_id: id }));
     });
-    if (officers.length > 0) {
+    if (adapter.officers.length > 0) {
       await client
-        .from('state_registry_officer')
-        .upsert(officers, {
-          onConflict: 'entity_id,name,title',
-          ignoreDuplicates: true,
+        .rpc('replace_state_registry_officers', {
+          p_dataset: adapter.dataset,
+          p_import_id: importId,
+          p_entity_ids: [...entityIds.values()],
+          p_officers: officers,
         })
         .throwOnError();
     }
+    return rows.length - entities.length;
   },
+  finish: adapter.activeOnly
+    ? async (client, importId, rowsRead) => {
+        const { data: marked } = await client
+          .rpc('mark_unlisted_state_registry_entities', {
+            p_state: adapter.state,
+            p_import_id: importId,
+            p_rows_read: rowsRead,
+          })
+          .throwOnError();
+        if (!marked) {
+          console.warn(
+            `[leadImports] skipped marking ${adapter.state} drop-outs for import ${importId}: no earlier import of ${adapter.dataset}, or ${rowsRead} rows is under 80% of the last one`,
+          );
+        }
+      }
+    : undefined,
 });
+
+const registryDetails = (
+  adapter: DetailAdapter,
+): SourceSpec<RegistryDetail> => {
+  let unmatched = 0;
+  return {
+    columns: registryColumns(adapter),
+    parse: parseRegistryDetail(adapter),
+    key: (row) => row.source_id,
+    merge: (earlier, later) => ({
+      source_id: later.source_id,
+      registered_agent: later.registered_agent ?? earlier.registered_agent,
+      officers: [...earlier.officers, ...later.officers],
+      rows: earlier.rows + later.rows,
+    }),
+    write: async (client, importId, rows) => {
+      const { data } = await client
+        .rpc('attach_state_registry_details', {
+          p_state: adapter.state,
+          p_dataset: adapter.dataset,
+          p_import_id: importId,
+          p_rows: rows,
+        })
+        .throwOnError();
+      unmatched += data;
+      return 0;
+    },
+    finish: async (client, importId) => {
+      await client
+        .from('lead_import')
+        .update({ rows_unmatched: unmatched })
+        .eq('id', importId)
+        .throwOnError();
+      if (unmatched > 0) {
+        console.warn(
+          `[leadImports] ${unmatched} ${adapter.dataset} rows matched no entity in import ${importId}`,
+        );
+      }
+    },
+  };
+};
 
 export function loadLeadFile(
   importId: string,
@@ -172,13 +246,17 @@ export function loadLeadFile(
         heartbeat,
         form5500(FORM_5500_SF_COLUMNS, parseForm5500Sf),
       );
-    case 'state_registry':
-      return loadRows(
-        importId,
-        csv,
-        heartbeat,
-        registry(file.state, file.asOf),
-      );
+    case 'state_registry': {
+      const adapter = registryAdapter(file.dataset);
+      return 'attach' in adapter
+        ? loadRows(importId, csv, heartbeat, registryDetails(adapter))
+        : loadRows(
+            importId,
+            csv,
+            heartbeat,
+            registryEntities(adapter, file.asOf),
+          );
+    }
   }
 }
 
@@ -198,8 +276,9 @@ async function loadRows<T>(
   let batch = new Map<string, T>();
 
   const flush = async () => {
-    await spec.write(client, importId, [...batch.values()]);
-    counts.rows_written += batch.size;
+    const refused = await spec.write(client, importId, [...batch.values()]);
+    counts.rows_written += batch.size - refused;
+    counts.rows_rejected += refused;
     heartbeat();
     batch = new Map();
   };
@@ -210,9 +289,11 @@ async function loadRows<T>(
       const reader = new RecordReader(record);
       const row = spec.parse(reader);
       if (reader.nulled.length > 0) counts.rows_with_nulled_fields += 1;
-      const key = spec.key(row);
-      const earlier = batch.get(key);
-      batch.set(key, earlier && spec.merge ? spec.merge(earlier, row) : row);
+      if (row !== null) {
+        const key = spec.key(row);
+        const earlier = batch.get(key);
+        batch.set(key, earlier && spec.merge ? spec.merge(earlier, row) : row);
+      }
     } catch (error) {
       if (!(error instanceof RejectedRow)) throw error;
       counts.rows_rejected += 1;
@@ -220,6 +301,7 @@ async function loadRows<T>(
     if (batch.size === BATCH_SIZE) await flush();
   }
   if (batch.size > 0) await flush();
+  await spec.finish?.(client, importId, counts.rows_read);
 
   await client
     .from('lead_import')

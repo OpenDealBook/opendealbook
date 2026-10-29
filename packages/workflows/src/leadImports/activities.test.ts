@@ -38,7 +38,7 @@ describe('discoverLeadFiles', () => {
 
     expect(
       files.map((file) => [
-        ('state' in file && file.state) || file.url,
+        ('dataset' in file && file.dataset) || file.url,
         'failure' in file ? file.failure : file.asOf,
       ]),
     ).toEqual([
@@ -49,9 +49,13 @@ describe('discoverLeadFiles', () => {
       ['CO', '2026-10-25'],
       ['PA', 'Last-Modified is not a date: not a date'],
       ['CT', '2026-10-25'],
+      ['CT principals', '2026-10-25'],
+      ['CT agents', '2026-10-25'],
       ['TX', '2026-10-25'],
       ['IA', '2026-10-23'],
       ['DC', '2026-10-25'],
+      ['OR', '2026-10-25'],
+      ['OR officers', '2026-10-25'],
     ]);
   });
 });

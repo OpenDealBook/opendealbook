@@ -3,8 +3,6 @@ import {
   DOCUMENSO_URL,
   DOCUMENSO_WEBHOOK_SECRET,
   GOTENBERG_URL,
-  LLM_API_KEY,
-  LLM_API_KEY_ENV,
   MAILPIT_SMTP_PORT,
   NANGO_SECRET_KEY,
   NOVU_API_URL,
@@ -28,9 +26,10 @@ function sharedEnv(novuApiKey: string) {
     EMAIL_TLS: 'false',
     NOVU_API_URL,
     NOVU_API_KEY: novuApiKey,
-    [LLM_API_KEY_ENV]: LLM_API_KEY,
     GMAIL_API_BASE: STAND_INS.gmail,
     E2E_CLOCK_OFFSET_HOURS: '48',
+    ODB_STACK: 'e2e',
+    ODB_ALLOW_PRIVATE_AI_URL: '1',
   };
 }
 

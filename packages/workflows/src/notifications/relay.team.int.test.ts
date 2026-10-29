@@ -223,4 +223,29 @@ describe('notifyDealEvent for a team deal (integration)', () => {
       .throwOnError();
     expect(notices).toEqual([]);
   });
+
+  it('completes without notifying anyone when the resolved event is gone after the deal was read', async () => {
+    const dealId = await seedDeal(owner.admin, teamId, owner.userId, {
+      description: 'Vanishing acquisition',
+      firm_id: await firmIn(owner, teamId),
+    });
+
+    await expect(
+      notifyDealEvent({
+        globalSeq: -1,
+        workflowId: 'deal.resolved',
+        dealId,
+        accountId: teamId,
+        actorRef: null,
+        eventType: 'deal.resolved',
+      }),
+    ).resolves.toBeUndefined();
+
+    const { data: notices } = await owner.admin
+      .from('notifications')
+      .select('body')
+      .eq('deal_id', dealId)
+      .throwOnError();
+    expect(notices).toEqual([]);
+  });
 });

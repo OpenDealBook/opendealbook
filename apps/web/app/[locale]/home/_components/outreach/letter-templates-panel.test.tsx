@@ -110,6 +110,35 @@ describe('LetterTemplatesPanel', () => {
     });
   });
 
+  it('inserts a merge field at the caret, offering only fields a letter fills in', async () => {
+    await render([INTRO]);
+
+    await click('Edit');
+    (field('Letter') as HTMLTextAreaElement).setSelectionRange(5, 5);
+    const trigger = field('Letter').labels![0]!.parentElement!.querySelector('button')!;
+    await act(async () => {
+      trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    const items = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Firm name',
+      'Firm industry',
+      'Firm city',
+      'Firm state',
+      'Firm website',
+      'Sender name',
+      'Sender company',
+    ]);
+    await act(async () => {
+      items.find((item) => item.textContent === 'Sender name')!.click();
+    });
+    await save();
+
+    expect(server.update).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'Dear {{ sender.name }}owner of {{ firm.name }}' }),
+    );
+  });
+
   it('shows why an edit was refused and keeps the form open', async () => {
     server.update.mockResolvedValue({
       ok: false,

@@ -21,12 +21,20 @@ import { SequencesPanel, type Sequence } from './sequences-panel';
 import { SettingsForm } from './settings-form';
 import { DEFAULT_DAILY_CAP } from './outreach-defaults';
 import { SuppressionForm } from './suppression-form';
+import { awaitsUnknownSend } from './unknown-send';
+import { UnknownSendActions } from './unknown-send-actions';
 
 function formatDate(value: string | null): string {
   return value === null ? '' : new Date(value).toLocaleString();
 }
 
-export async function OutreachArea({ accountId }: { accountId: string }) {
+export async function OutreachArea({
+  accountId,
+  canManageDeals,
+}: {
+  accountId: string;
+  canManageDeals: boolean;
+}) {
   const client = getSupabaseServerClient();
 
   const [
@@ -69,7 +77,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
       .maybeSingle(),
     client
       .from('outreach_enrollment')
-      .select('id, status, target_email, next_send_at, sent_count')
+      .select('id, status, target_email, next_send_at, sent_count, current_step')
       .eq('account_id', accountId)
       .order('next_send_at'),
     client
@@ -130,17 +138,21 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
   }));
 
   const enrollmentIds = (enrollments.data ?? []).map((row) => row.id);
-  const messages =
-    enrollmentIds.length === 0
-      ? []
-      : ((
-          await client
-            .from('outreach_message')
-            .select('id, to_email, status, sent_at')
-            .in('enrollment_id', enrollmentIds)
-            .order('sent_at', { ascending: false })
-            .limit(20)
-        ).data ?? []);
+  const [recentMessages, unknownSends] = await Promise.all([
+    client
+      .from('outreach_message')
+      .select('id, to_email, status, sent_at')
+      .in('enrollment_id', enrollmentIds)
+      .order('sent_at', { ascending: false })
+      .limit(20),
+    client
+      .from('outreach_message')
+      .select('enrollment_id, step_id')
+      .in('enrollment_id', enrollmentIds)
+      .eq('status', 'unknown')
+      .throwOnError(),
+  ]);
+  const messages = recentMessages.data ?? [];
 
   return (
     <div className={'flex flex-col gap-10'}>
@@ -220,6 +232,7 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
                     <TableHead>Status</TableHead>
                     <TableHead>Next send</TableHead>
                     <TableHead>Sent</TableHead>
+                    <TableHead>Needs attention</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -229,6 +242,11 @@ export async function OutreachArea({ accountId }: { accountId: string }) {
                       <TableCell>{enrollmentStatusLabel(row.status)}</TableCell>
                       <TableCell>{formatDate(row.next_send_at)}</TableCell>
                       <TableCell>{row.sent_count}</TableCell>
+                      <TableCell>
+                        {awaitsUnknownSend(row, unknownSends.data) ? (
+                          <UnknownSendActions enrollmentId={row.id} canResolve={canManageDeals} />
+                        ) : null}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

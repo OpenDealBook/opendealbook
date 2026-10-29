@@ -1,5 +1,6 @@
 'use server';
 
+import { dealAiScope } from '@odb/ai/scope';
 import { generateStructured } from '@odb/ai/server';
 import { appendDealEvent } from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
@@ -58,13 +59,24 @@ export const attachMeetingRecording = enhanceAction(
 export const summarizeMeeting = enhanceAction(
   async (data) => {
     const client = getSupabaseServerClient();
+    const scope = await dealAiScope(client, data.deal_id, 'deals.work');
 
-    const { summary } = await generateStructured<{ summary: string }>(client, {
-      accountId: data.account_id,
+    if (typeof scope === 'string') {
+      return { ok: false as const, reason: 'Only the deal team can summarize this meeting.' };
+    }
+
+    const generated = await generateStructured<{ summary: string }>({
+      scope,
       system: SUMMARY_SYSTEM,
       prompt: data.transcript_text,
       parse: (raw) => ({ summary: String((raw as { summary: string }).summary) }),
     });
+
+    if (!generated.ok) {
+      return generated;
+    }
+
+    const { summary } = generated.value;
 
     await appendDealEvent(client, {
       dealId: data.deal_id,
@@ -74,7 +86,7 @@ export const summarizeMeeting = enhanceAction(
       payload: { summary },
     });
 
-    return summary;
+    return { ok: true as const, summary };
   },
   { auth: true, schema: summarizeMeetingSchema },
 );

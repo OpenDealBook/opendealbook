@@ -59,6 +59,7 @@ function makeClient(seed: Seed) {
     const b: any = {
       select: () => b,
       eq: () => b,
+      neq: () => b,
       lte: () => b,
       gte: () => b,
       in: () => b,
@@ -220,6 +221,56 @@ describe('dispatchAccountOutreach sequence resolution', () => {
     const logged = captures.inserts.outreach_message![0]!;
     expect(logged.subject).toBe('RE: Firm LLC');
     expect(logged.step_id).toBe(1);
+  });
+
+  it('greets a named contact by first name', async () => {
+    const { client } = makeClient({
+      singles: {
+        ...commonSingles,
+        outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' },
+        outreach_step: { ...commonSingles.outreach_step, body: 'Hi {{ recipient.firstName }},' },
+      },
+      tables: {
+        outreach_enrollment: [enrollment('e1', 'a@firm.com')],
+        outreach_message: [],
+        outreach_suppression: [],
+      },
+    });
+    state.client = client;
+    state.sendAs = vi.fn(async () => ({ providerMessageId: 'pm' }));
+
+    await dispatchAccountOutreach({ accountId: 'acct-1' });
+
+    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { text: string };
+    expect(sendArgs.text).toMatch(/^Hi Pat,\n/);
+  });
+
+  it.each([
+    [' Pat\tOwner', 'Hi Pat,'],
+    ['   ', 'Hi there,'],
+    ['', 'Hi there,'],
+    ['Dr. Pat Owner', 'Hi Dr.,'],
+  ])('greets contact name %j as %j', async (name, greeting) => {
+    const { client } = makeClient({
+      singles: {
+        ...commonSingles,
+        contact: { name, email: 'pat@firm.com' },
+        outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' },
+        outreach_step: { ...commonSingles.outreach_step, body: 'Hi {{ recipient.firstName | there }},' },
+      },
+      tables: {
+        outreach_enrollment: [enrollment('e1', 'a@firm.com')],
+        outreach_message: [],
+        outreach_suppression: [],
+      },
+    });
+    state.client = client;
+    state.sendAs = vi.fn(async () => ({ providerMessageId: 'pm' }));
+
+    await dispatchAccountOutreach({ accountId: 'acct-1' });
+
+    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { text: string };
+    expect(sendArgs.text.split('\n')[0]).toBe(greeting);
   });
 });
 

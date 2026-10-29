@@ -1,8 +1,4 @@
 export type {
-  DocumentExtractionInput,
-  DocumentExtractionResult,
-} from './extract';
-export type {
   Citation,
   DealQuestionInput,
   DealQuestionResult,

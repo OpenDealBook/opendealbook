@@ -159,9 +159,9 @@ create trigger seller_counsel_folder_kept
 -- upload them into the seller room.
 -- Seller's counsel keep reading for a year from the day the deal ended,
 -- archived or resolved, whichever came first. Only they learn the date.
-create or replace function public.seller_counsel_read_until(deal_id uuid)
+create or replace function tuckin.seller_counsel_window_end(deal_id uuid)
   returns timestamptz
-  language sql stable security definer
+  language sql stable
   set search_path = '' as $$
   select least(
       d.archived_at,
@@ -172,11 +172,20 @@ create or replace function public.seller_counsel_read_until(deal_id uuid)
       ) end
     ) + interval '1 year'
   from public.deal d
-  where d.id = seller_counsel_read_until.deal_id
-    and exists (
-      select 1 from public.deal_counsel c
-      where c.deal_id = d.id and c.side = 'seller' and c.user_id = (select auth.uid())
-    );
+  where d.id = seller_counsel_window_end.deal_id;
+$$;
+
+revoke all on function tuckin.seller_counsel_window_end(uuid) from public, anon, authenticated, service_role;
+
+create or replace function public.seller_counsel_read_until(deal_id uuid)
+  returns timestamptz
+  language sql stable security definer
+  set search_path = '' as $$
+  select tuckin.seller_counsel_window_end(seller_counsel_read_until.deal_id)
+  where exists (
+    select 1 from public.deal_counsel c
+    where c.deal_id = seller_counsel_read_until.deal_id and c.side = 'seller' and c.user_id = (select auth.uid())
+  );
 $$;
 
 revoke all on function public.seller_counsel_read_until(uuid) from public, anon;

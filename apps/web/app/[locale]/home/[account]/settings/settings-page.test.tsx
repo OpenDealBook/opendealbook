@@ -7,7 +7,12 @@ const workspace = vi.hoisted(() => ({
   permissions: ['settings.manage'],
   timezone: 'America/Chicago',
   nameSpelling: 'source_priority',
-  aiEndpoint: null as { provider: string; chat_model: string; base_url: string } | null,
+  aiEndpoint: null as {
+    provider: string;
+    chat_model: string;
+    model?: string | null;
+    base_url: string;
+  } | null,
   providerKeys: [] as { kind: string; actor_id: string | null }[],
 }));
 
@@ -112,6 +117,18 @@ describe('team settings page', () => {
     };
 
     expect(await render()).toContain('Anthropic, claude-sonnet');
+  });
+
+  it("starts a settings manager from the team's saved embedding model", async () => {
+    workspace.permissions = ['settings.manage'];
+    workspace.aiEndpoint = {
+      provider: 'openai',
+      chat_model: 'gpt-4.1',
+      model: 'text-embedding-3-small',
+      base_url: 'https://api.openai.com/v1',
+    };
+
+    expect(await render()).toMatch(/aria-label="Embedding model"[^>]*value="text-embedding-3-small"/);
   });
 
   it("shows members who cannot manage settings the team's email lookup and letters providers", async () => {

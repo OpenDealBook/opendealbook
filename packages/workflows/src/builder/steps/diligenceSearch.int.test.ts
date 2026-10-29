@@ -221,18 +221,8 @@ describe('diligenceSearch without court or news providers', () => {
 
 describe('diligenceSearch with an out of date sanctions list', () => {
   it('says why sanctions were skipped next to courts and news', async () => {
-    const { data: loaded } = await owner.admin
-      .from('screening_import')
-      .select('created_at')
-      .eq('id', screeningImportId)
-      .single()
-      .throwOnError();
-    await owner.admin
-      .from('screening_import')
-      .update({ created_at: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString() })
-      .eq('id', screeningImportId)
-      .throwOnError();
     const runId = await workflowRun();
+    vi.setSystemTime(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
     try {
       expect(await search(runId, `${runId}:search`)).toEqual({
@@ -244,7 +234,7 @@ describe('diligenceSearch with an out of date sanctions list', () => {
         },
       });
     } finally {
-      await owner.admin.from('screening_import').update({ created_at: loaded.created_at }).eq('id', screeningImportId).throwOnError();
+      vi.useRealTimers();
     }
   });
 });

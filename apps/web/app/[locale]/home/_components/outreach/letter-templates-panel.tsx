@@ -4,12 +4,15 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { TEMPLATE_LETTER_FIELDS } from '@odb/outreach-app';
 import { createLetterTemplate, updateLetterTemplate } from '@odb/outreach-app/server';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
+
+import { MergeFieldPicker } from './merge-field-picker';
 
 export interface LetterTemplate {
   id: string;
@@ -119,7 +122,15 @@ export function LetterTemplatesPanel({
               </div>
 
               <div className={'flex flex-col gap-2'}>
-                <Label htmlFor={'letter-template-body'}>Letter</Label>
+                <div className={'flex items-center justify-between'}>
+                  <Label htmlFor={'letter-template-body'}>Letter</Label>
+                  <MergeFieldPicker
+                    fieldId={'letter-template-body'}
+                    tokens={TEMPLATE_LETTER_FIELDS}
+                    value={draft.body}
+                    onChange={(body) => setDraft({ ...draft, body })}
+                  />
+                </div>
                 <Textarea
                   id={'letter-template-body'}
                   required

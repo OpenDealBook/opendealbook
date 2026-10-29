@@ -58,6 +58,7 @@ export function DealHeader({
   stages,
   starred,
   canManage,
+  isOwner,
   dealsHref,
   industries,
   otherBusinessNames,
@@ -90,6 +91,7 @@ export function DealHeader({
   stages: { key: string; label: string }[];
   starred: boolean;
   canManage: boolean;
+  isOwner: boolean;
   dealsHref: string;
   industries: { id: string; name: string }[];
   otherBusinessNames: string[];
@@ -211,6 +213,9 @@ export function DealHeader({
             <div className={'flex flex-wrap items-start gap-2'}>
               <DealHeaderActions
                 dealId={deal.id}
+                dealName={dealDisplayName(deal)}
+                dealsHref={dealsHref}
+                isOwner={isOwner}
                 stage={deal.stage}
                 stages={stages}
                 listingStatus={deal.listing_status}

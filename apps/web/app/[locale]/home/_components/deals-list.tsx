@@ -138,10 +138,12 @@ function nextPageHref(
 
 export async function DealsList({
   accountId,
+  isOwner,
   searchParams,
   detailBasePath,
 }: {
   accountId: string;
+  isOwner: boolean;
   searchParams: RawSearchParams;
   detailBasePath: string;
 }) {
@@ -276,6 +278,7 @@ export async function DealsList({
                       label={section.label}
                       items={section.items}
                       columns={columns}
+                      isOwner={isOwner}
                       detailBasePath={detailBasePath}
                     />
                   ))}
@@ -302,6 +305,7 @@ export async function DealsList({
                               ? null
                               : ownerNames.get(deal.ownerUserId)!
                           }
+                          isOwner={isOwner}
                           detailBasePath={detailBasePath}
                         />
                       ))}
@@ -332,11 +336,13 @@ function GroupSection({
   label,
   items,
   columns,
+  isOwner,
   detailBasePath,
 }: {
   label: string;
   items: DealListItem[];
   columns: readonly { key: DealColumnKey; label: string }[];
+  isOwner: boolean;
   detailBasePath: string;
 }) {
   return (
@@ -365,8 +371,10 @@ function GroupSection({
           <TableCell>
             <DealRowActions
               dealId={deal.id}
+              dealName={deal.title}
               starred={deal.starred}
               archived={deal.archivedAt !== null}
+              isOwner={isOwner}
             />
           </TableCell>
         </TableRow>

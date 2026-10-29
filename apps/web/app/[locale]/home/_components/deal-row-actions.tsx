@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import {
   archiveDeal,
+  deleteDeal,
   setDealResolution,
   starDeal,
   unarchiveDeal,
@@ -26,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@odb/ui/dropdown-menu';
+import { Input } from '@odb/ui/input';
 import {
   Select,
   SelectContent,
@@ -44,16 +46,75 @@ const LOST_REASONS: { value: string; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
+export function DeleteDealDialog(props: {
+  dealId: string;
+  dealName: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDeleted?: () => void;
+}) {
+  const refusable = useRefusableAction();
+  const [typed, setTyped] = useState('');
+
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete deal</DialogTitle>
+        </DialogHeader>
+        <p className={'text-sm'}>
+          This permanently deletes {props.dealName} with its files, history and
+          rooms. Type <strong>{props.dealName}</strong> to confirm.
+        </p>
+        <Input
+          aria-label={'Deal name'}
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
+        {refusable.refusal ? (
+          <p role={'alert'} className={'text-destructive text-sm'}>
+            {refusable.refusal}
+          </p>
+        ) : null}
+        <DialogFooter>
+          <Button
+            variant={'outline'}
+            onClick={() => props.onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={'destructive'}
+            disabled={typed !== props.dealName || refusable.pending}
+            onClick={() =>
+              refusable.run(
+                () =>
+                  deleteDeal({ deal_id: props.dealId, confirm_name: typed }),
+                props.onDeleted,
+              )
+            }
+          >
+            Delete deal
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function DealRowActions(props: {
   dealId: string;
+  dealName: string;
   starred: boolean;
   archived: boolean;
+  isOwner: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const refusable = useRefusableAction();
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState(LOST_REASONS[0]!.value);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   function run(action: () => Promise<unknown>) {
     startTransition(async () => {
@@ -97,6 +158,11 @@ export function DealRowActions(props: {
           >
             {props.archived ? 'Unarchive' : 'Archive'}
           </DropdownMenuItem>
+          {props.archived && props.isOwner ? (
+            <DropdownMenuItem onSelect={() => setDeleteOpen(true)}>
+              Delete
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onSelect={() =>
@@ -160,6 +226,12 @@ export function DealRowActions(props: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <DeleteDealDialog
+        dealId={props.dealId}
+        dealName={props.dealName}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+      />
       {refusable.refusal ? (
         <p role={'alert'} className={'text-destructive text-sm'}>
           {refusable.refusal}

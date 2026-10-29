@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeAiProvider, openAiReply } from '../../test-support/fake-ai-provider';
-import { completeWithTeamAi, pinnedGet } from './aiClient';
+import { aiJson, completeWithTeamAi, pinnedGet, teamAiAddressOf } from './aiClient';
 import { publicAddressOf } from './publicUrl';
 
 let close: (() => void) | undefined;
@@ -65,6 +65,75 @@ describe('completeWithTeamAi', () => {
         body: { model: 'claude-x', messages: [{ role: 'user', content: 'Is this a fit?' }] },
       },
     ]);
+  });
+
+  it('sends a system prompt as a system message to an OpenAI-compatible endpoint', async () => {
+    const fake = await provider(openAiReply('{}'));
+
+    await completeWithTeamAi(
+      { provider: 'openai', model: 'gpt-x', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      'The memo',
+      LOOPBACK_FAKE,
+      { system: 'Reply as JSON' },
+    );
+
+    expect(fake.received[0]!.body.messages).toEqual([
+      { role: 'system', content: 'Reply as JSON' },
+      { role: 'user', content: 'The memo' },
+    ]);
+  });
+
+  it("sends a system prompt in Anthropic's system field", async () => {
+    const fake = await provider({
+      status: 200,
+      body: { content: [{ type: 'text', text: '{}' }], usage: { input_tokens: 1, output_tokens: 1 } },
+    });
+
+    await completeWithTeamAi(
+      { provider: 'anthropic', model: 'claude-x', baseUrl: fake.baseUrl, apiKey: 'sk-ant' },
+      'The memo',
+      LOOPBACK_FAKE,
+      { system: 'Reply as JSON' },
+    );
+
+    expect(fake.received[0]!.body).toMatchObject({
+      system: 'Reply as JSON',
+      messages: [{ role: 'user', content: 'The memo' }],
+    });
+  });
+
+  it('asks an OpenAI-compatible endpoint for JSON with the temperature and token limit given', async () => {
+    const fake = await provider(openAiReply('{}'));
+
+    await completeWithTeamAi(
+      { provider: 'openai_compatible', model: 'llama-3', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      'The memo',
+      LOOPBACK_FAKE,
+      { json: true, temperature: 0, maxTokens: 256 },
+    );
+
+    expect(fake.received[0]!.body).toMatchObject({
+      temperature: 0,
+      max_tokens: 256,
+      response_format: { type: 'json_object' },
+    });
+  });
+
+  it('gives Anthropic the temperature and token limit, with no JSON mode it lacks', async () => {
+    const fake = await provider({
+      status: 200,
+      body: { content: [{ type: 'text', text: '{}' }], usage: { input_tokens: 1, output_tokens: 1 } },
+    });
+
+    await completeWithTeamAi(
+      { provider: 'anthropic', model: 'claude-x', baseUrl: fake.baseUrl, apiKey: 'sk-ant' },
+      'The memo',
+      LOOPBACK_FAKE,
+      { json: true, temperature: 0.1, maxTokens: 1024 },
+    );
+
+    expect(fake.received[0]!.body).toMatchObject({ temperature: 0.1, max_tokens: 1024 });
+    expect(fake.received[0]!.body).not.toHaveProperty('response_format');
   });
 
   it("fails at once on a refused call, naming only the provider's status", async () => {
@@ -232,5 +301,45 @@ describe('pinnedGet', () => {
       nonRetryable: true,
       message: 'Use a public HTTPS base URL',
     });
+  });
+});
+
+describe('aiJson', () => {
+  it('reads JSON a model wrapped in a code fence', () => {
+    expect(aiJson('```json\n{"amount": 7}\n```')).toEqual({ amount: 7 });
+  });
+
+  it('reads bare JSON', () => {
+    expect(aiJson('{"amount": null}')).toEqual({ amount: null });
+  });
+});
+
+describe('teamAiAddressOf', () => {
+  afterEach(() => {
+    delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
+    delete process.env.ODB_STACK;
+  });
+
+  it('refuses a private address', async () => {
+    expect(await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions')).toBeNull();
+  });
+
+  it.each(['local', 'e2e'])('reaches a private address when private AI URLs are allowed on a %s stack', async (stack) => {
+    process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
+    process.env.ODB_STACK = stack;
+
+    expect(await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions')).toEqual({
+      address: '127.0.0.1',
+      family: 4,
+    });
+  });
+
+  it.each([
+    ['an unmarked', {}],
+    ['a production', { ODB_STACK: 'production' }],
+  ])('ignores the private AI URL flag on %s stack', async (_stack, marker) => {
+    Object.assign(process.env, { ODB_ALLOW_PRIVATE_AI_URL: '1' }, marker);
+
+    expect(await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions')).toBeNull();
   });
 });

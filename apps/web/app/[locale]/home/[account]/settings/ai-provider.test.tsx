@@ -19,7 +19,12 @@ import { AiProviderSetting } from './ai-provider';
 let container: HTMLDivElement;
 let root: Root;
 
-const CONNECTED = { provider: 'anthropic', model: 'claude-sonnet', baseUrl: 'https://api.anthropic.com/v1' };
+const CONNECTED = {
+  provider: 'anthropic',
+  model: 'claude-sonnet',
+  embeddingModel: 'voyage-3' as string | null,
+  baseUrl: 'https://api.anthropic.com/v1',
+};
 
 async function render(props: { current: typeof CONNECTED | null; canManage: boolean }) {
   await act(async () => {
@@ -63,11 +68,12 @@ afterEach(() => {
 });
 
 describe('the team AI provider setting', () => {
-  it('saves the provider, model, base URL and key a settings manager enters', async () => {
+  it('saves the provider, models, base URL and key a settings manager enters', async () => {
     await render({ current: null, canManage: true });
 
     await type('Provider', 'openai_compatible');
     await type('Model', 'llama-3');
+    await type('Embedding model', 'nomic-embed-text');
     await type('Base URL', 'https://llm.example.test/v1');
     await type('API key', 'sk-new');
     await save();
@@ -76,10 +82,54 @@ describe('the team AI provider setting', () => {
       accountId: 'team-1',
       provider: 'openai_compatible',
       model: 'llama-3',
+      embeddingModel: 'nomic-embed-text',
       baseUrl: 'https://llm.example.test/v1',
       apiKey: 'sk-new',
     });
     expect(field('API key')!.value).toBe('');
+  });
+
+  it('starts from the saved embedding model', async () => {
+    await render({ current: { ...CONNECTED, provider: 'openai' }, canManage: true });
+
+    expect(field('Embedding model')!.value).toBe('voyage-3');
+  });
+
+  it('explains that embeddings need an OpenAI or OpenAI-compatible provider', async () => {
+    await render({ current: null, canManage: true });
+
+    expect(container.textContent).toContain(
+      'Document search needs an embedding model from OpenAI or an OpenAI-compatible endpoint. Anthropic has none.',
+    );
+  });
+
+  it('hides the embedding model for Anthropic and clears it, so a save sends none', async () => {
+    await render({ current: null, canManage: true });
+
+    await type('Provider', 'openai');
+    await type('Embedding model', 'text-embedding-3-small');
+    await type('Provider', 'anthropic');
+
+    expect(field('Embedding model')).toBeNull();
+
+    await type('Model', 'claude-sonnet');
+    await save();
+
+    expect(server.save).toHaveBeenCalledWith(expect.objectContaining({ provider: 'anthropic', embeddingModel: '' }));
+  });
+
+  it('sends no embedding model for a saved Anthropic provider that still has one', async () => {
+    await render({ current: CONNECTED, canManage: true });
+
+    await save();
+
+    expect(server.save).toHaveBeenCalledWith(expect.objectContaining({ provider: 'anthropic', embeddingModel: '' }));
+  });
+
+  it('starts empty when no embedding model is saved', async () => {
+    await render({ current: { ...CONNECTED, provider: 'openai', embeddingModel: null }, canManage: true });
+
+    expect(field('Embedding model')!.value).toBe('');
   });
 
   it('asks for a base URL only for an OpenAI-compatible endpoint', async () => {

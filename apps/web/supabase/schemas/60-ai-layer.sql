@@ -1,8 +1,7 @@
 -- AI layer groundwork. pgvector powers embedding search over document chunks;
 -- llm_endpoint holds each account's model and endpoint configuration, one per
 -- team; api_key_secret_id points at the Supabase Vault secret holding the
--- team's own provider key, and the older api_key_secret_ref names an env entry,
--- so the raw key never lives in a table row; every
+-- team's own provider key, so the raw key never lives in a table row; every
 -- model call is written to ai_call_log for audit; document_chunk stores the
 -- embedded text spans of data-room documents. Workflow AI calls always redact
 -- people before a prompt leaves; ai_redaction_enabled does not switch that off.
@@ -17,7 +16,6 @@ create table if not exists public.llm_endpoint (
   provider text not null,
   model text,
   base_url text,
-  api_key_secret_ref text,
   api_key_secret_id uuid,
   created_at timestamptz,
   updated_at timestamptz,
@@ -33,7 +31,7 @@ create index ix_llm_endpoint_account on public.llm_endpoint (account_id);
 
 revoke all on public.llm_endpoint from authenticated, service_role;
 grant select (
-  id, account_id, provider, model, chat_model, base_url, api_key_secret_ref,
+  id, account_id, provider, model, chat_model, base_url,
   created_at, updated_at, created_by, updated_by
 ) on public.llm_endpoint to authenticated;
 grant select, insert, update, delete on public.llm_endpoint to service_role;

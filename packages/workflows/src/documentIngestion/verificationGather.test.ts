@@ -5,6 +5,33 @@ const collaborators = vi.hoisted(() => ({
   extractFigure: vi.fn(),
 }));
 
+const team = vi.hoisted(() => ({
+  apiKey: null as string | null,
+}));
+
+vi.mock('@odb/supabase/admin', () => {
+  const settled = (data: unknown) => ({ throwOnError: async () => ({ data, error: null }) });
+  return {
+    getSupabaseServerAdminClient: () => ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              settled({
+                id: 'ep1',
+                provider: 'openai_compatible',
+                model: null,
+                chat_model: 'gpt-4o-mini',
+                base_url: 'http://llm.test',
+              }),
+          }),
+        }),
+      }),
+      rpc: () => settled(team.apiKey),
+    }),
+  };
+});
+
 vi.mock('./docling', () => ({
   extractMarkdown: collaborators.extractMarkdown,
 }));
@@ -35,12 +62,6 @@ function makeClient(config: FakeConfig) {
 
   const singles: Record<string, unknown> = {
     deal: { account_id: 'acct1', owner_user_id: 'owner1' },
-    llm_endpoint: {
-      id: 'ep1',
-      chat_model: 'gpt-4o-mini',
-      base_url: 'http://llm.test',
-      api_key_secret_ref: 'TENANT_LLM_KEY',
-    },
   };
 
   const insertReturn: Record<string, unknown> = {
@@ -97,7 +118,7 @@ function inserted(
 }
 
 beforeEach(() => {
-  process.env.TENANT_LLM_KEY = 'sk-tenant';
+  team.apiKey = 'sk-vault';
   collaborators.extractMarkdown.mockReset();
   collaborators.extractFigure.mockReset();
   collaborators.extractMarkdown.mockResolvedValue('# doc markdown');
@@ -119,17 +140,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure
-      .mockResolvedValueOnce({
-        amount: 100000,
-        promptTokens: 20,
-        completionTokens: 3,
-      })
-      .mockResolvedValueOnce({
-        amount: 98000,
-        promptTokens: 22,
-        completionTokens: 4,
-      });
+    collaborators.extractFigure.mockResolvedValueOnce(100000).mockResolvedValueOnce(98000);
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -154,15 +165,29 @@ describe('buildDocumentExtractionChecks', () => {
     );
     expect(collaborators.extractFigure).toHaveBeenCalledTimes(2);
 
-    const logs = inserted(capture, 'ai_call_log') as Array<
-      Record<string, unknown>
-    >;
-    expect(logs).toHaveLength(2);
-    expect(logs[0]).toMatchObject({
-      account_id: 'acct1',
-      deal_id: 'deal1',
-      model: 'gpt-4o-mini',
+    expect(inserted(capture, 'ai_call_log')).toEqual([]);
+  });
+
+  it("extracts with the team's chat AI for the deal", async () => {
+    const { client } = makeClient({
+      documents: [{ id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2' }],
     });
+    collaborators.extractMarkdown.mockResolvedValue('Employee Priya Okafor, wages 100000');
+    collaborators.extractFigure.mockResolvedValue(100000);
+
+    const checks = await buildDocumentExtractionChecks({
+      client: client as never,
+      dealId: 'deal1',
+      docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
+    });
+    await checks.find((c) => c.check.key === 'payroll_tax_vs_w2')!.gather({ dealId: 'deal1', period: '2024' });
+
+    expect(collaborators.extractFigure).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'acct1', model: 'gpt-4o-mini', apiKey: 'sk-vault' }),
+      'deal1',
+      expect.any(String),
+      'Employee Priya Okafor, wages 100000',
+    );
   });
 
   it('finds a document through the checklist item that links it and names that item', async () => {
@@ -180,11 +205,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValue({
-      amount: 100000,
-      promptTokens: 10,
-      completionTokens: 2,
-    });
+    collaborators.extractFigure.mockResolvedValue(100000);
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -229,11 +250,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValue({
-      amount: 100000,
-      promptTokens: 10,
-      completionTokens: 2,
-    });
+    collaborators.extractFigure.mockResolvedValue(100000);
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -262,11 +279,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValue({
-      amount: 98000,
-      promptTokens: 10,
-      completionTokens: 2,
-    });
+    collaborators.extractFigure.mockResolvedValue(98000);
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -292,11 +305,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValue({
-      amount: 500000,
-      promptTokens: 10,
-      completionTokens: 2,
-    });
+    collaborators.extractFigure.mockResolvedValue(500000);
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -335,8 +344,8 @@ describe('buildDocumentExtractionChecks', () => {
     expect(collaborators.extractMarkdown).not.toHaveBeenCalled();
   });
 
-  it('is a logged no-op when the tenant llm endpoint api key is absent from the environment', async () => {
-    delete process.env.TENANT_LLM_KEY;
+  it('is a logged no-op when the team has no AI provider key', async () => {
+    team.apiKey = null;
     const { client } = makeClient({
       documents: [
         {
@@ -367,11 +376,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValue({
-      amount: 98000,
-      promptTokens: 10,
-      completionTokens: 2,
-    });
+    collaborators.extractFigure.mockResolvedValue(98000);
 
     const runnableChecks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -417,11 +422,7 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValue({
-      amount: 100000,
-      promptTokens: 10,
-      completionTokens: 2,
-    });
+    collaborators.extractFigure.mockResolvedValue(100000);
 
     const runnableChecks = await buildDocumentExtractionChecks({
       client: client as never,

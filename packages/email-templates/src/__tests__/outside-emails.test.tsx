@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { personalSender, renderLenderInviteEmail } from '../index';
+import {
+  personalSender,
+  renderDealDeletedEmail,
+  renderLenderInviteEmail,
+} from '../index';
 import { EMAIL_TEMPLATE_RENDERERS } from '../registry';
 
 const LINK = 'https://opendealbook.app/seller/rooms/r1';
@@ -331,5 +335,29 @@ describe('seller document email', () => {
     expect((await render()).text).toContain(
       'Acme Partners shared a document about Brennan Tooling for you to review.',
     );
+  });
+});
+
+describe('deal deleted email', () => {
+  const render = () =>
+    renderDealDeletedEmail({
+      productName: 'Open Deal Book',
+      teamName: 'Acme Partners',
+      dealName: 'Project Atlas',
+    });
+
+  it('names the team and the deal in the subject', async () => {
+    expect((await render()).subject).toBe(
+      'Acme Partners deleted the deal room for Project Atlas',
+    );
+  });
+
+  it('says the room and its files are gone, with nothing to open', async () => {
+    const email = await render();
+
+    expect(email.text).toContain(
+      'Acme Partners deleted the deal room for Project Atlas. Its files and messages are no longer available.',
+    );
+    expect(email.html).not.toContain('<a ');
   });
 });

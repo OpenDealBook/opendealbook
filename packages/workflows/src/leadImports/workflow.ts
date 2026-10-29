@@ -9,6 +9,7 @@ const {
   startLeadImport,
   failLeadImport,
   recordUndatedFile,
+  skipLeadImport,
 } = proxyActivities<typeof activities>({
   startToCloseTimeout: '5 minutes',
   retry: { maximumAttempts: 3 },
@@ -37,5 +38,6 @@ export async function importLeadSource({
     matchImportedRecords,
     failLeadImport,
     recordUndatedFile,
+    skipLeadImport,
   });
 }

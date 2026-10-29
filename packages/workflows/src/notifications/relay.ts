@@ -147,6 +147,12 @@ export async function notifyDealEvent(
     input.workflowId === 'deal.resolved'
       ? await resolutionOutcome(client, input.globalSeq)
       : undefined;
+  if (outcome === null) {
+    console.info(
+      `Deal event ${input.globalSeq} skipped; deal ${input.dealId} was deleted`,
+    );
+    return;
+  }
   const path = OFFER_WORKFLOW_IDS.has(input.workflowId)
     ? teamItemPath(accountSlug, input.dealId, {
         kind: 'offer',
@@ -245,13 +251,16 @@ async function aggregateOf(
 async function resolutionOutcome(
   client: ReturnType<typeof getSupabaseServerAdminClient>,
   globalSeq: number,
-): Promise<'closed' | 'lost'> {
+): Promise<'closed' | 'lost' | null> {
   const { data: event } = await client
     .from('deal_event')
     .select('payload')
     .eq('global_seq', globalSeq)
-    .single()
+    .maybeSingle()
     .throwOnError();
+  if (!event) {
+    return null;
+  }
   const { resolution } = z
     .object({ resolution: z.string() })
     .parse(event.payload);

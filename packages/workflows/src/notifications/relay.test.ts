@@ -62,15 +62,14 @@ function makeClient(
         };
       }
       if (table === 'deal_event') {
+        const found = () => ({
+          throwOnError: async () => ({
+            data: { payload: { resolution }, aggregate_id: 'offer-1' },
+          }),
+        });
         return {
           select: () => ({
-            eq: () => ({
-              single: () => ({
-                throwOnError: async () => ({
-                  data: { payload: { resolution }, aggregate_id: 'offer-1' },
-                }),
-              }),
-            }),
+            eq: () => ({ single: found, maybeSingle: found }),
           }),
         };
       }

@@ -179,9 +179,10 @@ create policy outreach_enrollment_delete on public.outreach_enrollment
 
 -- One send of one enrollment step, an outbox row: the dispatcher records it as
 -- sending before it sends, then marks it sent or failed, and the unique step key
--- keeps a retried dispatch from sending twice. Only the background sender
--- writes it, and it can change only the send outcome. step_id is the integer ordinal
--- taken from the enrollment's current_step at send time. No account_id: the account is resolved through the
+-- keeps a retried dispatch from sending twice. A send a manager chose to retry
+-- stays as retried for the record and leaves the step free for a fresh send.
+-- Only the background sender writes it, and it can change only the send outcome.
+-- step_id is the integer ordinal taken from the enrollment's current_step at send time. No account_id: the account is resolved through the
 -- parent enrollment, and RLS joins back through it.
 create table if not exists public.outreach_message (
   id uuid primary key default gen_random_uuid(),
@@ -190,19 +191,22 @@ create table if not exists public.outreach_message (
   to_email text not null,
   subject text not null,
   body text not null,
-  status text not null check (status in ('sending', 'sent', 'failed', 'unknown')),
+  status text not null check (status in ('sending', 'sent', 'failed', 'unknown', 'retried')),
   provider_message_id text,
   sent_at timestamptz,
   error text,
   provider_thread_id text,
-  from_email text,
-  unique (enrollment_id, step_id)
+  from_email text
 );
 
 alter table public.outreach_message enable row level security;
 
 create index ix_outreach_message_enrollment on public.outreach_message (enrollment_id);
 create index ix_outreach_message_to_email on public.outreach_message (to_email);
+
+create unique index ux_outreach_message_live_step
+  on public.outreach_message (enrollment_id, step_id)
+  where status <> 'retried';
 
 revoke all on public.outreach_message from authenticated, service_role;
 grant select on public.outreach_message to authenticated;
@@ -312,3 +316,65 @@ $$;
 
 revoke all on function public.outreach_team_emails(uuid) from public, anon, authenticated;
 grant execute on function public.outreach_team_emails(uuid) to service_role;
+
+-- A send that timed out leaves its message unknown and the enrollment stuck on
+-- that step. A deal manager settles it: mark_sent lets the next tick advance the
+-- step, retry keeps the message as retried so the next tick sends again, and stop fails
+-- the enrollment. Only a queued or held enrollment is still waiting on the send,
+-- and resolving leaves a held one held. Definer rights because only the sender
+-- may write messages.
+create or replace function public.resolve_unknown_outreach_send(p_enrollment_id uuid, p_resolution text)
+  returns void
+  language plpgsql security definer
+  set search_path = '' as $$
+declare
+  v_enrollment public.outreach_enrollment;
+begin
+  select * into v_enrollment from public.outreach_enrollment where id = p_enrollment_id for update;
+
+  if not found or not public.has_role_on_account(v_enrollment.account_id) then
+    raise exception 'This enrollment was not found' using errcode = 'no_data_found';
+  end if;
+
+  if not public.has_permission((select auth.uid()), v_enrollment.account_id, 'deals.manage') then
+    raise exception 'resolving an unknown send needs deals.manage' using errcode = 'insufficient_privilege';
+  end if;
+
+  if v_enrollment.status not in ('queued', 'held') then
+    raise exception 'This enrollment is no longer waiting' using errcode = 'no_data_found';
+  end if;
+
+  perform from public.outreach_message
+  where enrollment_id = v_enrollment.id and step_id = v_enrollment.current_step and status = 'unknown'
+  for update;
+
+  if not found then
+    raise exception 'The current step has no unknown send' using errcode = 'no_data_found';
+  end if;
+
+  case p_resolution
+    when 'mark_sent' then
+      update public.outreach_message set status = 'sent', sent_at = now()
+      where enrollment_id = v_enrollment.id and step_id = v_enrollment.current_step and status = 'unknown';
+      update public.outreach_enrollment set error = null where id = v_enrollment.id;
+    when 'retry' then
+      update public.outreach_message set status = 'retried'
+      where enrollment_id = v_enrollment.id and step_id = v_enrollment.current_step and status = 'unknown';
+      update public.outreach_enrollment set error = null where id = v_enrollment.id;
+    when 'stop' then
+      update public.outreach_enrollment
+      set status = 'failed',
+        error = format(
+          'Stopped by %s after an unknown send',
+          coalesce(
+            (select nullif(btrim(a.name), '') from public.accounts a where a.id = (select auth.uid())),
+            'a teammate'
+          )
+        )
+      where id = v_enrollment.id;
+  end case;
+end;
+$$;
+
+revoke all on function public.resolve_unknown_outreach_send(uuid, text) from public, anon;
+grant execute on function public.resolve_unknown_outreach_send(uuid, text) to authenticated;

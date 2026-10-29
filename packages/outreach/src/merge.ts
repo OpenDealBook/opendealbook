@@ -22,25 +22,39 @@ export function renderTemplate(template: string, context: MergeContext): string 
   });
 }
 
+export const MERGE_FIELD_LABELS: Record<string, string> = {
+  'recipient.name': 'Recipient name',
+  'recipient.email': 'Recipient email',
+  'recipient.firstName': 'Recipient first name',
+  'firm.name': 'Firm name',
+  'firm.industry': 'Firm industry',
+  'firm.city': 'Firm city',
+  'firm.state': 'Firm state',
+  'firm.website': 'Firm website',
+  'dealBox.revenueRange': 'Deal box revenue range',
+  'dealBox.industries': 'Deal box industries',
+  'dealBox.industryPhrase': 'Deal box industry phrase',
+  'dealBox.revenuePhrase': 'Deal box revenue phrase',
+  'sender.name': 'Sender name',
+  'sender.company': 'Sender company',
+  'sender.email': 'Sender email',
+};
+
 export function mergeFieldTokens(): string[] {
-  return [
-    'recipient.name',
-    'recipient.email',
-    'recipient.firstName',
-    'firm.name',
-    'firm.industry',
-    'firm.city',
-    'firm.state',
-    'firm.website',
-    'dealBox.revenueRange',
-    'dealBox.industries',
-    'dealBox.industryPhrase',
-    'dealBox.revenuePhrase',
-    'sender.name',
-    'sender.company',
-    'sender.email',
-  ];
+  return Object.keys(MERGE_FIELD_LABELS);
 }
+
+export const SEQUENCE_LETTER_FIELDS = mergeFieldTokens().filter((token) => token !== 'sender.email');
+
+export const TEMPLATE_LETTER_FIELDS = [
+  'firm.name',
+  'firm.industry',
+  'firm.city',
+  'firm.state',
+  'firm.website',
+  'sender.name',
+  'sender.company',
+];
 
 export function dealBoxMergeFields(dealBox: {
   industries?: string;

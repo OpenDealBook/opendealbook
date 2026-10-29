@@ -1,6 +1,8 @@
 begin;
 select no_plan();
 
+select set_config('odb.allow_private_ai_url', 'off', true);
+
 select tests.create_user('aig_a_owner');
 select tests.create_user('aig_b_owner');
 select tests.login_as_service_role();

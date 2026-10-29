@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { dealBoxMergeFields, mergeFieldTokens, renderTemplate } from './merge';
+import { dealBoxMergeFields, MERGE_FIELD_LABELS, mergeFieldTokens, renderTemplate } from './merge';
 
 describe('renderTemplate', () => {
   it('substitutes a top-level dot path', () => {
@@ -63,6 +63,13 @@ describe('mergeFieldTokens', () => {
     expect(tokens).toContain('dealBox.industryPhrase');
     expect(tokens).toContain('dealBox.revenuePhrase');
     expect(tokens).toContain('sender.name');
+  });
+});
+
+describe('MERGE_FIELD_LABELS', () => {
+  it('gives merge field tokens plain labels', () => {
+    expect(MERGE_FIELD_LABELS['firm.name']).toBe('Firm name');
+    expect(MERGE_FIELD_LABELS['dealBox.industryPhrase']).toBe('Deal box industry phrase');
   });
 });
 

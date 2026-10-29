@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import '../../test-support/integration-harness';
-import { failLeadImport, startLeadImport } from './activities';
+import { failLeadImport, skipLeadImport, startLeadImport } from './activities';
 import type { LeadFile } from './files';
 import { loadLeadFile } from './load';
 
@@ -18,7 +18,7 @@ const admin = createClient(
 const run = crypto.randomUUID();
 
 function fixtureFile(
-  ref: { kind: LeadFile['kind']; state?: string },
+  ref: { kind: LeadFile['kind']; dataset?: string },
   fixture: string,
   asOf: string,
 ): LeadFile {
@@ -63,7 +63,81 @@ const ACK_IDS = [
   '20260225154432NAL0000000002001',
 ];
 
+const OR_ENTITIES = ['100001', '200002', '300003', '400004', '500005'];
+const CT_ENTITIES = ['1000001', '1000002', '1000003', '1000004', '1000005'];
+const IA_ENTITIES = ['600101', '600102', '600103', '600104', '600105'];
+const TX_ENTITIES = [
+  '0800000101',
+  '0800000102',
+  '0800000103',
+  '0800000104',
+  '0800000105',
+];
+
 const businessIds: string[] = [];
+
+async function importOnce(file: LeadFile) {
+  const importId = crypto.randomUUID();
+  await startLeadImport({ importId, file });
+  await loadFixture(importId, file);
+  return importId;
+}
+
+async function oregonEntities() {
+  const { data } = await admin
+    .from('state_registry_entity')
+    .select(
+      'entity_number, status, registered_agent, mailing_address_line1, mailing_postal_code, state_registry_officer(name, title)',
+    )
+    .eq('state', 'OR')
+    .in('entity_number', OR_ENTITIES)
+    .order('entity_number')
+    .throwOnError();
+  return data;
+}
+
+async function unmatched(importId: string) {
+  const { data } = await admin
+    .from('lead_import')
+    .select('rows_unmatched')
+    .eq('id', importId)
+    .single()
+    .throwOnError();
+  return data.rows_unmatched;
+}
+
+async function importSnapshot(dataset: string, fixture: string, asOf: string) {
+  const file: LeadFile = {
+    kind: 'state_registry',
+    dataset,
+    url: `fixture://${dataset}-snapshot?${run}`,
+    asOf,
+  };
+  const importId = crypto.randomUUID();
+  await startLeadImport({ importId, file });
+  for (const _attempt of [1, 2]) {
+    await loadLeadFile(
+      importId,
+      file,
+      createReadStream(new URL(`./fixtures/${fixture}`, import.meta.url)),
+      () => {},
+    );
+  }
+}
+
+const oregon = (fixture: string, asOf: string) =>
+  fixtureFile({ kind: 'state_registry', dataset: 'OR' }, fixture, asOf);
+
+async function statuses(state: string, entityNumbers: string[]) {
+  const { data } = await admin
+    .from('state_registry_entity')
+    .select('entity_number, status')
+    .eq('state', state)
+    .in('entity_number', entityNumbers)
+    .order('entity_number')
+    .throwOnError();
+  return data.map(({ entity_number, status }) => [entity_number, status]);
+}
 
 async function clear() {
   const { data: imports } = await admin
@@ -105,6 +179,30 @@ async function clear() {
     .delete()
     .eq('state', 'PA')
     .eq('entity_number', '0006306940')
+    .throwOnError();
+  await admin
+    .from('state_registry_entity')
+    .delete()
+    .eq('state', 'OR')
+    .in('entity_number', OR_ENTITIES)
+    .throwOnError();
+  await admin
+    .from('state_registry_entity')
+    .delete()
+    .eq('state', 'CT')
+    .in('entity_number', CT_ENTITIES)
+    .throwOnError();
+  await admin
+    .from('state_registry_entity')
+    .delete()
+    .eq('state', 'IA')
+    .in('entity_number', IA_ENTITIES)
+    .throwOnError();
+  await admin
+    .from('state_registry_entity')
+    .delete()
+    .eq('state', 'TX')
+    .in('entity_number', TX_ENTITIES)
     .throwOnError();
   await admin
     .from('lead_import')
@@ -267,7 +365,7 @@ describe('lead file loads', () => {
   it('loads registry entities and their officers once when the import is run again', async () => {
     const { importId, second } = await importTwice(
       fixtureFile(
-        { kind: 'state_registry', state: 'NY' },
+        { kind: 'state_registry', dataset: 'NY' },
         'registry_ny.csv',
         '2026-10-25',
       ),
@@ -313,7 +411,7 @@ describe('lead file loads', () => {
   it('gathers every officer row of one registry entity under that entity', async () => {
     const { second } = await importTwice(
       fixtureFile(
-        { kind: 'state_registry', state: 'PA' },
+        { kind: 'state_registry', dataset: 'PA' },
         'registry_pa.csv',
         '2026-10-06',
       ),
@@ -340,6 +438,52 @@ describe('lead file loads', () => {
       ]),
     );
     expect(entity.state_registry_officer).toHaveLength(2);
+  });
+
+  it('removes a registry officer the newer file no longer lists for that entity', async () => {
+    const pa = (fixture: string) =>
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'PA' },
+        fixture,
+        '2026-10-13',
+      );
+    await importOnce(pa('registry_pa.csv'));
+
+    await importTwice(pa('registry_pa_departed.csv'));
+
+    const { data: entity } = await admin
+      .from('state_registry_entity')
+      .select('state_registry_officer(name, title)')
+      .eq('state', 'PA')
+      .eq('entity_number', '0006306940')
+      .single()
+      .throwOnError();
+    expect(entity.state_registry_officer).toEqual([
+      { name: 'Avery Fictional', title: 'President' },
+    ]);
+  });
+
+  it('replaces a New York CEO the newer file no longer lists', async () => {
+    const ny = (fixture: string) =>
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'NY' },
+        fixture,
+        '2026-10-30',
+      );
+    await importOnce(ny('registry_ny.csv'));
+
+    await importTwice(ny('registry_ny_new_ceo.csv'));
+
+    const { data: entity } = await admin
+      .from('state_registry_entity')
+      .select('state_registry_officer(name, title)')
+      .eq('state', 'NY')
+      .eq('entity_number', '9424185')
+      .single()
+      .throwOnError();
+    expect(entity.state_registry_officer).toEqual([
+      { name: 'ROBIN EXAMPLE', title: 'CEO' },
+    ]);
   });
 
   it('reports progress after each batch it writes', async () => {
@@ -384,6 +528,35 @@ describe('lead file loads', () => {
     });
   });
 
+  it('records why a file was skipped', async () => {
+    const importId = crypto.randomUUID();
+    const file = fixtureFile(
+      { kind: 'state_registry', dataset: 'CT principals' },
+      'registry_ct_principals.csv',
+      '2026-10-27',
+    );
+
+    await skipLeadImport({
+      importId,
+      file,
+      reason: 'CT did not load in this run',
+    });
+
+    const { data } = await admin
+      .from('lead_import')
+      .select('source, filename, as_of, status, error')
+      .eq('id', importId)
+      .single()
+      .throwOnError();
+    expect(data).toEqual({
+      source: 'state_registry',
+      filename: file.url,
+      as_of: '2026-10-27',
+      status: 'skipped',
+      error: 'CT did not load in this run',
+    });
+  });
+
   it('fails a file that lacks a column it reads, before writing any row', async () => {
     const file = fixtureFile(
       { kind: 'ppp' },
@@ -422,5 +595,302 @@ describe('lead file loads', () => {
     expect(
       await startLeadImport({ importId: crypto.randomUUID(), file: march }),
     ).toEqual({ skipped: false });
+  });
+
+  it('gathers each Oregon business from its rows, taking the principal place of business and the registered agent whichever comes first', async () => {
+    const { second } = await importTwice(
+      oregon('registry_or.csv', '2026-10-18'),
+    );
+
+    expect(second).toMatchObject({
+      rows_read: 6,
+      rows_written: 2,
+      rows_rejected: 0,
+    });
+    expect(await oregonEntities()).toEqual([
+      {
+        entity_number: '100001',
+        status: 'active',
+        registered_agent: 'CASEY Q FICTIONAL',
+        mailing_address_line1: '12 SAMPLE LN',
+        mailing_postal_code: '97702',
+        state_registry_officer: [],
+      },
+      {
+        entity_number: '200002',
+        status: 'active',
+        registered_agent: 'SAMPLE REGISTERED AGENTS INC',
+        mailing_address_line1: '40 SAMPLE ST',
+        mailing_postal_code: '97401',
+        state_registry_officer: [],
+      },
+    ]);
+  });
+
+  it('attaches Oregon officers, people or companies, to businesses already listed, creating none and counting the rest', async () => {
+    await importOnce(oregon('registry_or.csv', '2026-10-18'));
+
+    const { importId } = await importTwice(
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'OR officers' },
+        'registry_or_officers.csv',
+        '2026-10-01',
+      ),
+    );
+
+    const entities = await oregonEntities();
+    expect(entities.map((entity) => entity.entity_number)).toEqual([
+      '100001',
+      '200002',
+    ]);
+    expect(entities[0]!.state_registry_officer).toEqual(
+      expect.arrayContaining([
+        { name: 'CASEY Q FICTIONAL', title: 'MEMBER' },
+        { name: 'RILEY EXAMPLE JR', title: 'MANAGER' },
+        { name: 'SAMPLE ORCHARD HOLDINGS LLC', title: 'MEMBER' },
+      ]),
+    );
+    expect(entities[0]!.state_registry_officer).toHaveLength(5);
+    expect(await unmatched(importId)).toBe(2);
+
+    await importTwice(
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'OR officers' },
+        'registry_or_officers_departed.csv',
+        '2026-11-01',
+      ),
+    );
+
+    expect(
+      (await oregonEntities())[0]!.state_registry_officer.map(
+        (officer) => officer.name,
+      ),
+    ).toEqual(expect.not.arrayContaining(['RILEY EXAMPLE JR']));
+    expect((await oregonEntities())[0]!.state_registry_officer).toHaveLength(4);
+
+    await importTwice(
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'OR officers' },
+        'registry_or_officers_listed_only.csv',
+        '2026-12-01',
+      ),
+    );
+
+    expect((await oregonEntities())[0]!.state_registry_officer).toEqual([]);
+  });
+
+  it('marks an Oregon business missing from the latest file as no longer listed, clears the agent the later file leaves blank, keeps authorized representatives as officers while listed, and restores it when it is listed again', async () => {
+    await importSnapshot('OR', 'registry_or.csv', '2026-10-18');
+
+    await importSnapshot('OR', 'registry_or_relisted.csv', '2026-10-25');
+
+    expect(
+      (await oregonEntities()).map(
+        ({ entity_number, status, registered_agent }) => [
+          entity_number,
+          status,
+          registered_agent,
+        ],
+      ),
+    ).toEqual([
+      ['100001', 'active', null],
+      ['200002', 'inactive (no longer listed)', 'SAMPLE REGISTERED AGENTS INC'],
+    ]);
+    expect(
+      (await oregonEntities())[0]!.state_registry_officer.toSorted((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+    ).toEqual([
+      { name: 'PAT SAMPLE', title: 'AUTHORIZED REPRESENTATIVE' },
+      { name: 'ROBIN EXAMPLE', title: 'AUTHORIZED REPRESENTATIVE' },
+    ]);
+
+    await importSnapshot('OR', 'registry_or.csv', '2026-11-01');
+
+    expect(
+      (await oregonEntities()).map(
+        ({ entity_number, status, state_registry_officer }) => [
+          entity_number,
+          status,
+          state_registry_officer,
+        ],
+      ),
+    ).toEqual([
+      ['100001', 'active', []],
+      ['200002', 'active', []],
+    ]);
+  });
+
+  it('marks no Oregon drop-outs, and warns, when the file has under 80% of the rows of the last good one', async () => {
+    await importSnapshot('OR', 'registry_or.csv', '2026-11-08');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await importSnapshot('OR', 'registry_or_truncated.csv', '2026-11-15');
+
+    expect(
+      (await oregonEntities()).map(({ entity_number, status }) => [
+        entity_number,
+        status,
+      ]),
+    ).toEqual([
+      ['100001', 'active'],
+      ['200002', 'active'],
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('skipped marking OR drop-outs'),
+    );
+    warn.mockRestore();
+  });
+
+  it('marks no drop-outs on the first import of an Oregon file', async () => {
+    await importOnce(oregon('registry_or.csv', '2026-11-22'));
+    await importOnce(oregon('registry_or_relisted.csv', '2026-11-29'));
+
+    expect(
+      (await oregonEntities()).map(({ entity_number, status }) => [
+        entity_number,
+        status,
+      ]),
+    ).toEqual([
+      ['100001', 'active'],
+      ['200002', 'active'],
+    ]);
+  });
+
+  it('attaches Connecticut principals and the registered agent through the business Id', async () => {
+    const ct = (dataset: string, fixture: string) =>
+      fixtureFile({ kind: 'state_registry', dataset }, fixture, '2026-10-27');
+    await importOnce(ct('CT', 'registry_ct.csv'));
+
+    const principals = await importTwice(
+      ct('CT principals', 'registry_ct_principals.csv'),
+    );
+    await importTwice(ct('CT agents', 'registry_ct_agents.csv'));
+
+    const { data: entity } = await admin
+      .from('state_registry_entity')
+      .select('registered_agent, state_registry_officer(name, title)')
+      .eq('state', 'CT')
+      .eq('entity_number', '1000001')
+      .single()
+      .throwOnError();
+    expect(entity.registered_agent).toBe('Sample Agent Services LLC');
+    expect(entity.state_registry_officer).toEqual(
+      expect.arrayContaining([
+        { name: 'Morgan Example', title: 'Principal' },
+        { name: 'Quinn Fictional', title: 'Officer' },
+        { name: 'Quinn Fictional', title: 'Director' },
+      ]),
+    );
+    expect(entity.state_registry_officer).toHaveLength(3);
+    expect(await unmatched(principals.importId)).toBe(1);
+
+    await importOnce(
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'CT' },
+        'registry_ct.csv',
+        '2026-11-03',
+      ),
+    );
+    await importTwice(
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'CT principals' },
+        'registry_ct_principals_departed.csv',
+        '2026-11-03',
+      ),
+    );
+
+    const { data: later } = await admin
+      .from('state_registry_entity')
+      .select('registered_agent, state_registry_officer(name, title)')
+      .eq('state', 'CT')
+      .eq('entity_number', '1000001')
+      .single()
+      .throwOnError();
+    expect(later).toEqual({
+      registered_agent: 'Sample Agent Services LLC',
+      state_registry_officer: [{ name: 'Morgan Example', title: 'Principal' }],
+    });
+  });
+
+  it('keeps the registered agent when a later row of the same business in an agents file has none', async () => {
+    const ct = (dataset: string, fixture: string) =>
+      fixtureFile({ kind: 'state_registry', dataset }, fixture, '2026-11-10');
+    await importOnce(ct('CT', 'registry_ct.csv'));
+
+    await importTwice(ct('CT agents', 'registry_ct_agents_repeat.csv'));
+
+    const { data: entity } = await admin
+      .from('state_registry_entity')
+      .select('registered_agent')
+      .eq('state', 'CT')
+      .eq('entity_number', '1000001')
+      .single()
+      .throwOnError();
+    expect(entity.registered_agent).toBe('Harbor Agent Co');
+  });
+
+  it('marks an Iowa business missing from a later full file as no longer listed', async () => {
+    await importSnapshot('IA', 'registry_ia_full.csv', '2026-10-16');
+
+    await importSnapshot('IA', 'registry_ia_later.csv', '2026-10-23');
+
+    expect(await statuses('IA', IA_ENTITIES)).toEqual([
+      ['600101', 'active'],
+      ['600102', 'active'],
+      ['600103', 'active'],
+      ['600104', 'active'],
+      ['600105', 'inactive (no longer listed)'],
+    ]);
+  });
+
+  it('leaves a Texas business missing from a later file as its last file reported it', async () => {
+    await importSnapshot('TX', 'registry_tx_full.csv', '2026-10-16');
+
+    await importSnapshot('TX', 'registry_tx_later.csv', '2026-10-23');
+
+    expect(await statuses('TX', TX_ENTITIES)).toEqual([
+      ['0800000101', 'active'],
+      ['0800000102', 'active'],
+      ['0800000103', 'active'],
+      ['0800000104', 'active'],
+      ['0800000105', 'active'],
+    ]);
+  });
+
+  it('refuses a row whose source id another row or entity already holds, counts it as rejected, and loads the rest', async () => {
+    const ct = (fixture: string) =>
+      fixtureFile(
+        { kind: 'state_registry', dataset: 'CT' },
+        fixture,
+        '2026-11-17',
+      );
+
+    const duplicate = await importTwice(ct('registry_ct_duplicate_id.csv'));
+    const taken = await importTwice(ct('registry_ct_taken_id.csv'));
+
+    expect(duplicate.second).toMatchObject({
+      status: 'succeeded',
+      rows_read: 3,
+      rows_written: 2,
+      rows_rejected: 1,
+    });
+    expect(taken.second).toMatchObject({
+      status: 'succeeded',
+      rows_read: 1,
+      rows_written: 0,
+      rows_rejected: 1,
+    });
+    const { data: entities } = await admin
+      .from('state_registry_entity')
+      .select('entity_number, source_id')
+      .eq('state', 'CT')
+      .in('entity_number', CT_ENTITIES.slice(1))
+      .order('entity_number')
+      .throwOnError();
+    expect(entities).toEqual([
+      { entity_number: '1000002', source_id: '001t000000sample2' },
+      { entity_number: '1000004', source_id: '001t000000sample4' },
+    ]);
   });
 });

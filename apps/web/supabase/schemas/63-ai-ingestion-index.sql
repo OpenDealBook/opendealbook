@@ -6,7 +6,7 @@
 create index ix_document_chunk_embedding on public.document_chunk
   using ivfflat (embedding extensions.vector_cosine_ops) with (lists = 100);
 
-create type public.embedding_job_status as enum ('queued', 'running', 'done', 'failed');
+create type public.embedding_job_status as enum ('queued', 'running', 'done', 'failed', 'skipped');
 
 create table if not exists public.embedding_job (
   id uuid primary key default gen_random_uuid(),
@@ -17,6 +17,7 @@ create table if not exists public.embedding_job (
   chunk_count int,
   model text,
   error text,
+  skipped_reason text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users default auth.uid()

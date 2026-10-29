@@ -1,6 +1,7 @@
+import { lookup } from 'node:dns/promises';
 import http from 'node:http';
 import https from 'node:https';
-import type { LookupFunction } from 'node:net';
+import { isIP, type LookupFunction } from 'node:net';
 
 import { ApplicationFailure } from '@temporalio/common';
 
@@ -28,7 +29,33 @@ interface Connection {
   signal?: AbortSignal;
 }
 
-const PUBLIC_ONLY: Connection = { connectTo: publicAddressOf, timeoutMs: AI_PROVIDER_TIMEOUT_MS };
+const TEAM_AI: Connection = { connectTo: teamAiAddressOf, timeoutMs: AI_PROVIDER_TIMEOUT_MS };
+
+async function anyAddressOf(url: string): Promise<VettedAddress> {
+  const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
+  const { address, family } = isIP(host) ? { address: host, family: isIP(host) } : await lookup(host);
+  return { address, family: family as 4 | 6 };
+}
+
+export function privateAiUrlsAllowed(): boolean {
+  const devStack = process.env.ODB_STACK === 'local' || process.env.ODB_STACK === 'e2e';
+  return devStack && process.env.ODB_ALLOW_PRIVATE_AI_URL === '1';
+}
+
+export function teamAiAddressOf(url: string): Promise<VettedAddress | null> {
+  return privateAiUrlsAllowed() ? anyAddressOf(url) : publicAddressOf(url);
+}
+
+export function aiJson(text: string): unknown {
+  return JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/, '$1'));
+}
+
+export interface AiRequest {
+  system?: string;
+  json?: boolean;
+  temperature?: number;
+  maxTokens?: number;
+}
 
 function pinnedLookup({ address, family }: VettedAddress): LookupFunction {
   return (_hostname, options, callback) =>
@@ -102,13 +129,13 @@ async function pinnedRequest(
   });
 }
 
-async function post(
+export async function postToAiProvider(
   url: string,
   headers: Record<string, string>,
   body: unknown,
-  connection: Connection,
+  overrides: Partial<Connection> = {},
 ): Promise<unknown> {
-  const response = await pinnedPost(url, headers, body, connection);
+  const response = await pinnedPost(url, headers, body, { ...TEAM_AI, ...overrides });
   if (response.status >= 500) {
     throw new Error(`The AI provider answered ${response.status}`);
   }
@@ -126,16 +153,16 @@ export async function completeWithTeamAi(
   endpoint: AiEndpoint,
   prompt: string,
   overrides: Partial<Connection> = {},
+  { system, json, temperature, maxTokens }: AiRequest = {},
 ): Promise<AiCompletion> {
-  const connection = { ...PUBLIC_ONLY, ...overrides };
   const messages = [{ role: 'user', content: prompt }];
 
   if (endpoint.provider === 'anthropic') {
-    const reply = (await post(
+    const reply = (await postToAiProvider(
       `${endpoint.baseUrl}/messages`,
       { 'x-api-key': endpoint.apiKey, 'anthropic-version': '2023-06-01' },
-      { model: endpoint.model, max_tokens: ANTHROPIC_MAX_TOKENS, messages },
-      connection,
+      { model: endpoint.model, max_tokens: maxTokens ?? ANTHROPIC_MAX_TOKENS, system, temperature, messages },
+      overrides,
     )) as {
       content: { text: string }[];
       usage: { input_tokens: number; output_tokens: number };
@@ -147,11 +174,17 @@ export async function completeWithTeamAi(
     };
   }
 
-  const reply = (await post(
+  const reply = (await postToAiProvider(
     `${endpoint.baseUrl}/chat/completions`,
     { authorization: `Bearer ${endpoint.apiKey}` },
-    { model: endpoint.model, messages },
-    connection,
+    {
+      model: endpoint.model,
+      messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
+      temperature,
+      max_tokens: maxTokens,
+      response_format: json ? { type: 'json_object' } : undefined,
+    },
+    overrides,
   )) as {
     choices: { message: { content: string } }[];
     usage: { prompt_tokens: number; completion_tokens: number };

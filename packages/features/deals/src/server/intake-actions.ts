@@ -2,6 +2,7 @@
 
 import { extractText, getDocumentProxy } from 'unpdf';
 
+import { accountAiScope, type AiScope, dealAiScope } from '@odb/ai/scope';
 import { appendDealEvent } from '@odb/events';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -27,25 +28,28 @@ async function pdfToText(base64: string): Promise<string> {
   return text;
 }
 
+async function draftOrRefuse(scope: AiScope, text: string) {
+  const draft = await extractDealIntake(scope, text);
+
+  if (!draft.ok) {
+    throw new Refusal(draft.reason);
+  }
+
+  return draft.value;
+}
+
 async function extractForCreator(
   accountId: string,
   userId: string,
   text: () => Promise<string>,
 ) {
-  const client = getSupabaseServerClient();
-  const { data: mayCreate } = await client
-    .rpc('has_permission', {
-      account_id: accountId,
-      user_id: userId,
-      permission_name: 'deals.create',
-    })
-    .throwOnError();
+  const scope = await accountAiScope(getSupabaseServerClient(), userId, accountId);
 
-  if (!mayCreate) {
+  if (!scope) {
     throw new Refusal("Read-only members can't create deals. Ask a deal manager.");
   }
 
-  return extractDealIntake(client, accountId, await text());
+  return draftOrRefuse(scope, await text());
 }
 
 export const extractDealIntakeFromText = refusableAction(
@@ -75,14 +79,13 @@ async function rerunFromText(
   dealId: string,
   text: string,
 ) {
-  const { data: deal } = await client
-    .from('deal')
-    .select('account_id')
-    .eq('id', dealId)
-    .single()
-    .throwOnError();
+  const scope = await dealAiScope(client, dealId, 'deals.manage');
 
-  const draft = await extractDealIntake(client, deal.account_id, text);
+  if (typeof scope === 'string') {
+    throw new Refusal('Only deal managers can rerun intake.');
+  }
+
+  const draft = await draftOrRefuse(scope, text);
 
   await appendDealEvent(client, {
     dealId,

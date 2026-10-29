@@ -3,12 +3,16 @@
 -- managers save or disconnect the endpoint through definer functions, the only
 -- way to write it, and never read the key back; only the service role decrypts
 -- it for a model call. Changing the provider or base URL needs a new key, and
--- saves for one team are serialized. A provider saved here names only its chat
--- model. team_people_names lists every person the team knows, so prompts can be
+-- saves for one team are serialized. A provider saved here names its chat model
+-- and, when the team gives one, the embedding model in llm_endpoint.model;
+-- Anthropic has no embeddings API, so an Anthropic provider takes none.
+-- team_people_names lists every person the team knows, so prompts can be
 -- redacted before they leave.
 
 -- A custom endpoint must be a public https URL without credentials, query or
--- fragment; literal private addresses and internal hostnames are refused.
+-- fragment; literal private addresses and internal hostnames are refused. A local
+-- or e2e database that sets odb.allow_private_ai_url = 'on' may save any URL, so
+-- a team can point at a stand-in; production never sets it.
 create or replace function tuckin.public_https_base_url(p_url text)
   returns boolean
   language plpgsql immutable
@@ -55,7 +59,8 @@ create or replace function public.save_llm_endpoint(
   p_provider text,
   p_model text,
   p_base_url text,
-  p_api_key text default null
+  p_api_key text default null,
+  p_embedding_model text default null
 )
   returns void
   language plpgsql security definer
@@ -73,7 +78,13 @@ begin
     raise exception 'changing the AI provider needs settings.manage' using errcode = 'insufficient_privilege';
   end if;
 
-  if p_provider = 'openai_compatible' and not coalesce(tuckin.public_https_base_url(p_base_url), false) then
+  if p_provider = 'anthropic' and p_embedding_model is not null then
+    raise exception 'Anthropic has no embeddings API; leave Embedding model empty' using errcode = 'data_exception';
+  end if;
+
+  if p_provider = 'openai_compatible'
+    and coalesce(current_setting('odb.allow_private_ai_url', true), '') <> 'on'
+    and not coalesce(tuckin.public_https_base_url(p_base_url), false) then
     raise exception 'use a public https base URL' using errcode = 'invalid_parameter_value';
   end if;
 
@@ -96,18 +107,19 @@ begin
     secret_id := vault.create_secret(p_api_key);
   end if;
 
-  insert into public.llm_endpoint (account_id, provider, chat_model, base_url, api_key_secret_id)
-  values (p_account_id, p_provider, p_model, base_url, secret_id)
+  insert into public.llm_endpoint (account_id, provider, chat_model, model, base_url, api_key_secret_id)
+  values (p_account_id, p_provider, p_model, p_embedding_model, base_url, secret_id)
   on conflict (account_id) do update
     set provider = excluded.provider,
         chat_model = excluded.chat_model,
+        model = excluded.model,
         base_url = excluded.base_url,
         api_key_secret_id = excluded.api_key_secret_id;
 end;
 $$;
 
-revoke all on function public.save_llm_endpoint(uuid, text, text, text, text) from public, anon;
-grant execute on function public.save_llm_endpoint(uuid, text, text, text, text) to authenticated;
+revoke all on function public.save_llm_endpoint(uuid, text, text, text, text, text) from public, anon;
+grant execute on function public.save_llm_endpoint(uuid, text, text, text, text, text) to authenticated;
 
 create or replace function public.disconnect_llm_endpoint(p_account_id uuid)
   returns void

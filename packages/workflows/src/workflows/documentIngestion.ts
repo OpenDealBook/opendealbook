@@ -32,7 +32,7 @@ export async function documentIngestion(
       drDocumentId: input.drDocumentId,
     });
 
-    const { chunkCount, model } = await embedDocumentChunks({
+    const embedded = await embedDocumentChunks({
       jobId,
       drDocumentId: input.drDocumentId,
       accountId,
@@ -40,7 +40,9 @@ export async function documentIngestion(
       markdown,
     });
 
-    await completeEmbeddingJob({ jobId, chunkCount, model });
+    if ('chunkCount' in embedded) {
+      await completeEmbeddingJob({ jobId, ...embedded });
+    }
   } catch (error) {
     await failEmbeddingJob({
       jobId,

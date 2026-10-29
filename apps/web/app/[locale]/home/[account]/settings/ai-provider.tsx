@@ -37,6 +37,7 @@ type Provider = keyof typeof PROVIDERS;
 interface Endpoint {
   provider: string;
   model: string;
+  embeddingModel: string | null;
   baseUrl: string;
 }
 
@@ -52,6 +53,9 @@ export function AiProviderSetting({
   const { refusal, pending, run } = useRefusableAction();
   const [provider, setProvider] = useState((current?.provider ?? 'openai') as Provider);
   const [model, setModel] = useState(current?.model ?? '');
+  const [embeddingModel, setEmbeddingModel] = useState(
+    current?.provider === 'anthropic' ? '' : (current?.embeddingModel ?? ''),
+  );
   const [baseUrl, setBaseUrl] = useState(current?.baseUrl ?? '');
   const [apiKey, setApiKey] = useState('');
 
@@ -71,7 +75,7 @@ export function AiProviderSetting({
             onSubmit={(event) => {
               event.preventDefault();
               run(
-                () => saveAiProviderAction({ accountId, provider, model, baseUrl, apiKey }),
+                () => saveAiProviderAction({ accountId, provider, model, embeddingModel, baseUrl, apiKey }),
                 () => setApiKey(''),
               );
             }}
@@ -83,7 +87,13 @@ export function AiProviderSetting({
                 className={'bg-background h-9 w-full rounded-md border px-2 text-sm'}
                 value={provider}
                 disabled={pending}
-                onChange={(event) => setProvider(event.target.value as Provider)}
+                onChange={(event) => {
+                  const chosen = event.target.value as Provider;
+                  setProvider(chosen);
+                  if (chosen === 'anthropic') {
+                    setEmbeddingModel('');
+                  }
+                }}
               >
                 {Object.entries(PROVIDERS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -101,6 +111,21 @@ export function AiProviderSetting({
                 onChange={(event) => setModel(event.target.value)}
               />
             </Label>
+            {provider === 'anthropic' ? null : (
+              <Label className={'flex flex-col items-start gap-1'}>
+                Embedding model
+                <Input
+                  aria-label={'Embedding model'}
+                  value={embeddingModel}
+                  disabled={pending}
+                  onChange={(event) => setEmbeddingModel(event.target.value)}
+                />
+                <span className={'text-muted-foreground text-xs font-normal'}>
+                  Document search needs an embedding model from OpenAI or an OpenAI-compatible
+                  endpoint. Anthropic has none.
+                </span>
+              </Label>
+            )}
             {provider === 'openai_compatible' ? (
               <Label className={'flex flex-col items-start gap-1'}>
                 Base URL

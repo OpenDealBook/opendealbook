@@ -84,7 +84,6 @@ export function MeetingsManager({
         onScheduled={() => router.refresh()}
       />
       <MeetingsListCard
-        accountId={accountId}
         dealId={dealId}
         meetings={meetings}
         onChanged={() => router.refresh()}
@@ -290,12 +289,10 @@ function ScheduleMeetingCard({
 }
 
 function MeetingsListCard({
-  accountId,
   dealId,
   meetings,
   onChanged,
 }: {
-  accountId: string;
   dealId: string;
   meetings: MeetingRow[];
   onChanged: () => void;
@@ -332,7 +329,6 @@ function MeetingsListCard({
                   <TableCell>{meeting.status ?? 'scheduled'}</TableCell>
                   <TableCell>
                     <RecordingPanel
-                      accountId={accountId}
                       dealId={dealId}
                       meeting={meeting}
                       onChanged={onChanged}
@@ -349,12 +345,10 @@ function MeetingsListCard({
 }
 
 function RecordingPanel({
-  accountId,
   dealId,
   meeting,
   onChanged,
 }: {
-  accountId: string;
   dealId: string;
   meeting: MeetingRow;
   onChanged: () => void;
@@ -427,12 +421,15 @@ function RecordingPanel({
 
     setError(null);
     startTransition(async () => {
-      await summarizeMeeting({
+      const result = await summarizeMeeting({
         id: meeting.id,
         deal_id: dealId,
-        account_id: accountId,
         transcript_text: transcript,
       });
+      if (!result.ok) {
+        setError(result.reason);
+        return;
+      }
       onChanged();
     });
   }

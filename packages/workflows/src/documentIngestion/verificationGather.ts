@@ -12,9 +12,9 @@ import {
   revenueVsDdFinancialsCheck,
 } from '@odb/verification';
 
+import { resolveTeamAi, type TeamAi } from '../builder/teamAiKey';
 import type { DoclingConfig } from './docling';
 import { extractMarkdown } from './docling';
-import type { ExtractionEndpoint } from './extraction';
 import { extractFigure } from './extraction';
 
 const DATA_ROOM_BUCKET = 'data-room';
@@ -95,41 +95,19 @@ export async function buildDocumentExtractionChecks(
 
   const accountId = deal.account_id;
 
-  const { data: endpointRow, error: endpointError } = await client
-    .from('llm_endpoint')
-    .select('id, chat_model, base_url, api_key_secret_ref')
-    .eq('account_id', accountId)
-    .limit(1)
-    .single();
+  const ai = await resolveTeamAi(accountId, 'chat');
 
-  const apiKey = endpointRow?.api_key_secret_ref
-    ? process.env[endpointRow.api_key_secret_ref]
-    : undefined;
-
-  if (
-    endpointError ||
-    !endpointRow?.base_url ||
-    !endpointRow.chat_model ||
-    !apiKey
-  ) {
-    return unavailable(`no usable llm_endpoint for account ${accountId}`);
+  if (!ai) {
+    return unavailable(`no AI provider key and chat model for account ${accountId}`);
   }
-
-  const endpoint: ExtractionEndpoint = {
-    baseUrl: endpointRow.base_url,
-    chatModel: endpointRow.chat_model,
-    apiKey,
-  };
 
   const documents = await loadDealDocuments(client, dealId);
 
   const context = {
     client,
-    accountId,
     dealId,
     docling,
-    endpoint,
-    endpointId: endpointRow.id,
+    ai,
     documents,
   };
 
@@ -216,11 +194,9 @@ async function loadDealDocuments(
 
 interface ResolveContext {
   client: Client;
-  accountId: string;
   dealId: string;
   docling: DoclingConfig;
-  endpoint: ExtractionEndpoint;
-  endpointId: string;
+  ai: TeamAi;
   documents: DealDocument[];
 }
 
@@ -247,19 +223,10 @@ async function resolveSide(
   for (const document of matched) {
     const signedUrl = await signDocument(context.client, document.storagePath);
     const markdown = await extractMarkdown(context.docling, signedUrl);
-    const figure = await extractFigure(context.endpoint, instruction, markdown);
+    const amount = await extractFigure(context.ai, context.dealId, instruction, markdown);
 
-    await context.client.from('ai_call_log').insert({
-      account_id: context.accountId,
-      deal_id: context.dealId,
-      endpoint_id: context.endpointId,
-      model: context.endpoint.chatModel,
-      prompt_tokens: figure.promptTokens,
-      completion_tokens: figure.completionTokens,
-    });
-
-    if (figure.amount !== null) {
-      amounts.push(figure.amount);
+    if (amount !== null) {
+      amounts.push(amount);
     }
   }
 

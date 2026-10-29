@@ -8,6 +8,7 @@ import {
   failEmbeddingJob,
   markEmbeddingJobRunning,
 } from '../activities';
+import { fakeAiProvider } from '../../test-support/fake-ai-provider';
 import { EMBEDDING_DIMENSIONS } from './embeddings';
 
 const state = vi.hoisted(() => ({ client: null as unknown }));
@@ -69,23 +70,23 @@ const chunkScope = {
   dealId: 'deal1',
 };
 
-function stubEmbeddingDimension(dimension: number): void {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => ({
-      json: async () => ({
-        data: [{ index: 0, embedding: Array(dimension).fill(0.1) }],
-      }),
-    })),
-  );
+let provider: Awaited<ReturnType<typeof fakeAiProvider>> | undefined;
+
+async function serveEmbeddings(team: FakeTeam, dimension: number): Promise<void> {
+  provider = await fakeAiProvider({
+    status: 200,
+    body: { data: [{ index: 0, embedding: Array(dimension).fill(0.1) }] },
+  });
+  team.endpoint!.base_url = provider.baseUrl;
+  process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
+  process.env.ODB_STACK = 'local';
 }
 
-beforeEach(() => {
-  process.env.TENANT_LLM_KEY = 'sk-tenant';
-});
-
 afterEach(() => {
-  vi.unstubAllGlobals();
+  provider?.close();
+  provider = undefined;
+  delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
+  delete process.env.ODB_STACK;
 });
 
 describe('embedding job status transitions', () => {
@@ -149,129 +150,169 @@ describe('embedding job status transitions', () => {
   });
 });
 
-describe('embedDocumentChunks', () => {
-  it('writes chunks scoped to the document account and deal', async () => {
-    const { client, capture } = makeClient({
-      rows: {
-        llm_endpoint: {
-          model: 'text-embedding-3-small',
-          base_url: 'http://llm.test',
-          api_key_secret_ref: 'TENANT_LLM_KEY',
-        },
-      },
-    });
-    state.client = client;
-    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
+interface FakeTeam {
+  endpoint: {
+    id: string;
+    provider: 'openai' | 'anthropic' | 'openai_compatible';
+    model: string | null;
+    chat_model: string;
+    base_url: string;
+  } | null;
+  apiKey: string | null;
+  capReached: boolean;
+  reserved: Record<string, unknown>[];
+  usage: Record<string, unknown>[];
+  chunks: Array<Record<string, unknown>> | undefined;
+}
 
-    const result = await embedDocumentChunks({
-      ...chunkScope,
-      markdown: '# Only\n\nOne short chunk.',
-    });
+function settled(data: unknown) {
+  return { throwOnError: async () => ({ data, error: null }) };
+}
+
+function makeTeamClient(team: FakeTeam) {
+  return {
+    from: (table: string) => ({
+      select: () => ({ eq: () => ({ maybeSingle: () => settled(team.endpoint) }) }),
+      insert: async (rows: Array<Record<string, unknown>>) => {
+        team.chunks = rows;
+        return { error: null };
+      },
+      update: (row: Record<string, unknown>) => ({
+        eq: (_column: string, id: string) => {
+          team.usage.push({ table, id, ...row });
+          return settled(null);
+        },
+      }),
+    }),
+    rpc: (name: string, args: Record<string, unknown>) => {
+      if (name === 'llm_endpoint_api_key') {
+        return settled(team.apiKey);
+      }
+      if (team.capReached) {
+        return settled(null);
+      }
+      team.reserved.push(args);
+      return settled('call-1');
+    },
+  };
+}
+
+function connectedTeam(): FakeTeam {
+  const team: FakeTeam = {
+    endpoint: {
+      id: 'endpoint-1',
+      provider: 'openai_compatible',
+      model: 'text-embedding-3-small',
+      chat_model: 'gpt-4o-mini',
+      base_url: 'http://llm.test',
+    },
+    apiKey: 'sk-vault',
+    capReached: false,
+    reserved: [],
+    usage: [],
+    chunks: undefined,
+  };
+  state.client = makeTeamClient(team);
+  return team;
+}
+
+describe('embedDocumentChunks', () => {
+  const markdown = '# Only\n\nOne short chunk from Priya Okafor.';
+
+  it("embeds the chunks unchanged, team people included, on the team's vault key and writes them scoped to the document account and deal", async () => {
+    const team = connectedTeam();
+    await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
+
+    const result = await embedDocumentChunks({ ...chunkScope, markdown });
 
     expect(result).toEqual({ chunkCount: 1, model: 'text-embedding-3-small' });
-
-    const rows = capture.inserts.document_chunk as Array<Record<string, unknown>>;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
+    expect(provider!.received).toMatchObject([
+      {
+        path: '/v1/embeddings',
+        headers: { authorization: 'Bearer sk-vault' },
+        body: { model: 'text-embedding-3-small', input: ['# Only\n\nOne short chunk from Priya Okafor.'] },
+      },
+    ]);
+    expect(team.chunks).toHaveLength(1);
+    expect(team.chunks![0]).toMatchObject({
       account_id: 'acct1',
       deal_id: 'deal1',
       document_id: 'doc1',
       chunk_index: 0,
-      content: '# Only\n\nOne short chunk.',
+      content: markdown,
     });
-    expect(JSON.parse(rows[0]!.embedding as string)).toHaveLength(
-      EMBEDDING_DIMENSIONS,
-    );
+    expect(JSON.parse(team.chunks![0]!.embedding as string)).toHaveLength(EMBEDDING_DIMENSIONS);
   });
 
-  it('logs the embedding model call to ai_call_log scoped to the account and deal', async () => {
-    const { client, capture } = makeClient({
-      rows: {
-        llm_endpoint: {
-          model: 'text-embedding-3-small',
-          base_url: 'http://llm.test',
-          api_key_secret_ref: 'TENANT_LLM_KEY',
-        },
-      },
-    });
-    state.client = client;
-    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
+  it('counts one AI call per document against the cap, logged to the deal without token counts', async () => {
+    const team = connectedTeam();
+    await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-    await embedDocumentChunks({
-      ...chunkScope,
-      markdown: '# Only\n\nOne short chunk.',
-    });
+    await embedDocumentChunks({ ...chunkScope, markdown });
 
-    expect(capture.inserts.ai_call_log).toMatchObject({
-      account_id: 'acct1',
-      deal_id: 'deal1',
-      model: 'text-embedding-3-small',
-    });
-  });
-
-  it('logs null token counts when the embeddings response carries no usage', async () => {
-    const { client, capture } = makeClient({
-      rows: {
-        llm_endpoint: {
-          model: 'text-embedding-3-small',
-          base_url: 'http://llm.test',
-          api_key_secret_ref: 'TENANT_LLM_KEY',
-        },
-      },
-    });
-    state.client = client;
-    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
-
-    await embedDocumentChunks({
-      ...chunkScope,
-      markdown: '# Only\n\nOne short chunk.',
-    });
-
-    const call = capture.inserts.ai_call_log as Record<string, unknown>;
-    expect(call.prompt_tokens).toBeNull();
-    expect(call.completion_tokens).toBeNull();
+    expect(team.reserved).toEqual([
+      expect.objectContaining({
+        p_account_id: 'acct1',
+        p_model: 'text-embedding-3-small',
+        p_endpoint_id: 'endpoint-1',
+        p_deal_id: 'deal1',
+      }),
+    ]);
+    expect(team.usage).toEqual([
+      { table: 'ai_call_log', id: 'call-1', prompt_tokens: null, completion_tokens: null },
+    ]);
   });
 
   it('fails with a dimension error and writes no chunks when the model returns the wrong size', async () => {
-    const { client, capture } = makeClient({
-      rows: {
-        llm_endpoint: {
-          model: 'text-embedding-3-small',
-          base_url: 'http://llm.test',
-          api_key_secret_ref: 'TENANT_LLM_KEY',
-        },
-      },
-    });
-    state.client = client;
-    stubEmbeddingDimension(1024);
+    const team = connectedTeam();
+    await serveEmbeddings(team, 1024);
 
     await expect(
       embedDocumentChunks({ ...chunkScope, markdown: 'short' }),
     ).rejects.toThrow(/1024/);
-    expect(capture.inserts.document_chunk).toBeUndefined();
+    expect(team.chunks).toBeUndefined();
   });
 
-  it('no-ops without writing embeddings when the tenant llm key env is absent', async () => {
-    delete process.env.TENANT_LLM_KEY;
-    const { client, capture } = makeClient({
-      rows: {
-        llm_endpoint: {
-          model: 'text-embedding-3-small',
-          base_url: 'http://llm.test',
-          api_key_secret_ref: 'TENANT_LLM_KEY',
-        },
-      },
-    });
-    state.client = client;
-    stubEmbeddingDimension(EMBEDDING_DIMENSIONS);
+  it.each([
+    ['no key', (team: FakeTeam) => (team.apiKey = null), 'Connect an AI provider first'],
+    [
+      'no embedding model',
+      (team: FakeTeam) => (team.endpoint!.model = null),
+      'Add an embedding model to your AI provider',
+    ],
+  ])('skips with no provider call or chunks when the team has %s, recording why on the job', async (_case, unset, reason) => {
+    const team = connectedTeam();
+    unset(team);
+    await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-    const result = await embedDocumentChunks({
-      ...chunkScope,
-      markdown: '# Only\n\nOne short chunk.',
-    });
+    const result = await embedDocumentChunks({ ...chunkScope, markdown });
 
-    expect(result).toEqual({ chunkCount: 0, model: '' });
-    expect(capture.inserts.document_chunk).toBeUndefined();
+    expect(result).toEqual({ skippedReason: reason });
+    expect(provider!.received).toEqual([]);
+    expect(team.chunks).toBeUndefined();
+    expect(team.usage).toEqual([{ table: 'embedding_job', id: 'job1', status: 'skipped', skipped_reason: reason }]);
+  });
+
+  it.each([
+    [
+      'once the AI cap is reached',
+      (team: FakeTeam) => (team.capReached = true),
+      'The monthly AI limit is reached',
+    ],
+    [
+      'for an Anthropic team',
+      (team: FakeTeam) => (team.endpoint!.provider = 'anthropic'),
+      'Anthropic has no embeddings API; leave Embedding model empty',
+    ],
+  ])('skips %s, writing nothing and recording why on the job', async (_case, arrange, reason) => {
+    const team = connectedTeam();
+    arrange(team);
+    await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
+
+    expect(await embedDocumentChunks({ ...chunkScope, markdown })).toEqual({ skippedReason: reason });
+    expect(provider!.received).toEqual([]);
+    expect(team.chunks).toBeUndefined();
+    expect(team.usage).toEqual([{ table: 'embedding_job', id: 'job1', status: 'skipped', skipped_reason: reason }]);
   });
 });
 

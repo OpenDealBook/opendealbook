@@ -10,17 +10,20 @@ const mocks = vi.hoisted(() => {
   let rows: Record<string, unknown[]> = {};
   let insertId = 'generated-id';
   let unapprovedFirms: string[] = [];
+  let rpcError: unknown = null;
 
   function configure(next: {
     singles?: Record<string, unknown>;
     rows?: Record<string, unknown[]>;
     insertId?: string;
     unapprovedFirms?: string[];
+    rpcError?: unknown;
   }) {
     singles = next.singles ?? {};
     rows = next.rows ?? {};
     insertId = next.insertId ?? 'generated-id';
     unapprovedFirms = next.unapprovedFirms ?? [];
+    rpcError = next.rpcError ?? null;
   }
 
   function makeBuilder(table: string) {
@@ -66,7 +69,7 @@ const mocks = vi.hoisted(() => {
   const rpc = (fn: string, args: { p_firm_id: string }) => ({
     then: (resolve: (value: unknown) => void) => {
       rpcSpy(fn, args);
-      return resolve({ data: null, error: null });
+      return resolve({ data: null, error: rpcError });
     },
     throwOnError: async () => ({
       data:
@@ -92,6 +95,7 @@ import {
   createLetterTemplate,
   createSequence,
   enrollTargets,
+  resolveUnknownSend,
   seedDefaultSequences,
   setOutreachSetting,
   suppressEmail,
@@ -313,6 +317,52 @@ describe('letter templates', () => {
     expect(result).toEqual({
       ok: false,
       refusal: 'Only deal managers can edit letter templates. Ask a deal manager.',
+    });
+  });
+});
+
+describe('resolveUnknownSend', () => {
+  const ENROLLMENT = '00000000-0000-4000-8000-000000000003';
+
+  it.each(['mark_sent', 'retry', 'stop'])('settles the unknown send with %s', async (resolution) => {
+    const result = await run(resolveUnknownSend)(
+      { enrollmentId: ENROLLMENT, resolution },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(mocks.rpcSpy).toHaveBeenCalledWith('resolve_unknown_outreach_send', {
+      p_enrollment_id: ENROLLMENT,
+      p_resolution: resolution,
+    });
+  });
+
+  it('refuses an enrollment the team cannot find', async () => {
+    mocks.configure({
+      rpcError: { code: 'P0002', message: 'This enrollment was not found' },
+    });
+
+    const result = await run(resolveUnknownSend)(
+      { enrollmentId: ENROLLMENT, resolution: 'retry' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: false, refusal: 'This enrollment was not found' });
+  });
+
+  it('tells a member without deals.manage to ask a deal manager', async () => {
+    mocks.configure({
+      rpcError: { code: '42501', message: 'resolving an unknown send needs deals.manage' },
+    });
+
+    const result = await run(resolveUnknownSend)(
+      { enrollmentId: ENROLLMENT, resolution: 'retry' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Only deal managers can settle an unknown send. Ask a deal manager.',
     });
   });
 });

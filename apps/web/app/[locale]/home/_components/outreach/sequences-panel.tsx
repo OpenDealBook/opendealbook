@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { mergeFieldTokens, SEQUENCE_LETTER_FIELDS } from '@odb/outreach-app';
 import {
   createSequence,
   seedDefaultSequences,
@@ -15,6 +16,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
+
+import { MergeFieldPicker } from './merge-field-picker';
+
+const EMAIL_TOKENS = mergeFieldTokens();
 
 type Channel = Enums<'outreach_channel'>;
 
@@ -304,7 +309,15 @@ export function SequencesPanel({
 
                     {step.channel === 'email' ? (
                       <div className={'flex flex-col gap-2'}>
-                        <Label htmlFor={`step-${step.key}-subject`}>Subject</Label>
+                        <div className={'flex items-center justify-between'}>
+                          <Label htmlFor={`step-${step.key}-subject`}>Subject</Label>
+                          <MergeFieldPicker
+                            fieldId={`step-${step.key}-subject`}
+                            tokens={EMAIL_TOKENS}
+                            value={step.subject}
+                            onChange={(subject) => changeStep(step.key, { subject })}
+                          />
+                        </div>
                         <Input
                           id={`step-${step.key}-subject`}
                           required
@@ -317,9 +330,17 @@ export function SequencesPanel({
                     ) : null}
 
                     <div className={'flex flex-col gap-2'}>
-                      <Label htmlFor={`step-${step.key}-body`}>
-                        {step.channel === 'letter' ? 'Letter' : 'Body'}
-                      </Label>
+                      <div className={'flex items-center justify-between'}>
+                        <Label htmlFor={`step-${step.key}-body`}>
+                          {step.channel === 'letter' ? 'Letter' : 'Body'}
+                        </Label>
+                        <MergeFieldPicker
+                          fieldId={`step-${step.key}-body`}
+                          tokens={step.channel === 'letter' ? SEQUENCE_LETTER_FIELDS : EMAIL_TOKENS}
+                          value={step.body}
+                          onChange={(body) => changeStep(step.key, { body })}
+                        />
+                      </div>
                       <Textarea
                         id={`step-${step.key}-body`}
                         required

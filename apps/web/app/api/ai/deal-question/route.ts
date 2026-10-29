@@ -1,7 +1,8 @@
+import { dealAiScope } from '@odb/ai/scope';
 import { answerDealQuestion } from '@odb/ai/server';
 import { TEAM_READ_ONLY } from '@odb/next';
-import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient, requireUser } from '@odb/supabase/server';
+import { CapReached, TeamAiNotConnected } from '@odb/workflows/team-ai';
 
 export const runtime = 'nodejs';
 
@@ -26,18 +27,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: deal } = await client
-    .from('deal')
-    .select('account_id')
-    .eq('id', body.dealId)
-    .maybeSingle()
-    .throwOnError();
+  const scope = await dealAiScope(client, body.dealId, 'deals.work');
 
-  const { data: locked } = deal
-    ? await client
-        .rpc('is_account_locked', { target_account_id: deal.account_id })
-        .throwOnError()
-    : { data: false };
+  if (scope === 'not_found') {
+    return Response.json({ error: 'Deal not found' }, { status: 404 });
+  }
+
+  if (scope === 'forbidden') {
+    return Response.json({ error: 'Only the deal team can ask about this deal.' }, { status: 403 });
+  }
+
+  const { data: locked } = await client
+    .rpc('is_account_locked', { target_account_id: scope.accountId })
+    .throwOnError();
 
   if (locked) {
     return Response.json(
@@ -46,11 +48,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await answerDealQuestion(
-    client,
-    { dealId: body.dealId, question: body.question },
-    getSupabaseServerAdminClient(),
-  );
-
-  return Response.json(result);
+  try {
+    return Response.json(
+      await answerDealQuestion(client, scope, { question: body.question }),
+    );
+  } catch (error) {
+    if (error instanceof CapReached) {
+      return Response.json({ error: error.message }, { status: 429 });
+    }
+    if (error instanceof TeamAiNotConnected) {
+      return Response.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }

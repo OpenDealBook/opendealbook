@@ -13,6 +13,7 @@ function makeClient(config: FakeConfig) {
   const capture = {
     inserts: {} as Record<string, unknown>,
     updates: {} as Record<string, unknown>,
+    updatedIds: {} as Record<string, string>,
   };
 
   const client = {
@@ -36,7 +37,12 @@ function makeClient(config: FakeConfig) {
         },
         update(payload: unknown) {
           capture.updates[table] = payload;
-          return { eq: async () => ({ error: null }) };
+          return {
+            eq: async (_column: string, id: string) => {
+              capture.updatedIds[table] = id;
+              return { error: null };
+            },
+          };
         },
       };
 
@@ -160,5 +166,61 @@ describe('runVerification', () => {
         .finished_at,
     ).toBeTypeOf('string');
     expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('marks its own run skipped with the reason when a gather step hits a skippable error', async () => {
+    const { client, capture } = baseClient();
+    const notify = vi.fn().mockResolvedValue(undefined);
+    class Skip extends Error {}
+
+    const result = await runVerification({
+      client: client as never,
+      dealId: 'deal1',
+      trigger: 'ingest',
+      runnableChecks: [
+        {
+          check: { key: 'capped', evaluate: () => [] },
+          gather: async () => {
+            throw new Skip('The monthly AI limit is reached');
+          },
+        },
+      ],
+      notify,
+      skipReason: (error) => (error instanceof Skip ? error.message : null),
+    });
+
+    expect(result).toEqual({ runId: 'run1', status: 'skipped', reason: 'The monthly AI limit is reached' });
+    expect(capture.updatedIds.verification_run).toBe('run1');
+    expect(capture.updates.verification_run).toMatchObject({
+      status: 'skipped',
+      skipped_reason: 'The monthly AI limit is reached',
+    });
+    expect(
+      (capture.updates.verification_run as { finished_at?: unknown }).finished_at,
+    ).toBeTypeOf('string');
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it('still fails the run on an error the caller does not skip', async () => {
+    const { client, capture } = baseClient();
+
+    await expect(
+      runVerification({
+        client: client as never,
+        dealId: 'deal1',
+        trigger: 'ingest',
+        runnableChecks: [
+          {
+            check: { key: 'boom', evaluate: () => [] },
+            gather: async () => {
+              throw new Error('gather exploded');
+            },
+          },
+        ],
+        notify: vi.fn(),
+        skipReason: () => null,
+      }),
+    ).rejects.toThrow('gather exploded');
+    expect(capture.updates.verification_run).toMatchObject({ status: 'failed' });
   });
 });

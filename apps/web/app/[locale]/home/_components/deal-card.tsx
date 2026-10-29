@@ -57,10 +57,12 @@ function resolutionText(
 export function DealCard({
   deal,
   ownerName,
+  isOwner,
   detailBasePath,
 }: {
   deal: DealListItem;
   ownerName: string | null;
+  isOwner: boolean;
   detailBasePath: string;
 }) {
   const href = `${detailBasePath}/${deal.id}`;
@@ -150,8 +152,10 @@ export function DealCard({
             </Button>
             <DealRowActions
               dealId={deal.id}
+              dealName={deal.title}
               starred={deal.starred}
               archived={deal.archivedAt !== null}
+              isOwner={isOwner}
             />
           </div>
         </div>

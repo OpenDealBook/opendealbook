@@ -70,6 +70,29 @@ async function click(text: string) {
   });
 }
 
+async function openPicker(label: string, step: number) {
+  const trigger = field(label, step)!.labels![0]!.parentElement!.querySelector('button')!;
+  await act(async () => {
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  });
+}
+
+function pickerFields() {
+  return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => item.textContent);
+}
+
+async function pick(text: string) {
+  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (candidate) => candidate.textContent === text,
+  )!;
+  await act(async () => {
+    item.click();
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 async function save() {
   await act(async () => {
     container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
@@ -146,6 +169,50 @@ describe('SequencesPanel', () => {
         { ordinal: 2, delayDays: 7, channel: 'email', subject: 'Following up', body: 'Hi again' },
       ],
     });
+  });
+
+  it('inserts a merge field at the caret in an email subject and body', async () => {
+    await render([MIXED]);
+
+    await click('Edit');
+    (field('Subject', 2) as HTMLInputElement).setSelectionRange(0, 0);
+    await openPicker('Subject', 2);
+    await pick('Firm name');
+    (field('Body', 2) as HTMLTextAreaElement).setSelectionRange(10, 10);
+    await openPicker('Body', 2);
+    await pick('Sender email');
+    await save();
+
+    expect(server.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        steps: [
+          expect.anything(),
+          {
+            ordinal: 2,
+            delayDays: 7,
+            channel: 'email',
+            subject: '{{ firm.name }}Quick question',
+            body: 'Email body{{ sender.email }}',
+          },
+        ],
+      }),
+    );
+  });
+
+  it('offers every merge field on email steps and all but the sender email on letter steps', async () => {
+    await render([MIXED]);
+
+    await click('Edit');
+    await openPicker('Body', 2);
+    expect(pickerFields()).toHaveLength(15);
+    expect(pickerFields()).toContain('Sender email');
+
+    await act(async () => {
+      document.querySelector('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await openPicker('Letter', 1);
+    expect(pickerFields()).toHaveLength(14);
+    expect(pickerFields()).not.toContain('Sender email');
   });
 
   it('removes a step', async () => {

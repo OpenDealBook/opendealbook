@@ -12,7 +12,8 @@
   },
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts"
+    "./server": "./src/server.ts",
+    "./scope": "./src/scope.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "@odb/supabase": "workspace:*",
+    "@odb/workflows": "workspace:*",
     "server-only": "^0.0.1"
   },
   "devDependencies": {

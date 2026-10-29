@@ -748,6 +748,89 @@ describe('dispatchAccountOutreach (integration)', () => {
     expect(mailbox.sendAs).not.toHaveBeenCalled();
   });
 
+  async function stepStatuses(enrollmentId: string) {
+    const { data } = await account.admin
+      .from('outreach_message')
+      .select('status')
+      .eq('enrollment_id', enrollmentId)
+      .eq('step_id', 1)
+      .throwOnError();
+    return data.map((row) => row.status).sort();
+  }
+
+  it('resends a retried unknown send once and keeps the retried row', async () => {
+    await setSetting(10, 5);
+    await addStep(2, 7);
+    const enrollmentId = await enroll('retry@target.test');
+    await priorMessage(enrollmentId, 'retried', new Date().toISOString());
+
+    await dispatchAccountOutreach({ accountId: account.accountId });
+
+    expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
+    expect(await stepStatuses(enrollmentId)).toEqual(['retried', 'sent']);
+    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 1 });
+  });
+
+  it('settles a retried step whose fresh send already went out without resending', async () => {
+    await setSetting(10, 5);
+    await addStep(2, 7);
+    const enrollmentId = await enroll('settle@target.test');
+    await priorMessage(enrollmentId, 'retried', new Date().toISOString());
+    await priorMessage(enrollmentId, 'sent', new Date().toISOString());
+
+    await dispatchAccountOutreach({ accountId: account.accountId });
+
+    expect(mailbox.sendAs).not.toHaveBeenCalled();
+    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 1 });
+  });
+
+  it('keeps the retried row when the resend fails for a passing reason', async () => {
+    await setSetting(10, 5);
+    const enrollmentId = await enroll('passing@target.test');
+    await priorMessage(enrollmentId, 'retried', new Date().toISOString());
+    mailbox.sendAs.mockRejectedValueOnce(new mailbox.MailboxRequestFailed(503, 'Gmail send'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await dispatchAccountOutreach({ accountId: account.accountId });
+    warn.mockRestore();
+
+    expect(await stepStatuses(enrollmentId)).toEqual(['retried']);
+  });
+
+  it('counts an unknown send on a stopped enrollment as a touch', async () => {
+    await setSetting(10, 1);
+    const stopped = await enroll('prior@target.test', 'failed');
+    await priorMessage(stopped, 'unknown', new Date(Date.now() - DAY_MS).toISOString());
+    const next = await enroll('prior@target.test');
+
+    await dispatchAccountOutreach({ accountId: account.accountId });
+
+    expect(mailbox.sendAs).not.toHaveBeenCalled();
+    expect(await progress(next)).toMatchObject({ status: 'sent', sent_count: 0 });
+  });
+
+  it('counts a retried send against the daily cap on the day it was attempted', async () => {
+    await setSetting(1, 5);
+    const enrollmentId = await enroll('capped@target.test');
+    await priorMessage(enrollmentId, 'retried', new Date().toISOString());
+
+    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+
+    expect(result.sent).toBe(0);
+    expect(await stepStatuses(enrollmentId)).toEqual(['retried']);
+  });
+
+  it('resends a step retried on an earlier day within today\'s cap', async () => {
+    await setSetting(1, 5);
+    const enrollmentId = await enroll('yesterday@target.test');
+    await priorMessage(enrollmentId, 'retried', new Date(Date.now() - DAY_MS).toISOString());
+
+    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+
+    expect(result.sent).toBe(1);
+    expect(await stepStatuses(enrollmentId)).toEqual(['retried', 'sent']);
+  });
+
   it('advances to the next step and schedules it by that step\'s delay', async () => {
     await setSetting(10, 5);
     await addStep(2, 7);

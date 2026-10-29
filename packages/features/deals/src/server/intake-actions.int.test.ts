@@ -26,11 +26,9 @@ vi.mock('@odb/supabase/server', () => ({
 }));
 
 vi.mock('@odb/ai/server', () => ({
-  generateStructured: async (
-    _client: unknown,
-    input: { parse: (raw: unknown) => unknown },
-  ) =>
-    input.parse({
+  generateStructured: async (input: { parse: (raw: unknown) => unknown }) => ({
+    ok: true,
+    value: input.parse({
       revenue: 4200000,
       sde: 900000,
       ebitda: 750000,
@@ -42,6 +40,7 @@ vi.mock('@odb/ai/server', () => ({
       business_model: 'Recurring service contracts',
       reason_for_sale: 'retirement',
     }),
+  }),
 }));
 
 vi.mock('unpdf', () => ({

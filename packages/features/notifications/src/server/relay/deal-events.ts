@@ -29,6 +29,7 @@ export const DEAL_UPDATE_SUBMITTED_WORKFLOW_ID = 'deal-update-submitted';
 export const COUNSEL_UPLOADS_WORKFLOW_ID = 'counsel-uploads';
 export const CONTRACT_NEGOTIATION_WORKFLOW_ID = 'contract-negotiation';
 export const TODO_ASSIGNED_WORKFLOW_ID = 'todo.assigned';
+export const DEAL_DELETED_WORKFLOW_ID = 'deal.deleted';
 export const SELLER_COUNSEL_FOLDER_WORKFLOW_ID =
   'seller-counsel-folder.file-added';
 export const SELLER_COUNSEL_MESSAGE_WORKFLOW_ID =

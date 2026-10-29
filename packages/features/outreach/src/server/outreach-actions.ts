@@ -7,7 +7,7 @@ import { DEFAULT_OUTREACH_SEQUENCES } from '@odb/outreach';
 import type { TablesInsert, TablesUpdate } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
-import type { z } from 'zod';
+import { z } from 'zod';
 
 import {
   connectMailboxSchema,
@@ -208,6 +208,23 @@ export const updateLetterTemplate = refusableAction(async (data) => {
     throw new Refusal('Only deal managers can edit letter templates. Ask a deal manager.');
   }
 }, updateLetterTemplateSchema);
+
+export const resolveUnknownSend = refusableAction(
+  async (data) => {
+    const { error } = await getSupabaseServerClient().rpc('resolve_unknown_outreach_send', {
+      p_enrollment_id: data.enrollmentId,
+      p_resolution: data.resolution,
+    });
+    if (error?.code === 'P0002') {
+      throw new Refusal(error.message);
+    }
+    if (error) {
+      throw error;
+    }
+  },
+  z.object({ enrollmentId: z.uuid(), resolution: z.enum(['mark_sent', 'retry', 'stop']) }),
+  { what: 'settle an unknown send', needs: 'deals.manage' },
+);
 
 export const enrollTargets = enhanceAction(
   async (data) => {

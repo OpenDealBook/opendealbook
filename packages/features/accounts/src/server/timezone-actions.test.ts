@@ -21,10 +21,6 @@ function accountsTable() {
       filters.push((row) => row[column] === value);
       return builder;
     },
-    is(column: keyof Row, value: null) {
-      filters.push((row) => row[column] === value);
-      return builder;
-    },
     async throwOnError() {
       db.rows
         .filter((row) => filters.every((matches) => matches(row)))
@@ -46,17 +42,13 @@ vi.mock('@odb/supabase/server', () => ({
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
 
-import {
-  rememberDetectedTimezoneAction,
-  updatePersonalTimezoneAction,
-} from './personal-account-actions';
+import { updatePersonalTimezoneAction } from './personal-account-actions';
 
 type Run = (
   data: { timezone: string },
   user: { id: string },
 ) => Promise<unknown>;
 
-const remember = rememberDetectedTimezoneAction as unknown as Run;
 const choose = updatePersonalTimezoneAction as unknown as Run;
 
 function personal(userId: string) {
@@ -78,28 +70,7 @@ describe('a person time zone', () => {
         is_personal_account: false,
         timezone: null,
       },
-      {
-        primary_owner_user_id: 'user-2',
-        is_personal_account: true,
-        timezone: null,
-      },
     ];
-  });
-
-  it('stores the browser zone when the person has none', async () => {
-    await remember({ timezone: 'America/Chicago' }, { id: 'user-1' });
-
-    expect(personal('user-1').timezone).toBe('America/Chicago');
-    expect(personal('user-2').timezone).toBeNull();
-    expect(db.rows[1]!.timezone).toBeNull();
-  });
-
-  it('keeps a zone the person already has', async () => {
-    personal('user-1').timezone = 'Europe/Lisbon';
-
-    await remember({ timezone: 'America/Chicago' }, { id: 'user-1' });
-
-    expect(personal('user-1').timezone).toBe('Europe/Lisbon');
   });
 
   it('replaces the zone with the one the person picks on their profile', async () => {

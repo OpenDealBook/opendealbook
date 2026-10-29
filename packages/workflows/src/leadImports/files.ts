@@ -5,7 +5,7 @@ export type LeadFileRef =
       kind: 'ppp' | 'sba_7a' | 'sba_504' | 'form_5500' | 'form_5500_sf';
       url: string;
     }
-  | { kind: 'state_registry'; state: string; url: string };
+  | { kind: 'state_registry'; dataset: string; url: string; parent?: string };
 
 export type LeadFile = LeadFileRef & { asOf: string };
 

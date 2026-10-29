@@ -10,6 +10,8 @@ import {
 const temporal = vi.hoisted(() => ({
   open: new Set<string>(),
   startedAt: new Map<string, Date>(),
+  connect: vi.fn(),
+  close: vi.fn(async () => undefined),
   start: vi.fn(
     async (
       _type: string,
@@ -170,23 +172,27 @@ const novu = vi.hoisted(() => ({
 
 vi.mock('../client', () => ({
   TASK_QUEUE: 'opendealbook',
-  getTemporalClient: async () => ({
-    workflow: {
-      start: temporal.start,
-      getHandle: (workflowId: string) => ({
-        signal: (signal: string) => temporal.signal(workflowId, signal),
-        cancel: () => temporal.cancel(workflowId),
-        describe: async () => {
-          const startTime = temporal.startedAt.get(workflowId);
-          if (!startTime) {
-            const { WorkflowNotFoundError } = await import('@temporalio/client');
-            throw new WorkflowNotFoundError('not found', workflowId, undefined);
-          }
-          return { startTime };
-        },
-      }),
-    },
-  }),
+  getTemporalClient: async () => {
+    temporal.connect();
+    return {
+      connection: { close: temporal.close },
+      workflow: {
+        start: temporal.start,
+        getHandle: (workflowId: string) => ({
+          signal: (signal: string) => temporal.signal(workflowId, signal),
+          cancel: () => temporal.cancel(workflowId),
+          describe: async () => {
+            const startTime = temporal.startedAt.get(workflowId);
+            if (!startTime) {
+              const { WorkflowNotFoundError } = await import('@temporalio/client');
+              throw new WorkflowNotFoundError('not found', workflowId, undefined);
+            }
+            return { startTime };
+          },
+        }),
+      },
+    };
+  },
 }));
 
 vi.mock('@odb/notifications/server', async (importOriginal) => ({
@@ -252,6 +258,7 @@ import type { WorkflowNode } from './graph';
 type NodeConfigValue = WorkflowNode['config'][string];
 import {
   aiProviderProblem,
+  cancelRuns,
   cancelWaitingRuns,
   cancelWorkflowRun,
   ManualRunRefused,
@@ -466,6 +473,8 @@ beforeEach(async () => {
   temporal.startedAt.clear();
   novu.trigger.mockReset();
   temporal.cancel.mockReset();
+  temporal.connect.mockClear();
+  temporal.close.mockClear();
   temporal.start.mockReset();
   managers.beforeLookup = async () => {};
   novu.trigger.mockClear();
@@ -1127,6 +1136,36 @@ describe('a run action the runner cannot carry out (integration)', () => {
     expect(result).toEqual({ cancelled: 1, unreached: 1 });
     expect((await runRow(reached.runId)).status).toBe('cancelled');
     expect(await runRow(unreached.runId)).toEqual({ status: 'waiting', finished_at: null });
+  });
+
+  it('opens no runner connection when there are no runs to cancel', async () => {
+    expect(await cancelRuns([])).toEqual({ cancelled: [], unreached: [] });
+    expect(temporal.connect).not.toHaveBeenCalled();
+  });
+
+  it('cancels the given runs it can reach without refusing, returning the runs the runner could not reach', async () => {
+    await publish(oneStepGraph);
+    const reached = await runManually();
+    const unreached = await runManually();
+    const finished = await runManually();
+    await setRunStatus(finished.runId, 'failed');
+    temporal.cancel.mockImplementation(async (workflowId: string) => {
+      if (workflowId === `workflow-run-${unreached.runId}`) {
+        await unreachable();
+      }
+    });
+
+    const { unreached: notCancelled } = await cancelRuns([
+      reached.runId,
+      unreached.runId,
+      finished.runId,
+    ]);
+
+    expect(notCancelled).toEqual([unreached.runId]);
+    expect(temporal.close).toHaveBeenCalledTimes(1);
+    expect((await runRow(reached.runId)).status).toBe('cancelled');
+    expect((await runRow(unreached.runId)).status).toBe('running');
+    expect((await runRow(finished.runId)).status).toBe('failed');
   });
 
   it('refuses to retry a run whose step data was removed after 90 days', async () => {

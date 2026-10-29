@@ -11,7 +11,10 @@ const mocks = vi.hoisted(() => {
   const upsertSpy = vi.fn();
   const deleteSpy = vi.fn();
   const rpcSpy = vi.fn((name: string) => {
-    const result = { data: name === 'deal_people' ? [] : true, error: null };
+    const result: { data: unknown; error: unknown } = {
+      data: name === 'deal_people' ? [] : true,
+      error: null,
+    };
     return Object.assign(Promise.resolve(result), {
       throwOnError: async () => result,
     });
@@ -87,8 +90,66 @@ vi.mock('@odb/next/actions', () => ({
       fn(data, user ?? { id: 'user-1' }),
 }));
 
+const removal = vi.hoisted(() => {
+  const removed: Array<{ bucket: string; path: string }> = [];
+  const failingBuckets = new Set<string>();
+  const remove = (bucket: string) => async (paths: string[]) => {
+    if (failingBuckets.has(`throws:${bucket}`)) {
+      throw new Error(`storage is unreachable for ${bucket}`);
+    }
+    if (paths.length > 1000 || failingBuckets.has(bucket)) {
+      return { data: null, error: { message: `could not remove from ${bucket}` } };
+    }
+    removed.push(...paths.map((path) => ({ bucket, path })));
+    return { data: [], error: null };
+  };
+  const adminRpc = vi.fn((_name: string, _args: unknown) => {
+    const result = { data: null, error: null };
+    return Object.assign(Promise.resolve(result), {
+      throwOnError: async () => result,
+    });
+  });
+  const cancelRuns = vi.fn(async (_runIds: string[]) => ({
+    cancelled: [] as string[],
+    unreached: [] as string[],
+  }));
+  const triggerNotification = vi.fn(
+    async (_deps: unknown, _input: { recipientUserId: string }) => ['email'],
+  );
+  const logError = vi.fn();
+  const createNovuClient = vi.fn(() => ({}));
+
+  return {
+    removed,
+    failingBuckets,
+    storage: { from: (bucket: string) => ({ remove: remove(bucket) }) },
+    adminRpc,
+    cancelRuns,
+    triggerNotification,
+    logError,
+    createNovuClient,
+  };
+});
+
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({ from: mocks.from, rpc: mocks.rpcSpy }),
+  getSupabaseServerAdminClient: () => ({
+    rpc: removal.adminRpc,
+    storage: removal.storage,
+  }),
+}));
+
+vi.mock('@odb/workflows/builder/client', () => ({
+  cancelRuns: removal.cancelRuns,
+}));
+
+vi.mock('@odb/notifications/server', () => ({
+  createNovuClient: removal.createNovuClient,
+  triggerNotification: removal.triggerNotification,
+}));
+
+vi.mock('@odb/shared/logger', () => ({
+  getLogger: () => ({ error: removal.logError }),
 }));
 
 vi.mock('@odb/events', () => ({
@@ -102,6 +163,7 @@ import {
   adoptDealFinancials,
   archiveDeal,
   decideApproval,
+  deleteDeal,
   requestApproval,
   setDealListingStatus,
   setDealResolution,
@@ -128,6 +190,7 @@ const runUpdateChecklistItemStatus =
 const runSetDealResolution = setDealResolution as unknown as Action;
 const runArchiveDeal = archiveDeal as unknown as Action;
 const runUnarchiveDeal = unarchiveDeal as unknown as Action;
+const runDeleteDeal = deleteDeal as unknown as Action;
 const runSetDealListingStatus = setDealListingStatus as unknown as Action;
 const runSetEarningsBasis = setEarningsBasis as unknown as Action;
 const runAdoptDealFinancials = adoptDealFinancials as unknown as Action;
@@ -252,6 +315,280 @@ describe('unarchiveDeal', () => {
       eventType: 'deal.unarchived',
       payload: {},
     });
+  });
+});
+
+describe('deleteDeal', () => {
+  const dealId = '6221ddef-b8e9-484f-8bb8-0967d8e16a30';
+  const accountId = 'd189aa4d-3d82-46d6-8967-4a2079217dfb';
+
+  function deleted(overrides: Record<string, unknown>) {
+    const result = {
+      data: {
+        account_id: accountId,
+        deal_id: dealId,
+        team_name: 'Acme Partners',
+        files: [],
+        run_ids: [],
+        recipients: [],
+        ...overrides,
+      },
+      error: null,
+    };
+    mocks.rpcSpy.mockImplementationOnce(() =>
+      Object.assign(Promise.resolve(result), {
+        throwOnError: async () => result,
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    removal.removed.length = 0;
+    removal.failingBuckets.clear();
+    removal.triggerNotification.mockImplementation(async () => ['email']);
+    vi.stubEnv('NOVU_API_KEY', 'novu-key');
+    vi.stubEnv('NOVU_API_URL', 'https://novu.test');
+  });
+
+  it('passes on the reason the database refused the delete', async () => {
+    const refused = {
+      data: null,
+      error: { code: 'ODB02', message: 'Archive the deal before deleting it.' },
+    };
+    mocks.rpcSpy.mockImplementationOnce(() =>
+      Object.assign(Promise.resolve(refused), {
+        throwOnError: async () => refused,
+      }),
+    );
+
+    const result = await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Archive the deal before deleting it.',
+    });
+  });
+
+  it('removes every file of a deal with more files than storage removes at once', async () => {
+    const files = Array.from({ length: 1001 }, (_, index) => ({
+      bucket: 'data-room',
+      path: `deal/${dealId}/${index}.pdf`,
+    }));
+    deleted({ files });
+
+    const result = await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(removal.removed).toEqual(files);
+    expect(removal.adminRpc).not.toHaveBeenCalled();
+  });
+
+  it('tells each outside party by the name they know the deal by', async () => {
+    deleted({
+      recipients: [
+        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+        { user_id: 'seller-1', email: 'sam@harbor.test', deal_name: 'Harbor Plumbing' },
+      ],
+    });
+
+    await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(removal.triggerNotification.mock.calls.map(([, input]) => input)).toEqual([
+      {
+        eventType: 'deal.deleted',
+        recipientUserId: 'lender-1',
+        email: 'lender@bank.test',
+        payload: { teamName: 'Acme Partners', dealName: 'Project Pipe' },
+      },
+      {
+        eventType: 'deal.deleted',
+        recipientUserId: 'seller-1',
+        email: 'sam@harbor.test',
+        payload: { teamName: 'Acme Partners', dealName: 'Harbor Plumbing' },
+      },
+    ]);
+  });
+
+  it('records and logs the files, runs and emails it could not clean up after the delete', async () => {
+    const kept = { bucket: 'data-room', path: `deal/${dealId}/kept.pdf` };
+    const stuck = { bucket: 'contracts', path: 'team/c1/v1.pdf' };
+    const unreached = { user_id: 'seller-1', email: 'sam@harbor.test', deal_name: 'Harbor Plumbing' };
+    deleted({
+      files: [kept, stuck],
+      run_ids: ['run-1', 'run-2'],
+      recipients: [
+        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+        unreached,
+      ],
+    });
+    removal.failingBuckets.add('contracts');
+    removal.cancelRuns.mockResolvedValueOnce({
+      cancelled: ['run-1'],
+      unreached: ['run-2'],
+    });
+    removal.triggerNotification.mockImplementation(async (_deps, input) => {
+      if (input.recipientUserId === 'seller-1') {
+        throw new Error('Novu is down');
+      }
+      return ['email'];
+    });
+
+    const result = await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    const leftovers = { files: [stuck], run_ids: ['run-2'], recipients: ['seller-1'] };
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(removal.removed).toEqual([kept]);
+    expect(removal.cancelRuns).toHaveBeenCalledWith(['run-1', 'run-2']);
+    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
+      p_account_id: accountId,
+      p_deal_id: dealId,
+      p_leftovers: leftovers,
+    });
+    expect(removal.logError).toHaveBeenCalledWith(
+      {
+        dealId,
+        leftovers,
+        errors: ['could not remove from contracts', 'Novu is down'],
+      },
+      'Deal deleted, but its cleanup did not finish',
+    );
+  });
+
+  it('still emails everyone and records every run when cancelling throws', async () => {
+    deleted({
+      run_ids: ['run-1', 'run-2'],
+      recipients: [
+        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+      ],
+    });
+    removal.cancelRuns.mockRejectedValueOnce(new Error('workflow_run update failed'));
+
+    const result = await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(removal.triggerNotification).toHaveBeenCalledTimes(1);
+    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
+      p_account_id: accountId,
+      p_deal_id: dealId,
+      p_leftovers: { files: [], run_ids: ['run-1', 'run-2'], recipients: [] },
+    });
+  });
+
+  it('records every outside recipient as not notified when email is not set up', async () => {
+    vi.stubEnv('NOVU_API_KEY', '');
+    deleted({
+      recipients: [
+        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+        { user_id: 'seller-1', email: 'sam@harbor.test', deal_name: 'Harbor Plumbing' },
+      ],
+    });
+
+    await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(removal.triggerNotification).not.toHaveBeenCalled();
+    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
+      p_account_id: accountId,
+      p_deal_id: dealId,
+      p_leftovers: { files: [], run_ids: [], recipients: ['lender-1', 'seller-1'] },
+    });
+    expect(removal.logError).toHaveBeenCalledWith(
+      expect.objectContaining({ errors: ['Email is not set up'] }),
+      'Deal deleted, but its cleanup did not finish',
+    );
+  });
+
+  it('logs the message of each cleanup step that threw', async () => {
+    deleted({ run_ids: ['run-1'] });
+    removal.cancelRuns.mockRejectedValueOnce(new Error('workflow_run update failed'));
+
+    await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(removal.logError).toHaveBeenCalledWith(
+      {
+        dealId,
+        leftovers: { files: [], run_ids: ['run-1'], recipients: [] },
+        errors: ['workflow_run update failed'],
+      },
+      'Deal deleted, but its cleanup did not finish',
+    );
+  });
+
+  it('records every recipient when the email client cannot be made', async () => {
+    deleted({
+      recipients: [
+        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+      ],
+    });
+    removal.createNovuClient.mockImplementationOnce(() => {
+      throw new Error('Missing required environment variable: NOVU_API_KEY');
+    });
+
+    const result = await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
+      p_account_id: accountId,
+      p_deal_id: dealId,
+      p_leftovers: { files: [], run_ids: [], recipients: ['lender-1'] },
+    });
+  });
+
+  it('records the files of a storage call that throws', async () => {
+    const file = { bucket: 'data-room', path: `deal/${dealId}/a.pdf` };
+    deleted({ files: [file] });
+    removal.failingBuckets.add('throws:data-room');
+
+    const result = await runDeleteDeal(
+      { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+      { id: 'user-1' },
+    );
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
+      p_account_id: accountId,
+      p_deal_id: dealId,
+      p_leftovers: { files: [file], run_ids: [], recipients: [] },
+    });
+  });
+
+  it('says the deal was deleted when its cleanup list cannot be read', async () => {
+    const result = { data: { deal_id: dealId }, error: null };
+    mocks.rpcSpy.mockImplementationOnce(() =>
+      Object.assign(Promise.resolve(result), {
+        throwOnError: async () => result,
+      }),
+    );
+
+    await expect(
+      runDeleteDeal(
+        { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
+        { id: 'user-1' },
+      ),
+    ).rejects.toThrow(`Deal ${dealId} was deleted, but its cleanup list could not be read`);
   });
 });
 

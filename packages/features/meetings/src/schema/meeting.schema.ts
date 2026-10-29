@@ -61,7 +61,6 @@ export type MeetingRecordingUploadUrlPayload = z.infer<
 export const summarizeMeetingSchema = z.object({
   id: z.uuid(),
   deal_id: z.uuid(),
-  account_id: z.uuid(),
   transcript_text: z.string().min(1),
 });
 

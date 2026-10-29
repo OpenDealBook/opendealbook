@@ -18,7 +18,8 @@
     "./builder/publicUrl": "./src/builder/publicUrl.ts",
     "./builder/editor": "./src/builder/editor/index.ts",
     "./builder/editor/palette": "./src/builder/editor/palette.ts",
-    "./activities": "./src/activities/index.ts"
+    "./activities": "./src/activities/index.ts",
+    "./team-ai": "./src/builder/teamAiScope.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

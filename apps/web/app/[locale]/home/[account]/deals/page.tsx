@@ -11,7 +11,7 @@ export default async function TeamDealsPage({
   searchParams,
 }: TeamDealsPageProps) {
   const { account } = await params;
-  const { team } = await loadTeamWorkspace(account);
+  const { team, isOwner } = await loadTeamWorkspace(account);
   const resolvedSearchParams = await searchParams;
 
   return (
@@ -19,6 +19,7 @@ export default async function TeamDealsPage({
       <h1 className={'text-2xl font-semibold'}>Deals</h1>
       <DealsList
         accountId={team.id}
+        isOwner={isOwner}
         searchParams={resolvedSearchParams}
         detailBasePath={`/home/${account}/deals`}
       />

@@ -1,5 +1,6 @@
 export * from './emails/contract-review-reminder.email';
 export * from './emails/contract-review-unanswered.email';
+export * from './emails/deal-deleted.email';
 export * from './emails/invitation.email';
 export * from './emails/lender-documents-digest.email';
 export * from './emails/lender-invite.email';

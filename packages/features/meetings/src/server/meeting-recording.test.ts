@@ -6,12 +6,28 @@ const generateStructured = vi.fn();
 
 const storageFrom = vi.fn(() => ({ createSignedUploadUrl }));
 
+const access = vi.hoisted(() => ({ dealAccount: null as string | null, mayWork: false }));
+
 vi.mock('@odb/next/actions', () => ({
   enhanceAction: (fn: unknown) => fn,
 }));
 
 vi.mock('@odb/supabase/server', () => ({
-  getSupabaseServerClient: () => ({ storage: { from: storageFrom } }),
+  getSupabaseServerClient: () => ({
+    storage: { from: storageFrom },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () => ({
+            throwOnError: async () => ({
+              data: access.dealAccount && { account_id: access.dealAccount },
+            }),
+          }),
+        }),
+      }),
+    }),
+    rpc: () => ({ throwOnError: async () => ({ data: access.mayWork }) }),
+  }),
 }));
 
 vi.mock('@odb/events', () => ({
@@ -22,8 +38,7 @@ vi.mock('@odb/events', () => ({
 }));
 
 vi.mock('@odb/ai/server', () => ({
-  generateStructured: (client: unknown, input: unknown) =>
-    generateStructured(client, input),
+  generateStructured: (input: unknown) => generateStructured(input),
 }));
 
 import {
@@ -48,6 +63,8 @@ const user = { id: 'user-1' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  access.dealAccount = ACCOUNT;
+  access.mayWork = true;
 });
 
 describe('createMeetingRecordingUploadUrl', () => {
@@ -107,21 +124,19 @@ describe('attachMeetingRecording', () => {
 
 describe('summarizeMeeting', () => {
   it('generates a summary from the transcript and stores it via meeting.updated', async () => {
-    generateStructured.mockResolvedValue({ summary: 'Three decisions made.' });
+    generateStructured.mockResolvedValue({ ok: true, value: { summary: 'Three decisions made.' } });
 
     const result = await runSummarize(
       {
         id: MEETING,
         deal_id: DEAL,
-        account_id: ACCOUNT,
         transcript_text: 'long transcript',
       },
       user,
     );
 
     expect(generateStructured).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ accountId: ACCOUNT }),
+      expect.objectContaining({ scope: { accountId: ACCOUNT, dealId: DEAL } }),
     );
 
     const append = appendSpy.mock.calls.at(-1)?.[0] as {
@@ -133,6 +148,35 @@ describe('summarizeMeeting', () => {
     expect(append.eventType).toBe('meeting.updated');
     expect(append.aggregateId).toBe(MEETING);
     expect(append.payload).toMatchObject({ summary: 'Three decisions made.' });
-    expect(result).toBe('Three decisions made.');
+    expect(result).toEqual({ ok: true, summary: 'Three decisions made.' });
+  });
+
+  it('keeps the meeting without a summary and says why when AI is skipped', async () => {
+    generateStructured.mockResolvedValue({ ok: false, reason: 'Connect an AI provider first' });
+    appendSpy.mockClear();
+
+    const result = await runSummarize(
+      { id: MEETING, deal_id: DEAL, transcript_text: 'long transcript' },
+      user,
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'Connect an AI provider first' });
+    expect(appendSpy).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["can't see the deal", () => (access.dealAccount = null)],
+    ["can't work the deal", () => (access.mayWork = false)],
+  ])('refuses a caller who %s, without calling the AI', async (_case, deny) => {
+    deny();
+
+    const result = await runSummarize(
+      { id: MEETING, deal_id: DEAL, transcript_text: 'long transcript' },
+      user,
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'Only the deal team can summarize this meeting.' });
+    expect(generateStructured).not.toHaveBeenCalled();
+    expect(appendSpy).not.toHaveBeenCalled();
   });
 });

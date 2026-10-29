@@ -279,7 +279,8 @@ select is_empty(
   'a team does not see another team''s match reviews'
 );
 select is(
-  (select count(*)::int from public.state_registry_officer),
+  (select count(*)::int from public.state_registry_officer
+   where entity_id = (select id from public.state_registry_entity where entity_number = 'fresh-1')),
   1,
   'any signed-in user reads registry officers'
 );

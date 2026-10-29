@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TEAM_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -9,9 +9,10 @@ const world = vi.hoisted(() => ({
 }));
 
 vi.mock('@odb/workflows/builder/publicUrl', async (importOriginal) => {
-  const { AddressNotFound } = await importOriginal<typeof import('@odb/workflows/builder/publicUrl')>();
+  const original = await importOriginal<typeof import('@odb/workflows/builder/publicUrl')>();
+  const { AddressNotFound } = original;
   return {
-    AddressNotFound,
+    ...original,
     isPublicHttpsUrl: async (url: string) => {
       if (url === 'https://models.example.com/v1') {
         throw new AddressNotFound(false);
@@ -42,6 +43,10 @@ vi.mock('@odb/supabase/server', () => ({
 
 const { saveAiProviderAction, disconnectAiProviderAction } = await import('./ai-provider-actions');
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
   world.saved = [];
   world.error = null;
@@ -53,6 +58,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai',
       model: 'gpt-4.1',
+      embeddingModel: 'text-embedding-3-small',
       baseUrl: '',
       apiKey: 'sk-new',
     });
@@ -64,10 +70,41 @@ describe('saving the team AI provider', () => {
         p_account_id: TEAM_ID,
         p_provider: 'openai',
         p_model: 'gpt-4.1',
+        p_embedding_model: 'text-embedding-3-small',
         p_base_url: '',
         p_api_key: 'sk-new',
       },
     ]);
+  });
+
+  it('refuses, saving nothing, an embedding model for Anthropic', async () => {
+    const result = await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      embeddingModel: 'voyage-3',
+      baseUrl: '',
+      apiKey: 'sk-new',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Anthropic has no embeddings API; leave Embedding model empty',
+    });
+    expect(world.saved).toEqual([]);
+  });
+
+  it('saves no embedding model when the field is left empty', async () => {
+    await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-5',
+      embeddingModel: '',
+      baseUrl: '',
+      apiKey: 'sk-new',
+    });
+
+    expect(world.saved[0]).toMatchObject({ p_embedding_model: undefined });
   });
 
   it('refuses, saving nothing, a compatible endpoint whose address is not public', async () => {
@@ -75,6 +112,44 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai_compatible',
       model: 'llama-3',
+      embeddingModel: '',
+      baseUrl: 'https://resolves-to-private.example.test/v1',
+      apiKey: 'sk-x',
+    });
+
+    expect(result).toEqual({ ok: false, refusal: 'Use a public HTTPS base URL' });
+    expect(world.saved).toEqual([]);
+  });
+
+  it.each([
+    ['local', 'http://127.0.0.1:4510/v1'],
+    ['e2e', 'http://localhost:4510/v1'],
+  ])('saves a private or http base URL when private AI URLs are allowed on a %s stack', async (stack, baseUrl) => {
+    vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
+    vi.stubEnv('ODB_STACK', stack);
+
+    const result = await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai_compatible',
+      model: 'llama-3',
+      embeddingModel: '',
+      baseUrl,
+      apiKey: 'sk-x',
+    });
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(world.saved[0]).toMatchObject({ p_base_url: baseUrl });
+  });
+
+  it('keeps refusing a private base URL on a production stack even with the flag set', async () => {
+    vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
+    vi.stubEnv('ODB_STACK', 'production');
+
+    const result = await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai_compatible',
+      model: 'llama-3',
+      embeddingModel: '',
       baseUrl: 'https://resolves-to-private.example.test/v1',
       apiKey: 'sk-x',
     });
@@ -88,6 +163,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai_compatible',
       model: 'llama-3',
+      embeddingModel: '',
       baseUrl: 'https://models.example.com/v1',
       apiKey: 'sk-x',
     });
@@ -106,6 +182,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai_compatible',
       model: 'llama-3',
+      embeddingModel: '',
       baseUrl: 'https://llm.example.test/v1',
       apiKey: 'sk-x',
     });
@@ -118,6 +195,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai_compatible',
       model: 'llama-3',
+      embeddingModel: '',
       baseUrl: 'https://llm.example.test/v1',
       apiKey: '',
     });
@@ -133,6 +211,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai_compatible',
       model: 'llama-3',
+      embeddingModel: '',
       baseUrl: '',
       apiKey: 'sk-x',
     });
@@ -148,6 +227,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai',
       model: 'gpt-4.1',
+      embeddingModel: '',
       baseUrl: '',
       apiKey: '',
     });
@@ -162,6 +242,7 @@ describe('saving the team AI provider', () => {
       accountId: TEAM_ID,
       provider: 'openai',
       model: 'gpt-4.1',
+      embeddingModel: '',
       baseUrl: '',
       apiKey: 'sk-x',
     });

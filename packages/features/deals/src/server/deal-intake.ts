@@ -1,15 +1,11 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-import { generateStructured } from '@odb/ai/server';
-import type { Database } from '@odb/supabase';
+import type { AiScope } from '@odb/ai/scope';
+import { generateStructured, type Structured } from '@odb/ai/server';
 
 import type { DealPayload } from '../schema/deal.schema';
 import {
   type DealIntakeDraft,
   dealIntakeDraftSchema,
 } from '../schema/deal-intake.schema';
-
-type Client = SupabaseClient<Database>;
 
 const INTAKE_SYSTEM =
   'You extract structured facts about an acquisition target from a business ' +
@@ -32,12 +28,11 @@ function buildPrompt(text: string): string {
 }
 
 export async function extractDealIntake(
-  client: Client,
-  accountId: string,
+  scope: AiScope,
   text: string,
-): Promise<DealIntakeDraft> {
-  return generateStructured(client, {
-    accountId,
+): Promise<Structured<DealIntakeDraft>> {
+  return generateStructured({
+    scope,
     system: INTAKE_SYSTEM,
     prompt: buildPrompt(text),
     parse: (raw) => dealIntakeDraftSchema.parse(raw),

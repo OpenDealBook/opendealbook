@@ -5954,6 +5954,7 @@ export type Database = {
           error: string | null
           id: string
           model: string | null
+          skipped_reason: string | null
           status: Database["public"]["Enums"]["embedding_job_status"]
           updated_at: string | null
         }
@@ -5967,6 +5968,7 @@ export type Database = {
           error?: string | null
           id?: string
           model?: string | null
+          skipped_reason?: string | null
           status?: Database["public"]["Enums"]["embedding_job_status"]
           updated_at?: string | null
         }
@@ -5980,6 +5982,7 @@ export type Database = {
           error?: string | null
           id?: string
           model?: string | null
+          skipped_reason?: string | null
           status?: Database["public"]["Enums"]["embedding_job_status"]
           updated_at?: string | null
         }
@@ -6995,6 +6998,7 @@ export type Database = {
           id: string
           rows_read: number
           rows_rejected: number
+          rows_unmatched: number
           rows_with_nulled_fields: number
           rows_written: number
           source: Database["public"]["Enums"]["lead_source"]
@@ -7008,6 +7012,7 @@ export type Database = {
           id?: string
           rows_read?: number
           rows_rejected?: number
+          rows_unmatched?: number
           rows_with_nulled_fields?: number
           rows_written?: number
           source: Database["public"]["Enums"]["lead_source"]
@@ -7021,6 +7026,7 @@ export type Database = {
           id?: string
           rows_read?: number
           rows_rejected?: number
+          rows_unmatched?: number
           rows_with_nulled_fields?: number
           rows_written?: number
           source?: Database["public"]["Enums"]["lead_source"]
@@ -8417,7 +8423,6 @@ export type Database = {
         Row: {
           account_id: string
           api_key_secret_id: string | null
-          api_key_secret_ref: string | null
           base_url: string | null
           chat_model: string | null
           created_at: string | null
@@ -8431,7 +8436,6 @@ export type Database = {
         Insert: {
           account_id: string
           api_key_secret_id?: string | null
-          api_key_secret_ref?: string | null
           base_url?: string | null
           chat_model?: string | null
           created_at?: string | null
@@ -8445,7 +8449,6 @@ export type Database = {
         Update: {
           account_id?: string
           api_key_secret_id?: string | null
-          api_key_secret_ref?: string | null
           base_url?: string | null
           chat_model?: string | null
           created_at?: string | null
@@ -11788,6 +11791,7 @@ export type Database = {
           name: string
           registered_agent: string | null
           source: Database["public"]["Enums"]["registry_source"]
+          source_id: string | null
           state: string
           status: string | null
         }
@@ -11805,6 +11809,7 @@ export type Database = {
           name: string
           registered_agent?: string | null
           source: Database["public"]["Enums"]["registry_source"]
+          source_id?: string | null
           state: string
           status?: string | null
         }
@@ -11822,6 +11827,7 @@ export type Database = {
           name?: string
           registered_agent?: string | null
           source?: Database["public"]["Enums"]["registry_source"]
+          source_id?: string | null
           state?: string
           status?: string | null
         }
@@ -11844,20 +11850,26 @@ export type Database = {
       }
       state_registry_officer: {
         Row: {
+          dataset: string | null
           entity_id: string
           id: string
+          import_id: string | null
           name: string
           title: string | null
         }
         Insert: {
+          dataset?: string | null
           entity_id: string
           id?: string
+          import_id?: string | null
           name: string
           title?: string | null
         }
         Update: {
+          dataset?: string | null
           entity_id?: string
           id?: string
+          import_id?: string | null
           name?: string
           title?: string | null
         }
@@ -11867,6 +11879,13 @@ export type Database = {
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "state_registry_entity"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "state_registry_officer_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "lead_import"
             referencedColumns: ["id"]
           },
         ]
@@ -12322,6 +12341,7 @@ export type Database = {
           deal_id: string
           finished_at: string | null
           id: string
+          skipped_reason: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["verification_run_status"]
           trigger: string
@@ -12334,6 +12354,7 @@ export type Database = {
           deal_id: string
           finished_at?: string | null
           id?: string
+          skipped_reason?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["verification_run_status"]
           trigger: string
@@ -12346,6 +12367,7 @@ export type Database = {
           deal_id?: string
           finished_at?: string | null
           id?: string
+          skipped_reason?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["verification_run_status"]
           trigger?: string
@@ -13385,6 +13407,15 @@ export type Database = {
         Args: { assignee_id: string; todo_id: string }
         Returns: undefined
       }
+      attach_state_registry_details: {
+        Args: {
+          p_dataset: string
+          p_import_id: string
+          p_rows: Json
+          p_state: string
+        }
+        Returns: number
+      }
       authored_deal_update: {
         Args: { update_id: string }
         Returns: {
@@ -13812,6 +13843,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      delete_deal: {
+        Args: { p_confirm_name: string; p_deal_id: string }
+        Returns: Json
+      }
       disconnect_llm_endpoint: {
         Args: { p_account_id: string }
         Returns: undefined
@@ -14142,6 +14177,10 @@ export type Database = {
         Args: { target_account_id: string }
         Returns: undefined
       }
+      mark_unlisted_state_registry_entities: {
+        Args: { p_import_id: string; p_rows_read: number; p_state: string }
+        Returns: boolean
+      }
       match_document_chunks: {
         Args: { p_deal_id: string; p_embedding: string; p_match_count: number }
         Returns: {
@@ -14292,6 +14331,10 @@ export type Database = {
         Args: { p_deal_id: string }
         Returns: number
       }
+      record_deal_delete_cleanup_failed: {
+        Args: { p_account_id: string; p_deal_id: string; p_leftovers: Json }
+        Returns: undefined
+      }
       record_deal_update_recipients: {
         Args: { recipients: Json; update_id: string }
         Returns: undefined
@@ -14310,6 +14353,15 @@ export type Database = {
       }
       replace_outreach_steps: {
         Args: { p_account_id: string; p_sequence_id: string; p_steps: Json }
+        Returns: undefined
+      }
+      replace_state_registry_officers: {
+        Args: {
+          p_dataset: string
+          p_entity_ids: string[]
+          p_import_id: string
+          p_officers: Json
+        }
         Returns: undefined
       }
       replay_deal: { Args: { p_deal_id: string }; Returns: undefined }
@@ -14334,6 +14386,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      resolve_unknown_outreach_send: {
+        Args: { p_enrollment_id: string; p_resolution: string }
+        Returns: undefined
+      }
       room_close_ready: {
         Args: { room_id: string; room_kind: string }
         Returns: boolean
@@ -14343,6 +14399,7 @@ export type Database = {
           p_account_id: string
           p_api_key?: string
           p_base_url: string
+          p_embedding_model?: string
           p_model: string
           p_provider: string
         }
@@ -14804,6 +14861,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_state_registry_entities: {
+        Args: { p_rows: Json; p_supplied: string[] }
+        Returns: {
+          entity_number: string
+          id: string
+        }[]
+      }
       upsert_subscription: {
         Args: {
           active: boolean
@@ -14944,7 +15008,7 @@ export type Database = {
         | "financial"
         | "other"
       discovery_revenue_trend: "up" | "down" | "flat"
-      embedding_job_status: "queued" | "running" | "done" | "failed"
+      embedding_job_status: "queued" | "running" | "done" | "failed" | "skipped"
       event_actor_kind: "user" | "service" | "api_key" | "system"
       lead_import_status: "running" | "succeeded" | "failed" | "skipped"
       lead_source: "ppp" | "sba_7a" | "sba_504" | "form_5500" | "state_registry"
@@ -15066,7 +15130,12 @@ export type Database = {
         | "process_maturity"
       value_marker_rating: "looks_good" | "somewhat_risky" | "not_good"
       verification_finding_status: "open" | "resolved" | "dismissed"
-      verification_run_status: "queued" | "running" | "done" | "failed"
+      verification_run_status:
+        | "queued"
+        | "running"
+        | "done"
+        | "failed"
+        | "skipped"
       verification_severity: "info" | "warning" | "error"
       workflow_log_level: "info" | "warn" | "error"
       workflow_run_status:
@@ -15330,7 +15399,7 @@ export const Constants = {
         "other",
       ],
       discovery_revenue_trend: ["up", "down", "flat"],
-      embedding_job_status: ["queued", "running", "done", "failed"],
+      embedding_job_status: ["queued", "running", "done", "failed", "skipped"],
       event_actor_kind: ["user", "service", "api_key", "system"],
       lead_import_status: ["running", "succeeded", "failed", "skipped"],
       lead_source: ["ppp", "sba_7a", "sba_504", "form_5500", "state_registry"],
@@ -15462,7 +15531,13 @@ export const Constants = {
       ],
       value_marker_rating: ["looks_good", "somewhat_risky", "not_good"],
       verification_finding_status: ["open", "resolved", "dismissed"],
-      verification_run_status: ["queued", "running", "done", "failed"],
+      verification_run_status: [
+        "queued",
+        "running",
+        "done",
+        "failed",
+        "skipped",
+      ],
       verification_severity: ["info", "warning", "error"],
       workflow_log_level: ["info", "warn", "error"],
       workflow_run_status: [

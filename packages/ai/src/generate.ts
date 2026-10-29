@@ -1,6 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@odb/supabase';
+import {
+  ADD_EMBEDDING_MODEL,
+  completeMetered,
+  embedTexts,
+  meterTeamAiCall,
+  resolveScopedTeamAi,
+  TeamAiNotConnected,
+} from '@odb/workflows/team-ai';
+
+import type { DealAiScope } from './scope';
 
 type Client = SupabaseClient<Database>;
 
@@ -13,7 +23,6 @@ const SYSTEM_PROMPT =
   'Cite the excerpt numbers you rely on. If the excerpts do not contain the answer, say so.';
 
 export interface DealQuestionInput {
-  dealId: string;
   question: string;
   matchCount?: number;
 }
@@ -33,135 +42,48 @@ interface RetrievedChunk {
   distance: number;
 }
 
-async function embedQuestion(
-  baseUrl: string,
-  model: string,
-  apiKey: string,
-  question: string,
-): Promise<number[]> {
-  const response = await fetch(`${baseUrl}/embeddings`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, input: [question] }),
-  });
-
-  const payload = (await response.json()) as {
-    data: { index: number; embedding: number[] }[];
-  };
-
-  return payload.data[0]!.embedding;
-}
-
-function buildMessages(question: string, chunks: RetrievedChunk[]) {
+function userMessage(question: string, chunks: RetrievedChunk[]): string {
   const context = chunks
     .map((chunk, index) => `Excerpt ${index + 1} (id ${chunk.id}):\n${chunk.content}`)
     .join('\n\n');
 
-  return [
-    { role: 'system', content: SYSTEM_PROMPT },
-    { role: 'user', content: `Document excerpts:\n\n${context}\n\nQuestion: ${question}` },
-  ];
-}
-
-async function generateAnswer(
-  baseUrl: string,
-  chatModel: string,
-  apiKey: string,
-  messages: ReturnType<typeof buildMessages>,
-): Promise<{
-  answer: string;
-  promptTokens: number | null;
-  completionTokens: number | null;
-}> {
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: chatModel,
-      temperature: TEMPERATURE,
-      max_tokens: MAX_TOKENS,
-      messages,
-    }),
-  });
-
-  const payload = (await response.json()) as {
-    choices: { message: { content: string } }[];
-    usage?: { prompt_tokens: number; completion_tokens: number };
-  };
-
-  return {
-    answer: payload.choices[0]!.message.content,
-    promptTokens: payload.usage?.prompt_tokens ?? null,
-    completionTokens: payload.usage?.completion_tokens ?? null,
-  };
+  return `Document excerpts:\n\n${context}\n\nQuestion: ${question}`;
 }
 
 export async function answerDealQuestion(
   client: Client,
-  { dealId, question, matchCount }: DealQuestionInput,
-  writer: Client,
+  scope: DealAiScope,
+  { question, matchCount }: DealQuestionInput,
 ): Promise<DealQuestionResult> {
-  const { data: deal, error: dealError } = await client
-    .from('deal')
-    .select('account_id')
-    .eq('id', dealId)
-    .single();
+  const [chat, embedder] = await Promise.all([
+    resolveScopedTeamAi(scope, 'chat'),
+    resolveScopedTeamAi(scope, 'embedding'),
+  ]);
 
-  if (dealError || !deal) {
-    throw new Error(`deal ${dealId} is not accessible`);
+  if (!chat) {
+    throw new TeamAiNotConnected();
   }
 
-  const accountId = deal.account_id;
-
-  const { data: endpoint, error: endpointError } = await client
-    .from('llm_endpoint')
-    .select('id, model, chat_model, base_url, api_key_secret_ref')
-    .eq('account_id', accountId)
-    .single();
-
-  if (endpointError || !endpoint) {
-    throw new Error(`no llm_endpoint configured for account ${accountId}`);
+  if (!embedder) {
+    throw new TeamAiNotConnected(ADD_EMBEDDING_MODEL);
   }
 
-  if (!endpoint.model) {
-    throw new Error(`llm_endpoint ${endpoint.id} has no model`);
-  }
-
-  if (!endpoint.chat_model) {
-    throw new Error(`llm_endpoint ${endpoint.id} has no chat_model`);
-  }
-
-  if (!endpoint.base_url) {
-    throw new Error(`llm_endpoint ${endpoint.id} has no base_url`);
-  }
-
-  const apiKey = endpoint.api_key_secret_ref
-    ? process.env[endpoint.api_key_secret_ref]
-    : undefined;
-
-  if (!apiKey) {
-    throw new Error(
-      `llm_endpoint ${endpoint.id} api key is not present in the environment`,
+  if (embedder.provider === 'anthropic') {
+    throw new TeamAiNotConnected(
+      'Anthropic has no embeddings API; use an OpenAI-compatible provider for document search',
     );
   }
 
-  const embedding = await embedQuestion(
-    endpoint.base_url,
-    endpoint.model,
-    apiKey,
-    question,
-  );
+  const [embedding] = await meterTeamAiCall(embedder, { dealId: scope.dealId }, async () => ({
+    result: await embedTexts(embedder, [question]),
+    promptTokens: null,
+    completionTokens: null,
+  }));
 
   const { data: chunks, error: retrievalError } = await client.rpc(
     'match_document_chunks',
     {
-      p_deal_id: dealId,
+      p_deal_id: scope.dealId,
       p_embedding: JSON.stringify(embedding),
       p_match_count: matchCount ?? DEFAULT_MATCH_COUNT,
     },
@@ -173,21 +95,12 @@ export async function answerDealQuestion(
 
   const retrieved = (chunks ?? []) as RetrievedChunk[];
 
-  const { answer, promptTokens, completionTokens } = await generateAnswer(
-    endpoint.base_url,
-    endpoint.chat_model,
-    apiKey,
-    buildMessages(question, retrieved),
+  const answer = await completeMetered(
+    chat,
+    { dealId: scope.dealId },
+    userMessage(question, retrieved),
+    { system: SYSTEM_PROMPT, temperature: TEMPERATURE, maxTokens: MAX_TOKENS },
   );
-
-  await writer.from('ai_call_log').insert({
-    account_id: accountId,
-    endpoint_id: endpoint.id,
-    deal_id: dealId,
-    model: endpoint.chat_model,
-    prompt_tokens: promptTokens,
-    completion_tokens: completionTokens,
-  });
 
   return {
     answer,

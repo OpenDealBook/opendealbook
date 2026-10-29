@@ -1,6 +1,7 @@
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { AI_NODE_TYPES } from './nodeKinds';
+import { CONNECT_AI_PROVIDER } from './teamAiKey';
 
 export async function aiProviderProblem(
   accountId: string,
@@ -16,5 +17,5 @@ export async function aiProviderProblem(
     .not('api_key_secret_id', 'is', null)
     .not('chat_model', 'is', null)
     .throwOnError();
-  return count === 0 ? 'Connect an AI provider first' : null;
+  return count === 0 ? CONNECT_AI_PROVIDER : null;
 }

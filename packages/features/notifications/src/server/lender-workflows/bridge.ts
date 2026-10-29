@@ -4,6 +4,7 @@ import {
   buildCounselWorkflows,
   type CounselWorkflowDeps,
 } from '../counsel-workflows/workflows';
+import { buildDealDeletedWorkflows } from '../deal-deleted-workflows/workflows';
 import { buildDealEventWorkflows } from '../deal-event-workflows/workflows';
 import {
   buildDealUpdateWorkflows,
@@ -45,6 +46,7 @@ export function createLenderBridge(
       ...buildTodoWorkflows(deps),
       ...buildSellerCounselWorkflows(deps),
       ...buildWorkflowRunWorkflows(deps),
+      ...buildDealDeletedWorkflows(),
     ],
     handler: (request: Request) => ({
       body: () => request.json(),

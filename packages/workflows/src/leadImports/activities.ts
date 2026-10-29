@@ -34,7 +34,7 @@ async function withLastModified(file: LeadFileRef): Promise<LeadFile> {
 async function withRegistryAsOf(
   file: LeadFileRef & { kind: 'state_registry' },
 ): Promise<LeadFile> {
-  const { published } = registryAdapter(file.state);
+  const { published } = registryAdapter(file.dataset);
   if (!published) return withLastModified(file);
   return {
     ...file,
@@ -123,7 +123,7 @@ export async function importLeadFile({
   );
   const zipped =
     file.kind === 'state_registry'
-      ? registryAdapter(file.state).zipped
+      ? registryAdapter(file.dataset).zipped
       : file.kind === 'form_5500' || file.kind === 'form_5500_sf';
   await loadLeadFile(importId, file, zipped ? firstZipEntry(body) : body, () =>
     Context.current().heartbeat(),
@@ -147,6 +147,27 @@ export async function recordUndatedFile({
         source: LEAD_SOURCE[file.kind],
         filename: file.url,
         status: 'failed',
+        error: reason,
+      },
+      { onConflict: 'id', ignoreDuplicates: true },
+    )
+    .throwOnError();
+}
+
+export async function skipLeadImport({
+  importId,
+  file,
+  reason,
+}: LeadImportRef & { reason: string }): Promise<void> {
+  await getSupabaseServerAdminClient()
+    .from('lead_import')
+    .upsert(
+      {
+        id: importId,
+        source: LEAD_SOURCE[file.kind],
+        filename: file.url,
+        as_of: file.asOf,
+        status: 'skipped',
         error: reason,
       },
       { onConflict: 'id', ignoreDuplicates: true },

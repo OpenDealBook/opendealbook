@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 
+import { DeleteDealDialog } from './deal-row-actions';
 import { useRefusableAction } from './use-refusable-action';
 
 const LOST_REASONS: { value: string; label: string }[] = [
@@ -73,12 +74,17 @@ export function DealStarButton(props: { dealId: string; starred: boolean }) {
 
 export function DealHeaderActions(props: {
   dealId: string;
+  dealName: string;
+  dealsHref: string;
   stage: string;
   stages: { key: string; label: string }[];
   listingStatus: string;
   archived: boolean;
+  isOwner: boolean;
 }) {
+  const router = useRouter();
   const refusable = useRefusableAction();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState(LOST_REASONS[0]!.value);
 
@@ -161,6 +167,24 @@ export function DealHeaderActions(props: {
       >
         {props.archived ? 'Unarchive' : 'Archive'}
       </Button>
+
+      {props.archived && props.isOwner ? (
+        <Button
+          variant={'outline'}
+          size={'sm'}
+          onClick={() => setDeleteOpen(true)}
+        >
+          Delete
+        </Button>
+      ) : null}
+
+      <DeleteDealDialog
+        dealId={props.dealId}
+        dealName={props.dealName}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onDeleted={() => router.push(props.dealsHref)}
+      />
 
       <Dialog open={lostOpen} onOpenChange={setLostOpen}>
         <DialogContent>

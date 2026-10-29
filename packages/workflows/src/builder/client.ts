@@ -517,13 +517,17 @@ const PARKED_RUN_STATUSES = UNFINISHED_RUN_STATUSES.filter(
   (status) => status !== 'running',
 );
 
-async function cancelRuns(
+export async function cancelRuns(
   runIds: string[],
-): Promise<{ cancelled: string[]; unreached: number }> {
-  const temporal = getTemporalClient();
+): Promise<{ cancelled: string[]; unreached: string[] }> {
+  if (runIds.length === 0) {
+    return { cancelled: [], unreached: [] };
+  }
+
+  const connecting = getTemporalClient();
   const stops = await Promise.allSettled(
     runIds.map(async (runId) =>
-      (await temporal).workflow
+      (await connecting).workflow
         .getHandle(workflowRunWorkflowId(runId))
         .cancel()
         .catch((error: unknown) => {
@@ -532,6 +536,10 @@ async function cancelRuns(
           }
         }),
     ),
+  );
+  await connecting.then(
+    (temporal) => temporal.connection.close(),
+    () => undefined,
   );
   const stopped = runIds.filter((_, index) => stops[index]!.status === 'fulfilled');
 
@@ -545,7 +553,7 @@ async function cancelRuns(
 
   return {
     cancelled: cancelled.map((run) => run.id),
-    unreached: runIds.length - stopped.length,
+    unreached: runIds.filter((_, index) => stops[index]!.status === 'rejected'),
   };
 }
 
@@ -566,7 +574,7 @@ export async function cancelWorkflowRun(input: {
   }
   const { cancelled, unreached } = await cancelRuns([input.runId]);
 
-  if (unreached > 0) {
+  if (unreached.length > 0) {
     throw new RunActionRefused('runner_unreachable');
   }
   if (cancelled.length === 0) {
@@ -604,7 +612,7 @@ export async function cancelWaitingRuns(input: {
     .throwOnError();
   const { cancelled, unreached } = await cancelRuns(runs.map((run) => run.id));
 
-  return { cancelled: cancelled.length, unreached };
+  return { cancelled: cancelled.length, unreached: unreached.length };
 }
 
 async function signalRuns(runs: { id: string }[], signal: string): Promise<void> {

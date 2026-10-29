@@ -27,23 +27,49 @@ interface ImportSteps {
     file: LeadFileRef;
     reason: string;
   }) => Promise<void>;
+  skipLeadImport: (skip: {
+    importId: string;
+    file: LeadFile;
+    reason: string;
+  }) => Promise<void>;
 }
+
+const fileKey = (file: LeadFileRef) =>
+  file.kind === 'state_registry' ? file.dataset : file.url;
 
 export async function importFiles(
   files: DiscoveredFile[],
   steps: ImportSteps,
 ): Promise<{ failed: string[] }> {
   const failed: string[] = [];
+  const notLoaded = new Set<string>();
 
   for (const file of files) {
     const importId = steps.newId();
     if ('failure' in file) {
       await steps.recordUndatedFile({ importId, file, reason: file.failure });
       failed.push(file.url);
+      notLoaded.add(fileKey(file));
+      continue;
+    }
+    if (
+      file.kind === 'state_registry' &&
+      file.parent !== undefined &&
+      notLoaded.has(file.parent)
+    ) {
+      await steps.skipLeadImport({
+        importId,
+        file,
+        reason: `${file.parent} did not load in this run`,
+      });
+      notLoaded.add(fileKey(file));
       continue;
     }
     const { skipped } = await steps.startLeadImport({ importId, file });
-    if (skipped) continue;
+    if (skipped) {
+      notLoaded.add(fileKey(file));
+      continue;
+    }
     try {
       await steps.importLeadFile({ importId, file });
       await steps.matchImportedRecords({
@@ -58,6 +84,7 @@ export async function importFiles(
           (failure.cause as Error | undefined)?.message ?? failure.message,
       });
       failed.push(file.url);
+      notLoaded.add(fileKey(file));
     }
   }
 

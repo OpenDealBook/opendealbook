@@ -1,209 +1,153 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { answerDealQuestion } from './generate';
+import { CapReached } from '@odb/workflows/team-ai';
 
-const KEY_REF = 'TEST_LLM_KEY';
+import { fakeAiProvider } from '../../workflows/test-support/fake-ai-provider';
+import { fakeTeam, type FakeTeam } from '../test-support/fake-team-ai';
+import { answerDealQuestion } from './generate';
+import type { DealAiScope } from './scope';
+
+const scope = { accountId: 'acct-1', dealId: 'deal-1' } as DealAiScope;
+
 const EMBEDDING = Array.from({ length: 1536 }, () => 0.01);
 
-interface EndpointRow {
-  id: string;
-  model: string | null;
-  chat_model: string | null;
-  base_url: string | null;
-  api_key_secret_ref: string | null;
-}
+const world = vi.hoisted(() => ({ team: null as unknown }));
 
-function makeReadClient(endpoint: EndpointRow | null, chunks: unknown[]) {
+vi.mock('@odb/supabase/admin', async () => {
+  const { fakeAdminClient } = await import('../test-support/fake-team-ai');
+  return { getSupabaseServerAdminClient: () => fakeAdminClient(world.team as FakeTeam) };
+});
+
+function makeReadClient(chunks: unknown[]) {
   const rpc = vi.fn(() => Promise.resolve({ data: chunks, error: null }));
 
-  function makeBuilder(table: string) {
-    const builder: Record<string, unknown> = {};
-    const chain = () => builder;
+  return { rpc } as unknown as Parameters<typeof answerDealQuestion>[0] & { rpc: typeof rpc };
+}
 
-    builder.select = chain;
-    builder.eq = chain;
-    builder.limit = chain;
-    builder.single = () => {
-      if (table === 'deal') {
-        return Promise.resolve({ data: { account_id: 'acct-1' }, error: null });
-      }
-
-      return Promise.resolve({
-        data: endpoint,
-        error: endpoint ? null : { message: 'no endpoint' },
-      });
-    };
-
-    return builder;
+function answer({ path }: { path: string }) {
+  if (path.endsWith('/embeddings')) {
+    return { data: [{ index: 0, embedding: EMBEDDING }], usage: { prompt_tokens: 6 } };
   }
-
+  if (path.endsWith('/messages')) {
+    return { content: [{ type: 'text', text: 'Revenue grew 12% in FY23.' }], usage: { input_tokens: 300, output_tokens: 40 } };
+  }
   return {
-    from: vi.fn((table: string) => makeBuilder(table)),
-    rpc,
-  } as unknown as Parameters<typeof answerDealQuestion>[0] & {
-    rpc: typeof rpc;
-    from: ReturnType<typeof vi.fn>;
+    choices: [{ message: { content: 'Revenue grew 12% in FY23.' } }],
+    usage: { prompt_tokens: 321, completion_tokens: 42 },
   };
 }
 
-function makeWriteClient() {
-  const insert = vi.fn(() => Promise.resolve({ data: null, error: null }));
+let team: FakeTeam;
+let provider: Awaited<ReturnType<typeof fakeAiProvider>>;
 
-  return {
-    client: {
-      from: vi.fn(() => ({ insert })),
-    } as unknown as Parameters<typeof answerDealQuestion>[2],
-    insert,
-  };
-}
-
-function mockFetch(chatUsage: Record<string, number> | undefined) {
-  return vi.fn((url: string, _init?: RequestInit) => {
-    if (url.endsWith('/embeddings')) {
-      return Promise.resolve({
-        json: () => Promise.resolve({ data: [{ index: 0, embedding: EMBEDDING }] }),
-      });
-    }
-
-    if (url.endsWith('/chat/completions')) {
-      return Promise.resolve({
-        json: () =>
-          Promise.resolve({
-            choices: [{ message: { content: 'Revenue grew 12% in FY23.' } }],
-            usage: chatUsage,
-          }),
-      });
-    }
-
-    throw new Error(`unexpected fetch to ${url}`);
-  });
-}
-
-const fullEndpoint: EndpointRow = {
-  id: 'endpoint-1',
-  model: 'text-embedding-3-small',
-  chat_model: 'gpt-4o-mini',
-  base_url: 'https://llm.example.com/v1',
-  api_key_secret_ref: KEY_REF,
-};
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  process.env[KEY_REF] = 'sk-test';
+beforeEach(async () => {
+  provider = await fakeAiProvider({ status: 200, body: null, answer });
+  team = fakeTeam();
+  team.endpoint.base_url = provider.baseUrl;
+  world.team = team;
+  process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
+  process.env.ODB_STACK = 'local';
 });
 
 afterEach(() => {
-  delete process.env[KEY_REF];
+  provider.close();
+  delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
+  delete process.env.ODB_STACK;
 });
 
+function ask(chunks: unknown[] = []) {
+  return answerDealQuestion(makeReadClient(chunks), scope, { question: 'Did Priya Okafor report revenue?' });
+}
+
 describe('answerDealQuestion', () => {
-  it('embeds the question, retrieves deal chunks, generates a grounded answer, and logs the call', async () => {
-    const chunks = [
-      { id: 'chunk-a', content: 'FY23 revenue was 4.2M.', distance: 0.1 },
+  it("embeds the question and answers from deal chunks on the team's vault key, team people included unchanged", async () => {
+    const read = makeReadClient([
+      { id: 'chunk-a', content: 'FY23 revenue was 4.2M per Priya Okafor.', distance: 0.1 },
       { id: 'chunk-b', content: 'Marketing spend rose in Q4.', distance: 0.2 },
-    ];
-    const read = makeReadClient(fullEndpoint, chunks);
-    const write = makeWriteClient();
-    const fetchMock = mockFetch({ prompt_tokens: 321, completion_tokens: 42 });
-    vi.stubGlobal('fetch', fetchMock);
+    ]);
 
-    const result = await answerDealQuestion(
-      read,
-      { dealId: 'deal-1', question: 'How did revenue change?' },
-      write.client,
-    );
+    const result = await answerDealQuestion(read, scope, { question: 'Did Priya Okafor report revenue?' });
 
-    const embeddingCall = fetchMock.mock.calls.find(([url]) =>
-      (url as string).endsWith('/embeddings'),
-    );
-    expect(embeddingCall).toBeDefined();
-    expect(JSON.parse((embeddingCall![1] as { body: string }).body)).toMatchObject({
-      model: 'text-embedding-3-small',
-      input: ['How did revenue change?'],
+    const [embedding, chat] = provider.received;
+    expect(embedding).toMatchObject({
+      path: '/v1/embeddings',
+      headers: { authorization: 'Bearer sk-vault' },
+      body: { model: 'text-embedding-3-small', input: ['Did Priya Okafor report revenue?'] },
     });
-
     expect(read.rpc).toHaveBeenCalledWith('match_document_chunks', {
       p_deal_id: 'deal-1',
       p_embedding: JSON.stringify(EMBEDDING),
       p_match_count: 8,
     });
+    expect(chat).toMatchObject({
+      path: '/v1/chat/completions',
+      headers: { authorization: 'Bearer sk-vault' },
+      body: { model: 'gpt-4o-mini' },
+    });
+    expect(chat!.body.messages[0]!.role).toBe('system');
+    expect(chat!.body.messages[1]!.content).toContain('FY23 revenue was 4.2M per Priya Okafor.');
+    expect(chat!.body.messages[1]!.content).toContain('Did Priya Okafor report revenue?');
+    expect(result).toEqual({
+      answer: 'Revenue grew 12% in FY23.',
+      citations: [{ chunkId: 'chunk-a' }, { chunkId: 'chunk-b' }],
+    });
+  });
 
-    const chatCall = fetchMock.mock.calls.find(([url]) =>
-      (url as string).endsWith('/chat/completions'),
+  it('answers with the low temperature and token limit Q&A uses', async () => {
+    await ask();
+
+    expect(provider.received[1]!.body).toMatchObject({ temperature: 0.1, max_tokens: 1024 });
+  });
+
+  it('refuses an Anthropic team without calling a provider, since Anthropic has no embeddings', async () => {
+    team.endpoint.provider = 'anthropic';
+
+    await expect(ask()).rejects.toThrow(
+      'Anthropic has no embeddings API; use an OpenAI-compatible provider for document search',
     );
-    expect(chatCall).toBeDefined();
-    const chatBody = JSON.parse((chatCall![1] as { body: string }).body);
-    expect(chatBody.model).toBe('gpt-4o-mini');
-    expect(chatBody.temperature).toBe(0.1);
-    expect(JSON.stringify(chatBody.messages)).toContain('FY23 revenue was 4.2M.');
+    expect(provider.received).toEqual([]);
+    expect(team.reserved).toEqual([]);
+  });
 
-    expect(result.answer).toBe('Revenue grew 12% in FY23.');
-    expect(result.citations).toEqual([
-      { chunkId: 'chunk-a' },
-      { chunkId: 'chunk-b' },
+  it('counts the embedding and the answer against the AI cap, logged to the deal', async () => {
+    await ask();
+
+    expect(team.reserved).toEqual([
+      expect.objectContaining({ p_account_id: 'acct-1', p_model: 'text-embedding-3-small', p_endpoint_id: 'endpoint-1', p_deal_id: 'deal-1' }),
+      expect.objectContaining({ p_account_id: 'acct-1', p_model: 'gpt-4o-mini', p_endpoint_id: 'endpoint-1', p_deal_id: 'deal-1' }),
     ]);
-
-    expect(write.insert).toHaveBeenCalledTimes(1);
-    expect(write.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        account_id: 'acct-1',
-        deal_id: 'deal-1',
-        endpoint_id: 'endpoint-1',
-        model: 'gpt-4o-mini',
-        prompt_tokens: 321,
-        completion_tokens: 42,
-      }),
-    );
-  });
-
-  it('logs null token counts when the provider returns no usage', async () => {
-    const read = makeReadClient(fullEndpoint, [
-      { id: 'chunk-a', content: 'x', distance: 0.1 },
+    expect(team.usage).toEqual([
+      { id: 'call-1', prompt_tokens: null, completion_tokens: null },
+      { id: 'call-2', prompt_tokens: 321, completion_tokens: 42 },
     ]);
-    const write = makeWriteClient();
-    vi.stubGlobal('fetch', mockFetch(undefined));
-
-    await answerDealQuestion(
-      read,
-      { dealId: 'deal-1', question: 'q' },
-      write.client,
-    );
-
-    expect(write.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ prompt_tokens: null, completion_tokens: null }),
-    );
   });
 
-  it('throws when the endpoint has no chat_model', async () => {
-    const read = makeReadClient({ ...fullEndpoint, chat_model: null }, []);
-    const write = makeWriteClient();
-    vi.stubGlobal('fetch', mockFetch(undefined));
+  it('refuses a private provider address unless private AI URLs are allowed', async () => {
+    delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
+    delete process.env.ODB_STACK;
 
-    await expect(
-      answerDealQuestion(read, { dealId: 'deal-1', question: 'q' }, write.client),
-    ).rejects.toThrow();
+    await expect(ask()).rejects.toThrow('Use a public HTTPS base URL');
+    expect(provider.received).toEqual([]);
   });
 
-  it('treats an endpoint without an embedding model as unusable and calls no provider', async () => {
-    const read = makeReadClient({ ...fullEndpoint, model: null }, []);
-    const write = makeWriteClient();
-    const fetchMock = mockFetch(undefined);
-    vi.stubGlobal('fetch', fetchMock);
+  it('refuses without calling a provider when the team has no key', async () => {
+    team.apiKey = null;
 
-    await expect(
-      answerDealQuestion(read, { dealId: 'deal-1', question: 'q' }, write.client),
-    ).rejects.toThrow('llm_endpoint endpoint-1 has no model');
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(ask()).rejects.toThrow('Connect an AI provider first');
+    expect(provider.received).toEqual([]);
   });
 
-  it('throws when the endpoint api key is not present in the environment', async () => {
-    delete process.env[KEY_REF];
-    const read = makeReadClient(fullEndpoint, []);
-    const write = makeWriteClient();
-    vi.stubGlobal('fetch', mockFetch(undefined));
+  it('refuses without calling a provider when the team has no embedding model', async () => {
+    team.endpoint.model = null;
 
-    await expect(
-      answerDealQuestion(read, { dealId: 'deal-1', question: 'q' }, write.client),
-    ).rejects.toThrow();
+    await expect(ask()).rejects.toThrow('Add an embedding model to your AI provider');
+    expect(provider.received).toEqual([]);
+  });
+
+  it('refuses without calling a provider once the AI cap is reached', async () => {
+    team.capReached = true;
+
+    await expect(ask()).rejects.toBeInstanceOf(CapReached);
+    expect(provider.received).toEqual([]);
   });
 });

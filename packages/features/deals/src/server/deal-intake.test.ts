@@ -8,6 +8,8 @@ vi.mock('@odb/ai/server', () => ({
   generateStructured: mocks.generateStructured,
 }));
 
+import type { AiScope } from '@odb/ai/scope';
+
 import { dealIntakeDraftSchema } from '../schema/deal-intake.schema';
 import {
   dealFromIntakeDraft,
@@ -35,23 +37,23 @@ beforeEach(() => {
 describe('extractDealIntake', () => {
   it('asks @odb/ai for the intake schema from the source text and returns the parsed draft', async () => {
     mocks.generateStructured.mockImplementation(
-      async (_client: unknown, input: { parse: (raw: unknown) => unknown }) =>
-        input.parse(FIXTURE),
+      async (input: { parse: (raw: unknown) => unknown }) => ({
+        ok: true,
+        value: input.parse(FIXTURE),
+      }),
     );
 
     const draft = await extractDealIntake(
-      {} as never,
-      'acct-1',
+      { accountId: 'acct-1' } as AiScope,
       'Revenue was $4.2M with SDE of $900k. Asking $3.5M.',
     );
 
     expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
-    const [client, input] = mocks.generateStructured.mock.calls[0] as [
-      unknown,
-      { accountId: string; system: string; prompt: string; parse: unknown },
+    const [input] = mocks.generateStructured.mock.calls[0] as [
+      { scope: AiScope; system: string; prompt: string; parse: unknown },
     ];
 
-    expect(input.accountId).toBe('acct-1');
+    expect(input.scope).toEqual({ accountId: 'acct-1' });
     expect(input.prompt).toContain(
       'Revenue was $4.2M with SDE of $900k. Asking $3.5M.',
     );
@@ -70,18 +72,19 @@ describe('extractDealIntake', () => {
       expect(input.prompt).toContain(field);
     }
 
-    expect(draft).toEqual(dealIntakeDraftSchema.parse(FIXTURE));
-    expect(client).toBeDefined();
+    expect(draft).toEqual({ ok: true, value: dealIntakeDraftSchema.parse(FIXTURE) });
   });
 
   it('rejects a draft whose shape does not match the intake schema', async () => {
     mocks.generateStructured.mockImplementation(
-      async (_client: unknown, input: { parse: (raw: unknown) => unknown }) =>
-        input.parse({ revenue: 'not a number' }),
+      async (input: { parse: (raw: unknown) => unknown }) => ({
+        ok: true,
+        value: input.parse({ revenue: 'not a number' }),
+      }),
     );
 
     await expect(
-      extractDealIntake({} as never, 'acct-1', 'garbage'),
+      extractDealIntake({ accountId: 'acct-1' } as AiScope, 'garbage'),
     ).rejects.toThrow();
   });
 });

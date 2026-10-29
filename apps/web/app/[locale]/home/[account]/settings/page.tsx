@@ -111,7 +111,7 @@ async function loadTeamDetails(accountId: string) {
 async function loadAiEndpoint(accountId: string) {
   const { data: endpoint } = await getSupabaseServerClient()
     .from('llm_endpoint')
-    .select('provider, chat_model, base_url')
+    .select('provider, chat_model, model, base_url')
     .eq('account_id', accountId)
     .maybeSingle()
     .throwOnError();
@@ -120,6 +120,7 @@ async function loadAiEndpoint(accountId: string) {
     endpoint && {
       provider: endpoint.provider,
       model: endpoint.chat_model!,
+      embeddingModel: endpoint.model,
       baseUrl: endpoint.base_url!,
     }
   );

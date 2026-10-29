@@ -9,12 +9,15 @@ export default async function TeamOutreachPage({
   params,
 }: TeamOutreachPageProps) {
   const { account } = await params;
-  const { team } = await loadTeamWorkspace(account);
+  const { team, permissions } = await loadTeamWorkspace(account);
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
       <h1 className={'text-2xl font-semibold'}>Outreach</h1>
-      <OutreachArea accountId={team.id} />
+      <OutreachArea
+        accountId={team.id}
+        canManageDeals={permissions.includes('deals.manage')}
+      />
     </main>
   );
 }
