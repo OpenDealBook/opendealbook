@@ -1358,7 +1358,6 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       expect(item.due_at.slice(0, 10)).toBe(utcToday());
       expect(item.review_due_at.slice(0, 10)).toBe(addDays(utcToday(), 3));
     }
-    const postCloseCard = card(page, 'Checklists');
     for (const { title } of await postClose()) {
       const status = page.getByLabel(`Status of ${title}`);
       await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);

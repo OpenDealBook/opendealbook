@@ -2,12 +2,9 @@
 
 import { after } from 'next/server';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
-
 import { z } from 'zod';
 
 import { getLogger } from '@odb/shared/logger';
-import type { Database } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 

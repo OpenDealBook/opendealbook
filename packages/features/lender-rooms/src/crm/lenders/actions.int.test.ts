@@ -441,7 +441,7 @@ describe('the primary contact', () => {
   });
 
   it('refuses to remove the email of the primary contact', async () => {
-    const { lenderId, a } = await twoContacts(`keep-email-${suffix}.com`);
+    const { a } = await twoContacts(`keep-email-${suffix}.com`);
     await unwrap(setPrimaryLenderContact({ contactId: a }));
 
     expect(await editLenderContact({ contactId: a, email: null })).toEqual({

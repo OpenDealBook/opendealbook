@@ -1,5 +1,3 @@
-import type { Client } from '@temporalio/client';
-
 import { describe, expect, it } from 'vitest';
 
 import { fakeScheduleClient, staleSchedule } from './fakeScheduleClient';

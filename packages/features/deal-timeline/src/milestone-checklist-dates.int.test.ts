@@ -19,7 +19,6 @@ import {
   provisionTeam,
   SERVICE_ROLE_KEY,
   SUPABASE_URL,
-  withLockedTeam,
 } from '@odb/seller-rooms/test-support/world.ts';
 
 vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL);
@@ -36,10 +35,8 @@ vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => world.signedInClient,
 }));
 
-const { applyContractDates, contractDatesPreview } =
-  await import('./apply-contract-dates');
+const { applyContractDates } = await import('./apply-contract-dates');
 const { removeMilestone, setMilestone } = await import('./actions');
-const { loadDealTimeline } = await import('./queries');
 
 type Person = Awaited<ReturnType<typeof provisionPerson>>;
 
