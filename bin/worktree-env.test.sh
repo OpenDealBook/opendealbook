@@ -149,6 +149,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT http://localhost:56105
 PYROSCOPE_SERVER_ADDRESS http://localhost:56103
 EOF
 
+assert_eq "zsh can source it for a registered worktree" "2 56080 56085 postgresql://postgres:postgres@127.0.0.1:56082/postgres" \
+  "$(cd "$WT" && zsh -fc 'source "$1" && echo "$ODB_SLOT $APP_PORT $EMAIL_PORT $SUPABASE_DB_URL"' zsh "$ENV_SH" 2>&1)"
+
 assert_eq "slot 49 ends the block range at 57999" 57999 "$( (cd "$WT" && source "$ENV_SH" && echo $(( $(odb_port 49 APP_PORT) + 39 ))) )"
 
 cat > "$SANDBOX/main.env" <<'EOF'

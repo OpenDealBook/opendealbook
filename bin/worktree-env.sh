@@ -68,11 +68,11 @@ odb_registry() {
 }
 
 odb_slot_of() {
-  local path=$1
-  if [[ "$path" == "$(odb_main_root)" ]]; then
+  local wt_path=$1
+  if [[ "$wt_path" == "$(odb_main_root)" ]]; then
     echo 0
   elif [[ -f "$(odb_registry)" ]]; then
-    jq -r --arg p "$path" '.[$p] // empty' "$(odb_registry)"
+    jq -r --arg p "$wt_path" '.[$p] // empty' "$(odb_registry)"
   fi
 }
 
@@ -100,28 +100,28 @@ odb_with_registry_lock() (
 )
 
 odb_slot_allocate() {
-  local path=$1
-  odb_with_registry_lock odb_slot_allocate_unlocked "$path"
+  local wt_path=$1
+  odb_with_registry_lock odb_slot_allocate_unlocked "$wt_path"
 }
 
 odb_slot_allocate_unlocked() {
-  local path=$1 slot
+  local wt_path=$1 slot
   [[ -f "$(odb_registry)" ]] || echo '{}' > "$(odb_registry)"
-  slot=$(odb_slot_of "$path")
+  slot=$(odb_slot_of "$wt_path")
   if [[ -z "$slot" ]]; then
     slot=$(jq -r '[.[]] as $taken | first(range(1; 50) | select(. as $n | $taken | any(. == $n) | not)) // empty' "$(odb_registry)")
     if [[ -z "$slot" ]]; then
       echo "worktree-env: all slots 1..49 are taken in $(odb_registry)" >&2
       return 1
     fi
-    odb_write_registry --arg p "$path" --argjson n "$slot" '.[$p] = $n'
+    odb_write_registry --arg p "$wt_path" --argjson n "$slot" '.[$p] = $n'
   fi
   echo "$slot"
 }
 
 odb_slot_free() {
-  local path=$1
-  odb_with_registry_lock odb_write_registry --arg p "$path" 'del(.[$p])'
+  local wt_path=$1
+  odb_with_registry_lock odb_write_registry --arg p "$wt_path" 'del(.[$p])'
 }
 
 _odb_slot=$(odb_slot_of "$(git rev-parse --show-toplevel)")
