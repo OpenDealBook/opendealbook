@@ -33,7 +33,7 @@ create trigger invitations_timestamps
   for each row execute function public.set_timestamps();
 
 -- Invitations only make sense for team accounts.
-create or replace function tuckin.reject_personal_account_invite()
+create or replace function odb.reject_personal_account_invite()
   returns trigger
   set search_path = '' as $$
 begin
@@ -46,7 +46,7 @@ $$ language plpgsql;
 
 create trigger invitations_team_only
   before insert or update on public.invitations
-  for each row execute function tuckin.reject_personal_account_invite();
+  for each row execute function odb.reject_personal_account_invite();
 
 create policy invitations_read on public.invitations
   for select to authenticated

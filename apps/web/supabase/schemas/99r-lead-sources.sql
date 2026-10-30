@@ -563,7 +563,7 @@ $$;
 revoke all on function public.letter_webhook_secret(uuid) from public, anon, authenticated;
 grant execute on function public.letter_webhook_secret(uuid) to service_role;
 
-create or replace function tuckin.delete_provider_credential_secret()
+create or replace function odb.delete_provider_credential_secret()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -575,7 +575,7 @@ $$;
 
 create trigger delete_provider_credential_secret
   after delete on public.provider_credential
-  for each row execute function tuckin.delete_provider_credential_secret();
+  for each row execute function odb.delete_provider_credential_secret();
 
 -- The decision model's call on a firm. A rerun appends a new verdict; a person's
 -- approval is its own row, so an approval always names who gave it and when.
@@ -632,7 +632,7 @@ create policy firm_verdict_approval_insert on public.firm_verdict_approval
   );
 
 -- Approving a not-fit verdict overrides the decision model, so it needs a reason.
-create or replace function tuckin.require_override_reason()
+create or replace function odb.require_override_reason()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -646,7 +646,7 @@ $$;
 
 create trigger require_override_reason
   before insert on public.firm_verdict_approval
-  for each row execute function tuckin.require_override_reason();
+  for each row execute function odb.require_override_reason();
 
 -- A revoked approval stays revoked; the firm needs a new verdict to be
 -- approved again.
@@ -698,7 +698,7 @@ $$;
 revoke all on function public.firm_outreach_approved(uuid) from public, anon;
 grant execute on function public.firm_outreach_approved(uuid) to authenticated, service_role;
 
-create or replace function tuckin.refuse_unapproved_firm_outreach()
+create or replace function odb.refuse_unapproved_firm_outreach()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -712,7 +712,7 @@ $$;
 
 create trigger refuse_unapproved_firm_outreach
   before insert or update of status, firm_id on public.outreach_enrollment
-  for each row execute function tuckin.refuse_unapproved_firm_outreach();
+  for each row execute function odb.refuse_unapproved_firm_outreach();
 
 -- What the team has taught the decision model. Override and revoke reasons land
 -- here, deal managers add their own, and the model reads them on the team's
@@ -763,7 +763,7 @@ create policy decision_fact_delete on public.decision_fact
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
-create or replace function tuckin.record_override_fact()
+create or replace function odb.record_override_fact()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -779,9 +779,9 @@ $$;
 create trigger record_override_fact
   after insert on public.firm_verdict_approval
   for each row when (new.reason is not null)
-  execute function tuckin.record_override_fact();
+  execute function odb.record_override_fact();
 
-create or replace function tuckin.apply_revocation()
+create or replace function odb.apply_revocation()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -804,11 +804,11 @@ $$;
 
 create trigger apply_revocation
   after insert on public.firm_verdict_revocation
-  for each row execute function tuckin.apply_revocation();
+  for each row execute function odb.apply_revocation();
 
 -- A new verdict waits for approval, so the firm's queued outreach is held until
 -- a deal manager approves it.
-create or replace function tuckin.hold_outreach_for_new_verdict()
+create or replace function odb.hold_outreach_for_new_verdict()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -822,9 +822,9 @@ $$;
 
 create trigger hold_outreach_for_new_verdict
   after insert on public.firm_verdict
-  for each row execute function tuckin.hold_outreach_for_new_verdict();
+  for each row execute function odb.hold_outreach_for_new_verdict();
 
-create or replace function tuckin.release_held_outreach()
+create or replace function odb.release_held_outreach()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -843,7 +843,7 @@ $$;
 
 create trigger release_held_outreach
   after insert on public.firm_verdict_approval
-  for each row execute function tuckin.release_held_outreach();
+  for each row execute function odb.release_held_outreach();
 
 -- A weak match between a shared source record and a public business, as one
 -- team sees it. A team's accept or reject steers only its own pipeline; the
@@ -941,7 +941,7 @@ create policy outreach_letter_read on public.outreach_letter
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
-create or replace function tuckin.refuse_letter_over_monthly_cap()
+create or replace function odb.refuse_letter_over_monthly_cap()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -961,44 +961,44 @@ $$;
 
 create trigger refuse_letter_over_monthly_cap
   before insert on public.outreach_letter
-  for each row execute function tuckin.refuse_letter_over_monthly_cap();
+  for each row execute function odb.refuse_letter_over_monthly_cap();
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.firm_email
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.provider_credential
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.firm_verdict
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_endpoint_id
   before insert or update on public.firm_verdict
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'endpoint_id', 'llm_endpoint');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'endpoint_id', 'llm_endpoint');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.firm_verdict_approval
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.outreach_letter
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_firm_id
   before insert or update on public.ai_call_log
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'firm_id', 'firm');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'firm_id', 'firm');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.firm_verdict_revocation
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.decision_fact
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.business_match_review
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');

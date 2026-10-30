@@ -19,7 +19,7 @@ create policy account_slug_history_read on public.account_slug_history
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
-create or replace function tuckin.record_former_slug()
+create or replace function odb.record_former_slug()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -33,7 +33,7 @@ $$;
 create trigger accounts_record_former_slug
   after update on public.accounts
   for each row when (old.slug is distinct from new.slug)
-  execute function tuckin.record_former_slug();
+  execute function odb.record_former_slug();
 
 create or replace function public.team_account_current_slug(former_slug text)
   returns text

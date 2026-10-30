@@ -32,7 +32,7 @@ insert into public.accounts_memberships (user_id, account_id, account_role)
 values (tests.get_uid('lx_analyst'), tests.account_id('lx-team'), 'analyst');
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('lx_seller'), 'lx_seller@tuckin.test', 'Lena Seller' from lx_room;
+select id, tests.get_uid('lx_seller'), 'lx_seller@opendealbook.test', 'Lena Seller' from lx_room;
 
 insert into public.contract (id, deal_id, account_id, type, current_version) values
   ('e1000000-0000-0000-0000-0000000000c1', 'e1000000-0000-0000-0000-0000000000d1', tests.account_id('lx-team'), 'loi', 1),

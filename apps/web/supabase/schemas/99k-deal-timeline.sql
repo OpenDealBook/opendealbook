@@ -93,7 +93,7 @@ $$;
 -- The signing is appended under the deal's lock with the same sequence and
 -- snapshot rules as append_deal_event, which cannot be called here because
 -- the person saving the date is not the service.
-create or replace function tuckin.record_loi_signed()
+create or replace function odb.record_loi_signed()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -148,12 +148,12 @@ $$;
 create trigger record_loi_signed_on_insert
   after insert on public.deal_milestone
   for each row when (new.kind = 'loi_signed' and new.actual_on is not null)
-  execute function tuckin.record_loi_signed();
+  execute function odb.record_loi_signed();
 
 create trigger record_loi_signed_on_update
   after update of actual_on on public.deal_milestone
   for each row when (new.kind = 'loi_signed' and old.actual_on is null and new.actual_on is not null)
-  execute function tuckin.record_loi_signed();
+  execute function odb.record_loi_signed();
 
 -- ---- What outside parties see ----
 
@@ -292,8 +292,8 @@ revoke all on function public.backfill_exclusivity_end() from public, anon, auth
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.deal_milestone
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.deal_milestone
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');

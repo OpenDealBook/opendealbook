@@ -53,23 +53,23 @@ insert into public.lender_room (id, account_id, deal_id, name, private_folder_id
 values ('de000000-0000-0000-0000-0000000000b1', tests.account_id('dd-team'),
   'de000000-0000-0000-0000-0000000000d1', 'First Bank', 'de000000-0000-0000-0000-0000000000a1');
 insert into public.lender_room_member (room_id, user_id, email)
-values ('de000000-0000-0000-0000-0000000000b1', tests.get_uid('dd_lender'), 'dd_lender@tuckin.test');
+values ('de000000-0000-0000-0000-0000000000b1', tests.get_uid('dd_lender'), 'dd_lender@opendealbook.test');
 
 select tests.login_as('dd_owner');
 select public.ensure_seller_room('de000000-0000-0000-0000-0000000000d1');
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('dd_seller'), 'dd_seller@tuckin.test', 'Sam Seller'
+select id, tests.get_uid('dd_seller'), 'dd_seller@opendealbook.test', 'Sam Seller'
 from public.seller_room where deal_id = 'de000000-0000-0000-0000-0000000000d1';
 
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
   (tests.account_id('dd-team'), 'de000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('dd_buyer_law'), 'dd_buyer_law@tuckin.test', 'Bea Law'),
+    tests.get_uid('dd_buyer_law'), 'dd_buyer_law@opendealbook.test', 'Bea Law'),
   (tests.account_id('dd-team'), 'de000000-0000-0000-0000-0000000000d3', 'seller',
-    tests.get_uid('dd_seller_law'), 'dd_seller_law@tuckin.test', 'Owen Law'),
+    tests.get_uid('dd_seller_law'), 'dd_seller_law@opendealbook.test', 'Owen Law'),
   (tests.account_id('dd-team'), 'de000000-0000-0000-0000-0000000000d4', 'seller',
-    tests.get_uid('dd_seller_law'), 'dd_seller_law@tuckin.test', 'Owen Law');
+    tests.get_uid('dd_seller_law'), 'dd_seller_law@opendealbook.test', 'Owen Law');
 
 insert into storage.objects (bucket_id, name) values
   ('data-room', 'deal/de000000-0000-0000-0000-0000000000d1/1-p-and-l.pdf'),
@@ -215,9 +215,9 @@ select bag_eq(
   $$ select r ->> 'user_id' as user_id, r ->> 'email' as email, r ->> 'deal_name' as deal_name
      from dd_result, jsonb_array_elements(result -> 'recipients') r $$,
   $$ values
-       (tests.get_uid('dd_lender')::text, 'dd_lender@tuckin.test', 'Project Pipe'),
-       (tests.get_uid('dd_seller')::text, 'dd_seller@tuckin.test', 'Harbor Plumbing'),
-       (tests.get_uid('dd_buyer_law')::text, 'dd_buyer_law@tuckin.test', 'Project Pipe') $$,
+       (tests.get_uid('dd_lender')::text, 'dd_lender@opendealbook.test', 'Project Pipe'),
+       (tests.get_uid('dd_seller')::text, 'dd_seller@opendealbook.test', 'Harbor Plumbing'),
+       (tests.get_uid('dd_buyer_law')::text, 'dd_buyer_law@opendealbook.test', 'Project Pipe') $$,
   'it returns the lenders, sellers and counsel to tell, each with the name they know the deal by'
 );
 

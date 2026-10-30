@@ -33,7 +33,7 @@ create trigger memberships_user_tracking
   for each row execute function public.set_user_tracking();
 
 -- The primary owner's membership row is permanent while they own the account.
-create or replace function tuckin.block_primary_owner_removal()
+create or replace function odb.block_primary_owner_removal()
   returns trigger
   set search_path = '' as $$
 begin
@@ -49,7 +49,7 @@ $$ language plpgsql;
 
 create trigger memberships_block_owner_removal
   before delete on public.accounts_memberships
-  for each row execute function tuckin.block_primary_owner_removal();
+  for each row execute function odb.block_primary_owner_removal();
 
 create or replace function public.has_role_on_account(account_id uuid, account_role varchar(50) default null)
   returns boolean

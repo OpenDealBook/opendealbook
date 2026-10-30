@@ -51,7 +51,7 @@ create trigger accounts_user_tracking
 
 -- Identity columns must never move once set. Enforced for end users only;
 -- service_role bypasses so ownership transfer can rewrite the owner.
-create or replace function tuckin.guard_account_identity()
+create or replace function odb.guard_account_identity()
   returns trigger
   set search_path = '' as $$
 begin
@@ -69,9 +69,9 @@ $$ language plpgsql;
 
 create trigger accounts_guard_identity
   before update on public.accounts
-  for each row execute function tuckin.guard_account_identity();
+  for each row execute function odb.guard_account_identity();
 
-create or replace function tuckin.slugify(value text)
+create or replace function odb.slugify(value text)
   returns text
   set search_path = '' as $$
   select trim(both '-' from
@@ -84,12 +84,12 @@ $$ language sql strict immutable;
 
 -- A team slug is unique among live slugs and other teams' former slugs, never
 -- a static route under /home, at most 64 characters including its counter suffix.
-create or replace function tuckin.assign_team_slug()
+create or replace function odb.assign_team_slug()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
 declare
-  base text := case when tg_op = 'INSERT' then coalesce(new.slug, tuckin.slugify(new.name)) else tuckin.slugify(new.name) end;
+  base text := case when tg_op = 'INSERT' then coalesce(new.slug, odb.slugify(new.name)) else odb.slugify(new.name) end;
   candidate text := rtrim(left(base, 64), '-');
   suffix int := 0;
 begin
@@ -110,15 +110,15 @@ $$;
 create trigger accounts_slug_on_insert
   before insert on public.accounts
   for each row when (not new.is_personal_account)
-  execute function tuckin.assign_team_slug();
+  execute function odb.assign_team_slug();
 
 create trigger accounts_slug_on_rename
   before update on public.accounts
   for each row when (new.name is distinct from old.name and not new.is_personal_account)
-  execute function tuckin.assign_team_slug();
+  execute function odb.assign_team_slug();
 
 -- Create a personal account for every new auth user.
-create or replace function tuckin.provision_personal_account()
+create or replace function odb.provision_personal_account()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -147,10 +147,10 @@ $$;
 
 create trigger on_auth_user_created
   after insert on auth.users
-  for each row execute function tuckin.provision_personal_account();
+  for each row execute function odb.provision_personal_account();
 
 -- Keep the personal account email aligned with the auth user email.
-create or replace function tuckin.sync_personal_account_email()
+create or replace function odb.sync_personal_account_email()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -164,7 +164,7 @@ $$;
 
 create trigger on_auth_user_email_changed
   after update of email on auth.users
-  for each row execute function tuckin.sync_personal_account_email();
+  for each row execute function odb.sync_personal_account_email();
 
 create or replace function public.is_account_owner(account_id uuid)
   returns boolean

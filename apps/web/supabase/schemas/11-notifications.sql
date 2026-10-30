@@ -46,7 +46,7 @@ create policy notifications_update on public.notifications
   );
 
 -- Only the dismissed flag may change through an authenticated update.
-create or replace function tuckin.restrict_notification_update()
+create or replace function odb.restrict_notification_update()
   returns trigger
   set search_path = '' as $$
 begin
@@ -60,7 +60,7 @@ $$ language plpgsql;
 
 create trigger notifications_restrict_update
   before update on public.notifications
-  for each row execute function tuckin.restrict_notification_update();
+  for each row execute function odb.restrict_notification_update();
 
 create table if not exists public.notification_reads (
   notification_id bigint not null references public.notifications (id) on delete cascade,

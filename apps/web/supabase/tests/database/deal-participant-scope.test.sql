@@ -52,7 +52,7 @@ values
 insert into public.lender_room (id, account_id, deal_id, name, private_folder_id)
 values ('da000000-0000-0000-0000-0000000000aa', tests.account_id('dp-acct'), 'da000000-0000-0000-0000-0000000000d1', 'Lender A', 'da000000-0000-0000-0000-00000000f00a');
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
-values ('da000000-0000-0000-0000-0000000000aa', tests.get_uid('dp_lender'), 'dp_lender@tuckin.test', tests.get_uid('dp_owner'));
+values ('da000000-0000-0000-0000-0000000000aa', tests.get_uid('dp_lender'), 'dp_lender@opendealbook.test', tests.get_uid('dp_owner'));
 
 insert into storage.objects (bucket_id, name)
 values ('data-room', tests.account_id('dp-acct') || '/da000000-0000-0000-0000-0000000000d1/tax-return.pdf');

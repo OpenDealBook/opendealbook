@@ -21,7 +21,7 @@ insert into vx_room select public.ensure_seller_room('e3000000-0000-0000-0000-00
 reset role;
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('vx_seller'), 'vx_seller@tuckin.test', 'Vera Seller' from vx_room;
+select id, tests.get_uid('vx_seller'), 'vx_seller@opendealbook.test', 'Vera Seller' from vx_room;
 
 insert into public.contract (id, deal_id, account_id, type, current_version) values
   ('e3000000-0000-0000-0000-0000000000c1', 'e3000000-0000-0000-0000-0000000000d1', tests.account_id('vx-team'), 'loi', 1);

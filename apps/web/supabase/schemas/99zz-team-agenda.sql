@@ -31,13 +31,13 @@ create policy team_home_visit_update on public.team_home_visit
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()) and public.has_role_on_account(account_id));
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('team_home_visit', 'a person''s own marker of when they last opened Home')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_team_move
   before update on public.team_home_visit
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();
 
 create or replace function public.team_home_new_since(p_account_id uuid)
   returns timestamptz
@@ -253,4 +253,4 @@ grant execute on function public.team_agenda(uuid, boolean, timestamptz) to auth
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.team_home_visit
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();

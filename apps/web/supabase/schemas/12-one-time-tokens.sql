@@ -25,7 +25,7 @@ create index ix_nonces_lookup on public.nonces (token_hash, purpose)
 revoke all on public.nonces from authenticated, service_role;
 grant select, insert, update, delete on public.nonces to service_role;
 
-create or replace function tuckin.hash_token(token text)
+create or replace function odb.hash_token(token text)
   returns text
   set search_path = '' as $$
   select encode(extensions.digest(token, 'sha256'), 'hex');
@@ -47,7 +47,7 @@ declare
 begin
   insert into public.nonces (token_hash, purpose, user_id, account_id, metadata, scopes, expires_at)
   values (
-    tuckin.hash_token(token),
+    odb.hash_token(token),
     create_nonce.purpose,
     create_nonce.user_id,
     create_nonce.account_id,
@@ -84,7 +84,7 @@ begin
     where n.id = (
       select id
       from public.nonces
-      where token_hash = tuckin.hash_token(token)
+      where token_hash = odb.hash_token(token)
         and nonces.purpose = verify_nonce.purpose
         and used_at is null
         and expires_at > now()

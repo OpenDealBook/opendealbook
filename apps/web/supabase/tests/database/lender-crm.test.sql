@@ -50,8 +50,8 @@ values
 
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
 values
-  ('1c000000-0000-0000-0000-0000000000a0', tests.get_uid('lc_lender_a'), 'lc_lender_a@tuckin.test', tests.get_uid('lc_owner')),
-  ('1c000000-0000-0000-0000-0000000000b0', tests.get_uid('lc_lender_b'), 'lc_lender_b@tuckin.test', tests.get_uid('lc_owner'));
+  ('1c000000-0000-0000-0000-0000000000a0', tests.get_uid('lc_lender_a'), 'lc_lender_a@opendealbook.test', tests.get_uid('lc_owner')),
+  ('1c000000-0000-0000-0000-0000000000b0', tests.get_uid('lc_lender_b'), 'lc_lender_b@opendealbook.test', tests.get_uid('lc_owner'));
 
 insert into public.lender_ask (room_id, account_id, kind, title)
 values
@@ -730,7 +730,7 @@ select results_eq(
   'a to-do deleted by hand leaves its link, so the room is not nudged again at once'
 );
 select ok(
-  exists (select 1 from tuckin.billing_lock_exempt_tables where table_name = 'lender_nudge_todo'),
+  exists (select 1 from odb.billing_lock_exempt_tables where table_name = 'lender_nudge_todo'),
   'the table names why a locked team may still have it'
 );
 select ok(

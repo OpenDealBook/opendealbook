@@ -25,7 +25,7 @@
         "elementNamePattern": ["@supabase/**"],
       },
       {
-        "groupName": "tuckin",
+        "groupName": "odb",
         "elementNamePattern": ["@odb/**"],
       },
       {
@@ -39,7 +39,7 @@
       "next",
       "supabase",
       "external",
-      "tuckin",
+      "odb",
       "app",
       ["parent", "sibling", "index"],
       "style",

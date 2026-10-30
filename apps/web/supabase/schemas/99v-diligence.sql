@@ -98,7 +98,7 @@ create policy diligence_report_read on public.diligence_report
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
-create or replace function tuckin.refuse_rerating_finding()
+create or replace function odb.refuse_rerating_finding()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -110,32 +110,32 @@ $$;
 create trigger refuse_rerating_finding
   before update of severity, severity_reason on public.diligence_finding
   for each row when (old.severity is not null or old.severity_reason is not null)
-  execute function tuckin.refuse_rerating_finding();
+  execute function odb.refuse_rerating_finding();
 
 create trigger same_team_deal_id
   before insert or update on public.diligence_run
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.diligence_run
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.diligence_finding
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.diligence_report
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.diligence_run
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.diligence_finding
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.diligence_report
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();

@@ -147,7 +147,7 @@ alter table public.accounts add constraint accounts_timezone_known check (
 grant update (timezone) on public.accounts to authenticated;
 
 -- A team's time zone starts as its creator's own, else UTC.
-create or replace function tuckin.default_team_timezone()
+create or replace function odb.default_team_timezone()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -164,4 +164,4 @@ $$;
 create trigger default_team_timezone
   before insert on public.accounts
   for each row when (not new.is_personal_account and new.timezone is null)
-  execute function tuckin.default_team_timezone();
+  execute function odb.default_team_timezone();

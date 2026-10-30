@@ -1,8 +1,8 @@
--- Baseline privileges for Tuckin.
+-- Baseline privileges for OpenDealbook.
 -- The public schema is locked down: nothing is executable or readable by
 -- anon/authenticated unless a later file grants it back explicitly.
 
-create schema if not exists tuckin;
+create schema if not exists odb;
 
 create extension if not exists pgcrypto with schema extensions;
 create extension if not exists unaccent with schema extensions;

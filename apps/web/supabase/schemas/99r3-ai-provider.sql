@@ -13,7 +13,7 @@
 -- fragment; literal private addresses and internal hostnames are refused. A local
 -- or e2e database that sets odb.allow_private_ai_url = 'on' may save any URL, so
 -- a team can point at a stand-in; production never sets it.
-create or replace function tuckin.public_https_base_url(p_url text)
+create or replace function odb.public_https_base_url(p_url text)
   returns boolean
   language plpgsql immutable
   set search_path = '' as $$
@@ -84,7 +84,7 @@ begin
 
   if p_provider = 'openai_compatible'
     and coalesce(current_setting('odb.allow_private_ai_url', true), '') <> 'on'
-    and not coalesce(tuckin.public_https_base_url(p_base_url), false) then
+    and not coalesce(odb.public_https_base_url(p_base_url), false) then
     raise exception 'use a public https base URL' using errcode = 'invalid_parameter_value';
   end if;
 
@@ -174,7 +174,7 @@ revoke all on function public.team_people_names(uuid) from public, anon, authent
 grant execute on function public.team_people_names(uuid) to service_role;
 
 -- An endpoint's vault secret goes with it, on disconnect or team deletion.
-create or replace function tuckin.delete_llm_endpoint_secret()
+create or replace function odb.delete_llm_endpoint_secret()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -186,4 +186,4 @@ $$;
 
 create trigger delete_llm_endpoint_secret
   after delete on public.llm_endpoint
-  for each row execute function tuckin.delete_llm_endpoint_secret();
+  for each row execute function odb.delete_llm_endpoint_secret();

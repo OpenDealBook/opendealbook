@@ -210,28 +210,28 @@ create policy deal_event_snapshot_seller_counsel_thread_kept on public.deal_even
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_counsel_message
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_counsel_message_file
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.seller_counsel_message
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_deal_id
   before insert or update on public.seller_counsel_message_file
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_message_id
   before insert or update on public.seller_counsel_message_file
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'message_id', 'seller_counsel_message');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'message_id', 'seller_counsel_message');
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.seller_counsel_message
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.seller_counsel_message_file
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();

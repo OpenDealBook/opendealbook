@@ -38,9 +38,9 @@ values
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values
   (tests.account_id('cr-team'), 'c7000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('cr_buyer_law'), 'cr_buyer_law@tuckin.test'),
+    tests.get_uid('cr_buyer_law'), 'cr_buyer_law@opendealbook.test'),
   (tests.account_id('cr-team'), 'c7000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('cr_seller_law'), 'cr_seller_law@tuckin.test');
+    tests.get_uid('cr_seller_law'), 'cr_seller_law@opendealbook.test');
 
 insert into public.contract (id, deal_id, account_id, type)
 values

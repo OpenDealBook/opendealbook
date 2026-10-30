@@ -516,47 +516,47 @@ grant execute on function public.set_lender_contact_primary(uuid) to authenticat
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lender
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lender_contact
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lender_outreach_template
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.deal_terms_sought
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.deal_terms_sought
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.deal_close_deadline
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.deal_close_deadline
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lender_room_timeline_answer
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'lender_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'lender_room');
 
 create trigger refuse_write_when_team_locked
   before insert on public.lender_room_outreach
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'lender_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'lender_room');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lender_nudge_setting
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lender_room_email_reply
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'lender_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'lender_room');
 
 -- One to-do per lender room and teammate, made by the daily nudge job to point
 -- the teammate at a room that is due a nudge, and cleared by the sync job once
@@ -576,10 +576,10 @@ alter table public.lender_nudge_todo enable row level security;
 revoke all on public.lender_nudge_todo from anon, authenticated, service_role;
 grant select, insert, delete on public.lender_nudge_todo to service_role;
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('lender_nudge_todo', 'service-role only, links a teammate''s nudge to-do to a room')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_team_move
   before update on public.lender_nudge_todo
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();

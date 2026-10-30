@@ -14,7 +14,7 @@ grant select, insert, update, delete on public.lead_pull to service_role;
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.lead_pull
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create or replace function public.pull_leads(
   p_pull_id uuid,

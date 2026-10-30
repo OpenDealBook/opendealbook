@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { getEnv, requireEnv } from '../src/env/index';
 
-const KEY = 'TUCKIN_SHARED_ENV_TEST';
+const KEY = 'ODB_SHARED_ENV_TEST';
 
 afterEach(() => {
   delete process.env[KEY];

@@ -6,7 +6,7 @@
 -- A team invitation is addressed by email. Notify the invitee only when that
 -- email already belongs to an auth user; a brand-new invitee has no in-app
 -- inbox yet and is reached by the invitation email instead.
-create or replace function tuckin.notify_on_invitation()
+create or replace function odb.notify_on_invitation()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -31,11 +31,11 @@ $$;
 
 create trigger invitations_notify
   after insert on public.invitations
-  for each row execute function tuckin.notify_on_invitation();
+  for each row execute function odb.notify_on_invitation();
 
 -- A new membership notifies the team owner, skipping the owner's own founding
 -- membership and personal accounts (which have no memberships anyway).
-create or replace function tuckin.notify_on_membership()
+create or replace function odb.notify_on_membership()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -62,10 +62,10 @@ $$;
 
 create trigger memberships_notify
   after insert on public.accounts_memberships
-  for each row execute function tuckin.notify_on_membership();
+  for each row execute function odb.notify_on_membership();
 
 -- A subscription status change notifies the account owner.
-create or replace function tuckin.notify_on_subscription_change()
+create or replace function odb.notify_on_subscription_change()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -91,7 +91,7 @@ $$;
 create trigger subscriptions_notify_status
   after update of status on public.subscriptions
   for each row when (old.status is distinct from new.status)
-  execute function tuckin.notify_on_subscription_change();
+  execute function odb.notify_on_subscription_change();
 
 alter table public.notifications
   add column deal_id uuid references public.deal (id) on delete set null;
@@ -100,7 +100,7 @@ create index ix_notifications_deal on public.notifications (deal_id);
 
 -- A deal stage move notifies every party on the deal except the actor. Only
 -- the team's own members get a link, since outside parties never see team pages.
-create or replace function tuckin.notify_on_deal_stage_move()
+create or replace function odb.notify_on_deal_stage_move()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -127,4 +127,4 @@ $$;
 create trigger deal_notify_stage_move
   after update of stage on public.deal
   for each row when (old.stage is distinct from new.stage)
-  execute function tuckin.notify_on_deal_stage_move();
+  execute function odb.notify_on_deal_stage_move();

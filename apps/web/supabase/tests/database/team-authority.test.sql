@@ -25,7 +25,7 @@ select tests.login_as('ta_outsider');
 
 select throws_ok(
   $$ select public.add_invitations_to_account('authority-co',
-       array[row('friend@tuckin.test', 'member')]::public.invitation[]) $$,
+       array[row('friend@opendealbook.test', 'member')]::public.invitation[]) $$,
   '42501', 'not allowed to invite to this team', 'an outsider cannot invite into a team'
 );
 select throws_ok(
@@ -37,7 +37,7 @@ select tests.login_as('ta_member');
 
 select throws_ok(
   $$ select public.add_invitations_to_account('authority-co',
-       array[row('friend@tuckin.test', 'member')]::public.invitation[]) $$,
+       array[row('friend@opendealbook.test', 'member')]::public.invitation[]) $$,
   '42501', 'not allowed to invite to this team', 'a member without invites.manage cannot invite'
 );
 
@@ -45,17 +45,17 @@ select tests.login_as('ta_admin');
 
 select throws_ok(
   $$ select public.add_invitations_to_account('authority-co',
-       array[row('boss@tuckin.test', 'owner')]::public.invitation[]) $$,
+       array[row('boss@opendealbook.test', 'owner')]::public.invitation[]) $$,
   '42501', 'not allowed to invite to this team', 'an admin cannot invite above their own role'
 );
 select lives_ok(
   $$ select public.add_invitations_to_account('authority-co',
-       array[row('peer@tuckin.test', 'admin'), row('helper@tuckin.test', 'member')]::public.invitation[]) $$,
+       array[row('peer@opendealbook.test', 'admin'), row('helper@opendealbook.test', 'member')]::public.invitation[]) $$,
   'an admin invites at or below their own role'
 );
 select set_eq(
   $$ select email, invited_by from public.invitations where account_id = tests.account_id('authority-co') $$,
-  $$ values ('peer@tuckin.test'::varchar, tests.get_uid('ta_admin')), ('helper@tuckin.test', tests.get_uid('ta_admin')) $$,
+  $$ values ('peer@opendealbook.test'::varchar, tests.get_uid('ta_admin')), ('helper@opendealbook.test', tests.get_uid('ta_admin')) $$,
   'invitations record the caller as the inviter'
 );
 select throws_ok(
@@ -141,7 +141,7 @@ select throws_ok(
 );
 select throws_ok(
   $$ select public.add_invitations_to_account('locked-authority',
-       array[row('late@tuckin.test', 'member')]::public.invitation[]) $$,
+       array[row('late@opendealbook.test', 'member')]::public.invitation[]) $$,
   '42501', 'team is read-only', 'a locked team cannot invite'
 );
 

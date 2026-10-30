@@ -28,10 +28,10 @@ create policy counsel_visit_update on public.counsel_visit
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('counsel_visit', 'outside counsel''s own marker of when they last opened part of a deal')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_team_move
   before update on public.counsel_visit
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();

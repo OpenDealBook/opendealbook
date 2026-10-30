@@ -41,14 +41,14 @@ select public.ensure_seller_room('dd000000-0000-0000-0000-0000000000d1');
 reset role;
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('dp_seller'), 'dp_seller@tuckin.test', 'Seller'
+select r.id, tests.get_uid('dp_seller'), 'dp_seller@opendealbook.test', 'Seller'
 from public.seller_room r where r.deal_id = 'dd000000-0000-0000-0000-0000000000d1';
 
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
-  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('dp_seller'), 'dp_seller@tuckin.test', 'Seller'),
-  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('dp_seller_law'), 'dp_seller_law@tuckin.test', 'Seller Law'),
-  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d2', 'buyer', tests.get_uid('dp_buyer_law'), 'dp_buyer_law@tuckin.test', 'Buyer Law');
+  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('dp_seller'), 'dp_seller@opendealbook.test', 'Seller'),
+  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('dp_seller_law'), 'dp_seller_law@opendealbook.test', 'Seller Law'),
+  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d2', 'buyer', tests.get_uid('dp_buyer_law'), 'dp_buyer_law@opendealbook.test', 'Buyer Law');
 
 insert into public.dr_folder (id, account_id, deal_id, parent_id, name)
 values
@@ -62,9 +62,9 @@ values
   ('dd000000-0000-0000-0000-0000000000a3', tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d2', 'Bank three', 'dd000000-0000-0000-0000-0000000000f3');
 insert into public.lender_room_member (room_id, user_id, email)
 values
-  ('dd000000-0000-0000-0000-0000000000a1', tests.get_uid('dp_lender'), 'dp_lender@tuckin.test'),
-  ('dd000000-0000-0000-0000-0000000000a3', tests.get_uid('dp_lender'), 'dp_lender@tuckin.test'),
-  ('dd000000-0000-0000-0000-0000000000a2', tests.get_uid('dp_lender2'), 'dp_lender2@tuckin.test');
+  ('dd000000-0000-0000-0000-0000000000a1', tests.get_uid('dp_lender'), 'dp_lender@opendealbook.test'),
+  ('dd000000-0000-0000-0000-0000000000a3', tests.get_uid('dp_lender'), 'dp_lender@opendealbook.test'),
+  ('dd000000-0000-0000-0000-0000000000a2', tests.get_uid('dp_lender2'), 'dp_lender2@opendealbook.test');
 
 insert into public.contact (id, account_id, name)
 values ('dd000000-0000-0000-0000-0000000000c9', tests.account_id('dp-other'), 'Other team''s lawyer');
@@ -359,7 +359,7 @@ select tests.login_as('dp_owner');
 insert into public.contact (id, account_id, name, email, phone, company)
 values
   ('dd000000-0000-0000-0000-0000000000c4', tests.account_id('dp-team'), 'Bea Lawyer Card',
-    'DP_Buyer_Law@Tuckin.test', '555-0999', 'Old Firm'),
+    'DP_Buyer_Law@OpenDealbook.test', '555-0999', 'Old Firm'),
   ('dd000000-0000-0000-0000-0000000000c5', tests.account_id('dp-team'), 'Casey Again', 'Casey@Broker.test', null, null);
 insert into public.deal_contact (account_id, deal_id, contact_id, side, role)
 values
@@ -378,12 +378,12 @@ select results_eq(
   $$ values
      (null::uuid, 'casey@broker.test', 'contact', 'dd000000-0000-0000-0000-0000000000c1'::uuid, 'Casey Broker', '555-0100', 'Main Street Brokers', 'buyer', 'broker', null::uuid, null::boolean, false),
      (null, 'casey@broker.test', 'contact', 'dd000000-0000-0000-0000-0000000000c5', 'Casey Again', null, null, 'seller', 'cpa', null, null, false),
-     (tests.get_uid('dp_buyer_law'), 'dp_buyer_law@tuckin.test', 'contact', 'dd000000-0000-0000-0000-0000000000c4', 'Bea Lawyer Card', '555-0999', 'Old Firm', 'buyer', 'attorney', null, null, true),
-     (tests.get_uid('dp_buyer_law'), 'dp_buyer_law@tuckin.test', 'counsel', null, 'Buyer Law', '555-0200', 'Law LLP', 'buyer', 'attorney', null, null, false),
-     (tests.get_uid('dp_leaver'), 'dp_leaver@tuckin.test', 'team', null, 'dp_leaver', null, 'DP Team', 'buyer', 'principal', null, null, false),
-     (tests.get_uid('dp_lender'), 'dp_lender@tuckin.test', 'lender_room', null, null, null, 'Bank three', 'lender', 'lender', 'dd000000-0000-0000-0000-0000000000a3', false, false),
-     (tests.get_uid('dp_member'), 'dp_member@tuckin.test', 'team', null, 'dp_member', null, 'DP Team', 'buyer', 'principal', null, null, false),
-     (tests.get_uid('dp_owner'), 'dp_owner@tuckin.test', 'team', null, 'dp_owner', null, 'DP Team', 'buyer', 'principal', null, null, false),
+     (tests.get_uid('dp_buyer_law'), 'dp_buyer_law@opendealbook.test', 'contact', 'dd000000-0000-0000-0000-0000000000c4', 'Bea Lawyer Card', '555-0999', 'Old Firm', 'buyer', 'attorney', null, null, true),
+     (tests.get_uid('dp_buyer_law'), 'dp_buyer_law@opendealbook.test', 'counsel', null, 'Buyer Law', '555-0200', 'Law LLP', 'buyer', 'attorney', null, null, false),
+     (tests.get_uid('dp_leaver'), 'dp_leaver@opendealbook.test', 'team', null, 'dp_leaver', null, 'DP Team', 'buyer', 'principal', null, null, false),
+     (tests.get_uid('dp_lender'), 'dp_lender@opendealbook.test', 'lender_room', null, null, null, 'Bank three', 'lender', 'lender', 'dd000000-0000-0000-0000-0000000000a3', false, false),
+     (tests.get_uid('dp_member'), 'dp_member@opendealbook.test', 'team', null, 'dp_member', null, 'DP Team', 'buyer', 'principal', null, null, false),
+     (tests.get_uid('dp_owner'), 'dp_owner@opendealbook.test', 'team', null, 'dp_owner', null, 'DP Team', 'buyer', 'principal', null, null, false),
      (null, null, 'contact', 'dd000000-0000-0000-0000-0000000000c3', 'Sam Seller Lawyer', null, null, 'lender', 'other', null, null, false) $$,
   'every team member sees each person''s every side and role, with same-email contacts merged into one person and their star kept'
 );
@@ -591,14 +591,14 @@ values ('dd000000-0000-0000-0000-0000000000d1', 'buyer', tests.get_uid('dp_owner
 -- ---- Main contacts each audience sees ----
 reset role;
 insert into public.lender_room_member (room_id, user_id, email)
-values ('dd000000-0000-0000-0000-0000000000a1', tests.get_uid('dp_lender'), 'dp_lender@tuckin.test');
+values ('dd000000-0000-0000-0000-0000000000a1', tests.get_uid('dp_lender'), 'dp_lender@opendealbook.test');
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('dp_seller'), 'dp_seller@tuckin.test', 'Seller'
+select r.id, tests.get_uid('dp_seller'), 'dp_seller@opendealbook.test', 'Seller'
 from public.seller_room r where r.deal_id = 'dd000000-0000-0000-0000-0000000000d1';
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name, phone, company)
 values
-  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'buyer', tests.get_uid('dp_buyer_law'), 'dp_buyer_law@tuckin.test', 'Buyer Law', '555-0200', 'Law LLP'),
-  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('dp_seller_law'), 'dp_seller_law@tuckin.test', 'Seller Law', null, null);
+  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'buyer', tests.get_uid('dp_buyer_law'), 'dp_buyer_law@opendealbook.test', 'Buyer Law', '555-0200', 'Law LLP'),
+  (tests.account_id('dp-team'), 'dd000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('dp_seller_law'), 'dp_seller_law@opendealbook.test', 'Seller Law', null, null);
 update public.contact set email = 'pat@cpa.test', phone = '555-0300', company = 'Pat CPA LLC'
 where id = 'dd000000-0000-0000-0000-0000000000c2';
 
@@ -613,8 +613,8 @@ select results_eq(
   $$ select side::text, name, role, company, phone, email
      from public.lender_room_main_contacts('dd000000-0000-0000-0000-0000000000a1') order by side $$,
   $$ values
-     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@tuckin.test'),
-     ('lender', 'dp_lender', 'lender', 'Bank one', null, 'dp_lender@tuckin.test') $$,
+     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@opendealbook.test'),
+     ('lender', 'dp_lender', 'lender', 'Bank one', null, 'dp_lender@opendealbook.test') $$,
   'a lender sees the buyer main contact and its own room''s, never another lender''s or the seller''s'
 );
 select is_empty(
@@ -641,7 +641,7 @@ select results_eq(
   $$ select side::text, name, role, company, phone, email
      from public.seller_room_main_contacts((select id from seller_room_of_d1)) order by side $$,
   $$ values
-     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@tuckin.test'),
+     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@opendealbook.test'),
      ('seller', 'Pat CPA', 'cpa', 'Pat CPA LLC', '555-0300', 'pat@cpa.test') $$,
   'a seller sees the buyer and seller main contacts and no lender'
 );
@@ -650,7 +650,7 @@ select results_eq(
   $$ select side::text, name, role, company, phone, email
      from public.seller_room_main_contacts((select id from seller_room_of_d1)) order by side $$,
   $$ values
-     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@tuckin.test'),
+     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@opendealbook.test'),
      ('seller', 'Pat CPA', 'cpa', 'Pat CPA LLC', '555-0300', 'pat@cpa.test') $$,
   'seller''s counsel sees the seller room''s main contacts as the seller does'
 );
@@ -658,7 +658,7 @@ select results_eq(
   $$ select side::text, name, role, company, phone, email
      from public.counsel_main_contacts('dd000000-0000-0000-0000-0000000000d1') order by side $$,
   $$ values
-     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@tuckin.test'),
+     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@opendealbook.test'),
      ('seller', 'Pat CPA', 'cpa', 'Pat CPA LLC', '555-0300', 'pat@cpa.test') $$,
   'seller''s counsel sees the buyer and seller main contacts in the portal and no lender'
 );
@@ -668,9 +668,9 @@ select results_eq(
   $$ select side::text, name, role, company, phone, email
      from public.counsel_main_contacts('dd000000-0000-0000-0000-0000000000d1') order by side, company $$,
   $$ values
-     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@tuckin.test'),
-     ('lender', 'dp_lender', 'lender', 'Bank one', null, 'dp_lender@tuckin.test'),
-     ('lender', 'dp_lender2', 'lender', 'Bank two', null, 'dp_lender2@tuckin.test'),
+     ('buyer', 'dp_owner', 'owner', 'DP Team', null::text, 'dp_owner@opendealbook.test'),
+     ('lender', 'dp_lender', 'lender', 'Bank one', null, 'dp_lender@opendealbook.test'),
+     ('lender', 'dp_lender2', 'lender', 'Bank two', null, 'dp_lender2@opendealbook.test'),
      ('seller', 'Pat CPA', 'cpa', 'Pat CPA LLC', '555-0300', 'pat@cpa.test') $$,
   'buyer''s counsel sees every side''s main contact'
 );
@@ -682,7 +682,7 @@ select tests.login_as('dp_lender');
 select results_eq(
   $$ select side::text, name, role, company, phone, email
      from public.lender_room_main_contacts('dd000000-0000-0000-0000-0000000000a1') where side = 'buyer' $$,
-  $$ values ('buyer', 'dp_buyer_law', 'attorney', 'Law LLP', '555-0200', 'dp_buyer_law@tuckin.test') $$,
+  $$ values ('buyer', 'dp_buyer_law', 'attorney', 'Law LLP', '555-0200', 'dp_buyer_law@opendealbook.test') $$,
   'a counsel main contact shows their own phone and company'
 );
 

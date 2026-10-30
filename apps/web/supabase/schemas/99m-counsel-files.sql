@@ -224,34 +224,34 @@ grant execute on function public.dr_folder_count_below(uuid) to service_role;
 -- 'members' refuses only the team's own writes. Counsel uploads stop while
 -- the team is locked, which the server checks before it writes here.
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('counsel_activity', 'recorded when counsel open files')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_team_move
   before update on public.counsel_activity
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();
 
 create trigger same_team_deal_id
   before insert or update on public.counsel_activity
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.counsel_uploads_folder
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.counsel_uploads_folder
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_folder_id
   before insert or update on public.counsel_uploads_folder
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'folder_id', 'dr_folder');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'folder_id', 'dr_folder');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.counsel_upload
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'deal_id', 'deal');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'deal_id', 'deal');
 
 create trigger same_team_folder_id
   before insert or update on public.counsel_upload
-  for each row execute function tuckin.refuse_cross_team_link('deal_id', 'deal', 'folder_id', 'dr_folder');
+  for each row execute function odb.refuse_cross_team_link('deal_id', 'deal', 'folder_id', 'dr_folder');

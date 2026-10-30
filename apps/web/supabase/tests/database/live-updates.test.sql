@@ -20,16 +20,16 @@ reset role;
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values
   (tests.account_id('lu-team'), 'c7100000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('lu_buyer_law'), 'lu_buyer_law@tuckin.test'),
+    tests.get_uid('lu_buyer_law'), 'lu_buyer_law@opendealbook.test'),
   (tests.account_id('lu-team'), 'c7100000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('lu_seller_law'), 'lu_seller_law@tuckin.test');
+    tests.get_uid('lu_seller_law'), 'lu_seller_law@opendealbook.test');
 
 select tests.login_as('lu_owner');
 select public.ensure_seller_room('c7100000-0000-0000-0000-0000000000d1');
 reset role;
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('lu_seller'), 'lu_seller@tuckin.test', 'Sam Seller'
+select r.id, tests.get_uid('lu_seller'), 'lu_seller@opendealbook.test', 'Sam Seller'
 from public.seller_room r where r.deal_id = 'c7100000-0000-0000-0000-0000000000d1';
 
 insert into public.counsel_message (account_id, deal_id, side, author_user_id, body)

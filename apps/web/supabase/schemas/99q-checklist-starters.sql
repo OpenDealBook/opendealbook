@@ -257,15 +257,15 @@ create policy deal_checklist_application_delete on public.deal_checklist_applica
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.deal_checklist_application
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.deal_checklist_application
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_template_id
   before insert or update on public.deal_checklist_application
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'template_id', 'checklist_template');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'template_id', 'checklist_template');
 
 -- Makes a template the only default of its kind for its team.
 create or replace function public.set_default_checklist_template(template_id uuid)
@@ -281,7 +281,7 @@ begin
     raise exception 'not authorized to change checklist templates' using errcode = 'insufficient_privilege';
   end if;
 
-  if tuckin.team_locked(v_template.account_id) then
+  if odb.team_locked(v_template.account_id) then
     raise exception 'team is read-only' using errcode = 'insufficient_privilege';
   end if;
 
@@ -340,7 +340,7 @@ grant execute on function public.claim_checklist_template_application(uuid, uuid
 
 create trigger same_team_source_template_id
   before insert or update on public.checklist_item
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'source_template_id', 'checklist_template');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'source_template_id', 'checklist_template');
 
 -- A deal's diligence schedule and its six weeks, made together as the caller.
 -- A deal with a schedule already gets that schedule's id back, created false,

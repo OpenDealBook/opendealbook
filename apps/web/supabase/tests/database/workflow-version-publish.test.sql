@@ -80,7 +80,7 @@ select is(
 reset role;
 select is(
   (select schema_version from public.workflow_version where workflow_id = 'f3000000-0000-0000-0000-0000000000a1'),
-  tuckin.current_workflow_schema_version(),
+  odb.current_workflow_schema_version(),
   'saving stamps the named current schema version'
 );
 select tests.login_as('wp_owner');
@@ -166,7 +166,7 @@ select is(
   (select row(w.enabled, v.schema_version, v.graph -> 'nodes' -> 0 ->> 'id', v.layout, v.published_at is null)::text
    from public.workflow w join public.workflow_version v on v.workflow_id = w.id
    where w.name = 'Created flow'),
-  row(false, tuckin.current_workflow_schema_version(), 'run-now', '{}'::jsonb, true)::text,
+  row(false, odb.current_workflow_schema_version(), 'run-now', '{}'::jsonb, true)::text,
   'a new workflow is disabled with one draft holding the given graph'
 );
 select tests.login_as('wp_owner');

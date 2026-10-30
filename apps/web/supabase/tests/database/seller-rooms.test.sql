@@ -81,7 +81,7 @@ select isnt(
 -- ---- The team sets the room up ----
 select lives_ok(
   $$ insert into public.seller_room_member (room_id, user_id, email, name, invited_by)
-     select id, tests.get_uid('sr_seller'), 'sr_seller@tuckin.test', 'Sam Seller', tests.get_uid('sr_owner')
+     select id, tests.get_uid('sr_seller'), 'sr_seller@opendealbook.test', 'Sam Seller', tests.get_uid('sr_owner')
      from room_ids limit 1 $$,
   'a deal manager adds a seller to the room'
 );
@@ -121,11 +121,11 @@ select lives_ok(
 
 select tests.login_as('sr_owner');
 insert into public.seller_room_member (room_id, user_id, email, name, invited_by)
-select id, tests.get_uid('sr_partner'), 'sr_partner@tuckin.test', 'Pat Partner', tests.get_uid('sr_owner')
+select id, tests.get_uid('sr_partner'), 'sr_partner@opendealbook.test', 'Pat Partner', tests.get_uid('sr_owner')
 from room_ids limit 1;
 select public.ensure_seller_room('5e000000-0000-0000-0000-0000000000d2');
 insert into public.seller_room_member (room_id, user_id, email, name, invited_by)
-select id, tests.get_uid('sr_other'), 'sr_other@tuckin.test', 'Olly Other', tests.get_uid('sr_owner')
+select id, tests.get_uid('sr_other'), 'sr_other@opendealbook.test', 'Olly Other', tests.get_uid('sr_owner')
 from public.seller_room where deal_id = '5e000000-0000-0000-0000-0000000000d2';
 
 -- ---- Analysts see the sellers' names, never their emails ----
@@ -149,12 +149,12 @@ select tests.login_as('sr_owner');
 select set_eq(
   $$ select p.email from public.deal_people('5e000000-0000-0000-0000-0000000000d1') p, unnest(p.entries) e
      where e.source = 'seller_room' $$,
-  $$ values ('sr_partner@tuckin.test'), ('sr_seller@tuckin.test') $$,
+  $$ values ('sr_partner@opendealbook.test'), ('sr_seller@opendealbook.test') $$,
   'a deal manager sees each seller''s email among the deal''s people'
 );
 select set_eq(
   $$ select email from public.seller_room_member m join room_ids r on r.id = m.room_id $$,
-  $$ values ('sr_partner@tuckin.test'), ('sr_seller@tuckin.test') $$,
+  $$ values ('sr_partner@opendealbook.test'), ('sr_seller@opendealbook.test') $$,
   'a deal manager reads the sellers'' emails'
 );
 
@@ -162,7 +162,7 @@ select set_eq(
 select tests.login_as('sr_seller');
 select results_eq(
   $$ select name, email from public.seller_room_member order by name $$,
-  $$ values ('Pat Partner', 'sr_partner@tuckin.test'), ('Sam Seller', 'sr_seller@tuckin.test') $$,
+  $$ values ('Pat Partner', 'sr_partner@opendealbook.test'), ('Sam Seller', 'sr_seller@opendealbook.test') $$,
   'a seller sees the names and emails of fellow sellers in their room, and no other room''s'
 );
 select results_eq(
@@ -567,7 +567,7 @@ select throws_like(
 -- ---- A question file comes from that question's room ----
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('sr_seller'), 'sr_seller@tuckin.test', 'Sam Seller'
+select id, tests.get_uid('sr_seller'), 'sr_seller@opendealbook.test', 'Sam Seller'
 from public.seller_room where deal_id = '5e000000-0000-0000-0000-0000000000d2';
 insert into public.dr_document (id, account_id, deal_id, folder_id, name, storage_path)
 select '5e000000-0000-0000-0000-00000000c003', tests.account_id('sr-team'), '5e000000-0000-0000-0000-0000000000d2',
@@ -623,7 +623,7 @@ delete from public.seller_room_member where user_id = tests.get_uid('sr_seller')
 reset role;
 select results_eq(
   $$ select user_id, email from public.seller_room_removed_member $$,
-  $$ values (tests.get_uid('sr_seller'), 'sr_seller@tuckin.test') $$,
+  $$ values (tests.get_uid('sr_seller'), 'sr_seller@opendealbook.test') $$,
   'removing a seller records who was removed'
 );
 

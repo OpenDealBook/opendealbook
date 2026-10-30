@@ -32,16 +32,16 @@ values (tests.get_uid('ct_member'), tests.account_id('ct-team'), 'member');
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
   (tests.account_id('ct-team'), 'c7000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('ct_buyer_law'), 'ct_buyer_law@tuckin.test', 'Bea Buyerlaw'),
+    tests.get_uid('ct_buyer_law'), 'ct_buyer_law@opendealbook.test', 'Bea Buyerlaw'),
   (tests.account_id('ct-team'), 'c7000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('ct_seller_law'), 'ct_seller_law@tuckin.test', 'Sol Sellerlaw');
+    tests.get_uid('ct_seller_law'), 'ct_seller_law@opendealbook.test', 'Sol Sellerlaw');
 
 select tests.login_as('ct_owner');
 select public.ensure_seller_room('c7000000-0000-0000-0000-0000000000d1');
 reset role;
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('ct_seller'), 'ct_seller@tuckin.test', 'Sam Seller'
+select r.id, tests.get_uid('ct_seller'), 'ct_seller@opendealbook.test', 'Sam Seller'
 from public.seller_room r where r.deal_id = 'c7000000-0000-0000-0000-0000000000d1';
 
 -- ---- The team writes into each side's thread ----

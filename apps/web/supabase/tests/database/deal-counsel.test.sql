@@ -35,7 +35,7 @@ select public.ensure_seller_room('dc000000-0000-0000-0000-0000000000d1');
 reset role;
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('dc_seller'), 'dc_seller@tuckin.test', 'Seller'
+select r.id, tests.get_uid('dc_seller'), 'dc_seller@opendealbook.test', 'Seller'
 from public.seller_room r where r.deal_id = 'dc000000-0000-0000-0000-0000000000d1';
 
 -- ---- The shape of the domain ----
@@ -60,7 +60,7 @@ select tests.login_as('dc_owner');
 select throws_ok(
   $$ insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
      values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'buyer',
-       tests.get_uid('dc_buyer_law'), 'dc_buyer_law@tuckin.test', 'Buyer Law') $$,
+       tests.get_uid('dc_buyer_law'), 'dc_buyer_law@opendealbook.test', 'Buyer Law') $$,
   '42501',
   null,
   'even a deal manager adds counsel only through an invite'
@@ -70,7 +70,7 @@ select tests.login_as_service_role();
 select throws_ok(
   $$ insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
      values (tests.account_id('dc-other'), 'dc000000-0000-0000-0000-0000000000d1', 'buyer',
-       tests.get_uid('dc_buyer_law'), 'dc_buyer_law@tuckin.test', 'Buyer Law') $$,
+       tests.get_uid('dc_buyer_law'), 'dc_buyer_law@opendealbook.test', 'Buyer Law') $$,
   '42501',
   'rows cannot link across teams',
   'counsel cannot be filed under another team''s deal'
@@ -85,7 +85,7 @@ select is(
 select lives_ok(
   $$ insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
      values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d2', 'buyer',
-       tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test') $$,
+       tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test') $$,
   'counsel are invited without a name and set it on first sign-in'
 );
 delete from public.deal_counsel where deal_id = 'dc000000-0000-0000-0000-0000000000d2';
@@ -93,7 +93,7 @@ delete from public.deal_counsel_removed where deal_id = 'dc000000-0000-0000-0000
 
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'buyer',
-  tests.get_uid('dc_buyer_law'), 'dc_buyer_law@tuckin.test', 'Buyer Law');
+  tests.get_uid('dc_buyer_law'), 'dc_buyer_law@opendealbook.test', 'Buyer Law');
 
 select is(
   public.apa_counsel_ready('dc000000-0000-0000-0000-0000000000d1'),
@@ -103,7 +103,7 @@ select is(
 
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'seller',
-  tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test', 'Seller Law');
+  tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test', 'Seller Law');
 
 select is(
   public.apa_counsel_ready('dc000000-0000-0000-0000-0000000000d1'),
@@ -225,8 +225,8 @@ select results_eq(
      where deal_id = 'dc000000-0000-0000-0000-0000000000d1'
      order by side $$,
   $$ values
-       ('buyer', tests.get_uid('dc_buyer_law'), 'dc_buyer_law@tuckin.test', tests.get_uid('dc_owner')),
-       ('seller', tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test', tests.get_uid('dc_seller')) $$,
+       ('buyer', tests.get_uid('dc_buyer_law'), 'dc_buyer_law@opendealbook.test', tests.get_uid('dc_owner')),
+       ('seller', tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test', tests.get_uid('dc_seller')) $$,
   'each removal is kept with who was removed and who removed them'
 );
 select is(
@@ -257,9 +257,9 @@ select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
   (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('dc_buyer_law'), 'dc_buyer_law@tuckin.test', 'Buyer Law'),
+    tests.get_uid('dc_buyer_law'), 'dc_buyer_law@opendealbook.test', 'Buyer Law'),
   (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d2', 'buyer',
-    tests.get_uid('dc_buyer_law'), 'dc_buyer_law@tuckin.test', 'Buyer Law');
+    tests.get_uid('dc_buyer_law'), 'dc_buyer_law@opendealbook.test', 'Buyer Law');
 
 reset role;
 update public.deal set archived_at = now() where id = 'dc000000-0000-0000-0000-0000000000d1';
@@ -285,7 +285,7 @@ update public.deal set archived_at = null where id = 'dc000000-0000-0000-0000-00
 select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'seller',
-  tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test', 'Seller Law');
+  tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test', 'Seller Law');
 
 reset role;
 update public.seller_room set closed_at = now() where deal_id = 'dc000000-0000-0000-0000-0000000000d1';
@@ -321,7 +321,7 @@ select throws_ok(
 select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d2', 'seller',
-  tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test', 'Seller Law');
+  tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test', 'Seller Law');
 
 select tests.login_as('dc_owner');
 select lives_ok(
@@ -362,7 +362,7 @@ select throws_ok(
 select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'seller',
-  tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test', 'Seller Law');
+  tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test', 'Seller Law');
 
 reset role;
 update public.seller_room set closed_at = null where deal_id = 'dc000000-0000-0000-0000-0000000000d1';
@@ -414,7 +414,7 @@ select set_config('dc.room', (select id::text from public.seller_room where deal
 select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'seller',
-  tests.get_uid('dc_seller_law'), 'dc_seller_law@tuckin.test', 'Seller Law');
+  tests.get_uid('dc_seller_law'), 'dc_seller_law@opendealbook.test', 'Seller Law');
 
 select tests.login_as('dc_seller_law');
 select is(
@@ -514,12 +514,12 @@ select is_empty(
 select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d2', 'buyer',
-  tests.get_uid('dc_stranger'), 'dc_stranger@tuckin.test');
+  tests.get_uid('dc_stranger'), 'dc_stranger@opendealbook.test');
 
 select throws_ok(
   $$ insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
      values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d2', 'seller',
-       tests.get_uid('dc_stranger'), 'dc_stranger@tuckin.test') $$,
+       tests.get_uid('dc_stranger'), 'dc_stranger@opendealbook.test') $$,
   '23505',
   null,
   'a person who is counsel for one side cannot also be counsel for the other'
@@ -528,7 +528,7 @@ select throws_ok(
 select lives_ok(
   $$ insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
      values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d1', 'seller',
-       tests.get_uid('dc_stranger'), 'dc_stranger@tuckin.test') $$,
+       tests.get_uid('dc_stranger'), 'dc_stranger@opendealbook.test') $$,
   'counsel for one side on a deal may be counsel for the other side on another deal'
 );
 
@@ -538,7 +538,7 @@ where deal_id = 'dc000000-0000-0000-0000-0000000000d2' and user_id = tests.get_u
 select lives_ok(
   $$ insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
      values (tests.account_id('dc-team'), 'dc000000-0000-0000-0000-0000000000d2', 'seller',
-       tests.get_uid('dc_stranger'), 'dc_stranger@tuckin.test') $$,
+       tests.get_uid('dc_stranger'), 'dc_stranger@opendealbook.test') $$,
   'counsel removed from one side may be invited for the other'
 );
 
@@ -656,28 +656,28 @@ with folder as (
   returning id
 )
 insert into public.lender_room_member (room_id, user_id, email)
-select id, tests.get_uid('dc_lender'), 'dc_lender@tuckin.test' from room;
+select id, tests.get_uid('dc_lender'), 'dc_lender@opendealbook.test' from room;
 update public.lender_room set status = 'declined' where deal_id = 'dc000000-0000-0000-0000-0000000000d1';
 
 select tests.login_as_service_role();
 select results_eq(
   $$ select who, array(select public.deal_side_of_email('dc000000-0000-0000-0000-0000000000d1', who) order by 1)::text
-     from unnest(array['dc_owner@tuckin.test', 'dc_member@tuckin.test', 'dc_buyer_law@tuckin.test',
-       'DC_Seller@Tuckin.test', 'dc_seller_law@tuckin.test', 'dc_lender@tuckin.test',
-       'dc_other_owner@tuckin.test', 'nobody@tuckin.test']) who $$,
+     from unnest(array['dc_owner@opendealbook.test', 'dc_member@opendealbook.test', 'dc_buyer_law@opendealbook.test',
+       'DC_Seller@OpenDealbook.test', 'dc_seller_law@opendealbook.test', 'dc_lender@opendealbook.test',
+       'dc_other_owner@opendealbook.test', 'nobody@opendealbook.test']) who $$,
   $$ values
-       ('dc_owner@tuckin.test', '{buyer}'),
-       ('dc_member@tuckin.test', '{buyer}'),
-       ('dc_buyer_law@tuckin.test', '{buyer}'),
-       ('DC_Seller@Tuckin.test', '{seller}'),
-       ('dc_seller_law@tuckin.test', '{seller}'),
-       ('dc_lender@tuckin.test', '{lender}'),
-       ('dc_other_owner@tuckin.test', '{}'),
-       ('nobody@tuckin.test', '{}') $$,
+       ('dc_owner@opendealbook.test', '{buyer}'),
+       ('dc_member@opendealbook.test', '{buyer}'),
+       ('dc_buyer_law@opendealbook.test', '{buyer}'),
+       ('DC_Seller@OpenDealbook.test', '{seller}'),
+       ('dc_seller_law@opendealbook.test', '{seller}'),
+       ('dc_lender@opendealbook.test', '{lender}'),
+       ('dc_other_owner@opendealbook.test', '{}'),
+       ('nobody@opendealbook.test', '{}') $$,
   'an address holds the side of the team, counsel, seller room or lender room it is in, in any letter case and in a declined room too'
 );
 select is(
-  array(select public.deal_side_of_email('dc000000-0000-0000-0000-0000000000d2', 'dc_seller@tuckin.test')),
+  array(select public.deal_side_of_email('dc000000-0000-0000-0000-0000000000d2', 'dc_seller@opendealbook.test')),
   '{}'::public.deal_side[],
   'a side on one deal is not a side on another'
 );

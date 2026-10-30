@@ -202,7 +202,7 @@ select tests.login_as_service_role();
 select lives_ok(
   format($$ select public.record_deal_update_recipients('d0000000-0000-0000-0000-0000000000a1', %L) $$,
     jsonb_build_array(
-      jsonb_build_object('user_id', tests.get_uid('du_member'), 'email', 'du_member@tuckin.test', 'name', 'Member',
+      jsonb_build_object('user_id', tests.get_uid('du_member'), 'email', 'du_member@opendealbook.test', 'name', 'Member',
         'entries', jsonb_build_array(jsonb_build_object('source', 'team', 'side', 'buyer', 'role', 'principal',
           'is_main', false))),
       jsonb_build_object('contact_id', 'd0000000-0000-0000-0000-0000000000c1', 'email', 'pat@lender.test',
@@ -242,7 +242,7 @@ select results_eq(
      from public.deal_update_recipient
      where update_id = 'd0000000-0000-0000-0000-0000000000a1' order by email $$,
   $$ values
-       (tests.get_uid('du_member'), null::uuid, 'du_member@tuckin.test', 'Member', 'team', false, true),
+       (tests.get_uid('du_member'), null::uuid, 'du_member@opendealbook.test', 'Member', 'team', false, true),
        (null::uuid, 'd0000000-0000-0000-0000-0000000000c1'::uuid, 'pat@lender.test', 'Pat Lender', 'contact', true, true) $$,
   'the whole team reads the recipients an approval captured, one row per person, not yet sent'
 );
@@ -386,15 +386,15 @@ values
   ('d0000000-0000-0000-0000-0000000000e2', tests.account_id('updates-co'), 'd0000000-0000-0000-0000-0000000000d1', 'Rival bank', 'd0000000-0000-0000-0000-0000000000f2');
 insert into public.lender_room_member (room_id, user_id, email)
 values
-  ('d0000000-0000-0000-0000-0000000000e1', tests.get_uid('du_lender'), 'du_lender@tuckin.test'),
-  ('d0000000-0000-0000-0000-0000000000e2', tests.get_uid('du_rival_lender'), 'du_rival_lender@tuckin.test');
+  ('d0000000-0000-0000-0000-0000000000e1', tests.get_uid('du_lender'), 'du_lender@opendealbook.test'),
+  ('d0000000-0000-0000-0000-0000000000e2', tests.get_uid('du_rival_lender'), 'du_rival_lender@opendealbook.test');
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('du_seller'), 'du_seller@tuckin.test', 'Seller'
+select r.id, tests.get_uid('du_seller'), 'du_seller@opendealbook.test', 'Seller'
 from public.seller_room r where r.deal_id = 'd0000000-0000-0000-0000-0000000000d1';
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
-  (tests.account_id('updates-co'), 'd0000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('du_seller_law'), 'du_seller_law@tuckin.test', 'Seller Law'),
-  (tests.account_id('updates-co'), 'd0000000-0000-0000-0000-0000000000d1', 'buyer', tests.get_uid('du_buyer_law'), 'du_buyer_law@tuckin.test', 'Buyer Law');
+  (tests.account_id('updates-co'), 'd0000000-0000-0000-0000-0000000000d1', 'seller', tests.get_uid('du_seller_law'), 'du_seller_law@opendealbook.test', 'Seller Law'),
+  (tests.account_id('updates-co'), 'd0000000-0000-0000-0000-0000000000d1', 'buyer', tests.get_uid('du_buyer_law'), 'du_buyer_law@opendealbook.test', 'Buyer Law');
 
 insert into public.deal_update (id, account_id, deal_id, author_id, subject, body, picks, status, submitted_at,
   decided_by, decided_at)
@@ -409,7 +409,7 @@ values
     tests.get_uid('du_lead'), 'Counsel only', 'Draft APA is in your portal.', '{}', 'approved',
     '2026-10-07 09:00Z', tests.get_uid('du_admin'), '2026-10-08 10:00Z');
 insert into public.deal_update_recipient (update_id, user_id, email, name, entries)
-select update_id::uuid, tests.get_uid(person), person || '@tuckin.test', person, '{}'
+select update_id::uuid, tests.get_uid(person), person || '@opendealbook.test', person, '{}'
 from (values
   ('d0000000-0000-0000-0000-0000000000b1', 'du_lender'),
   ('d0000000-0000-0000-0000-0000000000b1', 'du_seller'),

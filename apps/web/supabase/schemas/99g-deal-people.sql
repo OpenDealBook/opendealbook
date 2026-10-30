@@ -426,23 +426,23 @@ grant execute on function public.counsel_main_contacts(uuid) to authenticated, s
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.deal_contact
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update on public.deal_main_contact
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'deal_id', 'deal');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'deal_id', 'deal');
 
 -- A star cleared inside another trigger, because its person left, goes with
 -- that removal, which a locked team may still make. Direct deletes are refused.
 create trigger refuse_delete_when_team_locked
   before delete on public.deal_main_contact
   for each row when (pg_trigger_depth() = 0)
-  execute function tuckin.refuse_write_when_team_locked('members', 'deal_id', 'deal');
+  execute function odb.refuse_write_when_team_locked('members', 'deal_id', 'deal');
 
 create trigger same_team_deal_id
   before insert or update on public.deal_contact
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_contact_id
   before insert or update on public.deal_contact
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'contact_id', 'contact');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'contact_id', 'contact');

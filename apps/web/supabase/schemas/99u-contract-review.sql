@@ -387,60 +387,60 @@ create policy deal_contract_review_gate_change_insert on public.deal_contract_re
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.contract_review_request
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.contract_review_decision
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.contract_signing_override
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.contract_review_gate_default_change
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.deal_contract_review_gate_change
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.contract_review_request
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.contract_review_decision
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.contract_signing_override
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.contract_review_gate_default_change
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.deal_contract_review_gate_change
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_contract_version_id
   before insert or update on public.contract_review_request
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
 
 create trigger same_team_contract_version_id
   before insert or update on public.contract_review_decision
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
 
 create trigger same_team_contract_version_id
   before insert or update on public.contract_signing_override
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
 
 create trigger same_team_deal_id
   before insert or update on public.deal_contract_review_gate_change
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_parent_contract_id
   before insert or update on public.contract
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'parent_contract_id', 'contract');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'parent_contract_id', 'contract');

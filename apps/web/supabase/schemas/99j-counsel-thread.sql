@@ -77,10 +77,10 @@ grant execute on function public.counsel_thread(uuid, public.counsel_side) to au
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.counsel_message
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.counsel_message
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 alter publication supabase_realtime add table public.counsel_message;

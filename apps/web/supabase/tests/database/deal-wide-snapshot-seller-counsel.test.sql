@@ -22,11 +22,11 @@ select public.ensure_seller_room('d5000000-0000-0000-0000-0000000000d1');
 
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('dws_walt'), 'dws_walt@tuckin.test', 'Walt Brennan'
+select id, tests.get_uid('dws_walt'), 'dws_walt@opendealbook.test', 'Walt Brennan'
 from public.seller_room where deal_id = 'd5000000-0000-0000-0000-0000000000d1';
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name, invited_by) values
   (tests.account_id('dws-team'), 'd5000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('dws_owen'), 'dws_owen@tuckin.test', 'Owen Castillo', tests.get_uid('dws_walt'));
+    tests.get_uid('dws_owen'), 'dws_owen@opendealbook.test', 'Owen Castillo', tests.get_uid('dws_walt'));
 
 select tests.login_as_service_role();
 select public.append_deal_event('d5000000-0000-0000-0000-0000000000d1', 'dr_document',

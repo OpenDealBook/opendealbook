@@ -117,7 +117,7 @@ select is_empty(
         select 1 from pg_trigger t
         where t.tgrelid = c.oid and t.tgname = 'refuse_personal_account_row'
       )
-      and c.relname not in (select table_name from tuckin.personal_account_tables)
+      and c.relname not in (select table_name from odb.personal_account_tables)
   $$,
   'every team table refuses personal accounts or names why a personal account may hold it'
 );

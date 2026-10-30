@@ -56,7 +56,7 @@ insert into public.saved_view (id, account_id, owner_user_id, name)
 values ('b1000000-0000-0000-0000-0000000000c3', tests.account_id('open-co'), tests.get_uid('bl_owner'), 'Mine');
 
 insert into public.invitations (account_id, email, role, invited_by, invite_token, expires_at)
-values (tests.account_id('locked-co'), 'bl_invitee@tuckin.test', 'member', tests.get_uid('bl_owner'), 'bl-token', now() + interval '1 day');
+values (tests.account_id('locked-co'), 'bl_invitee@opendealbook.test', 'member', tests.get_uid('bl_owner'), 'bl-token', now() + interval '1 day');
 
 insert into public.diligence_schedule (id, deal_id, account_id, start_date)
 values ('b1000000-0000-0000-0000-0000000000e1', 'b1000000-0000-0000-0000-0000000000d1', tests.account_id('locked-co'), current_date);
@@ -70,7 +70,7 @@ values ('b1000000-0000-0000-0000-00000000f00a', tests.account_id('locked-co'), '
 insert into public.lender_room (id, account_id, deal_id, name, private_folder_id)
 values ('b1000000-0000-0000-0000-0000000000a0', tests.account_id('locked-co'), 'b1000000-0000-0000-0000-0000000000d1', 'Lender', 'b1000000-0000-0000-0000-00000000f00a');
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
-values ('b1000000-0000-0000-0000-0000000000a0', tests.get_uid('bl_lender'), 'bl_lender@tuckin.test', tests.get_uid('bl_owner'));
+values ('b1000000-0000-0000-0000-0000000000a0', tests.get_uid('bl_lender'), 'bl_lender@opendealbook.test', tests.get_uid('bl_owner'));
 insert into public.lender_ask (id, room_id, account_id, kind, title, created_by)
 values ('b1000000-0000-0000-0000-00000000a5a0', 'b1000000-0000-0000-0000-0000000000a0', tests.account_id('locked-co'), 'ask', 'Lender asks', tests.get_uid('bl_lender'));
 
@@ -332,7 +332,7 @@ select is_empty(
         select 1 from pg_trigger t
         where t.tgrelid = c.oid and t.tgname = 'refuse_write_when_team_locked'
       )
-      and c.relname not in (select table_name from tuckin.billing_lock_exempt_tables)
+      and c.relname not in (select table_name from odb.billing_lock_exempt_tables)
   $$,
   'every team table is locked or names why it is exempt'
 );
@@ -379,20 +379,20 @@ select is_empty(
         or exists (
           select 1 from pg_trigger t
           where t.tgrelid = child.oid and t.tgname = 'refuse_write_when_team_locked'
-            and t.tgfoid = 'tuckin.refuse_write_when_team_locked'::regproc
+            and t.tgfoid = 'odb.refuse_write_when_team_locked'::regproc
         )
       )
       and not exists (
         select 1 from pg_trigger t
         where t.tgrelid = child.oid and t.tgname = 'refuse_write_when_team_locked'
-          and t.tgfoid = 'tuckin.refuse_write_when_team_locked'::regproc
+          and t.tgfoid = 'odb.refuse_write_when_team_locked'::regproc
           and split_part(encode(t.tgargs, 'escape'), '\000', 2) = a.attname::text
       )
       and not exists (
         select 1 from pg_trigger t
         where t.tgrelid = child.oid and t.tgname = 'same_team_' || a.attname
       )
-      and (child.relname, a.attname::text) not in (select table_name, column_name from tuckin.cross_team_link_exempt)
+      and (child.relname, a.attname::text) not in (select table_name, column_name from odb.cross_team_link_exempt)
   $$,
   'every link from a team row to another team table stays within the team'
 );

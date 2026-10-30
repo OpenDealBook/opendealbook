@@ -29,12 +29,12 @@ select id, account_id from public.seller_room where deal_id = '55500000-0000-000
 grant select on ssr_room to authenticated;
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('ssr_walt'), 'ssr_walt@tuckin.test', 'Walt Brennan' from ssr_room;
+select id, tests.get_uid('ssr_walt'), 'ssr_walt@opendealbook.test', 'Walt Brennan' from ssr_room;
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name, invited_by) values
   (tests.account_id('ssr-team'), '55500000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('ssr_owen'), 'ssr_owen@tuckin.test', 'Owen Castillo', tests.get_uid('ssr_walt')),
+    tests.get_uid('ssr_owen'), 'ssr_owen@opendealbook.test', 'Owen Castillo', tests.get_uid('ssr_walt')),
   (tests.account_id('ssr-team'), '55500000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('ssr_buyer_law'), 'ssr_buyer_law@tuckin.test', 'Bea Law', tests.get_uid('ssr_owner'));
+    tests.get_uid('ssr_buyer_law'), 'ssr_buyer_law@opendealbook.test', 'Bea Law', tests.get_uid('ssr_owner'));
 insert into public.dr_folder (id, account_id, deal_id, name) values
   ('55500000-0000-0000-0000-0000000000f1', tests.account_id('ssr-team'), '55500000-0000-0000-0000-0000000000d1', 'Financials'),
   ('55500000-0000-0000-0000-0000000000f2', tests.account_id('ssr-team'), '55500000-0000-0000-0000-0000000000d1', 'Lender A');
@@ -58,7 +58,7 @@ insert into public.lender_room (id, account_id, deal_id, name, private_folder_id
   ('55500000-0000-0000-0000-0000000000c1', tests.account_id('ssr-team'), '55500000-0000-0000-0000-0000000000d1',
    'Lender A', '55500000-0000-0000-0000-0000000000f2');
 insert into public.lender_room_member (room_id, user_id, email) values
-  ('55500000-0000-0000-0000-0000000000c1', tests.get_uid('ssr_lender'), 'ssr_lender@tuckin.test');
+  ('55500000-0000-0000-0000-0000000000c1', tests.get_uid('ssr_lender'), 'ssr_lender@opendealbook.test');
 
 select tests.login_as('ssr_walt');
 select public.post_seller_counsel_message('55500000-0000-0000-0000-0000000000d1', 'Before the room closed');

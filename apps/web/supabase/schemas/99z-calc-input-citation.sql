@@ -207,12 +207,12 @@ create trigger calc_input_citations_removed
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.calc_input_citation
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_calc_version_id
   before insert or update on public.calc_input_citation
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'calc_version_id', 'calc_version');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'calc_version_id', 'calc_version');
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.calc_input_citation
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();

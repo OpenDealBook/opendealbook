@@ -25,21 +25,21 @@ select public.ensure_seller_room('5c700000-0000-0000-0000-0000000000d1');
 
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('sct_walt'), 'sct_walt@tuckin.test', 'Walt Brennan'
+select id, tests.get_uid('sct_walt'), 'sct_walt@opendealbook.test', 'Walt Brennan'
 from public.seller_room where deal_id = '5c700000-0000-0000-0000-0000000000d1';
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name, invited_by)
 values
   (tests.account_id('sct-team'), '5c700000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('sct_owen'), 'sct_owen@tuckin.test', 'Owen Castillo', tests.get_uid('sct_walt')),
+    tests.get_uid('sct_owen'), 'sct_owen@opendealbook.test', 'Owen Castillo', tests.get_uid('sct_walt')),
   (tests.account_id('sct-team'), '5c700000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('sct_buyer_law'), 'sct_buyer_law@tuckin.test', 'Bea Law', tests.get_uid('sct_owner'));
+    tests.get_uid('sct_buyer_law'), 'sct_buyer_law@opendealbook.test', 'Bea Law', tests.get_uid('sct_owner'));
 insert into public.dr_folder (id, account_id, deal_id, name) values
   ('5c700000-0000-0000-0000-0000000000f1', tests.account_id('sct-team'), '5c700000-0000-0000-0000-0000000000d1', 'Lender A');
 insert into public.lender_room (id, account_id, deal_id, name, private_folder_id) values
   ('5c700000-0000-0000-0000-0000000000a1', tests.account_id('sct-team'), '5c700000-0000-0000-0000-0000000000d1',
    'Lender A', '5c700000-0000-0000-0000-0000000000f1');
 insert into public.lender_room_member (room_id, user_id, email) values
-  ('5c700000-0000-0000-0000-0000000000a1', tests.get_uid('sct_lender'), 'sct_lender@tuckin.test');
+  ('5c700000-0000-0000-0000-0000000000a1', tests.get_uid('sct_lender'), 'sct_lender@opendealbook.test');
 
 -- ---- The seller side write to each other, with files ----
 

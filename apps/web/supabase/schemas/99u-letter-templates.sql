@@ -29,11 +29,11 @@ create trigger letter_template_user_tracking
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.letter_template
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.letter_template
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create policy letter_template_read on public.letter_template
   for select to authenticated

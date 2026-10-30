@@ -35,9 +35,9 @@ values
 
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
 values
-  ('1d000000-0000-0000-0000-0000000000a0', tests.get_uid('lh_lender_a'), 'lh_lender_a@tuckin.test', tests.get_uid('lh_owner')),
-  ('1d000000-0000-0000-0000-0000000000c0', tests.get_uid('lh_lender_a'), 'lh_lender_a@tuckin.test', tests.get_uid('lh_owner')),
-  ('1d000000-0000-0000-0000-0000000000b0', tests.get_uid('lh_lender_b'), 'lh_lender_b@tuckin.test', tests.get_uid('lh_owner'));
+  ('1d000000-0000-0000-0000-0000000000a0', tests.get_uid('lh_lender_a'), 'lh_lender_a@opendealbook.test', tests.get_uid('lh_owner')),
+  ('1d000000-0000-0000-0000-0000000000c0', tests.get_uid('lh_lender_a'), 'lh_lender_a@opendealbook.test', tests.get_uid('lh_owner')),
+  ('1d000000-0000-0000-0000-0000000000b0', tests.get_uid('lh_lender_b'), 'lh_lender_b@opendealbook.test', tests.get_uid('lh_owner'));
 
 insert into public.deal_terms_sought (account_id, deal_id, loan_amount, loan_type, term_years, seller_note_amount)
 values (tests.account_id('lh-acct'), '1d000000-0000-0000-0000-0000000000d1', 2240000, 'sba_7a', 10, 300000);

@@ -13,7 +13,7 @@ insert into auth.users (
   (
     '00000000-0000-0000-0000-000000000000',
     '11111111-1111-1111-1111-111111111111',
-    'authenticated', 'authenticated', 'owner@tuckin.test',
+    'authenticated', 'authenticated', 'owner@opendealbook.test',
     extensions.crypt('password123', extensions.gen_salt('bf')), now(),
     '', '', '', '', '', '', '', '',
     '{"provider":"email","providers":["email"]}', '{"name":"Ada Owner"}', now(), now()
@@ -21,7 +21,7 @@ insert into auth.users (
   (
     '00000000-0000-0000-0000-000000000000',
     '22222222-2222-2222-2222-222222222222',
-    'authenticated', 'authenticated', 'member@tuckin.test',
+    'authenticated', 'authenticated', 'member@opendealbook.test',
     extensions.crypt('password123', extensions.gen_salt('bf')), now(),
     '', '', '', '', '', '', '', '',
     '{"provider":"email","providers":["email"]}', '{"name":"Ben Member"}', now(), now()
@@ -34,24 +34,24 @@ insert into auth.identities (
   (
     '11111111-1111-1111-1111-111111111111',
     '11111111-1111-1111-1111-111111111111',
-    '{"sub":"11111111-1111-1111-1111-111111111111","email":"owner@tuckin.test","email_verified":true,"phone_verified":false}',
+    '{"sub":"11111111-1111-1111-1111-111111111111","email":"owner@opendealbook.test","email_verified":true,"phone_verified":false}',
     'email', now(), now(), now()
   ),
   (
     '22222222-2222-2222-2222-222222222222',
     '22222222-2222-2222-2222-222222222222',
-    '{"sub":"22222222-2222-2222-2222-222222222222","email":"member@tuckin.test","email_verified":true,"phone_verified":false}',
+    '{"sub":"22222222-2222-2222-2222-222222222222","email":"member@opendealbook.test","email_verified":true,"phone_verified":false}',
     'email', now(), now(), now()
   )
 on conflict (provider_id, provider) do nothing;
 
-select public.create_team_account('Tuckin HQ', '11111111-1111-1111-1111-111111111111', 'tuckin-hq');
+select public.create_team_account('OpenDealbook HQ', '11111111-1111-1111-1111-111111111111', 'odb-hq');
 
 insert into public.accounts_memberships (account_id, user_id, account_role)
 select id, '22222222-2222-2222-2222-222222222222', 'member'
-from public.accounts where slug = 'tuckin-hq';
+from public.accounts where slug = 'odb-hq';
 
--- Mark only the owner's personal account as onboarded; member@tuckin.test and
+-- Mark only the owner's personal account as onboarded; member@opendealbook.test and
 -- the team account stay at the default false so onboarding can be exercised.
 update public.accounts
 set onboarded = true
@@ -67,7 +67,7 @@ where primary_owner_user_id = '11111111-1111-1111-1111-111111111111'
 -- or deploy must upload each sample/real .docx to that key for the row it backs.
 insert into public.document_template (account_id, name, type, docx_path, version)
 select id, 'Sample LOI - replace with your counsel-reviewed template', 'loi', 'samples/loi-standard.docx', 1
-from public.accounts where slug = 'tuckin-hq'
+from public.accounts where slug = 'odb-hq'
 union all
 select id, 'Sample APA - replace with your counsel-reviewed template', 'apa', 'samples/apa-short.docx', 1
-from public.accounts where slug = 'tuckin-hq';
+from public.accounts where slug = 'odb-hq';

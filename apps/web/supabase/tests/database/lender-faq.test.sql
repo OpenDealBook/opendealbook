@@ -43,10 +43,10 @@ values
 
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
 values
-  ('1f000000-0000-0000-0000-0000000000a0', tests.get_uid('lf_lender_a'), 'lf_lender_a@tuckin.test', tests.get_uid('lf_owner')),
-  ('1f000000-0000-0000-0000-0000000000b0', tests.get_uid('lf_lender_b'), 'lf_lender_b@tuckin.test', tests.get_uid('lf_owner')),
-  ('1f000000-0000-0000-0000-0000000000c0', tests.get_uid('lf_lender_c'), 'lf_lender_c@tuckin.test', tests.get_uid('lf_owner')),
-  ('1f000000-0000-0000-0000-0000000000e0', tests.get_uid('lf_lender_z'), 'lf_lender_z@tuckin.test', tests.get_uid('lf_owner_2'));
+  ('1f000000-0000-0000-0000-0000000000a0', tests.get_uid('lf_lender_a'), 'lf_lender_a@opendealbook.test', tests.get_uid('lf_owner')),
+  ('1f000000-0000-0000-0000-0000000000b0', tests.get_uid('lf_lender_b'), 'lf_lender_b@opendealbook.test', tests.get_uid('lf_owner')),
+  ('1f000000-0000-0000-0000-0000000000c0', tests.get_uid('lf_lender_c'), 'lf_lender_c@opendealbook.test', tests.get_uid('lf_owner')),
+  ('1f000000-0000-0000-0000-0000000000e0', tests.get_uid('lf_lender_z'), 'lf_lender_z@opendealbook.test', tests.get_uid('lf_owner_2'));
 
 insert into public.lender_ask (id, room_id, account_id, kind, title, return_route, created_by)
 values
@@ -240,7 +240,7 @@ reset role;
 insert into public.lender_room (id, account_id, deal_id, name, private_folder_id)
 values ('1f000000-0000-0000-0000-0000000000d0', tests.account_id('lf-acct'), '1f000000-0000-0000-0000-0000000000d1', 'Lender D', '1f000000-0000-0000-0000-00000000f00d');
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
-values ('1f000000-0000-0000-0000-0000000000d0', tests.get_uid('lf_lender_d'), 'lf_lender_d@tuckin.test', tests.get_uid('lf_owner'));
+values ('1f000000-0000-0000-0000-0000000000d0', tests.get_uid('lf_lender_d'), 'lf_lender_d@opendealbook.test', tests.get_uid('lf_owner'));
 
 select throws_ok(
   $$

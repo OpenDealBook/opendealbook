@@ -270,12 +270,12 @@ select public.append_deal_event('7e000000-0000-0000-0000-0000000000d4', 'deal_mi
 
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('tl_seller'), 'tl_seller@tuckin.test', 'Seller'
+select r.id, tests.get_uid('tl_seller'), 'tl_seller@opendealbook.test', 'Seller'
 from public.seller_room r where r.deal_id = '7e000000-0000-0000-0000-0000000000d3';
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
-  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d3', 'buyer', tests.get_uid('tl_buyer_law'), 'tl_buyer_law@tuckin.test', 'Buyer Law'),
-  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d3', 'seller', tests.get_uid('tl_seller_law'), 'tl_seller_law@tuckin.test', 'Seller Law');
+  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d3', 'buyer', tests.get_uid('tl_buyer_law'), 'tl_buyer_law@opendealbook.test', 'Buyer Law'),
+  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d3', 'seller', tests.get_uid('tl_seller_law'), 'tl_seller_law@opendealbook.test', 'Seller Law');
 insert into public.dr_folder (id, account_id, deal_id, parent_id, name)
 values
   ('7e000000-0000-0000-0000-0000000000f3', tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d3', null, 'Bank room'),
@@ -285,7 +285,7 @@ values
   ('7e000000-0000-0000-0000-0000000000a3', tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d3', 'Bank', '7e000000-0000-0000-0000-0000000000f3'),
   ('7e000000-0000-0000-0000-0000000000a4', tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d4', 'Other bank', '7e000000-0000-0000-0000-0000000000f4');
 insert into public.lender_room_member (room_id, user_id, email)
-values ('7e000000-0000-0000-0000-0000000000a3', tests.get_uid('tl_lender'), 'tl_lender@tuckin.test');
+values ('7e000000-0000-0000-0000-0000000000a3', tests.get_uid('tl_lender'), 'tl_lender@opendealbook.test');
 
 create temp table tl_seller_room as
 select id from public.seller_room where deal_id = '7e000000-0000-0000-0000-0000000000d3';
@@ -375,12 +375,12 @@ select public.append_deal_event('7e000000-0000-0000-0000-0000000000d6', 'deal_mi
 
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('tl_seller'), 'tl_seller@tuckin.test', 'Seller'
+select r.id, tests.get_uid('tl_seller'), 'tl_seller@opendealbook.test', 'Seller'
 from public.seller_room r where r.deal_id in ('7e000000-0000-0000-0000-0000000000d5', '7e000000-0000-0000-0000-0000000000d6');
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values
-  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d5', 'buyer', tests.get_uid('tl_buyer_law'), 'tl_buyer_law@tuckin.test', 'Buyer Law'),
-  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d6', 'buyer', tests.get_uid('tl_buyer_law'), 'tl_buyer_law@tuckin.test', 'Buyer Law');
+  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d5', 'buyer', tests.get_uid('tl_buyer_law'), 'tl_buyer_law@opendealbook.test', 'Buyer Law'),
+  (tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d6', 'buyer', tests.get_uid('tl_buyer_law'), 'tl_buyer_law@opendealbook.test', 'Buyer Law');
 insert into public.dr_folder (id, account_id, deal_id, parent_id, name)
 values
   ('7e000000-0000-0000-0000-0000000000f5', tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d5', null, 'Follows room'),
@@ -391,8 +391,8 @@ values
   ('7e000000-0000-0000-0000-0000000000a6', tests.account_id('tl-team'), '7e000000-0000-0000-0000-0000000000d6', 'Team closing bank', '7e000000-0000-0000-0000-0000000000f6');
 insert into public.lender_room_member (room_id, user_id, email)
 values
-  ('7e000000-0000-0000-0000-0000000000a5', tests.get_uid('tl_lender'), 'tl_lender@tuckin.test'),
-  ('7e000000-0000-0000-0000-0000000000a6', tests.get_uid('tl_lender'), 'tl_lender@tuckin.test');
+  ('7e000000-0000-0000-0000-0000000000a5', tests.get_uid('tl_lender'), 'tl_lender@opendealbook.test'),
+  ('7e000000-0000-0000-0000-0000000000a6', tests.get_uid('tl_lender'), 'tl_lender@opendealbook.test');
 
 create temp table tl_effective_follows (kind public.milestone_kind, label text, target_on date, actual_on date);
 insert into tl_effective_follows values ('closing', null, null, null), ('effective', null, null, null);

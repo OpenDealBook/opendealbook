@@ -17,13 +17,13 @@ alter table public.room_closing_todo enable row level security;
 revoke all on public.room_closing_todo from anon, authenticated, service_role;
 grant select, insert, delete on public.room_closing_todo to service_role;
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('room_closing_todo', 'service-role only, links a teammate''s closing to-do to a room')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_team_move
   before update on public.room_closing_todo
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();
 
 -- The seller rule mirrors the Sellers and Brokers recipient groups in
 -- packages/features/deal-updates/src/groups.ts.
@@ -68,7 +68,7 @@ grant execute on function public.room_close_ready(text, uuid) to service_role;
 -- The team closes rooms through the app, which asks room_close_ready first;
 -- this refuses the same close made straight against the table. The service
 -- role is trusted to have asked.
-create or replace function tuckin.refuse_unready_room_close()
+create or replace function odb.refuse_unready_room_close()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -84,10 +84,10 @@ $$;
 
 create trigger refuse_unready_close
   before update of closed_at on public.seller_room
-  for each row execute function tuckin.refuse_unready_room_close(
+  for each row execute function odb.refuse_unready_room_close(
     'seller', 'Tell the sellers or brokers the room is closing first');
 
 create trigger refuse_unready_close
   before update of closed_at on public.lender_room
-  for each row execute function tuckin.refuse_unready_room_close(
+  for each row execute function odb.refuse_unready_room_close(
     'lender', 'Tell the lender the room is closing first');

@@ -73,7 +73,7 @@ select is_empty(
   'links go with the request they were made for'
 );
 select ok(
-  exists (select 1 from tuckin.billing_lock_exempt_tables where table_name = 'contract_review_todo'),
+  exists (select 1 from odb.billing_lock_exempt_tables where table_name = 'contract_review_todo'),
   'the table names why a locked team may still have it'
 );
 

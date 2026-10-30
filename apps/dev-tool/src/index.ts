@@ -33,7 +33,7 @@ function presentEnvKeys(path: string): Set<string> {
   return present;
 }
 
-function tuckinPackageNames(root: string): string[] {
+function odbPackageNames(root: string): string[] {
   const names: string[] = [];
 
   const walk = (dir: string) => {
@@ -69,7 +69,7 @@ function tuckinPackageNames(root: string): string[] {
 }
 
 const present = presentEnvKeys(envLocalPath);
-const packages = tuckinPackageNames(packagesDir);
+const packages = odbPackageNames(packagesDir);
 
 const mark = (ok: boolean) => (ok ? 'ok' : 'missing');
 

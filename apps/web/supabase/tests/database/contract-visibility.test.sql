@@ -35,14 +35,14 @@ insert into public.accounts_memberships (user_id, account_id, account_role)
 values (tests.get_uid('cv_member'), tests.account_id('cv-team'), 'member');
 
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('cv_seller'), 'cv_seller@tuckin.test', 'Cara Seller' from cv_room;
+select id, tests.get_uid('cv_seller'), 'cv_seller@opendealbook.test', 'Cara Seller' from cv_room;
 
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values
   (tests.account_id('cv-team'), 'c7000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('cv_buyer_law'), 'cv_buyer_law@tuckin.test'),
+    tests.get_uid('cv_buyer_law'), 'cv_buyer_law@opendealbook.test'),
   (tests.account_id('cv-team'), 'c7000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('cv_seller_law'), 'cv_seller_law@tuckin.test');
+    tests.get_uid('cv_seller_law'), 'cv_seller_law@opendealbook.test');
 
 insert into public.contract (id, deal_id, account_id, type, current_version)
 values

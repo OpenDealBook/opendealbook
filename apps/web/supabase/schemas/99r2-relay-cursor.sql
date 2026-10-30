@@ -14,7 +14,7 @@ alter table public.relay_cursor enable row level security;
 revoke all on public.relay_cursor from anon, authenticated, service_role;
 grant select, insert, update, delete on public.relay_cursor to service_role;
 
-create or replace function tuckin.touch_relay_cursor()
+create or replace function odb.touch_relay_cursor()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -26,7 +26,7 @@ $$;
 
 create trigger touch_relay_cursor
   before update on public.relay_cursor
-  for each row execute function tuckin.touch_relay_cursor();
+  for each row execute function odb.touch_relay_cursor();
 
 -- An event a relay failed five times, set aside so the relay moves on. The
 -- service role writes it and retries it on an admin's request; only verified

@@ -15,7 +15,7 @@ select public.append_deal_event('cf000000-0000-0000-0000-0000000000d1', 'deal',
     'description', 'Counsel files deal'), null, 'service');
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values (tests.account_id('cf-team'), 'cf000000-0000-0000-0000-0000000000d1', 'buyer',
-  tests.get_uid('cf_buyer_law'), 'cf_buyer_law@tuckin.test');
+  tests.get_uid('cf_buyer_law'), 'cf_buyer_law@opendealbook.test');
 
 reset role;
 insert into public.accounts_memberships (user_id, account_id, account_role)

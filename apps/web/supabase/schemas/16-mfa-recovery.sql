@@ -25,7 +25,7 @@ revoke all on public.mfa_recovery_codes from authenticated, service_role;
 --   alter database postgres set app.mfa_recovery_pepper = '<long-random>';
 -- Unset falls back to an empty key so dev and tests still work; production
 -- deploys must set it.
-create or replace function tuckin.mfa_recovery_pepper()
+create or replace function odb.mfa_recovery_pepper()
   returns text
   language sql stable security definer
   set search_path = '' as $$
@@ -35,13 +35,13 @@ $$;
 -- Deterministic keyed hash of a normalized code. The same normalization runs
 -- at mint and at redemption so equality lookups line up; whitespace and dashes
 -- are stripped and the code is upper-cased.
-create or replace function tuckin.mfa_recovery_code_hmac(user_id uuid, code text)
+create or replace function odb.mfa_recovery_code_hmac(user_id uuid, code text)
   returns bytea
   language sql stable security definer
   set search_path = '' as $$
   select extensions.hmac(
     mfa_recovery_code_hmac.user_id::text || ':' || upper(regexp_replace(mfa_recovery_code_hmac.code, '[\s-]+', '', 'g')),
-    tuckin.mfa_recovery_pepper(),
+    odb.mfa_recovery_pepper(),
     'sha256'
   );
 $$;
@@ -78,7 +78,7 @@ begin
   delete from public.mfa_recovery_codes where user_id = caller;
 
   insert into public.mfa_recovery_codes (user_id, code_hmac)
-  select caller, tuckin.mfa_recovery_code_hmac(caller, c)
+  select caller, odb.mfa_recovery_code_hmac(caller, c)
   from unnest(p_codes) as c;
 end;
 $$;
@@ -101,7 +101,7 @@ begin
     return null;
   end if;
 
-  target := tuckin.mfa_recovery_code_hmac(caller, p_code);
+  target := odb.mfa_recovery_code_hmac(caller, p_code);
 
   update public.mfa_recovery_codes
     set used_at = now()

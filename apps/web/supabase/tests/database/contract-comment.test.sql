@@ -32,9 +32,9 @@ values (tests.get_uid('cc_member'), tests.account_id('cc-team'), 'viewer');
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values
   (tests.account_id('cc-team'), 'cc000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('cc_buyer_law'), 'cc_buyer_law@tuckin.test'),
+    tests.get_uid('cc_buyer_law'), 'cc_buyer_law@opendealbook.test'),
   (tests.account_id('cc-team'), 'cc000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('cc_seller_law'), 'cc_seller_law@tuckin.test');
+    tests.get_uid('cc_seller_law'), 'cc_seller_law@opendealbook.test');
 
 insert into public.contract (id, deal_id, account_id, type)
 values
@@ -226,7 +226,7 @@ select public.ensure_seller_room('cc000000-0000-0000-0000-0000000000d1');
 
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select r.id, tests.get_uid('cc_seller'), 'cc_seller@tuckin.test', 'Sam Seller'
+select r.id, tests.get_uid('cc_seller'), 'cc_seller@opendealbook.test', 'Sam Seller'
 from public.seller_room r where r.deal_id = 'cc000000-0000-0000-0000-0000000000d1';
 update public.accounts set name = 'Olive Owner'
 where primary_owner_user_id = tests.get_uid('cc_owner') and is_personal_account;

@@ -10,7 +10,7 @@ alter table public.accounts add constraint accounts_personal_last_team check (
 
 grant update (last_team_account_id) on public.accounts to authenticated;
 
-create or replace function tuckin.require_last_team_membership()
+create or replace function odb.require_last_team_membership()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -28,4 +28,4 @@ $$;
 create trigger require_last_team_membership
   before insert or update of last_team_account_id on public.accounts
   for each row when (new.last_team_account_id is not null)
-  execute function tuckin.require_last_team_membership();
+  execute function odb.require_last_team_membership();

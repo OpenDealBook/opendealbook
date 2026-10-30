@@ -183,10 +183,10 @@ grant execute on function public.contract_comment_authors(uuid[]) to authenticat
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.contract_comment
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_contract_version_id
   before insert or update on public.contract_comment
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'contract_version_id', 'contract_version');
 
 alter publication supabase_realtime add table public.contract_comment;

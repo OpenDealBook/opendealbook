@@ -30,7 +30,7 @@ select public.append_deal_event('c1c00000-0000-0000-0000-0000000000d2', 'deal',
 reset role;
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name)
 values (tests.account_id('cic-team'), 'c1c00000-0000-0000-0000-0000000000d1', 'seller',
-  tests.get_uid('cic_counsel'), 'cic_counsel@tuckin.test', 'Cora Counsel');
+  tests.get_uid('cic_counsel'), 'cic_counsel@opendealbook.test', 'Cora Counsel');
 
 insert into public.dr_folder (id, account_id, deal_id, name) values
   ('c1c00000-0000-0000-0000-0000000000f1', tests.account_id('cic-team'), 'c1c00000-0000-0000-0000-0000000000d1', 'Financials'),

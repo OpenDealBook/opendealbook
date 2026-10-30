@@ -1,4 +1,4 @@
--- MFA design choice: Tuckin relies on Supabase Auth's built-in multi-factor
+-- MFA design choice: OpenDealbook relies on Supabase Auth's built-in multi-factor
 -- support (auth.mfa_factors, managed by GoTrue and configured under
 -- [auth.mfa] in config.toml) rather than a bespoke factors table. Enrollment,
 -- challenge, and verification are handled by the auth service; the app only

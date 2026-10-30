@@ -46,7 +46,7 @@ create policy api_key_update on public.api_key
   with check (public.has_permission((select auth.uid()), account_id, 'api_keys.manage'));
 
 -- Revocation is final for users; only a server job may lift it.
-create or replace function tuckin.refuse_api_key_unrevoke()
+create or replace function odb.refuse_api_key_unrevoke()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -60,12 +60,12 @@ $$;
 
 create trigger refuse_api_key_unrevoke
   before update on public.api_key
-  for each row execute function tuckin.refuse_api_key_unrevoke();
+  for each row execute function odb.refuse_api_key_unrevoke();
 
 -- Losing api_keys.manage revokes the creator's keys for good, so a later
 -- re-grant does not revive them. The sweep runs after any change that can take
 -- the permission away, whichever path made it.
-create or replace function tuckin.revoke_api_keys_without_holder()
+create or replace function odb.revoke_api_keys_without_holder()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -80,15 +80,15 @@ $$;
 
 create trigger revoke_api_keys_without_holder
   after update of account_role or delete on public.accounts_memberships
-  for each statement execute function tuckin.revoke_api_keys_without_holder();
+  for each statement execute function odb.revoke_api_keys_without_holder();
 
 create trigger revoke_api_keys_without_holder
   after update or delete on public.role_permissions
-  for each statement execute function tuckin.revoke_api_keys_without_holder();
+  for each statement execute function odb.revoke_api_keys_without_holder();
 
 create trigger revoke_api_keys_without_holder
   after update of primary_owner_user_id on public.accounts
-  for each statement execute function tuckin.revoke_api_keys_without_holder();
+  for each statement execute function odb.revoke_api_keys_without_holder();
 
 -- Match a presented raw key against its stored hash, stamp last_used_at, and
 -- return the owning account. Runs as definer so the caller never needs read

@@ -106,13 +106,13 @@ set local session_replication_role = origin;
 
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
 values
-  ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test', tests.get_uid('lr_owner')),
-  ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test', tests.get_uid('lr_owner')),
-  ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test', tests.get_uid('lr_owner')),
-  ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_lender_b'), 'lr_lender_b@tuckin.test', tests.get_uid('lr_owner')),
-  ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test', tests.get_uid('lr_owner')),
-  ('1e000000-0000-0000-0000-0000000000e0', tests.get_uid('lr_lender_z'), 'lr_lender_z@tuckin.test', tests.get_uid('lr_owner_2')),
-  ('1e000000-0000-0000-0000-0000000000e1', tests.get_uid('lr_lender_z'), 'lr_lender_z@tuckin.test', tests.get_uid('lr_owner_2'));
+  ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test', tests.get_uid('lr_owner')),
+  ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test', tests.get_uid('lr_owner')),
+  ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test', tests.get_uid('lr_owner')),
+  ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_lender_b'), 'lr_lender_b@opendealbook.test', tests.get_uid('lr_owner')),
+  ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test', tests.get_uid('lr_owner')),
+  ('1e000000-0000-0000-0000-0000000000e0', tests.get_uid('lr_lender_z'), 'lr_lender_z@opendealbook.test', tests.get_uid('lr_owner_2')),
+  ('1e000000-0000-0000-0000-0000000000e1', tests.get_uid('lr_lender_z'), 'lr_lender_z@opendealbook.test', tests.get_uid('lr_owner_2'));
 update public.lender_room_member set created_at = '2026-02-01'
 where room_id = '1e000000-0000-0000-0000-0000000000a0' and user_id = tests.get_uid('lr_lender_a2');
 insert into public.lender_person (user_id, name)
@@ -219,7 +219,7 @@ select throws_ok(
 );
 select throws_ok(
   $$ insert into public.lender_room_member (room_id, user_id, email)
-     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test') $$,
+     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test') $$,
   '23505', null, 'a person joins a room at most once'
 );
 select throws_ok(
@@ -300,9 +300,9 @@ insert into public.lender_room (id, account_id, deal_id, name, private_folder_id
 values ('1e000000-0000-0000-0000-0000000003a0', tests.account_id('lr-acct'), '1e000000-0000-0000-0000-0000000000d3', 'Lender Three', '1e000000-0000-0000-0000-00000000f301');
 insert into public.lender_room_member (room_id, user_id, email, invited_by, created_at)
 values
-  ('1e000000-0000-0000-0000-0000000003a0', tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test', tests.get_uid('lr_owner'), '2026-03-01'),
-  ('1e000000-0000-0000-0000-0000000003a0', tests.get_uid('lr_lender_b'), 'lr_lender_b@tuckin.test', tests.get_uid('lr_owner'), '2026-03-01'),
-  ('1e000000-0000-0000-0000-0000000003a0', tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test', tests.get_uid('lr_owner'), '2026-03-01');
+  ('1e000000-0000-0000-0000-0000000003a0', tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test', tests.get_uid('lr_owner'), '2026-03-01'),
+  ('1e000000-0000-0000-0000-0000000003a0', tests.get_uid('lr_lender_b'), 'lr_lender_b@opendealbook.test', tests.get_uid('lr_owner'), '2026-03-01'),
+  ('1e000000-0000-0000-0000-0000000003a0', tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test', tests.get_uid('lr_owner'), '2026-03-01');
 delete from public.lender_room_member where room_id = '1e000000-0000-0000-0000-0000000003a0' and user_id = tests.get_uid('lr_lender_a2');
 insert into public.lender_room_activity (room_id, account_id, user_id, side, action, dr_document_id, created_at)
 values
@@ -365,7 +365,7 @@ select results_eq(
        requests_waiting_on_team, requests_waiting_on_lender, forms_out_for_signature
      from public.team_lender_contacts(tests.account_id('lr-acct'))
      where room_id = '1e000000-0000-0000-0000-0000000003a0' and user_id = tests.get_uid('lr_lender_b') $$,
-  $$ values ('lr_lender_b@tuckin.test', 'Bo Baker', false, 'Fixture business', 'invited', tests.get_uid('lr_owner'), '2026-03-01'::timestamptz, null::timestamptz,
+  $$ values ('lr_lender_b@opendealbook.test', 'Bo Baker', false, 'Fixture business', 'invited', tests.get_uid('lr_owner'), '2026-03-01'::timestamptz, null::timestamptz,
        '2026-03-02'::timestamptz, '2026-03-05'::timestamptz, 2, 2, 3, 1, 1, 1) $$,
   'a contact comes with their visits, files viewed, downloads, requests and what waits on whom in that room'
 );
@@ -389,8 +389,8 @@ select results_eq(
      where room_id = '1e000000-0000-0000-0000-0000000003a0'
      order by removed_at is not null $$,
   $$ values
-       ('Packageless deal', 'lr_owner@tuckin.test', 'lr_owner', false),
-       ('Packageless deal', 'lr_owner@tuckin.test', 'lr_owner', false),
+       ('Packageless deal', 'lr_owner@opendealbook.test', 'lr_owner', false),
+       ('Packageless deal', 'lr_owner@opendealbook.test', 'lr_owner', false),
        ('Packageless deal', null::text, null::text, true) $$,
   'a contact comes with the deal''s description and who invited them, by email and name, unless that is not on record'
 );
@@ -548,33 +548,33 @@ select tests.login_as_service_role();
 select set_eq(
   $$ select room_id, user_id, email from public.lender_document_recipients('1e000000-0000-0000-0000-00000000d001') $$,
   $$ values
-       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test') $$,
+       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test') $$,
   'a master document reaches the members of every open room on its deal, and no other deal''s rooms'
 );
 select set_eq(
   $$ select room_id, user_id, email from public.lender_document_recipients('1e000000-0000-0000-0000-00000000d003') $$,
   $$ values
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test') $$,
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test') $$,
   'a document hidden from room A reaches room B members only'
 );
 select set_eq(
   $$ select room_id, user_id, email from public.lender_document_recipients('1e000000-0000-0000-0000-00000000d103') $$,
   $$ values
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test') $$,
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test') $$,
   'a later version of a file hidden from room A reaches room B members only'
 );
 select set_eq(
   $$ select room_id, user_id, email from public.lender_document_recipients('1e000000-0000-0000-0000-00000000d00a') $$,
   $$ values
-       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test') $$,
+       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000a0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test') $$,
   'a room A private document reaches room A members only'
 );
 select is_empty(
@@ -1066,12 +1066,12 @@ select throws_ok(
 );
 select throws_ok(
   $$ insert into public.lender_room_member (room_id, user_id, email)
-     values ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test') $$,
+     values ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test') $$,
   '42501', null, 'a lender cannot join another room'
 );
 select throws_ok(
   $$ insert into public.lender_room_member (room_id, user_id, email)
-     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_outsider'), 'lr_outsider@tuckin.test') $$,
+     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_outsider'), 'lr_outsider@opendealbook.test') $$,
   '42501', null, 'a lender cannot invite anyone into their own room'
 );
 select throws_ok(
@@ -1436,7 +1436,7 @@ select throws_ok(
 );
 select throws_ok(
   $$ insert into public.lender_room_member (room_id, user_id, email)
-     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_owner_2'), 'lr_owner_2@tuckin.test') $$,
+     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_owner_2'), 'lr_owner_2@opendealbook.test') $$,
   '42501', null, 'the owner of account 2 cannot join room A'
 );
 select throws_ok(
@@ -1543,7 +1543,7 @@ select isnt_empty(
 );
 select lives_ok(
   $$ insert into public.lender_room_member (room_id, user_id, email)
-     values ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_outsider'), 'lr_outsider@tuckin.test') $$,
+     values ('1e000000-0000-0000-0000-0000000000b0', tests.get_uid('lr_outsider'), 'lr_outsider@opendealbook.test') $$,
   'the team invites a person into a room'
 );
 select isnt_empty(
@@ -1669,10 +1669,10 @@ select throws_ok(
 select set_eq(
   $$ select user_id, email from public.lender_room_people('1e000000-0000-0000-0000-0000000000a0') $$,
   $$ values
-       (tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test'),
-       (tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test'),
-       (tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test'),
-       (tests.get_uid('lr_owner'), 'lr_owner@tuckin.test') $$,
+       (tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test'),
+       (tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test'),
+       (tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test'),
+       (tests.get_uid('lr_owner'), 'lr_owner@opendealbook.test') $$,
   'the team lists each person invited to a room or who acted in it, lenders and teammates alike, once each'
 );
 
@@ -1824,12 +1824,12 @@ values ('1e000000-0000-0000-0000-00000000d0a9', tests.account_id('lr-acct'), '1e
 select tests.login_as('lr_owner');
 select results_eq(
   $$ select email from public.lender_room_people('1e000000-0000-0000-0000-0000000000a0') where user_id = tests.get_uid('lr_lender_z') $$,
-  $$ values ('lr_lender_z@tuckin.test') $$,
+  $$ values ('lr_lender_z@opendealbook.test') $$,
   'the team gets the email of a person whose only trace in the room is a request they opened'
 );
 select results_eq(
   $$ select email from public.lender_room_people('1e000000-0000-0000-0000-0000000000a0') where user_id = tests.get_uid('lr_side_dealer') $$,
-  $$ values ('lr_side_dealer@tuckin.test') $$,
+  $$ values ('lr_side_dealer@opendealbook.test') $$,
   'the team gets the email of a person whose only trace in the room is a file they uploaded under its own folder'
 );
 reset role;
@@ -1847,12 +1847,12 @@ where room_id = '1e000000-0000-0000-0000-0000000000a0' and user_id = tests.get_u
 select results_eq(
   $$ select user_id, email, invited_at, removed_at, removed_by
      from public.lender_room_removed_member where room_id = '1e000000-0000-0000-0000-0000000000a0' $$,
-  $$ values (tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test', '2026-02-01'::timestamptz, now(), tests.get_uid('lr_owner')) $$,
+  $$ values (tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test', '2026-02-01'::timestamptz, now(), tests.get_uid('lr_owner')) $$,
   'removing a person leaves the team one record of who, when they were invited, when they left and who removed them'
 );
 select results_eq(
   $$ select email from public.lender_room_people('1e000000-0000-0000-0000-0000000000a0') where user_id = tests.get_uid('lr_lender_a2') $$,
-  $$ values ('lr_lender_a2@tuckin.test') $$,
+  $$ values ('lr_lender_a2@opendealbook.test') $$,
   'the team still gets the email of a person removed from the room'
 );
 select results_eq(
@@ -1862,7 +1862,7 @@ select results_eq(
 );
 select throws_ok(
   $$ insert into public.lender_room_removed_member (room_id, user_id, email, invited_at)
-     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a'), 'lr_lender_a@tuckin.test', now()) $$,
+     values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a'), 'lr_lender_a@opendealbook.test', now()) $$,
   '42501', null, 'the team cannot write a removal record directly'
 );
 select throws_ok(
@@ -1902,7 +1902,7 @@ select ok(
 
 select tests.login_as('lr_owner');
 insert into public.lender_room_member (room_id, user_id, email)
-values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a2'), 'lr_lender_a2@tuckin.test');
+values ('1e000000-0000-0000-0000-0000000000a0', tests.get_uid('lr_lender_a2'), 'lr_lender_a2@opendealbook.test');
 select is(
   (select count(*)::int from public.lender_room_member
    where room_id = '1e000000-0000-0000-0000-0000000000a0' and user_id = tests.get_uid('lr_lender_a2')),
@@ -1981,8 +1981,8 @@ select tests.login_as_service_role();
 select set_eq(
   $$ select room_id, user_id, email from public.lender_document_recipients('1e000000-0000-0000-0000-00000000d001') $$,
   $$ values
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@tuckin.test'),
-       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@tuckin.test') $$,
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_b'), 'lr_lender_b@opendealbook.test'),
+       ('1e000000-0000-0000-0000-0000000000b0'::uuid, tests.get_uid('lr_lender_ab'), 'lr_lender_ab@opendealbook.test') $$,
   'the members of a closed room are told about nothing'
 );
 select is_empty(
@@ -2131,7 +2131,7 @@ values
 set local session_replication_role = origin;
 
 insert into public.lender_room_member (room_id, user_id, email, invited_by)
-select r, tests.get_uid('ll_lender'), 'll_lender@tuckin.test', tests.get_uid('ll_owner')
+select r, tests.get_uid('ll_lender'), 'll_lender@opendealbook.test', tests.get_uid('ll_owner')
 from unnest(array[
   '1e0000ff-0000-0000-0000-0000000000a1', '1e0000ff-0000-0000-0000-0000000000a2',
   '1e0000ff-0000-0000-0000-0000000000a3', '1e0000ff-0000-0000-0000-0000000000a4'

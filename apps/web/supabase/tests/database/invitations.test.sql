@@ -14,7 +14,7 @@ values (tests.account_id('invite-co'), tests.get_uid('inv_member'), 'member');
 select tests.login_as('inv_owner');
 select public.add_invitations_to_account(
   'invite-co',
-  array[row('invitee@tuckin.test', 'member')]::public.invitation[]
+  array[row('invitee@opendealbook.test', 'member')]::public.invitation[]
 );
 
 -- Members of the account can see pending invitations.
@@ -49,7 +49,7 @@ select isnt_empty(
 -- Accepting the invitation creates the membership and clears the invite.
 select tests.login_as_service_role();
 select public.accept_invitation(
-  (select invite_token from public.invitations where account_id = tests.account_id('invite-co') and email = 'invitee@tuckin.test'),
+  (select invite_token from public.invitations where account_id = tests.account_id('invite-co') and email = 'invitee@opendealbook.test'),
   tests.get_uid('invitee')
 );
 
@@ -60,14 +60,14 @@ select isnt_empty(
 );
 
 select is_empty(
-  $$ select 1 from public.invitations where email = 'invitee@tuckin.test' and account_id = tests.account_id('invite-co') $$,
+  $$ select 1 from public.invitations where email = 'invitee@opendealbook.test' and account_id = tests.account_id('invite-co') $$,
   'the invitation is consumed on accept'
 );
 
 -- Personal accounts cannot carry invitations.
 select throws_ok(
   $$ insert into public.invitations (email, account_id, invited_by, role)
-     values ('x@tuckin.test', tests.get_uid('inv_owner'), tests.get_uid('inv_owner'), 'member') $$,
+     values ('x@opendealbook.test', tests.get_uid('inv_owner'), tests.get_uid('inv_owner'), 'member') $$,
   'personal accounts cannot have invitations'
 );
 

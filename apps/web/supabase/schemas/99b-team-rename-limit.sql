@@ -37,7 +37,7 @@ $$;
 
 grant execute on function public.team_rename_allowed_at(timestamptz) to authenticated, service_role;
 
-create or replace function tuckin.limit_team_renames()
+create or replace function odb.limit_team_renames()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -56,4 +56,4 @@ $$;
 create trigger accounts_rename_limit
   before update on public.accounts
   for each row when (new.name is distinct from old.name and not new.is_personal_account)
-  execute function tuckin.limit_team_renames();
+  execute function odb.limit_team_renames();

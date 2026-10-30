@@ -6,7 +6,7 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const MONOREPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-const TUCKIN_PACKAGES = [
+const ODB_PACKAGES = [
   '@odb/analytics',
   '@odb/auth',
   '@odb/billing',
@@ -44,7 +44,7 @@ const config = {
       '../../packages/features/lender-rooms/node_modules/pdfjs-dist/iccs/*',
     ],
   },
-  transpilePackages: TUCKIN_PACKAGES,
+  transpilePackages: ODB_PACKAGES,
   serverExternalPackages: ['pino', 'pino-pretty', '@pyroscope/nodejs', '@datadog/pprof'],
   images: {
     remotePatterns: [

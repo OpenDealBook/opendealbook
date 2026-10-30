@@ -21,6 +21,6 @@ alter table public.contract_review_todo enable row level security;
 revoke all on public.contract_review_todo from anon, authenticated, service_role;
 grant select, insert, delete on public.contract_review_todo to service_role;
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('contract_review_todo', 'service-role only, links a teammate''s waiting-on-counsel to-do to a version')
 on conflict (table_name) do update set reason = excluded.reason;

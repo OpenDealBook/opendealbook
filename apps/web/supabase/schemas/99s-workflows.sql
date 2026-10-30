@@ -102,7 +102,7 @@ create policy workflow_version_delete on public.workflow_version
     and public.has_permission((select auth.uid()), account_id, 'workflows.manage')
   );
 
-create or replace function tuckin.refuse_published_version_change()
+create or replace function odb.refuse_published_version_change()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -122,10 +122,10 @@ create trigger refuse_published_version_change
       or new.published_by is distinct from old.published_by and new.published_by is not null
     )
   )
-  execute function tuckin.refuse_published_version_change();
+  execute function odb.refuse_published_version_change();
 
 -- When a draft was last saved; publishing does not count as a save.
-create or replace function tuckin.stamp_workflow_version_saved()
+create or replace function odb.stamp_workflow_version_saved()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -137,7 +137,7 @@ $$;
 
 create trigger stamp_workflow_version_saved
   before update of schema_version, graph, layout on public.workflow_version
-  for each row execute function tuckin.stamp_workflow_version_saved();
+  for each row execute function odb.stamp_workflow_version_saved();
 
 -- People never write versions directly. Every draft write goes through
 -- save_workflow_draft, which runs as definer, checks the caller itself, refuses
@@ -145,7 +145,7 @@ create trigger stamp_workflow_version_saved
 -- saves that race converge on the one draft. create_workflow makes a workflow
 -- and its first draft together. Publishing validates the graph, so only the
 -- server publishes.
-create or replace function tuckin.current_workflow_schema_version()
+create or replace function odb.current_workflow_schema_version()
   returns int
   language sql immutable
   set search_path = '' as $$
@@ -185,7 +185,7 @@ begin
   end if;
 
   insert into public.workflow_version as v (account_id, workflow_id, schema_version, graph, layout)
-  values (v_workflow.account_id, p_workflow_id, tuckin.current_workflow_schema_version(), p_graph, p_layout)
+  values (v_workflow.account_id, p_workflow_id, odb.current_workflow_schema_version(), p_graph, p_layout)
   on conflict (workflow_id) where published_at is null
   do update set schema_version = excluded.schema_version, graph = excluded.graph, layout = excluded.layout
   returning v.saved_at into v_saved_at;
@@ -224,7 +224,7 @@ grant execute on function public.create_workflow(uuid, text, jsonb) to authentic
 revoke all on function public.save_workflow_draft(uuid, jsonb, jsonb) from public, anon;
 grant execute on function public.save_workflow_draft(uuid, jsonb, jsonb) to authenticated, service_role;
 
-create or replace function tuckin.refuse_enabling_unpublished_workflow()
+create or replace function odb.refuse_enabling_unpublished_workflow()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -242,11 +242,11 @@ $$;
 create trigger refuse_enabling_unpublished_workflow
   before insert or update of enabled on public.workflow
   for each row when (new.enabled)
-  execute function tuckin.refuse_enabling_unpublished_workflow();
+  execute function odb.refuse_enabling_unpublished_workflow();
 
 -- How far each event log had reached when a workflow was last switched on, so
 -- it starts only on events after that.
-create or replace function tuckin.mark_workflow_enabled()
+create or replace function odb.mark_workflow_enabled()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -262,9 +262,9 @@ $$;
 create trigger mark_workflow_enabled
   before insert or update of enabled on public.workflow
   for each row when (new.enabled)
-  execute function tuckin.mark_workflow_enabled();
+  execute function odb.mark_workflow_enabled();
 
-create or replace function tuckin.require_published_version()
+create or replace function odb.require_published_version()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -321,7 +321,7 @@ create policy workflow_trigger_delete on public.workflow_trigger
 
 create trigger require_published_version
   before insert or update of version_id on public.workflow_trigger
-  for each row execute function tuckin.require_published_version();
+  for each row execute function odb.require_published_version();
 
 -- trigger_ref names what started the run (an event id, a schedule fire time,
 -- a manual request id), so a redelivered start finds the run it already made.
@@ -361,9 +361,9 @@ create policy workflow_run_read on public.workflow_run
 
 create trigger require_published_version
   before insert on public.workflow_run
-  for each row execute function tuckin.require_published_version();
+  for each row execute function odb.require_published_version();
 
-create or replace function tuckin.refuse_run_version_change()
+create or replace function odb.refuse_run_version_change()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -375,10 +375,10 @@ $$;
 create trigger refuse_run_version_change
   before update of version_id on public.workflow_run
   for each row when (old.version_id is distinct from new.version_id)
-  execute function tuckin.refuse_run_version_change();
+  execute function odb.refuse_run_version_change();
 
 -- A failed run may be retried; a succeeded or cancelled one is final.
-create or replace function tuckin.refuse_reopening_finished_run()
+create or replace function odb.refuse_reopening_finished_run()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -390,7 +390,7 @@ $$;
 create trigger refuse_reopening_finished_run
   before update of status on public.workflow_run
   for each row when (old.status in ('succeeded', 'cancelled') and new.status <> old.status)
-  execute function tuckin.refuse_reopening_finished_run();
+  execute function odb.refuse_reopening_finished_run();
 
 -- One row per step execution, keyed by idempotency_key; every retry reuses it and counts attempt on.
 -- wake_at is when a waiting step wakes, and waiting_on says what it waits for:
@@ -421,7 +421,7 @@ create table if not exists public.workflow_step_run (
 
 alter table public.workflow_step_run enable row level security;
 
-create or replace function tuckin.cancel_unfinished_steps()
+create or replace function odb.cancel_unfinished_steps()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -436,7 +436,7 @@ $$;
 create trigger cancel_unfinished_steps
   after update of status on public.workflow_run
   for each row when (new.status = 'cancelled' and old.status <> 'cancelled')
-  execute function tuckin.cancel_unfinished_steps();
+  execute function odb.cancel_unfinished_steps();
 
 -- Starting a step locks its run, so a cancelled run never gets a step back to
 -- running, and each start counts one more attempt on the step's single row. A
@@ -511,9 +511,9 @@ grant select, insert, update, delete on public.workflow_loop_saved_work to servi
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_loop_saved_work
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
-create or replace function tuckin.jsonb_array_slice(items jsonb, skip int, take int)
+create or replace function odb.jsonb_array_slice(items jsonb, skip int, take int)
   returns jsonb
   language sql immutable
   set search_path = '' as $$
@@ -573,14 +573,14 @@ begin
       update public.workflow_loop_saved_work set claimed_by_run_id = v_run.id where id = v_unit.id;
       v_count := jsonb_array_length(v_unit.items);
       v_total := v_total + v_count;
-      v_granted := tuckin.jsonb_array_slice(v_unit.items, 0, v_left);
+      v_granted := odb.jsonb_array_slice(v_unit.items, 0, v_left);
       v_left := v_left - jsonb_array_length(v_granted);
       if jsonb_array_length(v_granted) < v_count then
         v_saved := v_saved + v_count - jsonb_array_length(v_granted);
         insert into public.workflow_loop_saved_work
           (account_id, workflow_id, root_node_id, node_id, items, context, saved_by_run_id)
         values (v_run.account_id, v_run.workflow_id, p_root_node_id, v_unit.node_id,
-          tuckin.jsonb_array_slice(v_unit.items, jsonb_array_length(v_granted), v_count),
+          odb.jsonb_array_slice(v_unit.items, jsonb_array_length(v_granted), v_count),
           v_unit.context, v_run.id);
       end if;
       if jsonb_array_length(v_granted) > 0 then
@@ -599,7 +599,7 @@ begin
 
   v_count := jsonb_array_length(p_items);
   v_total := v_total + v_count;
-  v_granted := tuckin.jsonb_array_slice(p_items, 0, v_left);
+  v_granted := odb.jsonb_array_slice(p_items, 0, v_left);
   v_left := v_left - jsonb_array_length(v_granted);
   v_own := v_own || v_granted;
   if jsonb_array_length(v_granted) < v_count then
@@ -607,7 +607,7 @@ begin
     insert into public.workflow_loop_saved_work
       (account_id, workflow_id, root_node_id, node_id, items, context, saved_by_run_id)
     values (v_run.account_id, v_run.workflow_id, p_root_node_id, v_step.node_id,
-      tuckin.jsonb_array_slice(p_items, jsonb_array_length(v_granted), v_count),
+      odb.jsonb_array_slice(p_items, jsonb_array_length(v_granted), v_count),
       p_context, v_run.id);
   end if;
 
@@ -636,7 +636,7 @@ revoke all on function public.grant_workflow_loop_items(uuid, text, jsonb, jsonb
 grant execute on function public.grant_workflow_loop_items(uuid, text, jsonb, jsonb) to service_role;
 
 -- A newly published version starts with no saved loop work.
-create or replace function tuckin.drop_saved_loop_work()
+create or replace function odb.drop_saved_loop_work()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -650,12 +650,12 @@ $$;
 create trigger drop_saved_loop_work_on_publish
   after insert on public.workflow_version
   for each row when (new.published_at is not null)
-  execute function tuckin.drop_saved_loop_work();
+  execute function odb.drop_saved_loop_work();
 
 create trigger drop_saved_loop_work_on_publish_update
   after update of published_at on public.workflow_version
   for each row when (old.published_at is null and new.published_at is not null)
-  execute function tuckin.drop_saved_loop_work();
+  execute function odb.drop_saved_loop_work();
 
 -- Append-only: nobody is granted update or delete; retention pruning runs as
 -- the table owner.
@@ -864,7 +864,7 @@ $$;
 revoke all on function public.record_deal_delete_cleanup_failed(uuid, uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.record_deal_delete_cleanup_failed(uuid, uuid, jsonb) to service_role;
 
-create or replace function tuckin.record_firm_approved()
+create or replace function odb.record_firm_approved()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -881,7 +881,7 @@ $$;
 
 create trigger record_firm_approved
   after insert on public.firm_verdict_approval
-  for each row execute function tuckin.record_firm_approved();
+  for each row execute function odb.record_firm_approved();
 
 -- The transaction that appended each event. global_seq is handed out before
 -- commit, so a lower one can become visible after a higher one; a relay reads
@@ -928,40 +928,40 @@ grant execute on function public.settled_trigger_events(text, xid8, bigint, text
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_version
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_trigger
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_run
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_step_run
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_step_log
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.workflow_approval
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.paid_lookup
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.paid_lookup
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.account_event
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');

@@ -1,6 +1,6 @@
 # OpenDealbook system guide
 
-OpenDealbook (brand "Open Deal Book", app package `web`, repo directory "Tuckin") is a
+OpenDealbook (brand "Open Deal Book", app package `web`) is a
 multi-tenant acquisition platform for CPA firms and small-business acquirers. It carries a
 buyer from sourcing a target through NDA, letter of intent, due diligence, purchase
 agreement, and post-close integration, with the financial calculators, document pipeline,

@@ -792,95 +792,95 @@ grant execute on function public.seller_room_meetings(uuid) to authenticated, se
 -- above. 'members' refuses only the team's own writes, so sellers keep
 -- answering and uploading while the team is locked.
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('seller_room_activity', 'recorded when people view a room')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.document_share
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_member
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_removed_member
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_folder
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_meeting
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'room_id', 'seller_room');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_question
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_question_route
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'question_id', 'seller_room_question');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'question_id', 'seller_room_question');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_question_message
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'question_id', 'seller_room_question');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'question_id', 'seller_room_question');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_question_file
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'question_id', 'seller_room_question');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'question_id', 'seller_room_question');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_upload
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'deal_id', 'deal');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'deal_id', 'deal');
 
 -- Rows never move to another team. seller_send_limit's guard lives here
 -- because its own file, 38a, runs before 99c defines the guard.
 create trigger refuse_team_move
   before update on public.seller_room_activity
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();
 
 create trigger refuse_team_move
   before update on public.seller_send_limit
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();
 
 create trigger same_team_generated_document_id
   before insert or update on public.document_share
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'generated_document_id', 'generated_document');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'generated_document_id', 'generated_document');
 
 create trigger same_team_room_id
   before insert or update on public.document_share
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'room_id', 'seller_room');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'room_id', 'seller_room');
 
 create trigger same_team_deal_id
   before insert or update on public.seller_room
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_uploads_folder_id
   before insert or update on public.seller_room
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'uploads_folder_id', 'dr_folder');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'uploads_folder_id', 'dr_folder');
 
 create trigger same_team_dr_folder_id
   before insert or update on public.seller_room_folder
-  for each row execute function tuckin.refuse_cross_team_link('room_id', 'seller_room', 'dr_folder_id', 'dr_folder');
+  for each row execute function odb.refuse_cross_team_link('room_id', 'seller_room', 'dr_folder_id', 'dr_folder');
 
 create trigger same_team_meeting_id
   before insert or update on public.seller_room_meeting
-  for each row execute function tuckin.refuse_cross_team_link('room_id', 'seller_room', 'meeting_id', 'meeting');
+  for each row execute function odb.refuse_cross_team_link('room_id', 'seller_room', 'meeting_id', 'meeting');
 
 create trigger same_team_lender_ask_id
   before insert or update on public.seller_room_question_route
-  for each row execute function tuckin.refuse_cross_team_link('question_id', 'seller_room_question', 'lender_ask_id', 'lender_ask');
+  for each row execute function odb.refuse_cross_team_link('question_id', 'seller_room_question', 'lender_ask_id', 'lender_ask');
 
 create trigger same_team_folder_id
   before insert or update on public.seller_upload
-  for each row execute function tuckin.refuse_cross_team_link('deal_id', 'deal', 'folder_id', 'dr_folder');
+  for each row execute function odb.refuse_cross_team_link('deal_id', 'deal', 'folder_id', 'dr_folder');
 
 create policy lender_oversize_file_seller_read on public.lender_oversize_file
   for select to authenticated
@@ -1040,10 +1040,10 @@ alter table public.seller_room_announcement enable row level security;
 revoke all on public.seller_room_announcement from anon, authenticated, service_role;
 grant select, insert on public.seller_room_announcement to service_role;
 
-insert into tuckin.billing_lock_exempt_tables (table_name, reason) values
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
   ('seller_room_announcement', 'service-role only, records what sellers were told')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create trigger refuse_team_move
   before update on public.seller_room_announcement
-  for each row execute function tuckin.refuse_team_move();
+  for each row execute function odb.refuse_team_move();

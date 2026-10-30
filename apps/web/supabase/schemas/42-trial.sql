@@ -4,7 +4,7 @@
 
 alter table public.accounts add column trial_ends_at timestamptz;
 
-create or replace function tuckin.provision_personal_account()
+create or replace function odb.provision_personal_account()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$

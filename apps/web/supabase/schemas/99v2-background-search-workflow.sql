@@ -23,7 +23,7 @@ begin
   end if;
 
   insert into public.workflow_version (account_id, workflow_id, schema_version, graph, layout, published_at, published_by)
-  select p_account_id, v_workflow_id, tuckin.current_workflow_schema_version(),
+  select p_account_id, v_workflow_id, odb.current_workflow_schema_version(),
     '{
       "nodes": [
         {"id": "loi-signed", "type": "event_trigger", "config": {"eventType": "deal.loi_signed"}},
@@ -71,7 +71,7 @@ create trigger accounts_seed_background_search_workflow
 
 -- A team archives a system workflow rather than deleting it; deleting the team
 -- still takes it along.
-create or replace function tuckin.refuse_system_workflow_delete()
+create or replace function odb.refuse_system_workflow_delete()
   returns trigger
   language plpgsql
   set search_path = '' as $$
@@ -86,13 +86,13 @@ $$;
 create trigger refuse_system_workflow_delete
   before delete on public.workflow
   for each row when (old.system_key is not null)
-  execute function tuckin.refuse_system_workflow_delete();
+  execute function odb.refuse_system_workflow_delete();
 
 -- At most one unfinished Background search per deal. Other workflows may run
 -- for a deal any number of times at once, so this is a trigger rather than a
 -- unique index on every run. The same trigger_ref is the same request arriving
 -- again and is left to the run's own unique key.
-create or replace function tuckin.refuse_second_unfinished_search()
+create or replace function odb.refuse_second_unfinished_search()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
@@ -126,4 +126,4 @@ create trigger refuse_second_unfinished_search
     new.status in ('running', 'waiting', 'awaiting_approval', 'paused_locked', 'paused_cap')
     and new.trigger_output ? 'dealId'
   )
-  execute function tuckin.refuse_second_unfinished_search();
+  execute function odb.refuse_second_unfinished_search();

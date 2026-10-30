@@ -34,9 +34,9 @@ select tests.login_as_service_role();
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email)
 values
   (tests.account_id('ag-team'), 'a9000000-0000-0000-0000-0000000000a1', 'buyer',
-    tests.get_uid('ag_buyer_law'), 'ag_buyer_law@tuckin.test'),
+    tests.get_uid('ag_buyer_law'), 'ag_buyer_law@opendealbook.test'),
   (tests.account_id('ag-team'), 'a9000000-0000-0000-0000-0000000000a1', 'seller',
-    tests.get_uid('ag_seller_law'), 'ag_seller_law@tuckin.test');
+    tests.get_uid('ag_seller_law'), 'ag_seller_law@opendealbook.test');
 
 select tests.login_as('ag_owner');
 select lives_ok(

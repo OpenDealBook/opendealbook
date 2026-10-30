@@ -154,7 +154,7 @@ test('an extension generated from a template and signed in Documenso moves exclu
   test.setTimeout(600 * 1000);
 
   const stamp = `${Date.now()}${crypto.randomUUID().slice(0, 6)}`;
-  const seller = { email: `seller-${stamp}@tuckin.test`, name: `Sasha Seller ${stamp}` };
+  const seller = { email: `seller-${stamp}@opendealbook.test`, name: `Sasha Seller ${stamp}` };
 
   const { owner, teamSlug, dealPath, firmName, day } = await dealWithSignedLoi(page, auth, {
     loiSignedDaysAgo: 10,
@@ -322,7 +322,7 @@ test('an extension noted after exclusivity already ended is flagged lapsed for t
   test.setTimeout(180 * 1000);
 
   const stamp = `${Date.now()}${crypto.randomUUID().slice(0, 6)}`;
-  const seller = { email: `seller-${stamp}@tuckin.test`, name: `Rowan Seller ${stamp}` };
+  const seller = { email: `seller-${stamp}@opendealbook.test`, name: `Rowan Seller ${stamp}` };
 
   const { dealPath, day } = await dealWithSignedLoi(page, auth, {
     loiSignedDaysAgo: 60,

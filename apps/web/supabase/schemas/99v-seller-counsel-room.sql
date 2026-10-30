@@ -159,7 +159,7 @@ create trigger seller_counsel_folder_kept
 -- upload them into the seller room.
 -- Seller's counsel keep reading for a year from the day the deal ended,
 -- archived or resolved, whichever came first. Only they learn the date.
-create or replace function tuckin.seller_counsel_window_end(deal_id uuid)
+create or replace function odb.seller_counsel_window_end(deal_id uuid)
   returns timestamptz
   language sql stable
   set search_path = '' as $$
@@ -175,13 +175,13 @@ create or replace function tuckin.seller_counsel_window_end(deal_id uuid)
   where d.id = seller_counsel_window_end.deal_id;
 $$;
 
-revoke all on function tuckin.seller_counsel_window_end(uuid) from public, anon, authenticated, service_role;
+revoke all on function odb.seller_counsel_window_end(uuid) from public, anon, authenticated, service_role;
 
 create or replace function public.seller_counsel_read_until(deal_id uuid)
   returns timestamptz
   language sql stable security definer
   set search_path = '' as $$
-  select tuckin.seller_counsel_window_end(seller_counsel_read_until.deal_id)
+  select odb.seller_counsel_window_end(seller_counsel_read_until.deal_id)
   where exists (
     select 1 from public.deal_counsel c
     where c.deal_id = seller_counsel_read_until.deal_id and c.side = 'seller' and c.user_id = (select auth.uid())
@@ -331,30 +331,30 @@ create policy verification_finding_seller_counsel_kept on public.verification_fi
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_room_comment
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_question_id
   before insert or update on public.seller_room_comment
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'question_id', 'seller_room_question');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'question_id', 'seller_room_question');
 
 create trigger refuse_write_when_team_locked
   before insert or update or delete on public.seller_counsel_folder
-  for each row execute function tuckin.refuse_write_when_team_locked('members', 'account_id');
+  for each row execute function odb.refuse_write_when_team_locked('members', 'account_id');
 
 create trigger same_team_deal_id
   before insert or update on public.seller_counsel_folder
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
 
 create trigger same_team_folder_id
   before insert or update on public.seller_counsel_folder
-  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'folder_id', 'dr_folder');
+  for each row execute function odb.refuse_cross_team_link('account_id', '', 'folder_id', 'dr_folder');
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.seller_room_comment
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
   before insert or update of account_id on public.seller_counsel_folder
-  for each row execute function tuckin.refuse_personal_account_row();
+  for each row execute function odb.refuse_personal_account_row();
 
 alter publication supabase_realtime add table public.seller_room_comment;

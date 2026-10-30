@@ -1,4 +1,4 @@
--- pgTAP test helpers for Tuckin. Defined outside any transaction so they
+-- pgTAP test helpers for OpenDealbook. Defined outside any transaction so they
 -- autocommit and remain available to every *.test.sql file that follows.
 
 create schema if not exists tests;
@@ -20,7 +20,7 @@ begin
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
     'authenticated',
-    coalesce(email, identifier || '@tuckin.test'),
+    coalesce(email, identifier || '@opendealbook.test'),
     jsonb_build_object('test_identifier', identifier, 'name', identifier),
     '{}'::jsonb,
     now(),

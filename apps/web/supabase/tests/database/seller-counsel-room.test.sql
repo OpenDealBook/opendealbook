@@ -25,14 +25,14 @@ select public.ensure_seller_room('5c000000-0000-0000-0000-0000000000d1');
 
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('scr_walt'), 'scr_walt@tuckin.test', 'Walt Brennan'
+select id, tests.get_uid('scr_walt'), 'scr_walt@opendealbook.test', 'Walt Brennan'
 from public.seller_room where deal_id = '5c000000-0000-0000-0000-0000000000d1';
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name, invited_by)
 values
   (tests.account_id('scr-team'), '5c000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('scr_owen'), 'scr_owen@tuckin.test', 'Owen Castillo', tests.get_uid('scr_walt')),
+    tests.get_uid('scr_owen'), 'scr_owen@opendealbook.test', 'Owen Castillo', tests.get_uid('scr_walt')),
   (tests.account_id('scr-team'), '5c000000-0000-0000-0000-0000000000d1', 'buyer',
-    tests.get_uid('scr_buyer_law'), 'scr_buyer_law@tuckin.test', 'Bea Law', tests.get_uid('scr_owner'));
+    tests.get_uid('scr_buyer_law'), 'scr_buyer_law@opendealbook.test', 'Bea Law', tests.get_uid('scr_owner'));
 
 insert into public.dr_folder (id, account_id, deal_id, parent_id, name)
 values
@@ -144,14 +144,14 @@ select is_empty(
 -- have their comments shown, labelled as the seller's counsel.
 reset role;
 insert into public.seller_room_member (room_id, user_id, email, name)
-select id, tests.get_uid('scr_nameless'), 'scr_nameless@tuckin.test', ''
+select id, tests.get_uid('scr_nameless'), 'scr_nameless@opendealbook.test', ''
 from scr_room;
 insert into public.deal_counsel (account_id, deal_id, side, user_id, email, name, invited_by)
 values
   (tests.account_id('scr-team'), '5c000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('scr_olga'), 'scr_olga@tuckin.test', 'Olga Petrova', tests.get_uid('scr_owner')),
+    tests.get_uid('scr_olga'), 'scr_olga@opendealbook.test', 'Olga Petrova', tests.get_uid('scr_owner')),
   (tests.account_id('scr-team'), '5c000000-0000-0000-0000-0000000000d1', 'seller',
-    tests.get_uid('scr_ezra'), 'scr_ezra@tuckin.test', 'Ezra Stone', tests.get_uid('scr_nameless'));
+    tests.get_uid('scr_ezra'), 'scr_ezra@opendealbook.test', 'Ezra Stone', tests.get_uid('scr_nameless'));
 insert into public.seller_room_comment (room_id, account_id, question_id, author_user_id, body)
 select id, tests.account_id('scr-team'), '5c000000-0000-0000-0000-0000000000b1', tests.get_uid('scr_olga'), 'Team-invited view'
 from scr_room;

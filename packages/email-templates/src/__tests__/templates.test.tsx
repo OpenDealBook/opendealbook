@@ -15,47 +15,47 @@ import { renderWelcomeEmail } from '../emails/welcome.email';
 describe('email templates', () => {
   it('renders the invitation email with html, text and subject', async () => {
     const email = await renderInvitationEmail({
-      productName: 'Tuckin',
+      productName: 'OpenDealbook',
       teamName: 'Acme',
       inviter: 'Ada',
       invitedEmail: 'user@example.com',
-      invitationLink: 'https://tuckin.app/invite/abc',
+      invitationLink: 'https://opendealbook.test/invite/abc',
     });
 
     expect(email.subject).toContain('Acme');
-    expect(email.html).toContain('https://tuckin.app/invite/abc');
+    expect(email.html).toContain('https://opendealbook.test/invite/abc');
     expect(email.text).toContain('Acme');
   });
 
   it('renders the verification email including the otp', async () => {
     const email = await renderVerificationEmail({
-      productName: 'Tuckin',
+      productName: 'OpenDealbook',
       otp: '123456',
     });
 
     expect(email.html).toContain('123456');
     expect(email.text).toContain('123456');
-    expect(email.subject).toContain('Tuckin');
+    expect(email.subject).toContain('OpenDealbook');
   });
 
   it('renders the password reset email with the reset link', async () => {
     const email = await renderPasswordResetEmail({
-      productName: 'Tuckin',
-      resetLink: 'https://tuckin.app/reset/xyz',
+      productName: 'OpenDealbook',
+      resetLink: 'https://opendealbook.test/reset/xyz',
     });
 
-    expect(email.html).toContain('https://tuckin.app/reset/xyz');
-    expect(email.subject).toContain('Tuckin');
+    expect(email.html).toContain('https://opendealbook.test/reset/xyz');
+    expect(email.subject).toContain('OpenDealbook');
   });
 
   it('renders the welcome email with the recipient name', async () => {
     const email = await renderWelcomeEmail({
-      productName: 'Tuckin',
+      productName: 'OpenDealbook',
       userName: 'Ada',
     });
 
     expect(email.html).toContain('Ada');
-    expect(email.subject).toContain('Tuckin');
+    expect(email.subject).toContain('OpenDealbook');
   });
 
   it('renders the welcome email with an optional import link', async () => {

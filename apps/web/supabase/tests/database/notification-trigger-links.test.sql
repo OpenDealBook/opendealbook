@@ -10,7 +10,7 @@ select tests.login_as_service_role();
 select public.create_team_account('Link Team', tests.get_uid('link_owner'), 'link-team');
 
 insert into public.invitations (email, account_id, invited_by, role, invite_token, expires_at)
-values ('link_invitee@tuckin.test', tests.account_id('link-team'), tests.get_uid('link_owner'), 'member',
+values ('link_invitee@opendealbook.test', tests.account_id('link-team'), tests.get_uid('link_owner'), 'member',
   'link-invite-token', now() + interval '1 day');
 
 select is(

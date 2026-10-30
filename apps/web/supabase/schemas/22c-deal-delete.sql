@@ -13,7 +13,7 @@ begin
   select d.account_id, d.archived_at, f.name, coalesce(d.code_name, f.name) as outside_name,
     a.name as team_name, coalesce(a.timezone, 'UTC') as timezone,
     case when exists (select 1 from public.deal_counsel c where c.deal_id = d.id and c.side = 'seller')
-      then tuckin.seller_counsel_window_end(d.id) end as read_until
+      then odb.seller_counsel_window_end(d.id) end as read_until
   into v_deal
   from public.deal d
   join public.firm f on f.id = d.firm_id
