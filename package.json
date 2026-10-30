@@ -15,7 +15,15 @@
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "clean": "turbo clean",
-    "db:reset": "pnpm --filter web exec supabase db reset && pnpm --filter @odb/seed run seed:template-fixtures"
+    "db:migrate": "cd apps/web && supabase migration up --db-url \"${SUPABASE_DB_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\"",
+    "db:seed": "q=\"docker exec -i ${SUPABASE_DB_CONTAINER:-opendealbook-db-1} psql -v ON_ERROR_STOP=1 -qtA postgresql://postgres:postgres@127.0.0.1:5432/postgres\"; if [ \"$($q -c \"select shobj_description(oid, 'pg_database') from pg_database where datname = 'postgres'\")\" != odb-seeded ]; then { cat apps/web/supabase/seed.sql; echo \"comment on database postgres is 'odb-seeded';\"; } | $q -1; fi && NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-${SUPABASE_URL:-http://127.0.0.1:54321}} NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0} SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU} pnpm --filter @odb/seed run seed:template-fixtures",
+    "db:test": "cd apps/web && supabase test db --db-url \"${SUPABASE_DB_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\" --network-id \"${COMPOSE_PROJECT_NAME:-opendealbook}_opendealbook\"",
+    "db:types": "supabase gen types typescript --db-url \"${SUPABASE_DB_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\" --schema public > packages/supabase/src/database.types.ts",
+    "worktree:up": "bin/worktree-up.sh",
+    "worktree:start": "bin/worktree-start.sh",
+    "worktree:down": "bin/worktree-down.sh",
+    "worktree:status": "bin/worktree-status.sh",
+    "test:worktree-env": "bin/worktree-env.test.sh"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",

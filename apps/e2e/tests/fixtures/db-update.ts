@@ -6,7 +6,8 @@ const run = promisify(execFile);
 function psql(sql: string) {
   return run('docker', [
     'exec',
-    'supabase_db_tuckin',
+    process.env.SUPABASE_DB_CONTAINER ??
+      `${process.env.COMPOSE_PROJECT_NAME ?? 'opendealbook'}-db-1`,
     'psql',
     '-U',
     'postgres',

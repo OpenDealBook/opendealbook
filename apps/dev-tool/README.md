@@ -12,8 +12,8 @@ pnpm --filter dev-tool dev
 It reads (never prints the values of) `apps/web/.env.local` and reports:
 
 - whether `apps/web/.env.local` exists;
-- the local Supabase endpoints (API, Studio, mailbox, database), read from
-  `apps/web/supabase/config.toml` with sensible fallbacks;
+- the local Supabase endpoints (API, Studio, mailbox, database) of the current
+  worktree;
 - a presence-only checklist of the required environment variables;
 - the list of `@odb/*` workspace packages.
 

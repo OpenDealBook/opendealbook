@@ -1440,7 +1440,7 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
   await test.step('8. Missed date: overdue notice for the owner', async () => {
     await run('docker', [
       'exec',
-      'opendealbook-temporal-1',
+      `${process.env.COMPOSE_PROJECT_NAME ?? 'opendealbook'}-temporal-1`,
       'temporal',
       'schedule',
       'trigger',

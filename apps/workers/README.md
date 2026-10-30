@@ -17,13 +17,11 @@ That brings up the Temporal server on `localhost:7233` and the web UI on
 
 ## Run it
 
-`pnpm run-dev` from the monorepo root starts the Docker services and Supabase
-if they are down, then runs the web app and this worker together. The worker
-reads its Supabase URL and keys from the running local Supabase and sends mail
-to Mailpit from local `opendealbook.local` sender addresses, unless those
-variables are already set. `NOVU_API_KEY` stays unset because each Novu install
-mints its own; set it to turn on notifications. Ctrl+C stops the web app and the
-worker; Docker and Supabase keep running.
+`pnpm run-dev` from the monorepo root runs the web app and this worker together
+against the local Docker stack, with Supabase and Mailpit settings for the
+current worktree unless those variables are already set. `NOVU_API_KEY` stays
+unset because each Novu install mints its own; set it to turn on notifications.
+Ctrl+C stops the web app and the worker; Docker keeps running.
 
 To run the worker alone:
 

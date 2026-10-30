@@ -11,7 +11,8 @@ const run = promisify(execFile);
 async function forgetPersonalZone(email: string) {
   await run('docker', [
     'exec',
-    'supabase_db_tuckin',
+    process.env.SUPABASE_DB_CONTAINER ??
+      `${process.env.COMPOSE_PROJECT_NAME ?? 'opendealbook'}-db-1`,
     'psql',
     '-U',
     'postgres',

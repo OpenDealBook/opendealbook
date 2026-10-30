@@ -308,7 +308,7 @@ insert into storage.objects (bucket_id, name) values
   ('data-room', 'deal/5c000000-0000-0000-0000-0000000000d1/budget.pdf');
 
 select tests.login_as('scr_owner');
-select results_eq(
+select set_eq(
   $$ select payload->>'name' from public.deal_event
      where deal_id = '5c000000-0000-0000-0000-0000000000d1' and aggregate_type = 'dr_document' $$,
   $$ values ('lease.pdf'), ('budget.pdf') $$,

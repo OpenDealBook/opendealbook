@@ -2,49 +2,18 @@ import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const webDir = fileURLToPath(new URL('../apps/web', import.meta.url));
 
 const LOCAL_MAIL_DEFAULTS = {
   SELLER_DELIVERY_FROM_EMAIL: 'updates@opendealbook.local',
   TRIAL_DRIP_FROM_EMAIL: 'trial@opendealbook.local',
   MAILER_PROVIDER: 'nodemailer',
   EMAIL_HOST: '127.0.0.1',
-  EMAIL_PORT: '54325',
+  EMAIL_PORT: process.env.MAILPIT_SMTP_PORT ?? '54325',
   EMAIL_TLS: 'false',
   NOVU_API_URL: 'http://localhost:3006',
 };
 
-function run(command, args, cwd) {
-  execFileSync(command, args, { cwd, stdio: 'inherit' });
-}
-
-function supabaseStatus() {
-  return execFileSync('pnpm', ['exec', 'supabase', 'status', '-o', 'env'], {
-    cwd: webDir,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
-}
-
-function parseEnv(text) {
-  return Object.fromEntries(
-    [...text.matchAll(/^([A-Z_]+)="?(.*?)"?$/gm)].map(([, key, value]) => [
-      key,
-      value,
-    ]),
-  );
-}
-
-function localSupabase() {
-  try {
-    return parseEnv(supabaseStatus());
-  } catch {
-    run('pnpm', ['exec', 'supabase', 'start'], webDir);
-    return parseEnv(supabaseStatus());
-  }
-}
-
-run(
+execFileSync(
   'docker',
   [
     'compose',
@@ -57,15 +26,38 @@ run(
     'up',
     '-d',
   ],
-  root,
+  { cwd: root, stdio: 'inherit' },
 );
 
-const supabase = localSupabase();
+execFileSync(
+  'docker',
+  [
+    'compose',
+    '--profile',
+    'core',
+    'up',
+    '-d',
+    '--wait',
+    '--wait-timeout',
+    '120',
+    'db',
+    'auth',
+    'rest',
+    'storage',
+    'kong',
+    'mailpit',
+  ],
+  { cwd: root, stdio: 'inherit' },
+);
+
+execFileSync('pnpm', ['db:migrate'], { cwd: root, stdio: 'inherit' });
 
 const workersEnv = {
-  NEXT_PUBLIC_SUPABASE_URL: supabase.API_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: supabase.ANON_KEY,
-  SUPABASE_SERVICE_ROLE_KEY: supabase.SERVICE_ROLE_KEY,
+  NEXT_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
+  SUPABASE_SERVICE_ROLE_KEY:
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU',
   ...LOCAL_MAIL_DEFAULTS,
   ...process.env,
 };

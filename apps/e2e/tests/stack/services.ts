@@ -27,6 +27,8 @@ function responds(
 
 const ok = async (response: Response) => response.ok;
 
+const TEMPORAL_PORT = Number(process.env.TEMPORAL_PORT ?? 7233);
+
 export function listens(port: number): Probe {
   return () =>
     new Promise((resolve) => {
@@ -45,7 +47,7 @@ export function listens(port: number): Probe {
 }
 
 const required: [name: string, probe: Probe][] = [
-  ['Supabase API on 54321', responds(`${SUPABASE_URL}/auth/v1/health`, ok)],
+  [`Supabase API at ${SUPABASE_URL}`, responds(`${SUPABASE_URL}/auth/v1/health`, ok)],
   [
     'Supabase email confirmations (apps/web/supabase/config.toml enable_confirmations = true, applied by a Supabase restart)',
     responds(`${SUPABASE_URL}/auth/v1/settings`, async (response) => {
@@ -53,12 +55,12 @@ const required: [name: string, probe: Probe][] = [
       return settings.mailer_autoconfirm === false;
     }),
   ],
-  ['Mailpit API on 54324', responds(`${MAILPIT_URL}/api/v1/info`, ok)],
+  [`Mailpit API at ${MAILPIT_URL}`, responds(`${MAILPIT_URL}/api/v1/info`, ok)],
   [`Mailpit SMTP on ${MAILPIT_SMTP_PORT}`, listens(MAILPIT_SMTP_PORT)],
-  ['Gotenberg on 3009', responds(`${GOTENBERG_URL}/health`, ok)],
-  ['Documenso on 3005', responds(DOCUMENSO_URL, async () => true)],
+  [`Gotenberg at ${GOTENBERG_URL}`, responds(`${GOTENBERG_URL}/health`, ok)],
+  [`Documenso at ${DOCUMENSO_URL}`, responds(DOCUMENSO_URL, async () => true)],
   ['Novu API on 3006', responds(`${NOVU_API_URL}/v1/health-check`, ok)],
-  ['Temporal on 7233', listens(7233)],
+  [`Temporal on ${TEMPORAL_PORT}`, listens(TEMPORAL_PORT)],
 ];
 
 export const workersArePolling = responds(

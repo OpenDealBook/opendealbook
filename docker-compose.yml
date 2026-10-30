@@ -1,12 +1,7 @@
 # OpenDealbook local-development infrastructure.
 #
-# This file provisions the self-hosted services the platform depends on in local dev.
-# It does NOT run Supabase (Postgres/Auth/Storage): Supabase is managed by the Supabase
-# CLI. Start it separately from apps/web with `supabase start`.
-#
-# Object storage is Supabase Storage, part of the Supabase CLI stack; there is no MinIO
-# here. It is S3-compatible and served from the local Supabase API on port 54321 under
-# /storage/v1 (e.g. http://localhost:54321/storage/v1). App wiring points there.
+# The Supabase demo JWT secret and keys match the Supabase CLI defaults, so tests and
+# tooling written against `supabase start` keep working.
 #
 # Production runs on Helm/Talos K8s (k8-infra repo); these compose services are the local
 # equivalents only. None are wired into the app yet; this is infrastructure ahead of app
@@ -22,28 +17,22 @@
 # The observability profile is a full Grafana LGTM + profiling stack fed by the OTel
 # Collector: Logs=Loki, Traces=Tempo, Metrics=Prometheus, Profiles=Pyroscope, with
 # blackbox-exporter for uptime probes and Grafana for dashboards + alerting. Apps send
-# OTLP to the collector and push profiles to Pyroscope (localhost:4040). The collector
-# publishes OTLP HTTP on localhost:14318 and gRPC on localhost:14317, Prometheus is on
-# localhost:19090 and Loki on localhost:13100. These are off the upstream defaults so
-# the stack can coexist with another local LGTM stack. Every observability host port is
-# overridable through an env var named on its service (e.g. PROMETHEUS_PORT).
-# Grafana is at http://localhost:3001 with datasources, dashboards, and alert rules
-# provisioned from infra/grafana. Bring it up with:
+# OTLP to the collector and push profiles to Pyroscope. Host ports come from the env var
+# named on each service; the slot 0 defaults sit off the upstream defaults so the stack
+# can coexist with another local LGTM stack. Grafana's datasources, dashboards, and alert
+# rules are provisioned from infra/grafana. Bring it up with:
 #   docker compose --profile observability up -d
 # Nothing starts without a profile, so `docker compose up` on its own is a no-op; the
 # heavy services are all profile-gated to keep a dev machine light.
 #
-# --- Coexisting with the Supabase CLI ------------------------------------------------
-# `supabase start` runs its own Docker stack on host ports: API 54321, Postgres 54322,
-# Studio 54323, Inbucket 54324. These live on Supabase's own docker network, not on the
-# `opendealbook` network below. The two reach each other over the host:
-#   - From a compose service TO Supabase: use host.docker.internal:54321 (API) or
-#     host.docker.internal:54322 (Postgres). Each service that needs this is given an
-#     `extra_hosts` mapping so host.docker.internal resolves on Linux as well as macOS.
-#   - From Supabase Edge Functions / the app TO a compose service: use the published
-#     localhost ports listed on each service below.
+# --- Running several copies (git worktrees) ------------------------------------------
+# Every host port comes from an env var whose default is the slot 0 port, so each
+# worktree runs its own copy of every profile side by side, under its own
+# COMPOSE_PROJECT_NAME and port slot. Volumes are named per project; a fresh Supabase DB
+# volume initializes from infra/supabase/schema.sql, then migrations and seed are
+# applied on top.
 # The dedicated Postgres instances here (temporal/nango/documenso) are internal to this
-# network and are intentionally not published, so they never clash with 54322.
+# network and are intentionally not published.
 
 name: opendealbook
 
@@ -74,8 +63,308 @@ volumes:
   tempo_data:
   pyroscope_data:
   docling_cache:
+  supabase_db_data:
+  supabase_storage_data:
+
+x-supabase-keys:
+  jwt-secret: &jwt-secret super-secret-jwt-token-with-at-least-32-characters-long
+  anon-key: &anon-key eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+  service-key: &service-key eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+  s3-access-key-id: &s3-access-key-id 625729a08b95bf1b7ff351a663f3a23c
+  s3-access-key-secret: &s3-access-key-secret 850181e4652dd023b7a98c58ae0d2d34bd487ee0cc3254aed6eda37307425907
 
 services:
+  # --- Supabase -----------------------------------------------------------------------
+  # Mirrors the Supabase CLI's local stack (images and settings) minus edge runtime,
+  # analytics, imgproxy and the pooler.
+  db:
+    image: public.ecr.aws/supabase/postgres:17.6.1.158
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    environment:
+      POSTGRES_PASSWORD: postgres
+      JWT_SECRET: *jwt-secret
+      JWT_EXP: 3600
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+      - ./infra/supabase/schema.sql:/etc/postgresql.schema.sql:ro
+    ports:
+      - "${SUPABASE_DB_PORT:-54322}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1 -p 5432"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  auth:
+    image: public.ecr.aws/supabase/gotrue:v2.195.0
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      API_EXTERNAL_URL: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgresql://supabase_auth_admin:postgres@db:5432/postgres
+      GOTRUE_DB_MIGRATIONS_PATH: /usr/local/etc/auth/migrations
+      GOTRUE_SITE_URL: http://localhost:${APP_PORT:-3000}
+      GOTRUE_URI_ALLOW_LIST: http://localhost:${APP_PORT:-3000},http://localhost:${APP_PORT:-3000}/auth/callback,http://localhost:${APP_PORT:-3000}/update-password
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_SECRET: *jwt-secret
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_ISSUER: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_VALID_METHODS: HS256,RS256,ES256
+      GOTRUE_JWT_VALIDMETHODS: HS256,RS256,ES256
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_EXTERNAL_APPLE_ENABLED: "false"
+      GOTRUE_EXTERNAL_APPLE_EMAIL_OPTIONAL: "false"
+      GOTRUE_EXTERNAL_APPLE_SKIP_NONCE_CHECK: "false"
+      GOTRUE_EXTERNAL_APPLE_REDIRECT_URI: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1/callback
+      GOTRUE_EXTERNAL_WEB3_SOLANA_ENABLED: "false"
+      GOTRUE_EXTERNAL_WEB3_ETHEREUM_ENABLED: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+      GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: "true"
+      GOTRUE_MAILER_OTP_LENGTH: 6
+      GOTRUE_MAILER_OTP_EXP: 3600
+      GOTRUE_MAILER_TEMPLATE_RELOADING_ENABLED: "true"
+      GOTRUE_MAILER_URLPATHS_INVITE: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: http://127.0.0.1:${SUPABASE_API_PORT:-54321}/auth/v1/verify
+      GOTRUE_SMTP_HOST: mailpit
+      GOTRUE_SMTP_PORT: 1025
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@email.com
+      GOTRUE_SMTP_SENDER_NAME: Admin
+      GOTRUE_SMTP_MAX_FREQUENCY: 1s
+      GOTRUE_SMS_AUTOCONFIRM: "true"
+      GOTRUE_SMS_MAX_FREQUENCY: 5s
+      GOTRUE_SMS_OTP_EXP: 6000
+      GOTRUE_SMS_OTP_LENGTH: 6
+      GOTRUE_SMS_TEMPLATE: "Your code is {{ .Code }}"
+      GOTRUE_PASSWORD_MIN_LENGTH: 6
+      GOTRUE_MFA_MAX_ENROLLED_FACTORS: 10
+      GOTRUE_MFA_TOTP_ENROLL_ENABLED: "true"
+      GOTRUE_MFA_TOTP_VERIFY_ENABLED: "true"
+      GOTRUE_MFA_PHONE_ENROLL_ENABLED: "false"
+      GOTRUE_MFA_PHONE_VERIFY_ENABLED: "false"
+      GOTRUE_MFA_WEB_AUTHN_ENROLL_ENABLED: "false"
+      GOTRUE_MFA_WEB_AUTHN_VERIFY_ENABLED: "false"
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: 360000
+      GOTRUE_RATE_LIMIT_SMS_SENT: 30
+      GOTRUE_RATE_LIMIT_ANONYMOUS_USERS: 30
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: 150
+      GOTRUE_RATE_LIMIT_VERIFY: 30
+      GOTRUE_RATE_LIMIT_OTP: 30
+      GOTRUE_RATE_LIMIT_WEB3: 30
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: 10
+      GOTRUE_SECURITY_MANUAL_LINKING_ENABLED: "false"
+      GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_REAUTHENTICATION: "false"
+      GOTRUE_SECURITY_CAPTCHA_ENABLED: "false"
+    command: ["auth"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:9999/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  rest:
+    image: public.ecr.aws/supabase/postgrest:v16.1
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgresql://authenticator:postgres@db:5432/postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_EXTRA_SEARCH_PATH: public,extensions
+      PGRST_DB_MAX_ROWS: 1000
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: *jwt-secret
+      PGRST_ADMIN_SERVER_PORT: 3001
+
+  storage:
+    image: public.ecr.aws/supabase/storage-api:v1.69.0
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://supabase_storage_admin:postgres@db:5432/postgres
+      ANON_KEY: *anon-key
+      SERVICE_KEY: *service-key
+      AUTH_JWT_SECRET: *jwt-secret
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /mnt
+      FILE_SIZE_LIMIT: 314572800
+      UPLOAD_FILE_SIZE_LIMIT: 52428800000
+      UPLOAD_FILE_SIZE_LIMIT_STANDARD: 5242880000
+      SIGNED_UPLOAD_URL_EXPIRATION_TIME: 7200
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+      TENANT_ID: stub
+      GLOBAL_S3_BUCKET: stub
+      STORAGE_S3_REGION: local
+      TUS_URL_PATH: /storage/v1/upload/resumable
+      S3_PROTOCOL_ENABLED: "true"
+      S3_PROTOCOL_PREFIX: /storage/v1
+      S3_PROTOCOL_ACCESS_KEY_ID: *s3-access-key-id
+      S3_PROTOCOL_ACCESS_KEY_SECRET: *s3-access-key-secret
+      VECTOR_ENABLED: "true"
+      VECTOR_BUCKET_PROVIDER: pgvector
+      VECTOR_STORE_MIGRATIONS_ENABLED: "true"
+      VECTOR_DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
+    volumes:
+      - supabase_storage_data:/mnt
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:5000/status"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  realtime:
+    image: public.ecr.aws/supabase/realtime:v2.124.4
+    profiles: [core]
+    restart: unless-stopped
+    networks:
+      opendealbook:
+        # Realtime takes its tenant from the Host header; Kong routes to this alias.
+        aliases: [realtime-dev]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: postgres
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: SET search_path TO _realtime
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: *jwt-secret
+      METRICS_JWT_SECRET: *jwt-secret
+      SECRET_KEY_BASE: EAx3IQ/wRG1v47ZD4NE4/9RzBI8Jmil3x0yhcW4V2NHBP6c2iPIzwjofi2Ep4HIG
+      APP_NAME: realtime
+      ERL_AFLAGS: -proto_dist inet_tcp
+      RUN_JANITOR: "true"
+      SEED_SELF_HOST: "true"
+      MAX_HEADER_LENGTH: 4096
+      DNS_NODES: "''"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSfL --head -o /dev/null -H Host:realtime-dev http://127.0.0.1:4000/api/ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  kong:
+    image: public.ecr.aws/supabase/kong:2.8.1
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_NGINX_WORKER_PROCESSES: 1
+      KONG_PORT_MAPS: ${SUPABASE_API_PORT:-54321}:8000
+    volumes:
+      - ./infra/supabase/kong.yml:/home/kong/kong.yml:ro
+    ports:
+      - "${SUPABASE_API_PORT:-54321}:8000"
+
+  studio:
+    image: public.ecr.aws/supabase/studio:2026.08.10-sha-5b68af1
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    environment:
+      HOSTNAME: 0.0.0.0
+      STUDIO_PG_META_URL: http://pg-meta:8080
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: http://127.0.0.1:${SUPABASE_API_PORT:-54321}
+      SUPABASE_ANON_KEY: *anon-key
+      SUPABASE_SERVICE_KEY: *service-key
+      SUPABASE_PUBLISHABLE_KEY: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
+      SUPABASE_SECRET_KEY: sb_secret_N7UND0UgjKTVK-Uodkm0Hg_xSvEMPvz
+      AUTH_JWT_SECRET: *jwt-secret
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER_READ_WRITE: postgres
+      PGRST_DB_SCHEMAS: public,storage,graphql_public
+      PGRST_DB_EXTRA_SEARCH_PATH: public,extensions
+      PGRST_DB_MAX_ROWS: 1000
+      S3_PROTOCOL_ACCESS_KEY_ID: *s3-access-key-id
+      S3_PROTOCOL_ACCESS_KEY_SECRET: *s3-access-key-secret
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+      NEXT_PUBLIC_ENABLE_LOGS: "false"
+    ports:
+      - "${SUPABASE_STUDIO_PORT:-54323}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node --eval=\"fetch('http://127.0.0.1:3000/api/platform/profile').then((r) => {if (!r.ok) throw new Error(r.status)})\""]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  pg-meta:
+    image: public.ecr.aws/supabase/postgres-meta:v0.97.0
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: postgres
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "node --eval=\"fetch('http://127.0.0.1:8080/health').then((r) => {if (!r.ok) throw new Error(r.status)})\""]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  mailpit:
+    image: public.ecr.aws/supabase/mailpit:v1.30.2
+    profiles: [core]
+    restart: unless-stopped
+    networks: [opendealbook]
+    environment:
+      MP_SMTP_DISABLE_RDNS: "true"
+    ports:
+      - "${MAILPIT_UI_PORT:-54324}:8025"
+      - "${MAILPIT_SMTP_PORT:-54325}:1025"
+    healthcheck:
+      test: ["CMD-SHELL", "/mailpit readyz"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+      start_period: 10s
+
   # --- Temporal (workflows) -----------------------------------------------------------
   temporal-postgres:
     <<: *postgres
@@ -102,7 +391,7 @@ services:
       POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal}
       POSTGRES_SEEDS: temporal-postgres
     ports:
-      - "7233:7233"
+      - "${TEMPORAL_PORT:-7233}:7233"
     healthcheck:
       test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
       interval: 15s
@@ -120,9 +409,9 @@ services:
         condition: service_healthy
     environment:
       TEMPORAL_ADDRESS: temporal:7233
-      TEMPORAL_CORS_ORIGINS: ${TEMPORAL_UI_CORS_ORIGINS:-http://localhost:3000}
+      TEMPORAL_CORS_ORIGINS: ${TEMPORAL_UI_CORS_ORIGINS:-http://localhost:${APP_PORT:-3000}}
     ports:
-      - "8233:8080"
+      - "${TEMPORAL_UI_PORT:-8233}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:8080 || exit 1"]
       interval: 15s
@@ -172,7 +461,7 @@ services:
       NANGO_DB_PORT: 5432
       NANGO_DB_NAME: ${NANGO_DB_NAME:-nango}
       NANGO_DB_SSL: "false"
-      NANGO_SERVER_URL: ${NANGO_SERVER_URL:-http://localhost:3003}
+      NANGO_SERVER_URL: ${NANGO_SERVER_URL:-http://localhost:${NANGO_PORT:-3003}}
       NANGO_DASHBOARD_USERNAME: ${NANGO_DASHBOARD_USERNAME:-admin}
       NANGO_DASHBOARD_PASSWORD: ${NANGO_DASHBOARD_PASSWORD:-admin}
       REDIS_URL: redis://nango-redis:6379
@@ -180,7 +469,7 @@ services:
       TELEMETRY: "false"
       FLAG_SERVE_CONNECT_UI: "true"
     ports:
-      - "3003:3003"
+      - "${NANGO_PORT:-3003}:3003"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3003/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 15s
@@ -195,7 +484,7 @@ services:
     restart: unless-stopped
     networks: [opendealbook]
     ports:
-      - "3009:3000"
+      - "${GOTENBERG_PORT:-3009}:3000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 15s
@@ -224,8 +513,8 @@ services:
         condition: service_healthy
     environment:
       PORT: 3000
-      NEXTAUTH_URL: ${DOCUMENSO_URL:-http://localhost:3005}
-      NEXT_PUBLIC_WEBAPP_URL: ${DOCUMENSO_URL:-http://localhost:3005}
+      NEXTAUTH_URL: ${DOCUMENSO_URL:-http://localhost:${DOCUMENSO_PORT:-3005}}
+      NEXT_PUBLIC_WEBAPP_URL: ${DOCUMENSO_URL:-http://localhost:${DOCUMENSO_PORT:-3005}}
       # Documenso runs its background jobs (emails, sealing, webhooks) by calling itself. Inside
       # the container it listens on PORT, not on the published host port in DOCUMENSO_URL.
       NEXT_PRIVATE_INTERNAL_WEBAPP_URL: http://localhost:3000
@@ -242,18 +531,18 @@ services:
       NEXT_PRIVATE_SIGNING_LOCAL_FILE_PATH: /opt/documenso/cert.p12
       NEXT_PRIVATE_SIGNING_PASSPHRASE: ${DOCUMENSO_SIGNING_PASSPHRASE:-changeit}
       NEXT_PRIVATE_SMTP_TRANSPORT: ${DOCUMENSO_SMTP_TRANSPORT:-smtp-auth}
-      NEXT_PRIVATE_SMTP_HOST: ${DOCUMENSO_SMTP_HOST:-host.docker.internal}
-      NEXT_PRIVATE_SMTP_PORT: ${DOCUMENSO_SMTP_PORT:-54325}
+      NEXT_PRIVATE_SMTP_HOST: ${DOCUMENSO_SMTP_HOST:-mailpit}
+      NEXT_PRIVATE_SMTP_PORT: ${DOCUMENSO_SMTP_PORT:-1025}
       NEXT_PRIVATE_SMTP_USERNAME: ${DOCUMENSO_SMTP_USERNAME:-}
       NEXT_PRIVATE_SMTP_PASSWORD: ${DOCUMENSO_SMTP_PASSWORD:-}
       NEXT_PRIVATE_SMTP_FROM_NAME: ${DOCUMENSO_SMTP_FROM_NAME:-OpenDealbook Local}
       NEXT_PRIVATE_SMTP_FROM_ADDRESS: ${DOCUMENSO_SMTP_FROM_ADDRESS:-noreply@opendealbook.local}
     ports:
-      - "3005:3000"
+      - "${DOCUMENSO_PORT:-3005}:3000"
     # cert.p12 must exist before `up`; see infra/documenso/README.md to generate it.
     volumes:
       - ./infra/documenso:/opt/documenso
-    # Reach a host-side SMTP catcher (e.g. Supabase Inbucket) via host.docker.internal.
+    # Webhooks reach the app on the host via host.docker.internal.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -402,7 +691,7 @@ services:
     volumes:
       - docling_cache:/models
     ports:
-      - "5001:5001"
+      - "${DOCLING_PORT:-5001}:5001"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 20s
@@ -414,11 +703,10 @@ services:
   # Self-hosted Novu CE: api/worker/ws/dashboard plus an internal MongoDB (primary store)
   # and a dedicated novu-redis (BullMQ queues + cache; kept separate from nango-redis so
   # Novu's heavy queue traffic never collides with Nango). Mongo and Redis are internal
-  # only, like the temporal/nango/documenso stores. Published host ports (api 3006, ws
-  # 3007, dashboard 3008) avoid every other published port here.
+  # only, like the temporal/nango/documenso stores.
   # In-app notifications stay on the Supabase realtime path; Novu owns email and future
   # channels. Email transport is configured as a Novu integration in the dashboard; point
-  # it at Supabase Inbucket (host.docker.internal:54325) for catchable local sends.
+  # it at mailpit (mailpit:1025) for catchable local sends.
   novu-mongo:
     image: mongo:8.0.17
     profiles: [notifications]
@@ -484,7 +772,7 @@ services:
       # the lender workflows sync from, and run against, http://host.docker.internal:<port>/api/novu.
       NOVU_SAFE_OUTBOUND_ALLOW: ${NOVU_SAFE_OUTBOUND_ALLOW:-host.docker.internal}
     ports:
-      - "3006:3000"
+      - "${NOVU_API_PORT:-3006}:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -548,7 +836,7 @@ services:
       REDIS_PORT: "6379"
       JWT_SECRET: ${NOVU_JWT_SECRET:-local-dev-novu-jwt-secret}
     ports:
-      - "3007:3002"
+      - "${NOVU_WS_PORT:-3007}:3002"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:3002/v1/health-check || exit 1"]
       interval: 15s
@@ -570,7 +858,7 @@ services:
       VITE_API_HOSTNAME: ${NOVU_API_ROOT_URL:-http://localhost:3006}
       VITE_WEBSOCKET_HOSTNAME: ${NOVU_WS_URL:-http://localhost:3007}
     ports:
-      - "3008:4000"
+      - "${NOVU_DASHBOARD_PORT:-3008}:4000"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:4000 || exit 1"]
       interval: 15s

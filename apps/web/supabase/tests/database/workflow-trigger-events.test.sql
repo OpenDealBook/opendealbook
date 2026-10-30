@@ -123,9 +123,9 @@ select is(
   'an event of a transaction still running is not relayed yet'
 );
 
-select ok(
-  (select bool_and(e.xid::xid8 < pg_snapshot_xmin(pg_current_snapshot()))
-   from public.settled_trigger_events('deal', '0'::xid8, 0, array['deal.created'], 50) e),
+select is_empty(
+  $$ select 1 from public.settled_trigger_events('deal', '0'::xid8, 0, array['deal.created'], 100000) e
+     where e.xid::xid8 >= pg_snapshot_xmin(pg_current_snapshot()) $$,
   'only events of finished transactions are relayed'
 );
 

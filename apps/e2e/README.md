@@ -9,20 +9,22 @@ The global setup (`tests/global-setup.ts`) checks every service first. If any is
 missing, the run fails and lists what to start. It never starts, stops, or
 resets a service.
 
-- Supabase from `apps/web` (`pnpm supabase start`), with `enable_confirmations = true`
-  applied. The setup reads `/auth/v1/settings` to confirm sign-up waits for email.
-- Mailpit, the Supabase mail catcher: API on 54324, SMTP on 54325.
+- Supabase from the compose `core` profile (`pnpm worktree:start`), with email
+  confirmations on. The setup reads `/auth/v1/settings` to confirm sign-up waits for email.
+- Mailpit, the Supabase mail catcher: API on 54324, SMTP on 54325 (slot 0).
 - The compose `core` and `notifications` profiles: Gotenberg (3009), Documenso
   (3005), Novu (3006), Temporal (7233, UI on 8233).
 - Temporal workers polling the `opendealbook` task queue.
 - `infra/documenso/cert.p12`, which Documenso needs to seal signed documents; signing tests never complete without it. Generate it with the recipe in `infra/documenso/README.md`.
 
-Stripe, Nango, and the LLM are local stand-ins the global setup starts:
+Stripe, Nango, Gmail, and the LLM are local stand-ins the global setup starts,
+in this order on consecutive ports starting at `E2E_STAND_IN_PORT` (4510 on main):
 
-- LLM on 4510, an OpenAI-compatible `/v1/chat/completions`.
-- Nango on 4511: `/connect/sessions` and `/proxy/*`.
-- Stripe on 4512: checkout sessions, portal sessions, subscriptions, and signed
+- LLM: an OpenAI-compatible `/v1/chat/completions`.
+- Nango: `/connect/sessions` and `/proxy/*`.
+- Stripe: checkout sessions, portal sessions, subscriptions, and signed
   webhooks sent to `/api/billing/webhook`.
+- Gmail: `/gmail/v1/users/me/messages/send` and `/gmail/v1/users/me/threads/*`.
 
 After the checks, the global setup:
 

@@ -5,11 +5,10 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const webDir = fileURLToPath(new URL('../apps/web', import.meta.url));
 const WORKERS_ENV_FILE = 'apps/e2e/.e2e-workers.env';
-const WEB_PORT = 3000;
+const WEB_PORT = Number(process.env.APP_PORT ?? 3000);
 const TASK_QUEUE_URL =
-  'http://localhost:8233/api/v1/namespaces/default/task-queues/opendealbook?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW';
+  `http://localhost:${process.env.TEMPORAL_UI_PORT ?? 8233}/api/v1/namespaces/default/task-queues/opendealbook?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW`;
 const WORKER_POLL_DEADLINE_MS = 120_000;
 const MATCH_NO_TESTS = '^$';
 
@@ -69,18 +68,6 @@ function playwright(args) {
   );
 }
 
-function supabaseIsRunning() {
-  try {
-    execFileSync('pnpm', ['exec', 'supabase', 'status'], {
-      cwd: webDir,
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function freshPollerSince(startedAt) {
   const response = await fetch(TASK_QUEUE_URL);
   const queue = await response.json();
@@ -112,9 +99,28 @@ run(
   root,
 );
 
-if (!supabaseIsRunning()) {
-  run('pnpm', ['exec', 'supabase', 'start'], webDir);
-}
+run(
+  'docker',
+  [
+    'compose',
+    '--profile',
+    'core',
+    'up',
+    '-d',
+    '--wait',
+    '--wait-timeout',
+    '120',
+    'db',
+    'auth',
+    'rest',
+    'storage',
+    'kong',
+    'mailpit',
+  ],
+  root,
+);
+
+run('pnpm', ['db:migrate'], root);
 
 if (!existsSync(`${root}${WORKERS_ENV_FILE}`)) {
   console.log(

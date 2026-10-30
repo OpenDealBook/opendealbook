@@ -287,7 +287,7 @@ select lives_ok(
   $$ select public.withdraw_deal_update('d0000000-0000-0000-0000-0000000000a3') $$,
   'the author withdraws a pending update'
 );
-select results_eq(
+select bag_eq(
   $$ select status::text from public.deal_update
      where id in ('d0000000-0000-0000-0000-0000000000a2', 'd0000000-0000-0000-0000-0000000000a3') $$,
   $$ values ('withdrawn'), ('withdrawn') $$,

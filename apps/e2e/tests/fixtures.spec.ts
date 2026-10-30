@@ -9,7 +9,7 @@ import {
   waitForMessage,
 } from './fixtures';
 import { settle } from './fixtures/cleanup';
-import { MAILPIT_URL, SUPABASE_URL, serviceHeaders } from './fixtures/stack';
+import { MAILPIT_URL, STAND_INS, SUPABASE_URL, serviceHeaders } from './fixtures/stack';
 
 async function sendThroughMailpit(message: {
   to: string;
@@ -207,7 +207,7 @@ test.describe('stand-ins', () => {
     });
 
     const response = await fetch(
-      'http://localhost:4511/proxy/calendar/v3/events?maxResults=5',
+      `${STAND_INS.nango}/proxy/calendar/v3/events?maxResults=5`,
       {
         headers: {
           'Connection-Id': connectionId,
@@ -231,7 +231,7 @@ test.describe('stand-ins', () => {
 
   test('the Stripe stand-in serves a checkout session the app created', async () => {
     const accountId = `acct-${Date.now()}`;
-    const created = await fetch('http://localhost:4512/v1/checkout/sessions', {
+    const created = await fetch(`${STAND_INS.stripe}/v1/checkout/sessions`, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({

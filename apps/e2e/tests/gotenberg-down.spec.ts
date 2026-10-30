@@ -10,7 +10,7 @@ import {
 } from './fixtures';
 import { createDeal } from './fixtures/deal';
 
-const GOTENBERG = 'opendealbook-gotenberg-1';
+const GOTENBERG = `${process.env.COMPOSE_PROJECT_NAME ?? 'opendealbook'}-gotenberg-1`;
 
 test.describe.configure({ mode: 'serial' });
 

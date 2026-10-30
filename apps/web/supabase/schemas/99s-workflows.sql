@@ -82,7 +82,7 @@ create table if not exists public.workflow_version (
   created_at timestamptz not null default now(),
   layout jsonb not null default '{}'::jsonb,
   saved_at timestamptz not null default now(),
-  foreign key (workflow_id, account_id) references public.workflow (id, account_id) on delete cascade,
+  foreign key (workflow_id, account_id) references public.workflow (id, account_id) on delete cascade deferrable initially deferred,
   check (published_at is not null or published_by is null),
   unique (id, workflow_id)
 );

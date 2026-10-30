@@ -94,7 +94,7 @@ create temporary table reloaded as
   select public.seed_sample_deals(tests.account_id('reload-team'), tests.get_uid('sd_owner'), false) as result;
 
 select isnt((select result from reloaded), null, 'reloading seeds a fresh set');
-select results_eq(
+select bag_eq(
   $$ select jsonb_array_elements_text(result -> 'removed_paths') from reloaded $$,
   $$ select storage_path from first_files $$,
   'a reload hands back the old example files to remove from storage'

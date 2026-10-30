@@ -7,7 +7,7 @@ import type { Database } from '@odb/supabase';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-const SUPABASE_URL = 'http://127.0.0.1:54321';
+const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 
 const ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
