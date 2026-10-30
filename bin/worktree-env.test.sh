@@ -39,7 +39,7 @@ EXPECTED_NAMES="$(printf '%s\n' \
   APP_PORT SUPABASE_API_PORT SUPABASE_DB_PORT SUPABASE_STUDIO_PORT MAILPIT_UI_PORT MAILPIT_SMTP_PORT \
   TEMPORAL_PORT TEMPORAL_UI_PORT NANGO_PORT DOCUMENSO_PORT GOTENBERG_PORT E2E_STAND_IN_PORT \
   NOVU_API_PORT NOVU_WS_PORT NOVU_DASHBOARD_PORT DOCLING_PORT PROMETHEUS_PORT GRAFANA_PORT LOKI_PORT \
-  TEMPO_PORT PYROSCOPE_PORT OTEL_COLLECTOR_GRPC_PORT OTEL_COLLECTOR_HTTP_PORT OTEL_COLLECTOR_HEALTH_PORT \
+  TEMPO_PORT PYROSCOPE_PORT OTEL_COLLECTOR_GRPC_PORT OTEL_COLLECTOR_HTTP_PORT OTEL_COLLECTOR_HEALTH_PORT BLACKBOX_EXPORTER_PORT \
   SUPABASE_URL SUPABASE_DB_URL SUPABASE_DB_CONTAINER NEXT_PUBLIC_SITE_URL NEXT_PUBLIC_SUPABASE_URL \
   TEMPORAL_ADDRESS DOCUMENSO_URL NANGO_HOST GOTENBERG_URL EMAIL_HOST EMAIL_PORT \
   NOVU_API_URL NOVU_API_ROOT_URL NOVU_WS_URL DOCLING_URL OTEL_EXPORTER_OTLP_ENDPOINT PYROSCOPE_SERVER_ADDRESS \
@@ -76,6 +76,7 @@ PYROSCOPE_PORT 4040
 OTEL_COLLECTOR_GRPC_PORT 14317
 OTEL_COLLECTOR_HTTP_PORT 14318
 OTEL_COLLECTOR_HEALTH_PORT 13133
+BLACKBOX_EXPORTER_PORT 9115
 SUPABASE_URL http://127.0.0.1:54321
 SUPABASE_DB_URL postgresql://postgres:postgres@127.0.0.1:54322/postgres
 SUPABASE_DB_CONTAINER opendealbook-db-1
@@ -128,6 +129,7 @@ PYROSCOPE_PORT 56103
 OTEL_COLLECTOR_GRPC_PORT 56104
 OTEL_COLLECTOR_HTTP_PORT 56105
 OTEL_COLLECTOR_HEALTH_PORT 56106
+BLACKBOX_EXPORTER_PORT 56107
 SUPABASE_URL http://127.0.0.1:56081
 SUPABASE_DB_URL postgresql://postgres:postgres@127.0.0.1:56082/postgres
 SUPABASE_DB_CONTAINER opendealbook-wt2-db-1
@@ -231,6 +233,22 @@ rmdir "$MAIN/.git/odb-slots.lock" 2>/dev/null
 echo 'not json' > "$MAIN/.worktrees.json"
 (cd "$MAIN" && source "$ENV_SH" && odb_slot_free /x/a) 2>/dev/null
 assert_eq "a failed registry write leaves nothing visible to git" "?? .worktrees.json" "$(git -C "$MAIN" status --porcelain)"
+
+ODB_PORTS_TABLE=$(cd "$MAIN" && source "$ENV_SH" >/dev/null 2>&1 && echo "$ODB_PORTS")
+COMPOSE_PORT_ENTRIES=$(awk '/^[[:space:]]*ports:/ { in_ports = 1; next } in_ports && /^[[:space:]]*- / { print; next } { in_ports = 0 }' "$(dirname "$ENV_SH")/../docker-compose.yml")
+unslotted=""
+while read -r entry; do
+  if [[ "$entry" =~ \$\{([A-Z0-9_]+):-([0-9]+)\} ]]; then
+    compose_name=${BASH_REMATCH[1]}
+    compose_default=${BASH_REMATCH[2]}
+    slot_default=$(awk -v n="$compose_name" '$1 == n { print $3 }' <<< "$ODB_PORTS_TABLE")
+    [[ "$slot_default" == "$compose_default" ]] || unslotted+="$compose_name:$compose_default "
+  else
+    unslotted+="hardcoded:$entry "
+  fi
+done <<< "$COMPOSE_PORT_ENTRIES"
+assert_eq "compose has port entries to check" yes "$([[ -n "$COMPOSE_PORT_ENTRIES" ]] && echo yes || echo no)"
+assert_eq "every compose host port has an ODB_PORTS row with the same default" "" "$unslotted"
 
 echo
 if [[ $FAILURES -gt 0 ]]; then
