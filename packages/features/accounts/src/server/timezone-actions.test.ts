@@ -81,4 +81,16 @@ describe('a person time zone', () => {
     expect(personal('user-1').timezone).toBe('Asia/Tokyo');
     expect(db.rows[1]!.timezone).toBeNull();
   });
+
+  it('keeps the zone when the pick is one the app cannot format', async () => {
+    personal('user-1').timezone = 'Europe/Lisbon';
+
+    await expect(
+      choose({ timezone: 'posix/America/New_York' }, { id: 'user-1' }),
+    ).rejects.toThrow(
+      "posix/America/New_York isn't a supported time zone; pick another",
+    );
+
+    expect(personal('user-1').timezone).toBe('Europe/Lisbon');
+  });
 });

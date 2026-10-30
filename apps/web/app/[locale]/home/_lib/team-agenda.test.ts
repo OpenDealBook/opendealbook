@@ -13,6 +13,7 @@ function row(overrides: Partial<AgendaRow>): AgendaRow {
     title: 'Call the broker',
     detail: null,
     at: '2026-10-17T00:00:00+00:00',
+    lapsed: false,
     ...overrides,
   };
 }

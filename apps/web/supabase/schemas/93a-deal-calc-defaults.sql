@@ -6,13 +6,13 @@
 create table if not exists public.deal_calc_defaults (
   account_id uuid primary key references public.accounts (id) on delete cascade,
   after_standby text not null check (after_standby in ('remaining_term', 'full_term_after_standby')),
-  year_basis text not null default 'months_from_close' check (year_basis in ('months_from_close', 'fiscal_year')),
-  scenario_paths jsonb,
-  minimum_dscr numeric not null default 1.25 constraint deal_calc_defaults_minimum_dscr_positive check (minimum_dscr > 0),
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  year_basis text not null default 'months_from_close' check (year_basis in ('months_from_close', 'fiscal_year')),
+  scenario_paths jsonb,
+  minimum_dscr numeric not null default 1.25 constraint deal_calc_defaults_minimum_dscr_positive check (minimum_dscr > 0)
 );
 
 alter table public.deal_calc_defaults enable row level security;

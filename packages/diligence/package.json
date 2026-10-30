@@ -24,6 +24,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "catalog:",
+    "@odb/deal-timeline": "workspace:*",
     "@odb/deals": "workspace:*",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",

@@ -22,6 +22,7 @@ vi.mock(
 vi.mock('@odb/deals/server', async () =>
   (await import('./lender-test-kit')).fakeActions(
     'recordContractSignedElsewhere',
+    'recordSignedCopyOfLoiExtension',
   ),
 );
 
@@ -72,6 +73,35 @@ describe('recording a contract signed outside the platform', () => {
     expect(fakeServer.inputsTo('recordContractSignedElsewhere')).toMatchObject([
       { contract_id: null },
     ]);
+  });
+
+  it('attaches a signed copy to an LOI extension already noted as agreed', async () => {
+    show(
+      <RecordSignedContract
+        dealId={'deal-1'}
+        type={'loi_extension'}
+        contractId={'extension-1'}
+      />,
+    );
+
+    await press('Record signed LOI extension');
+    await attach('Signed copy', 'Extension signed.pdf');
+    await type('Signing date', '2026-11-24');
+    await choose('Buyer');
+    await submit('Signed copy');
+
+    expect(fakeServer.inputsTo('recordContractSignedElsewhere')).toEqual([]);
+    expect(fakeServer.inputsTo('recordSignedCopyOfLoiExtension')).toEqual([
+      {
+        deal_id: 'deal-1',
+        extension_id: 'extension-1',
+        party: 'buyer',
+        signed_on: '2026-11-24',
+        file: expect.objectContaining({ name: 'Extension signed.pdf' }),
+      },
+    ]);
+    expect(dialogText()).toBeNull();
+    expect(fakeServer.refreshes).toBe(1);
   });
 
   it('says why when the record is refused and keeps the dialog open', async () => {

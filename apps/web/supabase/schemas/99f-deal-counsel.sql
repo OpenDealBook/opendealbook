@@ -16,9 +16,9 @@ create table if not exists public.deal_counsel (
   name text,
   phone text,
   company text,
-  profile_asked_at timestamptz,
   invited_by uuid references auth.users,
   created_at timestamptz not null default now(),
+  profile_asked_at timestamptz,
   unique (deal_id, side, user_id),
   -- One person never acts for both sides of a deal. Removal deletes the row,
   -- so only current counsel block.
@@ -297,13 +297,15 @@ create or replace function public.seller_side_contract_versions(deal_id uuid)
     party text,
     change_summary text,
     is_signed boolean,
-    shown_at timestamptz
+    shown_at timestamptz,
+    extends_to date
   )
   language sql stable security definer
   set search_path = '' as $$
   select v.id, v.contract_id, v.seller_number,
     v.party, v.change_summary, v.is_signed,
-    case when v.party = 'seller' then v.created_at else v.shared_at end
+    case when v.party = 'seller' then v.created_at else v.shared_at end,
+    v.extends_to
   from public.contract_version v
   join public.contract c on c.id = v.contract_id
   where c.deal_id = seller_side_contract_versions.deal_id

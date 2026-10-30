@@ -62,6 +62,8 @@ export type EventType =
   | 'contract.comment_posted'
   | 'contract.signature_requested'
   | 'contract.signature_status_changed'
+  | 'contract.extension_noted'
+  | 'contract.extension_rescheduled'
   | 'offer.drafted'
   | 'offer.version_added'
   | 'offer.submitted'
@@ -82,12 +84,29 @@ export type DealMilestoneSetPayload = {
   target_on: string | null;
   actual_on: string | null;
   shared?: boolean;
+  extension_id?: string;
+  exclusivity_end_before?: string | null;
 } & (
   | { kind: Exclude<MilestoneKind, 'custom'>; label?: never }
   | { kind: 'custom'; label: string }
 );
 
 export type DealMilestoneRemovedPayload = Record<string, never>;
+
+export type LoiExtensionCreatedPayload = {
+  type: 'loi_extension';
+  parent_contract_id: string;
+  extends_to: string;
+};
+
+export type ContractExtensionNotedPayload = {
+  note: string;
+  noted_on: string;
+};
+
+export type ContractExtensionRescheduledPayload = {
+  extends_to: string;
+};
 
 export type AppendDealEventResult = Functions['append_deal_event']['Returns'];
 

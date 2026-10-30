@@ -47,11 +47,17 @@ export function latestVersion(contracts: OfferContracts, type: string) {
     ?.versions.toSorted((a, b) => b.version - a.version)[0];
 }
 
+export const CONTRACT_NAME: Record<ContractType, string> = {
+  loi: 'LOI',
+  apa: 'APA',
+  loi_extension: 'LOI extension',
+};
+
 export function generationRefusal(
-  type: SignedContractType,
+  type: ContractType,
   signingStatus: string | null | undefined,
 ): string | null {
-  const name = type.toUpperCase();
+  const name = CONTRACT_NAME[type];
 
   if (signingStatus === 'draft' || signingStatus === 'sent') {
     return `A signature request for this ${name} is already in progress`;
@@ -99,7 +105,7 @@ export async function loadOfferSignatures(
   };
 }
 
-async function draftEditorUrl(
+export async function draftEditorUrl(
   client: SupabaseClient<Database>,
   contractVersionId: string,
 ): Promise<string | null> {

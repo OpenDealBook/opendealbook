@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import type { TemplateType } from '@odb/templates';
 import { Button } from '@odb/ui/button';
 import {
   Table,
@@ -12,6 +13,7 @@ import {
 } from '@odb/ui/table';
 
 import { loadTeamWorkspace } from '../../layout';
+import { TEMPLATE_TYPE_LABELS } from './_components/template-type-labels';
 
 interface TemplatesPageProps {
   params: Promise<{ locale: string; account: string }>;
@@ -73,7 +75,9 @@ export default async function TemplatesPage({ params }: TemplatesPageProps) {
           {(templates ?? []).map((template) => (
             <TableRow key={template.id}>
               <TableCell className={'font-medium'}>{template.name}</TableCell>
-              <TableCell className={'uppercase'}>{template.type}</TableCell>
+              <TableCell>
+                {TEMPLATE_TYPE_LABELS[template.type as TemplateType]}
+              </TableCell>
               <TableCell>{countByTemplate.get(template.id) ?? 0}</TableCell>
             </TableRow>
           ))}

@@ -98,7 +98,8 @@ create or replace function public.team_agenda(p_account_id uuid, p_whole_team bo
     room_id uuid,
     title text,
     detail text,
-    at timestamptz
+    at timestamptz,
+    lapsed boolean
   )
   language sql stable security invoker
   set search_path = '' as $$
@@ -108,7 +109,9 @@ create or replace function public.team_agenda(p_account_id uuid, p_whole_team bo
   ),
   scope as (
     select c.uid, c.manager, p_whole_team and c.manager as whole_team,
-      public.team_home_new_since(p_account_id) as last_visit
+      public.team_home_new_since(p_account_id) as last_visit,
+      (select (p_as_of at time zone coalesce(a.timezone, 'UTC'))::date
+       from public.accounts a where a.id = p_account_id) as today
     from caller c
   ),
   deals as (
@@ -172,15 +175,16 @@ create or replace function public.team_agenda(p_account_id uuid, p_whole_team bo
     where r.account_id = p_account_id
     order by r.contract_version_id, r.requested_at desc
   )
-  select case when i.due_at::date < p_as_of::date then 'overdue' else 'due_soon' end,
-    i.kind, i.id, i.deal_id, f.name::text, null::uuid, i.title, null::text, i.due_at as at
+  select case when (i.due_at at time zone 'UTC')::date < s.today then 'overdue' else 'due_soon' end,
+    i.kind, i.id, i.deal_id, f.name::text, null::uuid, i.title, null::text, i.due_at as at, false as lapsed
   from items i
+  cross join scope s
   left join public.deal d on d.id = i.deal_id
   left join public.firm f on f.id = d.firm_id
-  where i.due_at::date <= p_as_of::date + 7
+  where (i.due_at at time zone 'UTC')::date <= s.today + 7
 
   union all
-  select 'approval', 'deal_update', u.id, u.deal_id, f.name::text, null, u.subject, null, u.submitted_at
+  select 'approval', 'deal_update', u.id, u.deal_id, f.name::text, null, u.subject, null, u.submitted_at, false
   from public.deal_update u
   join public.deal d on d.id = u.deal_id
   join public.firm f on f.id = d.firm_id
@@ -190,35 +194,45 @@ create or replace function public.team_agenda(p_account_id uuid, p_whole_team bo
     and public.has_permission(s.uid, p_account_id, 'deal_updates.approve')
 
   union all
-  select 'activity', a.kind, a.id, a.deal_id, d.name, a.room_id, a.title, a.detail, a.at
+  select 'activity', a.kind, a.id, a.deal_id, d.name, a.room_id, a.title, a.detail, a.at, false
   from activity a
   join deals d on d.id = a.deal_id
   cross join scope s
   where a.at > s.last_visit
 
   union all
-  select 'deadline', 'milestone', m.id, m.deal_id, d.name, null, null, m.kind::text, m.target_on::timestamptz
+  select 'deadline', 'milestone', m.id, m.deal_id, d.name, null, null, m.kind::text, m.target_on::timestamptz,
+    m.kind = 'exclusivity_end' and m.target_on < s.today
   from public.deal_milestone m
   join deals d on d.id = m.deal_id
-  where m.kind in ('loi_deadline', 'financing_contingency', 'closing')
-    and m.actual_on is null
-    and m.target_on between p_as_of::date and p_as_of::date + 14
+  cross join scope s
+  where (
+      m.kind in ('loi_deadline', 'financing_contingency', 'closing')
+      and m.actual_on is null
+      and m.target_on between s.today and s.today + 14
+    )
+    or (
+      m.kind = 'exclusivity_end'
+      and m.target_on <= s.today + 14
+      and not public.deal_exclusivity_over(m.deal_id)
+    )
 
   union all
-  select 'deadline', 'must_close_by', k.deal_id, k.deal_id, d.name, null, null, k.must_close_reason, k.must_close_by::timestamptz
+  select 'deadline', 'must_close_by', k.deal_id, k.deal_id, d.name, null, null, k.must_close_reason, k.must_close_by::timestamptz, false
   from public.deal_close_deadline k
   join deals d on d.id = k.deal_id
-  where k.must_close_by between p_as_of::date and p_as_of::date + 14
+  cross join scope s
+  where k.must_close_by between s.today and s.today + 14
 
   union all
-  select 'quiet_lender', 'quiet_lender', q.room_id, q.deal_id, d.name, q.room_id, r.name, q.days_silent::text, q.due_since
+  select 'quiet_lender', 'quiet_lender', q.room_id, q.deal_id, d.name, q.room_id, r.name, q.days_silent::text, q.due_since, false
   from public.lender_rooms_due_nudge(p_account_id, p_as_of) q
   join deals d on d.id = q.deal_id
   join public.lender_room r on r.id = q.room_id
   where public.lender_room_outreach_sent(q.room_id)
 
   union all
-  select 'signoff', 'signoff', v.id, c.deal_id, d.name, null, c.type, cs.side::text, lr.requested_at
+  select 'signoff', 'signoff', v.id, c.deal_id, d.name, null, c.type, cs.side::text, lr.requested_at, false
   from latest_requests lr
   join public.contract_version v on v.id = lr.contract_version_id
   join public.contract c on c.id = v.contract_id and c.current_version = v.version

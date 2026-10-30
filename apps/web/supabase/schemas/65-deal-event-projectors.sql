@@ -453,18 +453,28 @@ create or replace function public.project_contract(ev public.deal_event)
   language plpgsql security definer set search_path = '' as $$
 begin
   if ev.event_type = 'contract.created' then
-    insert into public.contract (id, deal_id, account_id, type, status, current_version, source_offer_version_id, created_by)
+    insert into public.contract (id, deal_id, account_id, type, status, current_version, source_offer_version_id, parent_contract_id, extends_to, created_by)
     values (
       ev.aggregate_id, ev.deal_id, ev.account_id,
       ev.payload ->> 'type',
       ev.payload ->> 'status',
       (ev.payload ->> 'current_version')::int,
       (ev.payload ->> 'source_offer_version_id')::uuid,
+      (ev.payload ->> 'parent_contract_id')::uuid,
+      (ev.payload ->> 'extends_to')::date,
       ev.actor_ref
     )
     on conflict (id) do update set
       status = excluded.status,
       current_version = excluded.current_version;
+  elsif ev.event_type = 'contract.extension_rescheduled' then
+    update public.contract set extends_to = (ev.payload ->> 'extends_to')::date
+    where id = ev.aggregate_id;
+  elsif ev.event_type = 'contract.extension_noted' then
+    update public.contract set
+      note = ev.payload ->> 'note',
+      noted_on = (ev.payload ->> 'noted_on')::date
+    where id = ev.aggregate_id;
   elsif ev.event_type = 'contract.version_set' then
     update public.contract set
       current_version = (ev.payload ->> 'current_version')::int,

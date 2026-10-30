@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 
+import { timeZones } from '@odb/accounts/shared';
 import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -10,8 +11,13 @@ import {
   syncTeamSchedules,
 } from '@odb/workflows/builder/schedule';
 
+
 const NEEDS_SETTINGS_MANAGE = 'Changing the time zone needs settings.manage';
 const CHECK_VIOLATION = '23514';
+
+function unsupportedZone(timezone: string) {
+  return new Refusal(`${timezone} isn't a supported time zone; pick another`);
+}
 
 async function moveSchedules(accountId: string) {
   return syncTeamSchedules({ accountId }).then(
@@ -27,6 +33,10 @@ async function moveSchedules(accountId: string) {
 
 export const updateTeamTimezoneAction = refusableAction(
   async ({ accountId, timezone }) => {
+    if (!timeZones.includes(timezone)) {
+      throw unsupportedZone(timezone);
+    }
+
     const { data: updated, error } = await getSupabaseServerClient()
       .from('accounts')
       .update({ timezone })
@@ -34,7 +44,7 @@ export const updateTeamTimezoneAction = refusableAction(
       .select('id');
 
     if (error?.code === CHECK_VIOLATION) {
-      throw new Refusal(`${timezone} isn't a supported time zone; pick another`);
+      throw unsupportedZone(timezone);
     }
     if (error) {
       throw error;

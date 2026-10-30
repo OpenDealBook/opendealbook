@@ -66,6 +66,23 @@ describe('SharedTimeline', () => {
     expect(html).not.toContain('Same as closing');
   });
 
+  it('names the end of exclusivity', () => {
+    const html = renderToStaticMarkup(
+      <SharedTimeline
+        milestones={[
+          {
+            kind: 'exclusivity_end',
+            label: null,
+            target_on: '2026-12-01',
+            actual_on: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toMatch(/Exclusivity ends<\/td><td[^>]*>Dec 1, 2026</);
+  });
+
   it('shows nothing when no milestone is shared', () => {
     expect(renderToStaticMarkup(<SharedTimeline milestones={[]} />)).toBe('');
   });

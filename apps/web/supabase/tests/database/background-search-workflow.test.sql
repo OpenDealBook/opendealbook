@@ -2,6 +2,8 @@ begin;
 select no_plan();
 
 select tests.create_user('bs_owner');
+create temp table bs_seq_before_seeding as
+  select nextval(pg_get_serial_sequence('public.deal_event', 'global_seq')) as seq;
 
 select tests.login_as_service_role();
 select public.create_team_account('BS Co', tests.get_uid('bs_owner'), 'bs-co');
@@ -33,7 +35,7 @@ select is(
 );
 
 select ok(
-  (select enabled_after_deal_seq >= coalesce((select max(global_seq) from public.deal_event), 0)
+  (select enabled_after_deal_seq >= (select seq from bs_seq_before_seeding)
    from public.workflow
    where account_id = tests.account_id('bs-co') and system_key = 'background_search'),
   'it starts on deal events after it was seeded, so earlier signed LOIs are not searched'

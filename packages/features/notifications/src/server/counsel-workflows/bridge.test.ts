@@ -296,6 +296,21 @@ describe('contract negotiation email', () => {
     );
   });
 
+  it('names an LOI extension in words', async () => {
+    const email = await negotiationEmail({
+      kind: 'version',
+      contractType: 'loi_extension',
+      version: 1,
+      actor: "Dana Lee (Buyer's counsel)",
+      dealName: 'Acme Tooling',
+      path: `/counsel/${dealId}/contracts`,
+    });
+
+    expect(email.subject).toBe(
+      "Dana Lee (Buyer's counsel) added LOI extension version 1",
+    );
+  });
+
   it('puts the outside name in the subject for someone outside the team, and the given name in the body', async () => {
     const email = await negotiationEmail({
       kind: 'version',

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { NotifiableDealEvent } from '@odb/notifications/relay';
+
 import { DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID } from '../ids';
 import { dealEventNotificationRelay } from '../workflows/dealEventNotificationRelay';
 
@@ -8,14 +10,18 @@ const notified: number[] = [];
 const failing = new Set<number>();
 const attempts = new Map<number, number>();
 const setAside: unknown[] = [];
+const notifyInputs: unknown[] = [];
 
-const events = [1, 2, 3, 4].map((globalSeq) => ({
+const events: NotifiableDealEvent[] = [1, 2, 3, 4].map((globalSeq) => ({
   globalSeq,
   dealId: '00000000-0000-0000-0000-000000000001',
   accountId: '00000000-0000-0000-0000-000000000002',
   actorRef: null,
   eventType: 'deal.resolved',
   stage: null,
+  contractType: null,
+  signingStatus: null,
+  extendsTo: null,
 }));
 
 class ContinuedAsNew {}
@@ -64,6 +70,7 @@ vi.mock('@temporalio/workflow', () => ({
     fetchDealNotificationEvents: async (input: { afterGlobalSeq: number }) =>
       events.filter((event) => event.globalSeq > input.afterGlobalSeq),
     notifyDealEvent: async (input: { globalSeq: number }) => {
+      notifyInputs.push(input);
       attempts.set(input.globalSeq, (attempts.get(input.globalSeq) ?? 0) + 1);
       if (failing.has(input.globalSeq)) {
         throw new Error(`Cannot coerce event ${input.globalSeq}`);
@@ -86,6 +93,8 @@ beforeEach(() => {
   failing.clear();
   attempts.clear();
   setAside.length = 0;
+  notifyInputs.length = 0;
+  events.length = 4;
 });
 
 describe('deal event notification relay after a restart', () => {
@@ -109,6 +118,27 @@ describe('deal event notification relay after a restart', () => {
     await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
 
     expect(savedCursors.get(DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID)).toBe(4);
+  });
+
+  it("hands an LOI extension's end date to the notice", async () => {
+    savedCursors.set(DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID, 4);
+    events.push({
+      ...events[0]!,
+      globalSeq: 5,
+      eventType: 'contract.extension_noted',
+      contractType: 'loi_extension',
+      extendsTo: '2026-12-15',
+    });
+
+    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
+
+    expect(notifyInputs).toEqual([
+      expect.objectContaining({
+        globalSeq: 5,
+        workflowId: 'deal.loi_extension_noted',
+        extendsTo: '2026-12-15',
+      }),
+    ]);
   });
 
   it('sets aside an event that fails five times and relays the rest of the batch', async () => {

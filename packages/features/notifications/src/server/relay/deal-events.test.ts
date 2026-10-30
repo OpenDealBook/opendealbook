@@ -20,6 +20,9 @@ function event(partial: Partial<NotifiableDealEvent>): NotifiableDealEvent {
     actorRef: 'user-1',
     eventType: 'deal.updated',
     stage: null,
+    contractType: null,
+    signingStatus: null,
+    extendsTo: null,
     ...partial,
   };
 }
@@ -85,6 +88,49 @@ describe('routeDealEventNotification', () => {
       ),
     ).toBe('seller-counsel-message.posted');
   });
+
+  it('maps a noted LOI extension to the extension noted notice', () => {
+    expect(
+      routeDealEventNotification(
+        event({
+          eventType: 'contract.extension_noted',
+          contractType: 'loi_extension',
+        }),
+      ),
+    ).toBe('deal.loi_extension_noted');
+  });
+
+  it('maps a completed signature on an LOI extension to the extension signed notice', () => {
+    expect(
+      routeDealEventNotification(
+        event({
+          eventType: 'contract.signature_status_changed',
+          contractType: 'loi_extension',
+          signingStatus: 'completed',
+        }),
+      ),
+    ).toBe('deal.loi_extension_signed');
+  });
+
+  it.each([
+    ['loi_extension', 'sent'],
+    ['loi_extension', 'declined'],
+    ['loi', 'completed'],
+    ['apa', 'completed'],
+  ])(
+    'does not notify on a %s signature turning %s',
+    (contractType, signingStatus) => {
+      expect(
+        routeDealEventNotification(
+          event({
+            eventType: 'contract.signature_status_changed',
+            contractType,
+            signingStatus,
+          }),
+        ),
+      ).toBeNull();
+    },
+  );
 
   it('does not notify when a version is adopted as current', () => {
     expect(

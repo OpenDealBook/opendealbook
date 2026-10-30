@@ -19,6 +19,7 @@ import {
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
 
+import { documensoLinkWording } from './signature-wording';
 import { type Signer, SignerInputs, oneBlankSigner } from './signer-inputs';
 import { useRefusableAction } from './use-refusable-action';
 
@@ -106,12 +107,16 @@ export function ContractReviewPanel({
   contractVersionId,
   review,
   canManage,
+  editorUrl = null,
 }: {
   contractVersionId: string;
   review: ContractReview;
   canManage: boolean;
+  editorUrl?: string | null;
 }) {
   const { refusal, pending, run } = useRefusableAction();
+  const [sentEditorUrl, setSentEditorUrl] = useState<string | null>(null);
+  const placeFieldsUrl = sentEditorUrl ?? editorUrl;
   const history = historyOf(review);
 
   return (
@@ -183,6 +188,7 @@ export function ContractReviewPanel({
           {review.ready ? (
             <SendDialog
               label={'Send for signature'}
+              onSent={setSentEditorUrl}
               send={(signers) =>
                 sendContractForSignature({
                   contract_version_id: contractVersionId,
@@ -194,6 +200,7 @@ export function ContractReviewPanel({
             <SendDialog
               label={'Override and send'}
               askReason
+              onSent={setSentEditorUrl}
               send={async (signers, reason) => {
                 const overridden = await overrideContractSigning({
                   contractVersionId,
@@ -211,6 +218,16 @@ export function ContractReviewPanel({
           )}
         </div>
       ) : null}
+      {placeFieldsUrl ? (
+        <a
+          href={placeFieldsUrl}
+          target={'_blank'}
+          rel={'noreferrer'}
+          className={'text-primary w-fit text-sm font-medium underline'}
+        >
+          {documensoLinkWording}
+        </a>
+      ) : null}
       {refusal ? (
         <p role={'alert'} className={'text-destructive text-sm'}>
           {refusal}
@@ -223,14 +240,16 @@ export function ContractReviewPanel({
 function SendDialog({
   label,
   askReason = false,
+  onSent,
   send,
 }: {
   label: string;
   askReason?: boolean;
+  onSent: (editorUrl: string) => void;
   send: (
     signers: Signer[],
     reason: string,
-  ) => ReturnType<typeof overrideContractSigning>;
+  ) => ReturnType<typeof sendContractForSignature>;
 }) {
   const [open, setOpen] = useState(false);
   const [signers, setSigners] = useState(oneBlankSigner);
@@ -254,10 +273,11 @@ function SendDialog({
               event.preventDefault();
               run(
                 () => send(signers, reason),
-                () => {
+                ({ editorUrl }) => {
                   setOpen(false);
                   setSigners(oneBlankSigner);
                   setReason('');
+                  onSent(editorUrl);
                 },
               );
             }}

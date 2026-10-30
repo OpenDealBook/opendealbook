@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const contractTypeSchema = z.enum(['loi', 'apa']);
+export const contractTypeSchema = z.enum(['loi', 'apa', 'loi_extension']);
 export const contractPartySchema = z.enum(['buyer', 'seller']);
 export const contractSourceSchema = z.enum([
   'editor_save',

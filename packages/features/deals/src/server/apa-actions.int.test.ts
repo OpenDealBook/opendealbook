@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +11,7 @@ import {
   newVersionFromUpload,
 } from '@odb/contracts/server';
 import type { Database } from '@odb/supabase';
+import { checkTemplateFields } from '@odb/templates/server';
 
 import {
   type IntegrationAccount,
@@ -941,7 +942,10 @@ describe('createContract (integration)', () => {
     await removeCounsel(dealId, 'buyer');
 
     expect(
-      await (createContract as unknown as Action)({ dealId, type: 'apa' }, actor),
+      await (createContract as unknown as Action)(
+        { dealId, type: 'apa' },
+        actor,
+      ),
     ).toEqual({ ok: false, refusal: APA_NEEDS_COUNSEL });
 
     const { data: refused } = await account.admin
@@ -952,10 +956,12 @@ describe('createContract (integration)', () => {
     expect(refused).toEqual([]);
 
     await seedCounsel(dealId, 'buyer');
-    const contractId = ((await (createContract as unknown as Action)(
-      { dealId, type: 'apa' },
-      actor,
-    )) as { value: string }).value;
+    const contractId = (
+      (await (createContract as unknown as Action)(
+        { dealId, type: 'apa' },
+        actor,
+      )) as { value: string }
+    ).value;
 
     const { data: created } = await account.admin
       .from('contract')
@@ -970,10 +976,12 @@ describe('createContract (integration)', () => {
     await removeCounsel(dealId, 'buyer');
     await removeCounsel(dealId, 'seller');
 
-    const contractId = ((await (createContract as unknown as Action)(
-      { dealId, type: 'loi' },
-      actor,
-    )) as { value: string }).value;
+    const contractId = (
+      (await (createContract as unknown as Action)(
+        { dealId, type: 'loi' },
+        actor,
+      )) as { value: string }
+    ).value;
 
     const { data: created } = await account.admin
       .from('contract')
@@ -1056,10 +1064,12 @@ describe('APA counsel gate after the APA has started', () => {
     const dealId = await newDeal('LOI version no counsel deal');
     await removeCounsel(dealId, 'buyer');
     await removeCounsel(dealId, 'seller');
-    const contractId = ((await (createContract as unknown as Action)(
-      { dealId, type: 'loi' },
-      actor,
-    )) as { value: string }).value;
+    const contractId = (
+      (await (createContract as unknown as Action)(
+        { dealId, type: 'loi' },
+        actor,
+      )) as { value: string }
+    ).value;
 
     await (newVersionFromUpload as unknown as Action)(
       {
@@ -1076,5 +1086,73 @@ describe('APA counsel gate after the APA has started', () => {
       .eq('contract_id', contractId)
       .throwOnError();
     expect(versions).toEqual([{ version: 1, party: 'seller' }]);
+  });
+});
+
+async function signedInMember() {
+  const unique = crypto.randomUUID().slice(0, 8);
+  const email = `int-member-${unique}@odb.test`;
+  const password = `Pw-${unique}-Aa1!`;
+  const { data } = await account.admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  await account.admin
+    .from('accounts_memberships')
+    .insert({
+      account_id: account.accountId,
+      user_id: data.user!.id,
+      account_role: 'member',
+    })
+    .throwOnError();
+  const member = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321',
+    (account.user as unknown as { supabaseKey: string }).supabaseKey,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  await member.auth.signInWithPassword({ email, password });
+
+  return { member, memberId: data.user!.id };
+}
+
+async function asMember<Value>(run: () => Promise<Value>): Promise<Value> {
+  const { member, memberId } = await signedInMember();
+  const templates = await vi.importActual<
+    typeof import('@odb/templates/server')
+  >('@odb/templates/server');
+  vi.mocked(checkTemplateFields).mockImplementationOnce(
+    templates.checkTemplateFields as never,
+  );
+  holder.client = member;
+  holder.userId = memberId;
+
+  return run().finally(() => {
+    holder.client = account.user;
+    holder.userId = account.userId;
+  });
+}
+
+describe('generateApa for a team member who does not manage deals', () => {
+  it('is told only deal managers can generate APAs, and nothing is drafted', async () => {
+    const dealId = await newDeal('Member generates APA');
+    const offerId = await acceptedOffer(dealId, 1_200_000);
+    await adoptFinancials(dealId);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage: 'loi_accepted' },
+      actor,
+    );
+
+    expect(
+      await asMember(() =>
+        (generateApa as unknown as Action)({ offer_id: offerId }),
+      ),
+    ).toEqual({
+      ok: false,
+      refusal: expect.stringMatching(
+        /^Only deal managers can generate APAs\. Ask /,
+      ),
+    });
+    expect(await apaVersions(dealId)).toEqual([]);
   });
 });

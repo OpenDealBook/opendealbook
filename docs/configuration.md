@@ -125,7 +125,9 @@ The deal event notices (`deal.offer_submitted`, `deal.offer_accepted`, `deal.loi
 `deal.apa_accepted`, `deal.resolved`) are defined in
 `packages/features/notifications/src/server/deal-event-workflows`. Each one emails the team
 members who can manage deals on the deal's account, and the relay writes the matching in-app
-notification for the same people.
+notification for the same people. Two more deal event notices, `deal.loi_extension_noted` and
+`deal.loi_extension_signed`, are in-app only (no email): the relay writes them for the same
+people when an LOI extension is noted or signed, and Novu has no workflow for them.
 
 Register the workflows with Novu after the app is running. The call replaces what Novu holds
 for this bridge, so repeating it is safe:

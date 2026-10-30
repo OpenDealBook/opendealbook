@@ -9,11 +9,14 @@ create table if not exists public.checklist_template (
   name text not null,
   category text,
   kind text check (kind in ('offer', 'diligence', 'closing', 'post_close')),
-  is_default boolean not null default false,
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
-  updated_at timestamptz
+  updated_at timestamptz,
+  is_default boolean not null default false
 );
+
+alter table public.checklist_item add constraint checklist_item_source_template_id_fkey
+  foreign key (source_template_id) references public.checklist_template (id) on delete set null;
 
 alter table public.checklist_template enable row level security;
 
@@ -54,11 +57,11 @@ create table if not exists public.checklist_template_item (
   priority int not null default 0,
   deal_killer boolean not null default false,
   due_offset_days int,
-  review_offset_days int not null default 3,
   owner_role text check (owner_role in ('buyer', 'attorney', 'cpa', 'broker', 'seller', 'sales_team')),
   importance text check (importance in ('required', 'nice_to_have', 'na')),
   offer_term_key text,
-  sort_order int not null default 0
+  sort_order int not null default 0,
+  review_offset_days int not null default 3
 );
 
 alter table public.checklist_template_item enable row level security;

@@ -5,7 +5,7 @@ create table if not exists public.document_template (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   name text not null,
-  type text not null check (type in ('nda', 'loi', 'apa', 'data_request', 'letter')),
+  type text not null check (type in ('nda', 'loi', 'apa', 'data_request', 'letter', 'loi_extension')),
   docx_path text,
   version int not null default 1,
   created_by uuid references auth.users default auth.uid(),

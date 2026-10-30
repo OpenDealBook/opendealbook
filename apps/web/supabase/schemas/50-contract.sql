@@ -7,7 +7,7 @@ create table if not exists public.contract (
   id uuid primary key default gen_random_uuid(),
   deal_id uuid not null references public.deal (id) on delete cascade,
   account_id uuid not null references public.accounts (id) on delete cascade,
-  type text not null check (type in ('loi', 'apa')),
+  type text not null check (type in ('loi', 'apa', 'loi_extension')),
   status text,
   current_version int,
   -- The offer_version this contract was generated from, pinned at contract.created
@@ -17,7 +17,15 @@ create table if not exists public.contract (
   source_offer_version_id uuid,
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz,
-  updated_at timestamptz
+  updated_at timestamptz,
+  -- An LOI extension names the signed LOI it extends and the day exclusivity
+  -- now ends. One agreed without a signed document is noted instead.
+  parent_contract_id uuid references public.contract (id),
+  extends_to date,
+  note text,
+  noted_on date,
+  constraint contract_extension_parent_check check ((type = 'loi_extension') = (parent_contract_id is not null)),
+  constraint contract_extension_extends_to_check check ((type = 'loi_extension') = (extends_to is not null))
 );
 
 alter table public.contract enable row level security;

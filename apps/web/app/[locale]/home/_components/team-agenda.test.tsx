@@ -16,6 +16,7 @@ function row(overrides: Partial<AgendaRow>): AgendaRow {
     title: 'Call the broker',
     detail: null,
     at: '2026-10-17T00:00:00+00:00',
+    lapsed: false,
     ...overrides,
   };
 }
@@ -125,6 +126,29 @@ describe('TeamAgenda', () => {
     expect(text).toContain('Must close by: Lease ends');
     expect(text).toContain('TA Bank, quiet 12 days');
     expect(text).toContain("APA sign-off from seller's counsel");
+  });
+
+  it('names an exclusivity end and flags it when it has lapsed', () => {
+    const exclusivityEnd = (item_id: string, lapsed: boolean) =>
+      row({
+        section: 'deadline',
+        kind: 'milestone',
+        item_id,
+        title: null,
+        detail: 'exclusivity_end',
+        lapsed,
+      });
+    const container = render([
+      exclusivityEnd('lapsed', true),
+      exclusivityEnd('ahead', false),
+    ]);
+    const rowText = (id: string) =>
+      container.querySelector(`a[href$="#milestone-${id}"]`)?.textContent;
+
+    expect(rowText('lapsed')).toContain('Exclusivity ends');
+    expect(rowText('lapsed')).toContain('Lapsed');
+    expect(rowText('ahead')).toContain('Exclusivity ends');
+    expect(rowText('ahead')).not.toContain('Lapsed');
   });
 
   it('exposes the full deal name on a row whose deal name may be cut off', () => {

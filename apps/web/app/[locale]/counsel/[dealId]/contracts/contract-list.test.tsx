@@ -35,6 +35,7 @@ const contracts = [
   {
     id: 'c1',
     type: 'apa',
+    extensions: [],
     versions: [
       {
         id: 'v1',
@@ -125,6 +126,134 @@ describe('ContractList', () => {
       '/counsel/d1/contracts/files/v2/docx',
       '/counsel/d1/contracts/files/v2/pdf',
     ]);
+  });
+
+  describe('LOI extensions', () => {
+    const noReview = { requests: [], decisions: [] };
+    const extensionVersion = (id: string, changes: object = {}) => ({
+      id,
+      version: 1,
+      party: 'buyer',
+      change_summary: null,
+      is_signed: false,
+      hasDocx: true,
+      hasPdf: true,
+      redline: null,
+      comments: [],
+      review: noReview,
+      ...changes,
+    });
+    const loi = {
+      id: 'loi-1',
+      type: 'loi',
+      versions: [extensionVersion('lv1', { is_signed: true, hasDocx: false })],
+      extensions: [
+        {
+          id: 'e1',
+          extends_to: '2026-12-15',
+          note: null,
+          noted_on: null,
+          state: 'draft' as const,
+          versions: [extensionVersion('ev1')],
+        },
+        {
+          id: 'e2',
+          extends_to: '2027-01-15',
+          note: 'Seller agreed by email to thirty more days',
+          noted_on: '2026-11-20',
+          state: 'noted' as const,
+          versions: [],
+        },
+        {
+          id: 'e3',
+          extends_to: '2027-02-15',
+          note: null,
+          noted_on: '2026-12-01',
+          state: 'signed' as const,
+          versions: [extensionVersion('ev3', { is_signed: true })],
+        },
+      ],
+    };
+    const render = (decide: (() => Promise<{ ok: true }>) | null) =>
+      parse(
+        renderToStaticMarkup(
+          <ContractList
+            dealId={'d1'}
+            filesPath={'/counsel/d1/contracts/files'}
+            redlineUpload
+            contracts={[loi]}
+            viewer={{ side: 'buyer' }}
+            decide={decide}
+          />,
+        ),
+      );
+    const items = (document: Document) => [
+      ...document.querySelectorAll('[data-extension]'),
+    ];
+
+    it('lists each extension under its LOI with its end date, state, note, signed copy, and versions', () => {
+      const document = render(null);
+
+      expect(
+        [...document.querySelectorAll('[data-slot="card-title"]')].map(
+          (title) => title.textContent,
+        ),
+      ).toEqual(['LOI']);
+      expect(
+        items(document).map((item) => [
+          item.querySelector('h4')?.textContent,
+          item.querySelector('[data-slot="badge"]')?.textContent,
+          item.querySelector('[data-extension-noted]')?.textContent ?? null,
+          [...item.querySelectorAll('[data-extension-actions] a')].map(
+            (link) => link.getAttribute('href'),
+          ),
+          rows(item.innerHTML),
+        ]),
+      ).toEqual([
+        [
+          'LOI extension to Dec 15, 2026',
+          'Draft',
+          null,
+          [],
+          [['1', 'Buyer', '', '', 'WordPDF']],
+        ],
+        [
+          'LOI extension to Jan 15, 2027',
+          'Noted',
+          'Agreed on Nov 20, 2026: Seller agreed by email to thirty more days',
+          [],
+          [],
+        ],
+        [
+          'LOI extension to Feb 15, 2027',
+          'Signed',
+          'Agreed on Dec 1, 2026',
+          ['/counsel/d1/contracts/files/ev3/pdf'],
+          [['1', 'Buyer', '', 'Signed', 'WordPDF']],
+        ],
+      ]);
+    });
+
+    it('gives counsel on each extension version the sign-off, comments, and redline upload an LOI version has', () => {
+      const [draft, noted] = items(render(async () => ({ ok: true })));
+
+      expect(
+        [...draft!.querySelectorAll('[data-version-review] button')].map(
+          (button) => button.textContent,
+        ),
+      ).toEqual(['Approve', 'Approve with comments', 'Changes needed']);
+      expect(
+        draft!.querySelector('[data-version-comments] [data-new-comment]'),
+      ).not.toBeNull();
+      expect(
+        [...draft!.querySelectorAll('tr[id], section[id]')].map(
+          (element) => element.id,
+        ),
+      ).toEqual(['contract-version-ev1', 'contract-review-ev1']);
+      expect(draft!.querySelector('input[type="file"]')).not.toBeNull();
+      expect(noted!.querySelector('table')).toBeNull();
+      expect(noted!.querySelector('input[type="file"]')).toBeNull();
+    });
   });
 
   it('shows what each version changed from the one before', () => {

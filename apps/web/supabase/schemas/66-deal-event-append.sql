@@ -89,7 +89,79 @@ create or replace function public.check_contract_event(
   p_payload jsonb
 ) returns void
   language plpgsql set search_path = '' as $$
+declare
+  v_loi_signed_on date := (
+    select m.actual_on from public.deal_milestone m where m.deal_id = p_deal_id and m.kind = 'loi_signed'
+  );
+  v_exclusivity_ends_after date := coalesce(
+    (select m.target_on from public.deal_milestone m where m.deal_id = p_deal_id and m.kind = 'exclusivity_end'),
+    v_loi_signed_on
+  );
+  v_extension_signed boolean := exists (
+    select 1 from public.contract_version cv where cv.contract_id = p_aggregate_id and cv.is_signed
+  );
 begin
+  if p_event_type = 'contract.created' and p_payload ->> 'type' = 'loi_extension' and not exists (
+    select 1
+    from public.contract c
+    join public.contract_version cv on cv.contract_id = c.id and cv.version = c.current_version
+    where c.id = (p_payload ->> 'parent_contract_id')::uuid
+      and c.deal_id = p_deal_id
+      and c.type = 'loi'
+      and cv.is_signed
+  ) then
+    raise exception 'an LOI extension on deal % must extend the current signed LOI of that deal', p_deal_id
+      using errcode = 'check_violation';
+  end if;
+
+  if p_event_type = 'contract.extension_noted'
+    and (coalesce(btrim(p_payload ->> 'note'), '') = '' or p_payload ->> 'noted_on' is null) then
+    raise exception 'a note on LOI extension % needs its text and the day it was agreed', p_aggregate_id
+      using errcode = 'check_violation';
+  end if;
+
+  if p_event_type in ('contract.extension_noted', 'contract.extension_rescheduled') and not exists (
+    select 1 from public.contract c
+    where c.id = p_aggregate_id and c.deal_id = p_deal_id and c.type = 'loi_extension'
+  ) then
+    raise exception 'contract % is not an LOI extension in deal %', p_aggregate_id, p_deal_id
+      using errcode = 'check_violation';
+  end if;
+
+  if p_event_type = 'contract.extension_noted' and v_extension_signed then
+    raise exception 'LOI extension % has a signed copy and cannot be noted', p_aggregate_id
+      using errcode = 'check_violation';
+  end if;
+
+  if p_event_type = 'contract.extension_rescheduled' and (
+    v_extension_signed
+    or exists (select 1 from public.contract c where c.id = p_aggregate_id and c.note is not null)
+  ) then
+    raise exception 'LOI extension % is signed or noted, so its date is fixed', p_aggregate_id
+      using errcode = 'check_violation';
+  end if;
+
+  if ((p_event_type = 'contract.created' and p_payload ->> 'type' = 'loi_extension')
+      or p_event_type = 'contract.extension_rescheduled')
+    and (p_payload ->> 'extends_to')::date <= v_exclusivity_ends_after then
+    raise exception 'an LOI extension on deal % must end exclusivity after %', p_deal_id, v_exclusivity_ends_after
+      using errcode = 'check_violation';
+  end if;
+
+  if p_event_type = 'contract.extension_noted' and (p_payload ->> 'noted_on')::date > (
+    select (now() at time zone coalesce(a.timezone, 'UTC'))::date
+    from public.deal d join public.accounts a on a.id = d.account_id
+    where d.id = p_deal_id
+  ) then
+    raise exception 'LOI extension % cannot be noted as agreed after today', p_aggregate_id
+      using errcode = 'check_violation';
+  end if;
+
+  if p_event_type = 'contract.extension_noted' and (p_payload ->> 'noted_on')::date < v_loi_signed_on then
+    raise exception 'LOI extension % cannot be noted as agreed before the LOI was signed on %', p_aggregate_id, v_loi_signed_on
+      using errcode = 'check_violation';
+  end if;
+
   if p_event_type not in ('contract.signature_requested', 'contract.signature_status_changed') then
     return;
   end if;
@@ -244,6 +316,10 @@ begin
       and not (public.is_seller_request_event(p_event_type, p_payload) and public.has_deal_permission(p_deal_id, 'deals.work')) then
       raise exception 'not authorized to append % on deal %: needs %',
         p_event_type, p_deal_id, public.deal_event_permission(p_aggregate_type, p_event_type)
+        using errcode = 'insufficient_privilege';
+    elsif p_event_type = 'contract.created' and p_payload ->> 'type' = 'loi_extension'
+      and not public.has_deal_permission(p_deal_id, 'deals.manage') then
+      raise exception 'not authorized to extend an LOI on deal %: needs deals.manage', p_deal_id
         using errcode = 'insufficient_privilege';
     elsif public.contract_event_changes_status(p_aggregate_id, p_event_type, p_payload)
       and not public.has_deal_permission(p_deal_id, 'deals.manage') then

@@ -51,7 +51,5 @@ create policy schedule_week_delete on public.schedule_week
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'checklists.manage'));
 
-alter table public.checklist_item
-  add column priority int not null default 0,
-  add column deal_killer boolean not null default false,
-  add column schedule_week_id uuid references public.schedule_week (id) on delete set null;
+alter table public.checklist_item add constraint checklist_item_schedule_week_id_fkey
+  foreign key (schedule_week_id) references public.schedule_week (id) on delete set null;

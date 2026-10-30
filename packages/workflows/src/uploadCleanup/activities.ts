@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { SELLER_COUNSEL_THREAD_BUCKET } from '@odb/seller-rooms/counsel-thread/files.ts';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
@@ -9,6 +11,8 @@ const UPLOAD_LEDGERS = [
 const RECORDS_OWNING_OBJECTS = ['dr_document', 'lender_faq_file'] as const;
 const UNFINISHED_UPLOAD_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const DATA_ROOM_BUCKET = 'data-room';
+const TEMPLATES_BUCKET = 'templates';
+const TEMPLATES_PER_REQUEST = 100;
 const LIST_PAGE_SIZE = 1000;
 const PATHS_PER_REQUEST_MAX_URL_CHARS = 4000;
 
@@ -127,6 +131,64 @@ async function deleteAbandonedThreadFiles(
   }
 }
 
+// Template files are stored as <account>/<template>/v<n>.docx from the moment
+// an upload begins. The template row, once saved, holds its whole folder; its
+// docx_path may be a label rather than the object's path, so the folder's
+// template id decides.
+async function deleteAbandonedTemplateFiles(
+  admin: Admin,
+  issuedBefore: string,
+): Promise<void> {
+  const storage: SupabaseClient = admin;
+  const stale: string[] = [];
+
+  for (let offset = 0; ; offset += LIST_PAGE_SIZE) {
+    const { data } = await storage
+      .schema('storage')
+      .from('objects')
+      .select('name')
+      .eq('bucket_id', TEMPLATES_BUCKET)
+      .lt('created_at', issuedBefore)
+      .order('name')
+      .range(offset, offset + LIST_PAGE_SIZE - 1)
+      .throwOnError();
+
+    stale.push(...data.map((object: { name: string }) => object.name));
+
+    if (data.length < LIST_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  for (let start = 0; start < stale.length; start += TEMPLATES_PER_REQUEST) {
+    const batch = stale.slice(start, start + TEMPLATES_PER_REQUEST);
+    const { data: saved } = await admin
+      .from('document_template')
+      .select('id, account_id')
+      .in(
+        'id',
+        batch.map((path) => path.split('/')[1]!),
+      )
+      .throwOnError();
+    const held = new Set(
+      saved.map((template) => `${template.account_id}/${template.id}/`),
+    );
+    const abandoned = batch.filter(
+      (path) => !held.has(path.slice(0, path.lastIndexOf('/') + 1)),
+    );
+
+    if (abandoned.length > 0) {
+      const removed = await admin.storage
+        .from(TEMPLATES_BUCKET)
+        .remove(abandoned);
+
+      if (removed.error) {
+        throw removed.error;
+      }
+    }
+  }
+}
+
 // The object goes before the row: a run that dies between the two leaves a row
 // naming a missing object, which the next run deletes. The reverse order would
 // strand an object no ledger row points to. An object a document or FAQ file
@@ -177,4 +239,5 @@ export async function deleteUnfinishedUploads(): Promise<void> {
   }
 
   await deleteAbandonedThreadFiles(admin, issuedBefore);
+  await deleteAbandonedTemplateFiles(admin, issuedBefore);
 }

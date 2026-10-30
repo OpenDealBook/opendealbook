@@ -2376,7 +2376,11 @@ export type Database = {
           created_by: string | null
           current_version: number | null
           deal_id: string
+          extends_to: string | null
           id: string
+          note: string | null
+          noted_on: string | null
+          parent_contract_id: string | null
           source_offer_version_id: string | null
           status: string | null
           type: string
@@ -2388,7 +2392,11 @@ export type Database = {
           created_by?: string | null
           current_version?: number | null
           deal_id: string
+          extends_to?: string | null
           id?: string
+          note?: string | null
+          noted_on?: string | null
+          parent_contract_id?: string | null
           source_offer_version_id?: string | null
           status?: string | null
           type: string
@@ -2400,7 +2408,11 @@ export type Database = {
           created_by?: string | null
           current_version?: number | null
           deal_id?: string
+          extends_to?: string | null
           id?: string
+          note?: string | null
+          noted_on?: string | null
+          parent_contract_id?: string | null
           source_offer_version_id?: string | null
           status?: string | null
           type?: string
@@ -2433,6 +2445,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_parent_contract_id_fkey"
+            columns: ["parent_contract_id"]
+            isOneToOne: false
+            referencedRelation: "contract"
             referencedColumns: ["id"]
           },
         ]
@@ -2803,6 +2822,7 @@ export type Database = {
           created_at: string
           docx_bucket: string | null
           docx_path: string | null
+          extends_to: string | null
           id: string
           is_signed: boolean
           party: string
@@ -2824,6 +2844,7 @@ export type Database = {
           created_at?: string
           docx_bucket?: string | null
           docx_path?: string | null
+          extends_to?: string | null
           id?: string
           is_signed?: boolean
           party: string
@@ -2845,6 +2866,7 @@ export type Database = {
           created_at?: string
           docx_bucket?: string | null
           docx_path?: string | null
+          extends_to?: string | null
           id?: string
           is_signed?: boolean
           party?: string
@@ -13442,6 +13464,7 @@ export type Database = {
         }
       }
       backfill_deal_defaults: { Args: never; Returns: undefined }
+      backfill_exclusivity_end: { Args: never; Returns: undefined }
       buyer_counsel_documents: {
         Args: { deal_id: string }
         Returns: {
@@ -13790,6 +13813,7 @@ export type Database = {
         Args: { p_aggregate_type: string; p_event_type: string }
         Returns: string
       }
+      deal_exclusivity_over: { Args: { deal_id: string }; Returns: boolean }
       deal_loi_signed: { Args: { deal_id: string }; Returns: boolean }
       deal_main_contact_cards: {
         Args: { deal_id: string }
@@ -14616,6 +14640,7 @@ export type Database = {
         Returns: {
           change_summary: string
           contract_id: string
+          extends_to: string
           id: string
           is_signed: boolean
           party: string
@@ -14756,6 +14781,7 @@ export type Database = {
           detail: string
           item_id: string
           kind: string
+          lapsed: boolean
           room_id: string
           section: string
           title: string
@@ -15068,6 +15094,7 @@ export type Database = {
       milestone_kind:
         | "loi_deadline"
         | "loi_signed"
+        | "exclusivity_end"
         | "diligence_end"
         | "financing_contingency"
         | "apa_signing"
@@ -15464,6 +15491,7 @@ export const Constants = {
       milestone_kind: [
         "loi_deadline",
         "loi_signed",
+        "exclusivity_end",
         "diligence_end",
         "financing_contingency",
         "apa_signing",

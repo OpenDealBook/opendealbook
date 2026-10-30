@@ -84,7 +84,7 @@ const negotiationPayloadSchema = {
     },
     reason: { type: 'string' },
     outForSignature: { type: 'boolean' },
-    contractType: { type: 'string', enum: ['loi', 'apa'] },
+    contractType: { type: 'string', enum: ['loi', 'apa', 'loi_extension'] },
     version: { type: 'number' },
     actor: { type: 'string' },
     dealName: { type: 'string' },
@@ -96,7 +96,7 @@ const negotiationPayloadSchema = {
 
 const reviewPayloadProperties = {
   dealName: { type: ['string', 'null'] },
-  contractType: { type: 'string', enum: ['loi', 'apa'] },
+  contractType: { type: 'string', enum: ['loi', 'apa', 'loi_extension'] },
   version: { type: 'number' },
   since: { type: 'string' },
   path: { type: 'string' },
@@ -128,7 +128,11 @@ const reviewUnansweredPayloadSchema = {
   required: [...reviewPayloadRequired, 'side'],
 } as const;
 
-const CONTRACT_LABEL = { loi: 'LOI', apa: 'APA' };
+const CONTRACT_LABEL = {
+  loi: 'LOI',
+  apa: 'APA',
+  loi_extension: 'LOI extension',
+};
 
 const NEGOTIATION_VERB = {
   version: 'added',

@@ -12,13 +12,13 @@ create table if not exists public.contact (
   name varchar(255),
   email varchar(320),
   phone text,
-  company text,
   kind text not null default 'other',
-  source public.contact_source not null default 'manual',
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  company text,
+  source public.contact_source not null default 'manual'
 );
 
 alter table public.contact enable row level security;

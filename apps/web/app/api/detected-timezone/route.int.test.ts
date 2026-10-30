@@ -76,9 +76,26 @@ describe('POST /api/detected-timezone', () => {
     expect(await personalZone()).toBe('Europe/Lisbon');
   });
 
-  it('remembers in a cookie that the zone is unsupported', async () => {
+  it("stores a browser's newer spelling as the app's spelling", async () => {
+    await offer('Asia/Kolkata');
+
+    expect(await personalZone()).toBe('Asia/Calcutta');
+  });
+
+  it('remembers in a cookie that a zone the app does not list is unsupported', async () => {
+    const response = await offer('Etc/GMT+5');
+
+    expect(response.status).toBe(422);
+    expect(await personalZone()).toBeNull();
+    expect(response.headers.get('set-cookie')).toContain(
+      `unsupported_timezone=${encodeURIComponent('Etc/GMT+5')}`,
+    );
+  });
+
+  it('remembers in a cookie that a zone the browser cannot format is unsupported', async () => {
     const response = await offer('Mars/Olympus_Mons');
 
+    expect(response.status).toBe(422);
     expect(await personalZone()).toBeNull();
     expect(response.headers.get('set-cookie')).toContain(
       `unsupported_timezone=${encodeURIComponent('Mars/Olympus_Mons')}`,

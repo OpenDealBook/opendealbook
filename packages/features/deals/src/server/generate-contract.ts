@@ -24,8 +24,12 @@ import {
   generateFromTemplate,
 } from '@odb/templates/server';
 
-import { contractFieldValues } from './contract-field-values';
 import {
+  contractFieldValues,
+  loiExtensionFieldValues,
+} from './contract-field-values';
+import {
+  CONTRACT_NAME,
   generationRefusal,
   latestVersion,
   offerContracts,
@@ -36,40 +40,57 @@ const MISSING_FIELDS = 'Fill in: ';
 
 const UNIQUE_VIOLATION = '23505';
 
-export interface GenerateContractInput {
+export type GenerateContractInput = {
   client: SupabaseClient<Database>;
   user: User;
   dealId: string;
   accountId: string;
-  offerId: string;
-  offerVersionId: string;
+  offerVersionId: string | null;
   terms: Record<string, unknown>;
-  type: Extract<ContractType, 'loi' | 'apa'>;
   slot: ContractSlot;
-}
+} & (
+  | { type: Extract<ContractType, 'loi' | 'apa'>; offerId: string }
+  | { type: 'loi_extension'; parentContractId: string; extendsTo: string }
+);
 
 export interface ContractSlot {
   contractId: string;
   version: number;
+  isNew: boolean;
 }
 
 export async function generateContract(
   input: GenerateContractInput,
 ): Promise<{ contractVersionId: string }> {
-  const templateId = await placeholderTemplateId(
-    input.client,
-    input.accountId,
-    input.type,
-  );
+  const templateId =
+    (input.type === 'loi_extension'
+      ? await recordedTemplateId(input.client, input.slot.contractId)
+      : null) ??
+    (await placeholderTemplateId(input.client, input.accountId, input.type));
 
-  const { contractId, version } = input.slot;
+  const { contractId, version, isNew } = input.slot;
 
-  const fieldValues = await contractFieldValues(input.client, {
-    dealId: input.dealId,
-    accountId: input.accountId,
-    offerVersionId: input.offerVersionId,
-    terms: input.terms,
-  });
+  const extension =
+    input.type === 'loi_extension'
+      ? {
+          parent_contract_id: input.parentContractId,
+          extends_to: input.extendsTo,
+        }
+      : null;
+  const fieldValues = {
+    ...(await contractFieldValues(input.client, {
+      dealId: input.dealId,
+      accountId: input.accountId,
+      offerVersionId: input.offerVersionId,
+      terms: input.terms,
+    })),
+    ...(extension &&
+      (await loiExtensionFieldValues(
+        input.client,
+        input.dealId,
+        extension.extends_to,
+      ))),
+  };
 
   await refuseWhenFieldsMissing(() =>
     checkTemplateFields({
@@ -80,7 +101,7 @@ export async function generateContract(
     }),
   );
 
-  if (version === 1) {
+  if (isNew) {
     try {
       await appendDealEvent(input.client, {
         dealId: input.dealId,
@@ -93,6 +114,7 @@ export async function generateContract(
           status: 'draft',
           current_version: 0,
           source_offer_version_id: input.offerVersionId,
+          ...extension,
         },
       });
     } catch (failure) {
@@ -180,24 +202,15 @@ export async function generateContract(
 export async function nextContractVersionOrRefuse(input: {
   client: SupabaseClient<Database>;
   offerId: string;
-  type: GenerateContractInput['type'];
+  type: Extract<ContractType, 'loi' | 'apa'>;
 }): Promise<ContractSlot> {
-  if (!isDocumensoConfigured()) {
-    throw new Refusal(DOCUMENSO_NOT_CONFIGURED);
-  }
+  refuseWithoutDocumenso();
 
   let contracts = await offerContracts(input.client, input.offerId);
-  const recorded = latestVersion(contracts, input.type);
 
   if (
-    recorded?.signing_status === 'draft' ||
-    recorded?.signing_status === 'sent'
+    await settleSignature(input.client, latestVersion(contracts, input.type))
   ) {
-    await checkContractSignature(recorded.id, {
-      client: input.client,
-      admin: getSupabaseServerAdminClient(),
-      documenso: createDocumensoClient(),
-    });
     contracts = await offerContracts(input.client, input.offerId);
   }
 
@@ -208,24 +221,134 @@ export async function nextContractVersionOrRefuse(input: {
     throw new Refusal(refusal);
   }
 
+  const ofType = contracts.filter((contract) => contract.type === input.type);
+
   if (latest && latest.signing_status === null) {
     return {
-      contractId: contracts.find((contract) => contract.type === input.type)!
-        .id,
+      contractId: ofType[0]!.id,
       version: latest.version + 1,
+      isNew: false,
     };
   }
 
-  const earlierContracts = contracts.filter(
-    (contract) => contract.type === input.type,
-  ).length;
-
   return {
     contractId: deterministicUuid(
-      `${input.offerId}:${input.type}:${earlierContracts}`,
+      `${input.offerId}:${input.type}:${ofType.length}`,
     ),
     version: 1,
+    isNew: true,
   };
+}
+
+const EXTENSION_NOTED = 'This LOI extension has already been noted';
+
+export async function nextExtensionVersionOrRefuse(input: {
+  client: SupabaseClient<Database>;
+  loiId: string;
+  extendsTo: string;
+}): Promise<ContractSlot> {
+  refuseWithoutDocumenso();
+
+  let found = await loiExtensionTo(input.client, input.loiId, input.extendsTo);
+
+  if (
+    await settleSignature(input.client, newest(found.existing?.versions ?? []))
+  ) {
+    found = await loiExtensionTo(input.client, input.loiId, input.extendsTo);
+  }
+
+  if (!found.existing) {
+    return { contractId: found.id, version: 1, isNew: true };
+  }
+
+  const latest = newest(found.existing.versions);
+  const refusal =
+    generationRefusal('loi_extension', latest?.signing_status) ??
+    (found.existing.note === null ? null : EXTENSION_NOTED);
+
+  if (refusal) {
+    throw new Refusal(refusal);
+  }
+
+  return {
+    contractId: found.id,
+    version: (latest?.version ?? 0) + 1,
+    isNew: false,
+  };
+}
+
+type LoiExtension = Awaited<ReturnType<typeof loiExtensions>>[number];
+
+export async function loiExtensionTo(
+  client: SupabaseClient<Database>,
+  loiId: string,
+  extendsTo: string,
+): Promise<{ id: string; existing?: LoiExtension }> {
+  const extensions = await loiExtensions(client, loiId);
+  const existing = extensions.find(
+    (extension) => extension.extends_to === extendsTo,
+  );
+
+  return existing
+    ? { id: existing.id, existing }
+    : { id: deterministicUuid(`${loiId}:loi_extension:${extensions.length}`) };
+}
+
+async function loiExtensions(client: SupabaseClient<Database>, loiId: string) {
+  const { data } = await client
+    .from('contract')
+    .select(
+      'id, extends_to, note, versions:contract_version(id, version, signing_status)',
+    )
+    .eq('parent_contract_id', loiId)
+    .throwOnError();
+
+  return data;
+}
+
+function newest<Version extends { version: number }>(
+  versions: Version[],
+): Version | undefined {
+  return versions.toSorted((a, b) => b.version - a.version)[0];
+}
+
+function refuseWithoutDocumenso(): void {
+  if (!isDocumensoConfigured()) {
+    throw new Refusal(DOCUMENSO_NOT_CONFIGURED);
+  }
+}
+
+async function settleSignature(
+  client: SupabaseClient<Database>,
+  latest: { id: string; signing_status: string | null } | undefined,
+): Promise<boolean> {
+  if (latest?.signing_status !== 'draft' && latest?.signing_status !== 'sent') {
+    return false;
+  }
+
+  await checkContractSignature(latest.id, {
+    client,
+    admin: getSupabaseServerAdminClient(),
+    documenso: createDocumensoClient(),
+  });
+
+  return true;
+}
+
+async function recordedTemplateId(
+  client: SupabaseClient<Database>,
+  contractId: string,
+): Promise<string | null> {
+  const { data } = await client
+    .from('generated_document')
+    .select('template_id')
+    .eq('contract_id', contractId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .throwOnError();
+
+  return data?.template_id ?? null;
 }
 
 async function placeholderTemplateId(
@@ -245,7 +368,7 @@ async function placeholderTemplateId(
 
   if (data === null) {
     throw new Refusal(
-      `No ${type.toUpperCase()} template is set up for this account`,
+      `No ${CONTRACT_NAME[type]} template is set up for this account`,
     );
   }
 

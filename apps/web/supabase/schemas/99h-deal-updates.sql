@@ -17,7 +17,6 @@ create table if not exists public.deal_update (
   author_id uuid references auth.users on delete set null,
   subject text not null,
   body text not null,
-  picks jsonb not null,
   status public.deal_update_status not null default 'draft',
   version int not null default 1,
   submitted_at timestamptz,
@@ -25,6 +24,7 @@ create table if not exists public.deal_update (
   decided_at timestamptz,
   decision_note text,
   created_at timestamptz not null default now(),
+  picks jsonb not null,
   check (decided_by is null or decided_by <> author_id),
   constraint deal_update_rejection_noted check (status <> 'rejected' or coalesce(btrim(decision_note), '') <> '')
 );
@@ -55,10 +55,10 @@ create table if not exists public.deal_update_recipient (
   email text not null,
   name text,
   entries public.deal_person_entry[] not null,
-  claimed_at timestamptz,
   sent_at timestamptz,
   failed_at timestamptz,
   error text,
+  claimed_at timestamptz,
   check (user_id is null or contact_id is null),
   unique (update_id, email)
 );

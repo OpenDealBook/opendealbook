@@ -3,12 +3,10 @@
 import { z } from 'zod';
 
 import {
-  contractPartySchema,
   contractTypeSchema,
   createSupabaseContractStorage,
 } from '@odb/contracts';
 import {
-  AlreadySignedInDocumenso,
   ContractNotFound,
   DOCUMENSO_NOT_CONFIGURED,
   DocumensoRejected,
@@ -16,18 +14,18 @@ import {
   checkContractSignature,
   createDocumensoClient,
   isDocumensoConfigured,
-  recordExternalSignature,
   requestContractSignature,
   signersSchema,
 } from '@odb/contracts/esign';
+import { setUpLoiSigned } from '@odb/deal-timeline/loi-signed-setup.ts';
 import {
   getSupabaseServerAdminClient,
   getSupabaseServerClient,
 } from '@odb/supabase/server';
 
 import { generationRefusal } from './contract-signature-loader';
-import { setUpDiligenceOnLoiSigned } from './loi-signed-setup';
 import { Refusal, refusableAction } from './refusal';
+import { recordSignedCopy, signedCopySchema } from './signed-copy';
 
 export const checkContractSignatureStatus = refusableAction(
   async (data) => {
@@ -42,7 +40,10 @@ export const checkContractSignatureStatus = refusableAction(
         client: getSupabaseServerClient(),
         admin,
         documenso: createDocumensoClient(),
-        onLoiSigned: (loi) => setUpDiligenceOnLoiSigned(admin, loi, 'documenso'),
+        onLoiSigned: (loi) =>
+          setUpLoiSigned(admin, loi, {
+            actor: { actorKind: 'service', actorVia: 'documenso' },
+          }),
       });
     } catch (failure) {
       if (failure instanceof ContractNotFound) {
@@ -108,71 +109,25 @@ export const sendContractForSignature = refusableAction(
     }
   },
   z.object({ contract_version_id: z.uuid(), signers: signersSchema }),
+  { what: 'send contracts for signature', needs: 'deals.manage' },
 );
 
-const SIGNED_COPY_NAME = /\.(pdf|docx)$/i;
-
-function utcTomorrow(): string {
-  const tomorrow = new Date();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-
-  return tomorrow.toISOString().slice(0, 10);
-}
-
 export const recordContractSignedElsewhere = refusableAction(
-  async (data, user) => {
-    const client = getSupabaseServerClient();
-    const admin = getSupabaseServerAdminClient();
-
-    try {
-      return await recordExternalSignature(
-        {
-          dealId: data.deal_id,
-          type: data.type,
-          contractId: data.contract_id,
-          party: data.party,
-          signedOn: data.signed_on,
-          copy: {
-            kind: /\.pdf$/i.test(data.file.name) ? 'pdf' : 'docx',
-            bytes: new Uint8Array(await data.file.arrayBuffer()),
-          },
-        },
-        {
-          client,
-          admin,
-          documenso: createDocumensoClient(),
-          storage: createSupabaseContractStorage(client),
-          authorUserId: user.id,
-          onLoiSigned: (loi) =>
-            setUpDiligenceOnLoiSigned(admin, loi, 'paper-signing'),
-        },
-      );
-    } catch (failure) {
-      if (failure instanceof AlreadySignedInDocumenso) {
-        throw new Refusal(
-          'Documenso shows this was already signed. Use Check signature status to record it.',
-        );
-      }
-
-      throw failure;
-    }
-  },
-  z.object({
+  (data, user) =>
+    recordSignedCopy(
+      {
+        dealId: data.deal_id,
+        type: data.type,
+        contractId: data.contract_id,
+        party: data.party,
+        signedOn: data.signed_on,
+        file: data.file,
+      },
+      user.id,
+    ),
+  signedCopySchema.extend({
     deal_id: z.uuid(),
-    type: contractTypeSchema,
+    type: contractTypeSchema.exclude(['loi_extension']),
     contract_id: z.uuid().nullable(),
-    party: contractPartySchema,
-    signed_on: z.iso
-      .date()
-      .refine(
-        (signedOn) => signedOn <= utcTomorrow(),
-        'The signing date cannot be in the future',
-      ),
-    file: z
-      .instanceof(File)
-      .refine(
-        (file) => SIGNED_COPY_NAME.test(file.name),
-        'Upload the signed contract as a PDF or a .docx file',
-      ),
   }),
 );

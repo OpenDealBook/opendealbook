@@ -27,7 +27,7 @@ import {
   setChecklistItemDetails,
   setChecklistItemWaitingOn,
 } from './checklist-actions';
-import { applyChecklistTemplateTo } from './checklist-template';
+import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
 import { createDealCore } from './deal-actions';
 
 type Action = (

@@ -52,6 +52,16 @@ describe('describeDealEvent', () => {
       { body: 'Seller says Friday' },
       'added a note to a checklist item',
     ],
+    [
+      'contract.extension_noted',
+      { note: 'Seller agreed by email', noted_on: '2026-10-28' },
+      'noted an LOI extension',
+    ],
+    [
+      'contract.extension_rescheduled',
+      { extends_to: '2026-12-01' },
+      "changed an LOI extension's end date",
+    ],
   ])('describes %s', (eventType, payload, expected) => {
     expect(describeDealEvent(eventType, payload, stageName)).toBe(expected);
   });

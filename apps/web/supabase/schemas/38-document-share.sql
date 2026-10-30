@@ -12,8 +12,8 @@ create table if not exists public.document_share (
   first_viewed_at timestamptz,
   expires_at timestamptz,
   workflow_id text,
-  delivered_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  delivered_at timestamptz
 );
 
 alter table public.document_share enable row level security;

@@ -74,4 +74,40 @@ describe('contract review reminder email', () => {
     expect(email.body).toContain('Oct 18');
     expect(email.body).toContain(`href="${siteUrl}/counsel/deal-1/contracts"`);
   });
+
+  it('names an LOI extension in words', async () => {
+    const body = {
+      payload: {
+        dealName: 'Acme Tooling',
+        subjectDealName: 'Project Falcon',
+        contractType: 'loi_extension',
+        version: 1,
+        since: 'Oct 18',
+        path: '/counsel/deal-1/contracts',
+      },
+      controls: {},
+      state: [],
+      subscriber: { subscriberId: 'counsel-1' },
+    };
+    const response = await bridge(
+      new Request(
+        `${siteUrl}/api/novu?action=execute&workflowId=contract-review.reminder&stepId=email`,
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'novu-signature': sign(body),
+          },
+          body: JSON.stringify(body),
+        },
+      ),
+    );
+    const email = (
+      (await response.json()) as { outputs: { subject: string } }
+    ).outputs;
+
+    expect(email.subject).toBe(
+      'Your sign-off on LOI extension version 1 for Project Falcon is waiting',
+    );
+  });
 });

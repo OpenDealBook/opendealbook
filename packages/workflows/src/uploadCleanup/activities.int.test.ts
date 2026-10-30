@@ -454,3 +454,120 @@ describe('deleteUnfinishedUploads in the seller and counsel thread', () => {
     expect(await threadFileExists(abandoned)).toBe(false);
   });
 });
+
+describe('deleteUnfinishedUploads in the templates bucket', () => {
+  const TEMPLATES_BUCKET = 'templates';
+  const storageAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      db: { schema: 'storage' },
+    },
+  );
+
+  async function storeTemplateFile(ageHours: number): Promise<string> {
+    const path = `${teamId}/${crypto.randomUUID()}/v1.docx`;
+    const uploaded = await admin.storage
+      .from(TEMPLATES_BUCKET)
+      .upload(path, new TextEncoder().encode('PK'));
+
+    if (uploaded.error) {
+      throw uploaded.error;
+    }
+
+    await storageAdmin
+      .from('objects')
+      .update({
+        created_at: new Date(Date.now() - ageHours * HOUR).toISOString(),
+      })
+      .eq('bucket_id', TEMPLATES_BUCKET)
+      .eq('name', path)
+      .throwOnError();
+
+    return path;
+  }
+
+  async function templateFileExists(path: string): Promise<boolean> {
+    const { data } = await admin.storage.from(TEMPLATES_BUCKET).exists(path);
+
+    return data;
+  }
+
+  afterAll(async () => {
+    const { data: folders } = await admin.storage
+      .from(TEMPLATES_BUCKET)
+      .list(teamId);
+
+    if (folders && folders.length > 0) {
+      await admin.storage
+        .from(TEMPLATES_BUCKET)
+        .remove(folders.map((folder) => `${teamId}/${folder.name}/v1.docx`));
+    }
+  });
+
+  it('deletes a template file uploaded over 24 hours ago that no template holds', async () => {
+    const abandoned = await storeTemplateFile(25);
+
+    await deleteUnfinishedUploads();
+
+    expect(await templateFileExists(abandoned)).toBe(false);
+  });
+
+  it('keeps a template file a saved template holds, however old', async () => {
+    const held = await storeTemplateFile(72);
+    await admin
+      .from('document_template')
+      .insert({
+        id: held.split('/')[1]!,
+        account_id: teamId,
+        name: 'Held LOI',
+        type: 'loi',
+        docx_path: held,
+      })
+      .throwOnError();
+
+    await deleteUnfinishedUploads();
+
+    expect(await templateFileExists(held)).toBe(true);
+  });
+
+  it('keeps the file of a saved template whose docx_path is only a label', async () => {
+    const seeded = await storeTemplateFile(72);
+    await admin
+      .from('document_template')
+      .insert({
+        id: seeded.split('/')[1]!,
+        account_id: teamId,
+        name: 'Seeded LOI',
+        type: 'loi',
+        docx_path: 'samples/loi-standard.docx',
+      })
+      .throwOnError();
+
+    await deleteUnfinishedUploads();
+
+    expect(await templateFileExists(seeded)).toBe(true);
+  });
+
+  it('keeps a template file uploaded under 24 hours ago', async () => {
+    const recent = await storeTemplateFile(23);
+
+    await deleteUnfinishedUploads();
+
+    expect(await templateFileExists(recent)).toBe(true);
+  });
+
+  it('converges when run twice', async () => {
+    const abandoned = await storeTemplateFile(25);
+    const recent = await storeTemplateFile(1);
+
+    await deleteUnfinishedUploads();
+    await deleteUnfinishedUploads();
+
+    expect({
+      abandoned: await templateFileExists(abandoned),
+      recent: await templateFileExists(recent),
+    }).toEqual({ abandoned: false, recent: true });
+  });
+});

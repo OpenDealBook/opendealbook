@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import { act, useEffect, useState } from 'react';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,6 +15,7 @@ import {
   dialogText,
   fakeServer,
   field,
+  links,
   pageText,
   press,
   show,
@@ -76,7 +77,12 @@ async function confirmInDialog(name: string) {
   });
 }
 
-beforeEach(() => fakeServer.reset());
+beforeEach(() => {
+  fakeServer.reset();
+  fakeServer.values.sendContractForSignature = {
+    editorUrl: 'https://sign.example.test/documents/1/edit',
+  };
+});
 
 afterEach(clearScreen);
 
@@ -233,6 +239,40 @@ describe('ContractReviewPanel', () => {
     ]);
     expect(dialogText()).toBeNull();
     expect(fakeServer.refreshes).toBe(1);
+  });
+
+  it('links to Documenso to place the signature fields once sent, after the page refreshes', async () => {
+    function Refreshing() {
+      const [sendable, setSendable] = useState(true);
+
+      useEffect(() => {
+        fakeServer.onRefresh = () => setSendable(false);
+      }, []);
+
+      return (
+        <ContractReviewPanel
+          contractVersionId={VERSION}
+          review={{ ...waiting, ready: true, sendable }}
+          canManage
+        />
+      );
+    }
+
+    show(<Refreshing />);
+    expect(links()).toEqual([]);
+
+    await press('Send for signature');
+    await type('Signer 1 name', 'Jordan Reyes');
+    await type('Signer 1 email', 'jordan@buyer.test');
+    await confirmInDialog('Send for signature');
+
+    expect(buttonNames()).toEqual([]);
+    expect(links()).toEqual([
+      {
+        text: 'Open in Documenso to place signature fields',
+        href: 'https://sign.example.test/documents/1/edit',
+      },
+    ]);
   });
 
   it('overrides sign-off with the stated reason, then sends', async () => {

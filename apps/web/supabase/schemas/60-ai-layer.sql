@@ -16,11 +16,12 @@ create table if not exists public.llm_endpoint (
   provider text not null,
   model text,
   base_url text,
-  api_key_secret_id uuid,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
   updated_by uuid references auth.users,
+  chat_model text,
+  api_key_secret_id uuid,
   constraint llm_endpoint_one_per_team unique (account_id),
   constraint llm_endpoint_provider check (provider in ('openai', 'anthropic', 'openai_compatible'))
 );
@@ -55,12 +56,12 @@ create table if not exists public.ai_call_log (
   account_id uuid not null references public.accounts (id) on delete cascade,
   endpoint_id uuid references public.llm_endpoint (id) on delete set null,
   deal_id uuid references public.deal (id) on delete cascade,
-  firm_id uuid references public.firm (id) on delete cascade,
   model text not null,
   prompt_tokens int,
   completion_tokens int,
   created_at timestamptz not null default now(),
-  created_by uuid references auth.users default auth.uid()
+  created_by uuid references auth.users default auth.uid(),
+  firm_id uuid references public.firm (id) on delete cascade
 );
 
 alter table public.ai_call_log enable row level security;

@@ -109,3 +109,24 @@ export async function contractFieldValues(
     ...input.terms,
   };
 }
+
+export async function loiExtensionFieldValues(
+  client: SupabaseClient<Database>,
+  dealId: string,
+  extendsTo: string,
+): Promise<Record<string, unknown>> {
+  const { data: milestones } = await client
+    .from('deal_milestone')
+    .select('kind, target_on, actual_on')
+    .eq('deal_id', dealId)
+    .in('kind', ['loi_signed', 'exclusivity_end'])
+    .throwOnError();
+  const milestone = (kind: string) =>
+    milestones.find((candidate) => candidate.kind === kind);
+
+  return {
+    loi_signed_date: milestone('loi_signed')?.actual_on,
+    exclusivity_end_date: milestone('exclusivity_end')?.target_on,
+    new_exclusivity_end_date: extendsTo,
+  };
+}

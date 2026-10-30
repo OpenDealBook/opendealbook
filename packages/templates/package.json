@@ -13,6 +13,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
+    "./storage": "./src/storage.ts",
+    "./test-support/*": "./src/test-support/*",
     "./authoring": "./src/authoring/index.ts",
     "./generation": "./src/generation/index.ts",
     "./delivery": "./src/delivery/index.ts"

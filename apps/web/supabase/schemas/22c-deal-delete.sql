@@ -113,14 +113,3 @@ $$;
 
 revoke all on function public.delete_deal(uuid, text) from public, anon, service_role;
 grant execute on function public.delete_deal(uuid, text) to authenticated;
-
-create or replace function public.record_deal_delete_cleanup_failed(p_account_id uuid, p_deal_id uuid, p_leftovers jsonb)
-  returns void
-  language sql security definer
-  set search_path = '' as $$
-  insert into public.account_event (account_id, event_type, payload)
-  values (p_account_id, 'deal.delete_cleanup_failed', jsonb_build_object('deal_id', p_deal_id) || p_leftovers);
-$$;
-
-revoke all on function public.record_deal_delete_cleanup_failed(uuid, uuid, jsonb) from public, anon, authenticated;
-grant execute on function public.record_deal_delete_cleanup_failed(uuid, uuid, jsonb) to service_role;

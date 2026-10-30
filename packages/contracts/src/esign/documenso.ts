@@ -7,6 +7,7 @@ import {
   type DealMilestoneSetPayload,
   appendDealEvent,
 } from '@odb/events';
+import { plainDate } from '@odb/shared/utils';
 import type { Database, Tables } from '@odb/supabase';
 
 import {
@@ -331,7 +332,7 @@ export async function requestContractSignature(
 
   const { data: contract, error: contractError } = await deps.client
     .from('contract')
-    .select('type, deal:deal_id (firm!inner(name))')
+    .select('type, extends_to, deal:deal_id (firm!inner(name))')
     .eq('id', version.contract_id)
     .single();
 
@@ -345,7 +346,7 @@ export async function requestContractSignature(
   );
 
   const { documentId } = await deps.documenso.createDraft({
-    title: `${contract.deal.firm.name} ${CONTRACT_NAME[contract.type]}`,
+    title: `${contract.deal.firm.name} ${CONTRACT_NAME[contract.type]!(contract, plainDate)}`,
     externalId: input.contractVersionId,
     pdf,
     signers: input.signers,
@@ -545,7 +546,7 @@ async function applySignatureState(
 
   const { data: contract, error: contractError } = await client
     .from('contract')
-    .select('type, deal_id, account_id')
+    .select('type, deal_id, account_id, extends_to')
     .eq('id', version.contract_id)
     .single();
 
@@ -602,10 +603,136 @@ async function applySignatureState(
 
 type SigningContract = Pick<Tables<'contract'>, 'type' | 'deal_id'>;
 
-const SIGNED_MILESTONE: Record<string, 'loi_signed' | 'apa_signing'> = {
-  loi: 'loi_signed',
-  apa: 'apa_signing',
+interface SignedVersion {
+  id: string;
+  contract_id: string;
+  seller_number: number | null;
+}
+
+type MarkSigned = (
+  client: SupabaseClient<Database>,
+  dealId: string,
+  signed: SignedVersion,
+  signedOn: string,
+  actor: EventActor,
+) => Promise<void>;
+
+function contractSigned(
+  name: string,
+  kind: 'loi_signed' | 'apa_signing',
+): MarkSigned {
+  return async (client, dealId, signed, signedOn, actor) => {
+    await setMilestoneActual(
+      client,
+      dealId,
+      { id: deterministicUuid(`milestone:${dealId}:${kind}`), kind },
+      signedOn,
+      actor,
+    );
+    await setMilestoneActual(
+      client,
+      dealId,
+      {
+        id: deterministicUuid(`signed version milestone:${signed.id}`),
+        kind: 'custom',
+        label: `${name} v${signed.seller_number!} signed`,
+      },
+      signedOn,
+      actor,
+    );
+  };
+}
+
+const MARK_SIGNED: Record<string, MarkSigned> = {
+  loi: contractSigned('LOI', 'loi_signed'),
+  apa: contractSigned('APA', 'apa_signing'),
+  loi_extension: (client, dealId, signed, signedOn, actor) =>
+    recordExtensionAgreed(client, dealId, signed.contract_id, signedOn, actor),
 };
+
+export async function recordExtensionAgreed(
+  client: SupabaseClient<Database>,
+  dealId: string,
+  extensionId: string,
+  agreedOn: string,
+  actor: EventActor = {},
+): Promise<void> {
+  const [{ data: extension }, { data: end }, { data: agreed }] =
+    await Promise.all([
+      client
+        .from('contract')
+        .select('type, extends_to')
+        .eq('id', extensionId)
+        .single()
+        .throwOnError(),
+      client
+        .from('deal_milestone')
+        .select('id, target_on, actual_on')
+        .eq('deal_id', dealId)
+        .eq('kind', 'exclusivity_end')
+        .maybeSingle()
+        .throwOnError(),
+      client
+        .from('deal_event')
+        .select(
+          'kind:payload->>kind, endBefore:payload->>exclusivity_end_before',
+        )
+        .eq('deal_id', dealId)
+        .eq('event_type', 'deal_milestone.set')
+        .eq('payload->>extension_id', extensionId)
+        .throwOnError(),
+    ]);
+  const extendsTo = extension.extends_to!;
+  const row = agreed.find((event) => event.kind === 'custom');
+  const endBefore = row ? row.endBefore : (end?.target_on ?? null);
+
+  if (!row) {
+    try {
+      await appendDealEvent(client, {
+        dealId,
+        aggregateType: 'deal_milestone',
+        aggregateId: deterministicUuid(`extension milestone:${extensionId}`),
+        eventType: 'deal_milestone.set',
+        expectedAggregateSeq: 0,
+        payload: {
+          kind: 'custom',
+          label: CONTRACT_NAME.loi_extension!(extension, plainDate),
+          target_on: null,
+          actual_on: agreedOn,
+          shared: true,
+          extension_id: extensionId,
+          exclusivity_end_before: endBefore,
+        },
+        ...actor,
+      });
+    } catch (failure) {
+      if (isStaleAggregate(failure)) {
+        return;
+      }
+
+      throw failure;
+    }
+  }
+
+  const hasMoved = agreed.some((event) => event.kind === 'exclusivity_end');
+
+  if (!hasMoved && (endBefore === null || endBefore < extendsTo)) {
+    await appendDealEvent(client, {
+      dealId,
+      aggregateType: 'deal_milestone',
+      aggregateId:
+        end?.id ?? deterministicUuid(`milestone:${dealId}:exclusivity_end`),
+      eventType: 'deal_milestone.set',
+      payload: {
+        kind: 'exclusivity_end',
+        target_on: extendsTo,
+        actual_on: end?.actual_on ?? null,
+        extension_id: extensionId,
+      },
+      ...actor,
+    });
+  }
+}
 
 type SignedMilestone =
   | { id: string; kind: 'loi_signed' | 'apa_signing' }
@@ -623,7 +750,7 @@ export async function recordSigning(
     .from('contract_version')
     .update({ is_signed: true })
     .eq('id', versionId)
-    .select('id, seller_number');
+    .select('id, contract_id, seller_number');
 
   if (error) {
     throw error;
@@ -639,23 +766,10 @@ export async function recordSigning(
     await moveStage(client, contract.deal_id, move, actor);
   }
 
-  const kind = SIGNED_MILESTONE[contract.type]!;
-
-  await setMilestoneActual(
+  await MARK_SIGNED[contract.type]!(
     client,
     contract.deal_id,
-    { id: deterministicUuid(`milestone:${contract.deal_id}:${kind}`), kind },
-    signedOn,
-    actor,
-  );
-  await setMilestoneActual(
-    client,
-    contract.deal_id,
-    {
-      id: deterministicUuid(`signed version milestone:${versionId}`),
-      kind: 'custom',
-      label: `${CONTRACT_NAME[contract.type]} v${signed[0]!.seller_number!} signed`,
-    },
+    signed[0]!,
     signedOn,
     actor,
   );
@@ -711,7 +825,17 @@ export async function setMilestoneActual(
 
 const DATA_ROOM_BUCKET = 'data-room';
 const SIGNED_CONTRACTS_FOLDER = 'Signed contracts';
-const CONTRACT_NAME: Record<string, string> = { loi: 'LOI', apa: 'APA' };
+type NamedContract = Pick<Tables<'contract'>, 'type' | 'extends_to'>;
+
+const CONTRACT_NAME: Record<
+  string,
+  (contract: NamedContract, day: (day: string) => string) => string
+> = {
+  loi: () => 'LOI',
+  apa: () => 'APA',
+  loi_extension: (extension, day) =>
+    `LOI extension to ${day(extension.extends_to!)}`,
+};
 
 const CONTENT_TYPE: Record<SignedCopy['kind'], string> = {
   pdf: PDF_CONTENT_TYPE,
@@ -721,7 +845,10 @@ const CONTENT_TYPE: Record<SignedCopy['kind'], string> = {
 export async function fileSignedContract(
   admin: SupabaseClient<Database>,
   contractVersionId: string,
-  contract: Pick<Tables<'contract'>, 'type' | 'deal_id' | 'account_id'>,
+  contract: Pick<
+    Tables<'contract'>,
+    'type' | 'deal_id' | 'account_id' | 'extends_to'
+  >,
   signedCopy: () => Promise<SignedCopy>,
   actorVia?: string,
 ): Promise<void> {
@@ -757,7 +884,7 @@ export async function fileSignedContract(
   }
 
   const folderId = await signedContractsFolder(admin, contract);
-  const name = `${contractName} (signed).${kind}`;
+  const name = `${contractName(contract, (day) => day)} (signed).${kind}`;
 
   const { data: earlier } = await admin
     .from('dr_document')

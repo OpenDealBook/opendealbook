@@ -1,4 +1,9 @@
 export {
+  beginTemplateUpload,
+  parseTemplateDocx,
+  saveTemplate,
+} from './authoring/actions';
+export {
   checkTemplateFields,
   generateFromTemplate,
 } from './generation/actions';

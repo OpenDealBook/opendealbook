@@ -306,5 +306,53 @@ select throws_ok(
   'someone outside the team records no visit'
 );
 
+-- At 03:00 UTC on Nov 2 a Los Angeles team is still on Nov 1.
+reset role;
+update public.accounts set timezone = 'America/Los_Angeles' where id = tests.account_id('ta-team');
+insert into public.deal_milestone (id, account_id, deal_id, kind, target_on, shared) values
+  ('7a000000-0000-0000-0000-000000000034', tests.account_id('ta-team'), '7a000000-0000-0000-0000-0000000000d1',
+   'financing_contingency', '2026-11-01', false);
+insert into public.personal_todo (id, account_id, deal_id, user_id, title, done, due_at) values
+  ('7a000000-0000-0000-0000-000000000005', tests.account_id('ta-team'), null,
+   tests.get_uid('ta_owner'), 'Order the appraisal', false, '2026-11-01T00:00:00Z');
+select tests.login_as('ta_owner');
+
+select results_eq(
+  $$ select section, item_id from public.team_agenda(tests.account_id('ta-team'), false, '2026-11-02T03:00:00Z')
+     where item_id in ('7a000000-0000-0000-0000-000000000034', '7a000000-0000-0000-0000-000000000005')
+     order by item_id $$,
+  $$ values
+     ('due_soon', '7a000000-0000-0000-0000-000000000005'::uuid),
+     ('deadline', '7a000000-0000-0000-0000-000000000034'::uuid) $$,
+  'today is the team''s local date: what is due on its Nov 1 is still due, not overdue or gone'
+);
+
+reset role;
+insert into public.deal_milestone (id, account_id, deal_id, kind, target_on, shared) values
+  ('7a000000-0000-0000-0000-000000000035', tests.account_id('ta-team'), '7a000000-0000-0000-0000-0000000000d1',
+   'exclusivity_end', '2026-11-01', true),
+  ('7a000000-0000-0000-0000-000000000036', tests.account_id('ta-team'), '7a000000-0000-0000-0000-0000000000d3',
+   'exclusivity_end', '2026-10-31', true);
+select tests.login_as('ta_owner');
+
+select results_eq(
+  $$ select item_id, lapsed from public.team_agenda(tests.account_id('ta-team'), false, '2026-11-02T03:00:00Z')
+     where section = 'deadline' and item_id in ('7a000000-0000-0000-0000-000000000034',
+       '7a000000-0000-0000-0000-000000000035', '7a000000-0000-0000-0000-000000000036')
+     order by item_id $$,
+  $$ values
+     ('7a000000-0000-0000-0000-000000000034'::uuid, false),
+     ('7a000000-0000-0000-0000-000000000035'::uuid, false),
+     ('7a000000-0000-0000-0000-000000000036'::uuid, true) $$,
+  'an exclusivity end is lapsed from the day after it on the team''s local calendar'
+);
+
+select results_eq(
+  $$ select detail from public.team_agenda(tests.account_id('ta-team'), false, now() + interval '41 days 2 hours')
+     where section = 'quiet_lender' $$,
+  $$ values ('41') $$,
+  'a quiet lender''s silent days count from the real moment, not the team''s local date'
+);
+
 select * from finish();
 rollback;

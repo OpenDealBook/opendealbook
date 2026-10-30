@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ import {
   handleContractSignatureEvent,
 } from '@odb/contracts/esign';
 import type { Database } from '@odb/supabase';
+import { checkTemplateFields } from '@odb/templates/server';
 
 import {
   type IntegrationAccount,
@@ -760,7 +761,10 @@ describe('generateLoi (integration)', () => {
       const { dealId, offerId } = await loiReady('Raced regenerate LOI');
       await generate(offerId);
 
-      const outcomes = await Promise.all([generate(offerId), generate(offerId)]);
+      const outcomes = await Promise.all([
+        generate(offerId),
+        generate(offerId),
+      ]);
 
       expect(outcomes).toContainEqual({
         ok: false,
@@ -886,15 +890,79 @@ describe('generateLoi (integration)', () => {
 
   it('rejects when the offer is not accepted', async () => {
     const dealId = await newDeal('Unaccepted deal');
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(700_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(700_000) },
+        actor,
+      )) as { value: string }
+    ).value;
     await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
     await adoptFinancials(dealId);
 
     expect(
       await (generateLoi as unknown as Action)({ offer_id: offerId }),
     ).toEqual({ ok: false, refusal: 'This offer has not been accepted yet' });
+  });
+});
+
+async function signedInMember() {
+  const unique = crypto.randomUUID().slice(0, 8);
+  const email = `int-member-${unique}@odb.test`;
+  const password = `Pw-${unique}-Aa1!`;
+  const { data } = await account.admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  await account.admin
+    .from('accounts_memberships')
+    .insert({
+      account_id: account.accountId,
+      user_id: data.user!.id,
+      account_role: 'member',
+    })
+    .throwOnError();
+  const member = createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321',
+    (account.user as unknown as { supabaseKey: string }).supabaseKey,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  await member.auth.signInWithPassword({ email, password });
+
+  return { member, memberId: data.user!.id };
+}
+
+async function asMember<Value>(run: () => Promise<Value>): Promise<Value> {
+  const { member, memberId } = await signedInMember();
+  const templates = await vi.importActual<
+    typeof import('@odb/templates/server')
+  >('@odb/templates/server');
+  vi.mocked(checkTemplateFields).mockImplementationOnce(
+    templates.checkTemplateFields as never,
+  );
+  holder.client = member;
+  holder.userId = memberId;
+
+  return run().finally(() => {
+    holder.client = account.user;
+    holder.userId = account.userId;
+  });
+}
+
+describe('generateLoi for a team member who does not manage deals', () => {
+  it('is told only deal managers can generate LOIs, and nothing is drafted', async () => {
+    const { dealId, offerId } = await loiReady('Member generates LOI');
+
+    expect(
+      await asMember(() =>
+        (generateLoi as unknown as Action)({ offer_id: offerId }),
+      ),
+    ).toEqual({
+      ok: false,
+      refusal: expect.stringMatching(
+        /^Only deal managers can generate LOIs\. Ask /,
+      ),
+    });
+    expect(await contractsOf(dealId)).toEqual([]);
   });
 });

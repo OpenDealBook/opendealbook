@@ -24,7 +24,7 @@ import { Refusal, refusableAction } from './refusal';
 
 const createContractSchema = z.object({
   dealId: z.string(),
-  type: contractTypeSchema,
+  type: contractTypeSchema.exclude(['loi_extension']),
   fromTemplateId: z.string().optional(),
 });
 

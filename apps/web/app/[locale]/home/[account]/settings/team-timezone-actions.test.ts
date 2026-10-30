@@ -43,7 +43,7 @@ vi.mock('@odb/supabase/server', () => ({
       update: (patch: { timezone: string }) => ({
         eq: (column: string, value: string) => ({
           select: () => {
-            if (patch.timezone === 'Mars/Olympus') {
+            if (patch.timezone === 'America/Ciudad_Juarez') {
               return resolved({
                 data: null,
                 error: {
@@ -157,15 +157,30 @@ describe('changing the team time zone', () => {
     expect(world.events).toEqual([]);
   });
 
-  it('refuses a zone the database does not know and leaves schedules alone', async () => {
+  it('refuses a zone the database rejects though the app lists it, as when Node gains a zone, and leaves schedules alone', async () => {
     const result = await updateTeamTimezoneAction({
       accountId: TEAM_ID,
-      timezone: 'Mars/Olympus',
+      timezone: 'America/Ciudad_Juarez',
     });
 
     expect(result).toEqual({
       ok: false,
-      refusal: "Mars/Olympus isn't a supported time zone; pick another",
+      refusal:
+        "America/Ciudad_Juarez isn't a supported time zone; pick another",
+    });
+    expect(world.events).toEqual([]);
+  });
+
+  it('refuses a zone only the database knows and saves nothing', async () => {
+    const result = await updateTeamTimezoneAction({
+      accountId: TEAM_ID,
+      timezone: 'posix/America/New_York',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      refusal:
+        "posix/America/New_York isn't a supported time zone; pick another",
     });
     expect(world.events).toEqual([]);
   });

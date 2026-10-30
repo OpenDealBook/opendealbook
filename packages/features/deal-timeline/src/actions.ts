@@ -5,6 +5,7 @@ import { refusableAction } from '@odb/lender-rooms/actions/refusable-action.ts';
 import type { Json } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+import { setUpLoiSigned } from './loi-signed-setup';
 import { throwAsMilestoneRefusal } from './milestone-refusal';
 import { removeMilestoneSchema, setMilestoneSchema } from './schema';
 
@@ -30,13 +31,22 @@ async function appendMilestoneEvent(input: {
 }
 
 export const setMilestone = refusableAction(
-  ({ dealId, milestoneId, targetOn, actualOn, ...milestone }) =>
-    appendMilestoneEvent({
+  async ({ dealId, milestoneId, targetOn, actualOn, ...milestone }, user) => {
+    await appendMilestoneEvent({
       dealId,
       aggregateId: milestoneId,
       eventType: 'deal_milestone.set',
       payload: { ...milestone, target_on: targetOn, actual_on: actualOn },
-    }),
+    });
+
+    if (milestone.kind === 'loi_signed' && actualOn !== null) {
+      await setUpLoiSigned(
+        getSupabaseServerClient(),
+        { dealId, signedOn: actualOn },
+        { actor: {}, createdBy: user.id },
+      );
+    }
+  },
   { schema: setMilestoneSchema },
 );
 

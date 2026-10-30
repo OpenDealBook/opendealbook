@@ -235,6 +235,9 @@ importers:
       '@faker-js/faker':
         specifier: 'catalog:'
         version: 10.6.0
+      '@odb/templates':
+        specifier: workspace:*
+        version: link:../../packages/templates
       '@odb/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -997,6 +1000,9 @@ importers:
 
   packages/diligence:
     dependencies:
+      '@odb/deal-timeline':
+        specifier: workspace:*
+        version: link:../features/deal-timeline
       '@odb/deals':
         specifier: workspace:*
         version: link:../features/deals
@@ -1420,6 +1426,9 @@ importers:
       '@odb/contracts':
         specifier: workspace:*
         version: link:../../contracts
+      '@odb/deal-timeline':
+        specifier: workspace:*
+        version: link:../deal-timeline
       '@odb/events':
         specifier: workspace:*
         version: link:../../events

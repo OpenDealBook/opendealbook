@@ -24,7 +24,7 @@ export function TeamTimezoneSetting({
   canManage,
 }: {
   accountId: string;
-  current: string;
+  current: string | null;
   zones: string[];
   canManage: boolean;
 }) {
@@ -47,7 +47,7 @@ export function TeamTimezoneSetting({
         <select
           aria-label={'Time zone'}
           className={'bg-background h-9 rounded-md border px-2 text-sm'}
-          defaultValue={current}
+          defaultValue={current ?? 'UTC'}
           disabled={!canManage || pending}
           onChange={(event) => {
             const timezone = event.target.value;

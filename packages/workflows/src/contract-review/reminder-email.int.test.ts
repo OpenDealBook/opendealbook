@@ -393,6 +393,32 @@ describe('emailContractReviewReminders (integration)', () => {
     ]);
   });
 
+  it("names an LOI extension in words when counsel hasn't answered", async () => {
+    const review = await seedReview({
+      sellerCounsel: false,
+      shared: false,
+      loiExtension: true,
+    });
+    const { novu } = recordingNovu();
+
+    await emailContractReviewReminders(
+      { admin: review.admin, novu },
+      review.teamId,
+      EIGHT_UTC_ON('2026-10-26'),
+    );
+
+    const { data: notices } = await review.admin
+      .from('notifications')
+      .select('body')
+      .eq('account_id', review.teamId)
+      .throwOnError();
+    expect(notices).toEqual([
+      {
+        body: "Buyer's counsel hasn't answered the review of version 2 of the LOI extension on Acme Tooling asked for on Oct 18.",
+      },
+    ]);
+  });
+
   it('tells no one counsel has not answered for a side without counsel', async () => {
     const review = await seedReview({
       buyerCounsel: false,

@@ -9,20 +9,20 @@ create table if not exists public.calc_input_citation (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   calc_version_id uuid not null references public.calc_version (id) on delete cascade,
-  row_id uuid,
   input_key text not null,
   -- No foreign key: replay_deal deletes a deal's documents and puts them back
   -- under the same ids.
   dr_document_id uuid not null,
-  -- What the document was called and which version it was when cited, so a
-  -- deleted document still reads back.
-  document_name text not null,
-  document_version int not null,
   page int check (page >= 1),
   sheet text check (btrim(sheet) <> ''),
   cell text,
   created_by uuid references auth.users default auth.uid(),
   created_at timestamptz not null default now(),
+  row_id uuid,
+  -- What the document was called and which version it was when cited, so a
+  -- deleted document still reads back.
+  document_name text not null,
+  document_version int not null,
   check (num_nonnulls(page, sheet) <= 1)
 );
 

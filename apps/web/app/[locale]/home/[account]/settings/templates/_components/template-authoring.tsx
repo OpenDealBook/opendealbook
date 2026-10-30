@@ -10,6 +10,13 @@ import type {
   TemplateFieldDraft,
   TemplateType,
 } from '@odb/templates';
+import {
+  beginTemplateUpload,
+  parseTemplateDocx,
+  saveTemplate,
+} from '@odb/templates/server';
+import { TEMPLATES_BUCKET } from '@odb/templates/storage';
+import { getSupabaseBrowserClient } from '@odb/supabase/client';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
@@ -22,15 +29,8 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 
-import { parseTemplateDocx, saveTemplate } from '../actions';
+import { TEMPLATE_TYPE_LABELS } from './template-type-labels';
 
-const TEMPLATE_TYPES: TemplateType[] = [
-  'loi',
-  'apa',
-  'nda',
-  'data_request',
-  'letter',
-];
 const FIELD_TYPES: FieldType[] = [
   'text',
   'currency',
@@ -45,17 +45,6 @@ interface TemplateAuthoringProps {
   listHref: string;
 }
 
-async function toBase64(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  let binary = '';
-
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-
-  return btoa(binary);
-}
-
 export function TemplateAuthoring({
   accountId,
   listHref,
@@ -63,21 +52,59 @@ export function TemplateAuthoring({
   const router = useRouter();
   const [name, setName] = useState('');
   const [type, setType] = useState<TemplateType>('loi');
-  const [docxBase64, setDocxBase64] = useState<string | null>(null);
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<TemplateFieldDraft[]>([]);
+  const [failure, setFailure] = useState<string | null>(null);
   const [isParsing, startParsing] = useTransition();
   const [isSaving, startSaving] = useTransition();
 
+  function reportingFailure(work: () => Promise<void>) {
+    return async () => {
+      setFailure(null);
+
+      try {
+        await work();
+      } catch (error) {
+        setFailure((error as Error).message);
+      }
+    };
+  }
+
   function onFile(file: File) {
-    startParsing(async () => {
-      const base64 = await toBase64(file);
-      const detected = await parseTemplateDocx({
-        accountId,
-        docxBase64: base64,
-      });
-      setDocxBase64(base64);
-      setDrafts(detected);
-    });
+    setTemplateId(null);
+    setDrafts([]);
+    startParsing(
+      reportingFailure(async () => {
+        const begun = await beginTemplateUpload({ accountId, size: file.size });
+
+        if (!begun.ok) {
+          throw new Error(begun.refusal);
+        }
+
+        const stored = await getSupabaseBrowserClient()
+          .storage.from(TEMPLATES_BUCKET)
+          .uploadToSignedUrl(begun.value.path, begun.value.token, file);
+
+        if (stored.error) {
+          throw 'statusCode' in stored.error &&
+            stored.error.statusCode === '413'
+            ? new Error('This template is over 25 MB')
+            : stored.error;
+        }
+
+        const parsed = await parseTemplateDocx({
+          accountId,
+          templateId: begun.value.templateId,
+        });
+
+        if (!parsed.ok) {
+          throw new Error(parsed.refusal);
+        }
+
+        setDrafts(parsed.value);
+        setTemplateId(begun.value.templateId);
+      }),
+    );
   }
 
   function updateDraft(index: number, patch: Partial<TemplateFieldDraft>) {
@@ -89,14 +116,27 @@ export function TemplateAuthoring({
   }
 
   function onSave() {
-    if (!docxBase64) {
+    if (!templateId) {
       return;
     }
 
-    startSaving(async () => {
-      await saveTemplate({ accountId, name, type, docxBase64, fields: drafts });
-      router.push(listHref);
-    });
+    startSaving(
+      reportingFailure(async () => {
+        const saved = await saveTemplate({
+          accountId,
+          templateId,
+          name,
+          type,
+          fields: drafts,
+        });
+
+        if (!saved.ok) {
+          throw new Error(saved.refusal);
+        }
+
+        router.push(listHref);
+      }),
+    );
   }
 
   return (
@@ -125,9 +165,9 @@ export function TemplateAuthoring({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {TEMPLATE_TYPES.map((value) => (
+                {Object.entries(TEMPLATE_TYPE_LABELS).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
-                    {value.toUpperCase()}
+                    {label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -156,6 +196,12 @@ export function TemplateAuthoring({
           </div>
         </CardContent>
       </Card>
+
+      {failure ? (
+        <p role={'alert'} className={'text-destructive text-sm'}>
+          {failure}
+        </p>
+      ) : null}
 
       {drafts.length > 0 ? (
         <Card>
@@ -247,7 +293,7 @@ export function TemplateAuthoring({
           onClick={onSave}
           disabled={
             isSaving ||
-            !docxBase64 ||
+            !templateId ||
             name.trim().length === 0 ||
             drafts.length === 0
           }

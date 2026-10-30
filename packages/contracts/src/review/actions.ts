@@ -40,7 +40,10 @@ const verdict = z.object({
   note: z.string().trim().min(1).optional(),
 });
 
-const gate = { type: contractTypeSchema, required: z.boolean() };
+const gate = {
+  type: contractTypeSchema.exclude(['loi_extension']),
+  required: z.boolean(),
+};
 
 export const requestContractReview = enhanceAction(
   async (input) => {

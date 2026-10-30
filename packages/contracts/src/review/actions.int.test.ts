@@ -574,6 +574,20 @@ describe('setDealReviewGate', () => {
     expect(events).toEqual([]);
   });
 
+  it("refuses a gate for an LOI extension, which follows the deal's LOI", async () => {
+    const dealId = await newDeal(teamId, owner);
+
+    await expect(
+      setDealReviewGate({
+        dealId,
+        // @ts-expect-error an extension has no gate of its own
+        type: 'loi_extension',
+        required: false,
+      }),
+    ).rejects.toThrow('expected one of \\"loi\\"|\\"apa\\"');
+    expect(await dealGateChanges(dealId)).toEqual([]);
+  });
+
   it('refuses a team member who does not manage deals', async () => {
     world.signedInClient = member.client;
     const dealId = await newDeal(teamId, owner);
@@ -610,6 +624,20 @@ describe('setTeamReviewGate', () => {
         required: false,
       }),
     ).toEqual({ ok: true });
+    expect(await teamGateChanges()).toEqual(before);
+  });
+
+  it("refuses a default for LOI extensions, which follow the team's LOI default", async () => {
+    const before = await teamGateChanges();
+
+    await expect(
+      setTeamReviewGate({
+        accountId: teamId,
+        // @ts-expect-error an extension has no gate of its own
+        type: 'loi_extension',
+        required: false,
+      }),
+    ).rejects.toThrow('expected one of \\"loi\\"|\\"apa\\"');
     expect(await teamGateChanges()).toEqual(before);
   });
 

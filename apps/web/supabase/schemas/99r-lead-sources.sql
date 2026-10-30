@@ -16,15 +16,15 @@ create table if not exists public.lead_import (
   id uuid primary key default gen_random_uuid(),
   source public.lead_source not null,
   filename text,
+  created_at timestamptz not null default now(),
   status public.lead_import_status not null default 'running',
   rows_read int not null default 0,
   rows_written int not null default 0,
   rows_rejected int not null default 0,
   as_of date,
   rows_with_nulled_fields int not null default 0,
-  rows_unmatched int not null default 0,
   error text,
-  created_at timestamptz not null default now()
+  rows_unmatched int not null default 0
 );
 
 alter table public.lead_import enable row level security;
@@ -37,15 +37,14 @@ grant select, insert, update, delete on public.lead_import to service_role;
 create table if not exists public.public_business (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  created_at timestamptz not null default now(),
   ein public.ein unique,
-  match_key text unique,
-  created_at timestamptz not null default now()
+  match_key text unique
 );
 
 create table if not exists public.ppp_loan (
   loan_number text primary key,
   business_id uuid references public.public_business (id) on delete set null,
-  import_id uuid references public.lead_import (id) on delete set null,
   borrower_name text not null,
   address_line1 text,
   city text,
@@ -55,14 +54,13 @@ create table if not exists public.ppp_loan (
   business_age_description text,
   jobs_reported int,
   loan_amount numeric,
-  approved_on date
+  approved_on date,
+  import_id uuid references public.lead_import (id) on delete set null
 );
 
 create table if not exists public.sba_loan (
   id uuid primary key default gen_random_uuid(),
-  source_key text not null unique,
   business_id uuid references public.public_business (id) on delete set null,
-  import_id uuid references public.lead_import (id) on delete set null,
   program public.lead_source not null check (program in ('sba_7a', 'sba_504')),
   borrower_name text not null,
   address_line1 text,
@@ -72,13 +70,14 @@ create table if not exists public.sba_loan (
   naics_code text,
   jobs_supported int,
   loan_amount numeric,
-  approved_on date
+  approved_on date,
+  source_key text not null unique,
+  import_id uuid references public.lead_import (id) on delete set null
 );
 
 create table if not exists public.form_5500_filing (
   ack_id text primary key,
   business_id uuid references public.public_business (id) on delete set null,
-  import_id uuid references public.lead_import (id) on delete set null,
   ein public.ein not null,
   sponsor_name text not null,
   address_line1 text,
@@ -86,16 +85,15 @@ create table if not exists public.form_5500_filing (
   state text,
   postal_code text,
   participant_count int,
-  plan_year_begin date
+  plan_year_begin date,
+  import_id uuid references public.lead_import (id) on delete set null
 );
 
 create table if not exists public.state_registry_entity (
   id uuid primary key default gen_random_uuid(),
   state text not null,
   entity_number text not null,
-  source_id text,
   business_id uuid references public.public_business (id) on delete set null,
-  import_id uuid references public.lead_import (id) on delete set null,
   name text not null,
   status text,
   formation_date date,
@@ -106,16 +104,18 @@ create table if not exists public.state_registry_entity (
   mailing_postal_code text,
   source public.registry_source not null,
   fetched_at timestamptz not null,
+  import_id uuid references public.lead_import (id) on delete set null,
+  source_id text,
   unique (state, entity_number)
 );
 
 create table if not exists public.state_registry_officer (
   id uuid primary key default gen_random_uuid(),
   entity_id uuid not null references public.state_registry_entity (id) on delete cascade,
-  dataset text,
-  import_id uuid references public.lead_import (id) on delete set null,
   name text not null,
   title text,
+  dataset text,
+  import_id uuid references public.lead_import (id) on delete set null,
   constraint state_registry_officer_entity_dataset_name_title_key unique nulls not distinct (entity_id, dataset, name, title)
 );
 
@@ -357,8 +357,8 @@ $$;
 revoke all on function public.mark_unlisted_state_registry_entities(text, uuid, int) from public, anon, authenticated;
 grant execute on function public.mark_unlisted_state_registry_entities(text, uuid, int) to service_role;
 
-alter table public.firm
-  add column public_business_id uuid references public.public_business (id) on delete set null;
+alter table public.firm add constraint firm_public_business_id_fkey
+  foreign key (public_business_id) references public.public_business (id) on delete set null;
 
 create index ix_firm_public_business on public.firm (public_business_id);
 
@@ -400,13 +400,13 @@ create table if not exists public.provider_credential (
   kind public.provider_kind not null,
   provider text not null,
   base_url text,
-  api_key_secret_id uuid,
-  actor_id text constraint provider_credential_actor_id check (actor_id ~ '^[A-Za-z0-9_.-]+([/~][A-Za-z0-9_.-]+)?$'),
-  webhook_secret_id uuid,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
   updated_by uuid references auth.users,
+  api_key_secret_id uuid,
+  actor_id text constraint provider_credential_actor_id check (actor_id ~ '^[A-Za-z0-9_.-]+([/~][A-Za-z0-9_.-]+)?$'),
+  webhook_secret_id uuid,
   unique (account_id, kind)
 );
 
@@ -864,11 +864,11 @@ create table if not exists public.business_match_review (
   form_5500_ack_id text references public.form_5500_filing (ack_id) on delete cascade,
   registry_entity_id uuid references public.state_registry_entity (id) on delete cascade,
   score numeric not null,
-  reason public.match_review_reason not null default 'weak_match',
   status public.match_review_status not null default 'pending',
   reviewed_by uuid references auth.users,
   reviewed_at timestamptz,
   created_at timestamptz not null default now(),
+  reason public.match_review_reason not null default 'weak_match',
   check (num_nonnulls(ppp_loan_number, sba_loan_id, form_5500_ack_id, registry_entity_id) = 1),
   check ((status = 'pending') = (reviewed_by is null) and (reviewed_by is null) = (reviewed_at is null)),
   constraint business_match_review_score_check check (
@@ -914,17 +914,17 @@ create table if not exists public.outreach_letter (
   account_id uuid not null references public.accounts (id) on delete cascade,
   enrollment_id uuid,
   step_ordinal int,
-  idempotency_key text unique,
   provider text not null,
   provider_letter_id text,
   address_line1 text not null,
   city text not null,
   state text not null,
   postal_code text not null,
-  status public.letter_status not null default 'queued',
-  error text,
   cost_cents int,
   created_at timestamptz not null default now(),
+  status public.letter_status not null default 'queued',
+  error text,
+  idempotency_key text unique,
   foreign key (enrollment_id, account_id) references public.outreach_enrollment (id, account_id) on delete cascade,
   unique (provider, provider_letter_id)
 );

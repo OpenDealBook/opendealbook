@@ -1,12 +1,13 @@
 -- The deal timeline. A milestone is a deal-event aggregate, so its history is
 -- the deal_event log and this table holds only current values. Dates are plain
--- calendar days with no time zone. Closing, effective, LOI signed and APA
--- signing start shared with outside parties; every other milestone starts
--- team-only.
+-- calendar days with no time zone. Closing, effective, LOI signed, the end of
+-- exclusivity and APA signing start shared with outside parties; every other
+-- milestone starts team-only.
 
 create type public.milestone_kind as enum (
   'loi_deadline',
   'loi_signed',
+  'exclusivity_end',
   'diligence_end',
   'financing_contingency',
   'apa_signing',
@@ -65,7 +66,7 @@ begin
       (ev.payload ->> 'actual_on')::date,
       coalesce(
         (ev.payload ->> 'shared')::boolean,
-        (ev.payload ->> 'kind') in ('loi_signed', 'apa_signing', 'closing', 'effective')
+        (ev.payload ->> 'kind') in ('loi_signed', 'exclusivity_end', 'apa_signing', 'closing', 'effective')
       ),
       ev.created_at, ev.created_at,
       ev.actor_ref, ev.actor_ref
@@ -224,6 +225,68 @@ $$;
 
 revoke all on function public.counsel_timeline(uuid) from public, anon;
 grant execute on function public.counsel_timeline(uuid) to authenticated, service_role;
+
+-- The exclusivity end date is deliberately ignored: a lapsed end does not
+-- make exclusivity over.
+create or replace function public.deal_exclusivity_over(deal_id uuid)
+  returns boolean
+  language sql stable
+  set search_path = '' as $$
+  select exists (
+      select 1 from public.deal d
+      where d.id = deal_exclusivity_over.deal_id
+        and (d.resolution is not null or d.archived_at is not null)
+    )
+    or exists (
+      select 1 from public.contract c
+      join public.contract_version v on v.contract_id = c.id
+      where c.deal_id = deal_exclusivity_over.deal_id and c.type = 'apa' and v.is_signed
+    )
+    or exists (
+      select 1 from public.deal_milestone m
+      where m.deal_id = deal_exclusivity_over.deal_id and m.kind = 'exclusivity_end' and m.actual_on is not null
+    );
+$$;
+
+revoke all on function public.deal_exclusivity_over(uuid) from public, anon;
+grant execute on function public.deal_exclusivity_over(uuid) to authenticated, service_role;
+
+-- Brings deals whose LOI was signed before exclusivity had its own milestone up
+-- to it. Appended as the system actor so the log holds the history.
+create or replace function public.backfill_exclusivity_end()
+  returns void
+  language plpgsql security definer set search_path = '' as $$
+declare
+  r record;
+  v_role text;
+begin
+  v_role := current_setting('request.jwt.claim.role', true);
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+
+  for r in
+    select m.deal_id, m.actual_on + v.exclusivity_days as target_on
+    from public.deal_milestone m
+    join public.offer o on o.deal_id = m.deal_id and o.status = 'accepted'
+    join public.offer_version v on v.id = o.current_version_id
+    where m.kind = 'loi_signed'
+      and m.actual_on is not null
+      and v.exclusivity_days is not null
+      and not exists (
+        select 1 from public.deal_milestone e where e.deal_id = m.deal_id and e.kind = 'exclusivity_end'
+      )
+  loop
+    perform public.append_deal_event(
+      r.deal_id, 'deal_milestone', gen_random_uuid(), 'deal_milestone.set',
+      jsonb_build_object('kind', 'exclusivity_end', 'target_on', r.target_on, 'actual_on', null),
+      null, 'system', 'migration'
+    );
+  end loop;
+
+  perform set_config('request.jwt.claim.role', coalesce(v_role, ''), true);
+end;
+$$;
+
+revoke all on function public.backfill_exclusivity_end() from public, anon, authenticated, service_role;
 
 -- ---- Billing lock ----
 

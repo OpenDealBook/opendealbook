@@ -11,6 +11,8 @@ select public.create_team_account('Chicago Team', tests.get_uid('ttz_owner'), 't
 select public.create_team_account('Plain Team', tests.get_uid('ttz_plain'), 'ttz-plain');
 insert into public.accounts_memberships (account_id, user_id, account_role)
 values (tests.account_id('ttz-chicago'), tests.get_uid('ttz_member'), 'member');
+insert into public.accounts (name, slug, primary_owner_user_id, is_personal_account, timezone)
+values ('Direct Team', 'ttz-direct', tests.get_uid('ttz_plain'), false, null);
 
 select is(
   (select timezone from public.accounts where id = tests.account_id('ttz-chicago')),
@@ -25,7 +27,9 @@ select is(
 );
 
 select is(
-  (select count(*)::int from public.accounts where not is_personal_account and timezone is null),
+  (select count(*)::int from public.accounts
+   where not is_personal_account and timezone is null
+     and slug in ('ttz-chicago', 'ttz-plain', 'ttz-direct')),
   0,
   'every team has a time zone'
 );

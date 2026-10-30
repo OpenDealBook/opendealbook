@@ -58,7 +58,9 @@ export async function fetchDealNotificationEvents(
 
   const { data, error } = await client
     .from('deal_event')
-    .select('global_seq, deal_id, account_id, actor_ref, event_type, payload')
+    .select(
+      'global_seq, deal_id, account_id, actor_ref, event_type, payload, aggregate_type, aggregate_id',
+    )
     .gt('global_seq', input.afterGlobalSeq)
     .order('global_seq', { ascending: true })
     .limit(input.limit);
@@ -67,14 +69,37 @@ export async function fetchDealNotificationEvents(
     throw error;
   }
 
-  return data.map((row) => ({
-    globalSeq: row.global_seq,
-    dealId: row.deal_id,
-    accountId: row.account_id,
-    actorRef: row.actor_ref,
-    eventType: row.event_type,
-    stage: (row.payload as { stage?: string } | null)?.stage ?? null,
-  }));
+  const contractIds = data
+    .filter((row) => row.aggregate_type === 'contract')
+    .map((row) => row.aggregate_id);
+  const { data: contracts } =
+    contractIds.length === 0
+      ? { data: [] }
+      : await client
+          .from('contract')
+          .select('id, type, extends_to')
+          .in('id', contractIds)
+          .throwOnError();
+  const contractsById = new Map(
+    contracts.map((contract) => [contract.id, contract]),
+  );
+
+  return data.map((row) => {
+    const payload = row.payload as { stage?: string; status?: string } | null;
+    const contract = contractsById.get(row.aggregate_id);
+
+    return {
+      globalSeq: row.global_seq,
+      dealId: row.deal_id,
+      accountId: row.account_id,
+      actorRef: row.actor_ref,
+      eventType: row.event_type,
+      stage: payload?.stage ?? null,
+      contractType: contract?.type ?? null,
+      signingStatus: payload?.status ?? null,
+      extendsTo: contract?.extends_to ?? null,
+    };
+  });
 }
 
 export interface NotifyDealEventInput {
@@ -84,6 +109,7 @@ export interface NotifyDealEventInput {
   accountId: string;
   actorRef: string | null;
   eventType: string;
+  extendsTo?: string | null;
 }
 
 let loggedNovuNotConfigured = false;
@@ -153,12 +179,15 @@ export async function notifyDealEvent(
     );
     return;
   }
+  const extensionVerb = LOI_EXTENSION_VERB[input.workflowId];
   const path = OFFER_WORKFLOW_IDS.has(input.workflowId)
     ? teamItemPath(accountSlug, input.dealId, {
         kind: 'offer',
         id: await aggregateOf(client, input.globalSeq),
       })
-    : dealPath(accountSlug, input.dealId);
+    : extensionVerb
+      ? `${dealPath(accountSlug, input.dealId)}/documents`
+      : dealPath(accountSlug, input.dealId);
 
   await client
     .from('notifications')
@@ -168,7 +197,9 @@ export async function notifyDealEvent(
         recipient_user_id: recipientUserId,
         deal_id: input.dealId,
         type: 'info' as const,
-        body: dealEventNotice(input.workflowId, firmName, outcome),
+        body: extensionVerb
+          ? `LOI extension to ${mediumDate(z.string().parse(input.extendsTo))} ${extensionVerb} on ${firmName}`
+          : dealEventNotice(input.workflowId, firmName, outcome),
         link: path,
         dedupe_key: `deal_event:${input.globalSeq}:${recipientUserId}`,
       })),
@@ -176,7 +207,7 @@ export async function notifyDealEvent(
     )
     .throwOnError();
 
-  if (!novuConfigured) {
+  if (!novuConfigured || extensionVerb) {
     return;
   }
 
@@ -216,6 +247,18 @@ const DEAL_EVENT_LABELS: Record<string, string> = {
   'deal.loi_accepted': 'LOI accepted',
   'deal.apa_accepted': 'APA accepted',
 };
+
+const LOI_EXTENSION_VERB: Record<string, string | undefined> = {
+  'deal.loi_extension_noted': 'noted',
+  'deal.loi_extension_signed': 'signed',
+};
+
+function mediumDate(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    dateStyle: 'medium',
+  });
+}
 
 function dealEventNotice(
   workflowId: string,
@@ -666,7 +709,11 @@ const VERDICT_TEXT: Record<Verdict, string> = {
   changes_needed: 'asked for changes to',
 };
 
-const CONTRACT_LABEL: Record<string, string> = { loi: 'LOI', apa: 'APA' };
+const CONTRACT_LABEL: Record<string, string> = {
+  loi: 'LOI',
+  apa: 'APA',
+  loi_extension: 'LOI extension',
+};
 
 const ENVELOPE_OUT = new Set<string | null>(['draft', 'sent']);
 

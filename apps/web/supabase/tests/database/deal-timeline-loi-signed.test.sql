@@ -3,9 +3,9 @@ select no_plan();
 
 select enum_has_labels(
   'public', 'milestone_kind',
-  array['loi_deadline', 'loi_signed', 'diligence_end', 'financing_contingency',
+  array['loi_deadline', 'loi_signed', 'exclusivity_end', 'diligence_end', 'financing_contingency',
         'apa_signing', 'closing', 'effective', 'custom'],
-  'LOI signed is a fixed milestone that follows the LOI deadline'
+  'LOI signed follows the LOI deadline, and the end of exclusivity follows LOI signed'
 );
 
 select tests.create_user('ls_owner');

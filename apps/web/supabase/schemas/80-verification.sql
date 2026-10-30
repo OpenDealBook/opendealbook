@@ -19,10 +19,10 @@ create table if not exists public.verification_run (
   trigger text not null,
   started_at timestamptz,
   finished_at timestamptz,
-  skipped_reason text,
   created_at timestamptz,
   updated_at timestamptz,
-  created_by uuid references auth.users default auth.uid()
+  created_by uuid references auth.users default auth.uid(),
+  skipped_reason text
 );
 
 alter table public.verification_run enable row level security;
@@ -52,11 +52,11 @@ create table if not exists public.verification_finding (
   check_key text not null,
   severity public.verification_severity not null,
   status public.verification_finding_status not null default 'open',
-  checklist_item_ids uuid[] not null default '{}',
   dr_document_id uuid references public.dr_document (id) on delete set null,
   detail jsonb not null default '{}'::jsonb,
   created_at timestamptz,
-  updated_at timestamptz
+  updated_at timestamptz,
+  checklist_item_ids uuid[] not null default '{}'
 );
 
 alter table public.verification_finding enable row level security;

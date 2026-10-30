@@ -39,6 +39,10 @@ export function createSuperdocEngine(): DocxTemplateEngine {
   };
 }
 
+export function isUnreadableDocx(error: unknown): boolean {
+  return error instanceof Error && error.name === 'DocumentLoadError';
+}
+
 async function loadHeadless(docx: Uint8Array) {
   const { Editor: EditorClass, fieldAnnotationHelpers } =
     await import('@harbour-enterprises/superdoc');

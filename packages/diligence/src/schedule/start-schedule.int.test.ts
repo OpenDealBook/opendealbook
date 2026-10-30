@@ -19,11 +19,6 @@ vi.mock('@odb/next/actions', () => ({
       fn(config.schema.parse(input), { id: caller.userId }),
 }));
 
-vi.mock(
-  '@odb/deals/server',
-  () => import('../../../features/deals/src/server/checklist-template'),
-);
-
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => caller.client,
 }));
@@ -57,6 +52,45 @@ async function newDeal(): Promise<string> {
   });
 
   return dealId;
+}
+
+async function acceptOffer(
+  dealId: string,
+  days: { diligence_days: number; exclusivity_days: number },
+) {
+  const offerId = crypto.randomUUID();
+  const offerEvent = (eventType: string, payload: Record<string, unknown>) =>
+    appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'offer',
+      aggregateId: offerId,
+      eventType: eventType as never,
+      payload: payload as never,
+      actorKind: 'service',
+    });
+
+  await offerEvent('offer.drafted', {});
+  await offerEvent('offer.version_added', {
+    version_id: crypto.randomUUID(),
+    number: 1,
+    author_side: 'buyer',
+    purchase_price: 1_000_000,
+    ...days,
+    terms: {},
+  });
+  await offerEvent('offer.accepted', {});
+}
+
+async function targetsOf(dealId: string) {
+  const { data } = await owner.admin
+    .from('deal_milestone')
+    .select('kind, target_on')
+    .eq('deal_id', dealId)
+    .in('kind', ['apa_signing', 'exclusivity_end'])
+    .order('kind')
+    .throwOnError();
+
+  return data;
 }
 
 async function scheduleOf(dealId: string) {
@@ -180,6 +214,81 @@ describe('starting a diligence schedule from the empty Schedule tab', () => {
     expect(schedule.weeks).toHaveLength(6);
     expect(milestone.actual_on).toBe('2026-10-05');
     expect(items.map((item) => item.title)).toEqual(['Tax returns']);
+  });
+
+  it('targets APA signing and the end of exclusivity from the accepted offer, counted from the LOI signed date', async () => {
+    const dealId = await newDeal();
+    await acceptOffer(dealId, { diligence_days: 45, exclusivity_days: 30 });
+
+    await scheduleFromLoiSigned({ dealId, signedOn: '2026-10-05' });
+
+    expect(await targetsOf(dealId)).toEqual([
+      { kind: 'exclusivity_end', target_on: '2026-11-04' },
+      { kind: 'apa_signing', target_on: '2026-11-19' },
+    ]);
+  });
+
+  it('records the date and schedules diligence with no targets when the deal has no accepted offer', async () => {
+    const dealId = await newDeal();
+
+    const result = await scheduleFromLoiSigned({
+      dealId,
+      signedOn: '2026-10-05',
+    });
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect((await scheduleOf(dealId)).start_date).toBe('2026-10-05');
+    expect(await targetsOf(dealId)).toEqual([]);
+  });
+
+  it('applies no default checklist at signing to a deal whose diligence checklist was picked on the Schedule tab', async () => {
+    const dealId = await newDeal();
+    await owner.admin
+      .from('checklist_template')
+      .update({ is_default: false })
+      .eq('account_id', owner.accountId)
+      .eq('kind', 'diligence')
+      .throwOnError();
+    const { data: templates } = await owner.admin
+      .from('checklist_template')
+      .insert([
+        {
+          account_id: owner.accountId,
+          name: 'Picked',
+          kind: 'diligence',
+          is_default: false,
+        },
+        {
+          account_id: owner.accountId,
+          name: 'Team default',
+          kind: 'diligence',
+          is_default: true,
+        },
+      ])
+      .select('id, name')
+      .throwOnError();
+    const idOf = (name: string) => templates.find((t) => t.name === name)!.id;
+    await owner.admin
+      .from('checklist_template_item')
+      .insert([
+        { template_id: idOf('Picked'), title: 'Bank statements' },
+        { template_id: idOf('Team default'), title: 'Tax returns' },
+      ])
+      .throwOnError();
+    await scheduleFromTemplate({
+      dealId,
+      templateId: idOf('Picked'),
+      startDate: '2026-09-28',
+    });
+
+    await scheduleFromLoiSigned({ dealId, signedOn: '2026-10-05' });
+
+    const { data: items } = await owner.admin
+      .from('checklist_item')
+      .select('title')
+      .eq('deal_id', dealId)
+      .throwOnError();
+    expect(items.map((item) => item.title)).toEqual(['Bank statements']);
   });
 
   it('updates an LOI signed milestone the deal already has instead of adding a second', async () => {

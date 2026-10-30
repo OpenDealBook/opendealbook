@@ -28,6 +28,7 @@
     "@odb/ai": "workspace:*",
     "@odb/calculators": "workspace:*",
     "@odb/contracts": "workspace:*",
+    "@odb/deal-timeline": "workspace:*",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/notifications": "workspace:*",

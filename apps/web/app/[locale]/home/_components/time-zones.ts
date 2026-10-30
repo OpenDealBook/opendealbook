@@ -1,4 +1,4 @@
-export const timeZones = ['UTC', ...Intl.supportedValuesOf('timeZone')];
+import { timeZones } from '@odb/accounts/shared';
 
 export function zoneChoices(current: string | null) {
   return current === null || timeZones.includes(current)

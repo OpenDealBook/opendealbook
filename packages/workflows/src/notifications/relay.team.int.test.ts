@@ -20,7 +20,9 @@ vi.mock('@odb/notifications/server', async (importOriginal) => ({
   createNovuClient: () => novu,
 }));
 
-import { notifyDealEvent } from './relay';
+import { planDealEventNotifications } from '@odb/notifications/relay';
+
+import { fetchDealNotificationEvents, notifyDealEvent } from './relay';
 
 let owner: IntegrationAccount;
 let teamId: string;
@@ -222,6 +224,110 @@ describe('notifyDealEvent for a team deal (integration)', () => {
       .eq('account_id', departedTeamId)
       .throwOnError();
     expect(notices).toEqual([]);
+  });
+
+  it('tells the team in the app, and not by email, when an LOI extension is noted and when it is signed', async () => {
+    const dealId = await seedDeal(owner.admin, teamId, owner.userId, {
+      description: 'Extended acquisition',
+      firm_id: await firmIn(owner, teamId),
+    });
+    const loiId = crypto.randomUUID();
+    await appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'contract',
+      aggregateId: loiId,
+      eventType: 'contract.created',
+      payload: { type: 'loi', status: 'signed', current_version: 1 },
+    });
+    await owner.admin
+      .from('contract_version')
+      .insert({
+        contract_id: loiId,
+        account_id: teamId,
+        version: 1,
+        source: 'upload',
+        party: 'buyer',
+        is_signed: true,
+      })
+      .throwOnError();
+    const { data: before } = await owner.admin
+      .from('deal_event')
+      .select('global_seq')
+      .eq('deal_id', dealId)
+      .order('global_seq', { ascending: false })
+      .limit(1)
+      .single()
+      .throwOnError();
+    const extensionId = crypto.randomUUID();
+    await appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'contract',
+      aggregateId: extensionId,
+      eventType: 'contract.created',
+      payload: {
+        type: 'loi_extension',
+        parent_contract_id: loiId,
+        extends_to: '2026-12-15',
+        current_version: 1,
+      },
+    });
+    await appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'contract',
+      aggregateId: extensionId,
+      eventType: 'contract.extension_noted',
+      payload: { note: 'Seller agreed by email', noted_on: '2026-10-28' },
+    });
+    const { data: version } = await owner.admin
+      .from('contract_version')
+      .insert({
+        contract_id: extensionId,
+        account_id: teamId,
+        version: 1,
+        source: 'upload',
+        party: 'buyer',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    for (const status of ['sent', 'completed']) {
+      await appendDealEvent(owner.admin, {
+        dealId,
+        aggregateType: 'contract',
+        aggregateId: extensionId,
+        eventType: 'contract.signature_status_changed',
+        payload: { version_id: version.id, status },
+      });
+    }
+    novu.trigger.mockClear();
+
+    const events = (
+      await fetchDealNotificationEvents({
+        afterGlobalSeq: before.global_seq,
+        limit: 1000,
+      })
+    ).filter((event) => event.dealId === dealId);
+    for (const { event, workflowId } of planDealEventNotifications(
+      events,
+      before.global_seq,
+    ).steps) {
+      await notifyDealEvent({ ...event, workflowId });
+    }
+
+    const { data: notices } = await owner.admin
+      .from('notifications')
+      .select('recipient_user_id, body, link')
+      .eq('deal_id', dealId)
+      .order('body')
+      .throwOnError();
+    expect(notices).toEqual(
+      ['noted', 'signed'].map((how) => ({
+        recipient_user_id: owner.userId,
+        body: `LOI extension to Dec 15, 2026 ${how} on Brennan Tooling`,
+        link: `/home/${teamSlug}/deals/${dealId}/documents`,
+      })),
+    );
+    expect(novu.trigger).not.toHaveBeenCalled();
   });
 
   it('completes without notifying anyone when the resolved event is gone after the deal was read', async () => {

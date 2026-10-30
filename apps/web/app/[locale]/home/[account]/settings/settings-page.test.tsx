@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 const workspace = vi.hoisted(() => ({
   isOwner: false,
   permissions: ['settings.manage'],
-  timezone: 'America/Chicago',
+  timezone: 'America/Chicago' as string | null,
   nameSpelling: 'source_priority',
   aiEndpoint: null as {
     provider: string;
@@ -86,6 +86,12 @@ describe('team settings page', () => {
 
   it('shows a UTC team as UTC', async () => {
     workspace.timezone = 'UTC';
+
+    expect(await render()).toContain('<option value="UTC" selected="">');
+  });
+
+  it('shows a team with no zone as UTC', async () => {
+    workspace.timezone = null;
 
     expect(await render()).toContain('<option value="UTC" selected="">');
   });

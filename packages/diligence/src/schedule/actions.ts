@@ -2,7 +2,8 @@
 
 import { z } from 'zod';
 
-import { applyChecklistTemplateTo } from '@odb/deals/server';
+import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
+import { setUpLoiSigned } from '@odb/deal-timeline/loi-signed-setup.ts';
 import {
   appendDealEvent,
   appendDealEvents,
@@ -255,38 +256,10 @@ export const scheduleFromLoiSigned = refusableAction(
         throw error;
       });
 
-      const { data: deal } = await client
-        .from('deal')
-        .select('account_id')
-        .eq('id', input.dealId)
-        .single()
-        .throwOnError();
-      const { data: template } = await client
-        .from('checklist_template')
-        .select('id')
-        .eq('account_id', deal.account_id)
-        .eq('kind', 'diligence')
-        .eq('is_default', true)
-        .maybeSingle()
-        .throwOnError();
-
-      if (template) {
-        await applyChecklistTemplateTo(client, {
-          dealId: input.dealId,
-          templateId: template.id,
-        });
-      }
-
-      await client
-        .rpc('create_diligence_schedule', {
-          p_deal_id: input.dealId,
-          p_start_date: input.signedOn,
-          p_created_by: user.id,
-        })
-        .throwOnError();
-      await client
-        .rpc('recompute_checklist_due_dates', { p_deal_id: input.dealId })
-        .throwOnError();
+      await setUpLoiSigned(client, input, {
+        actor: {},
+        createdBy: user.id,
+      });
     },
   scheduleFromLoiSignedSchema,
   dealScheduleChange,

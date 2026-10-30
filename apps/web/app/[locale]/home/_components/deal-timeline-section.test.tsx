@@ -32,9 +32,15 @@ const dealId = 'd0000000-0000-4000-8000-000000000001';
 const closingId = 'c0000000-0000-4000-8000-000000000001';
 const loiId = 'c0000000-0000-4000-8000-000000000002';
 const consentId = 'c0000000-0000-4000-8000-000000000003';
+const exclusivityId = 'c0000000-0000-4000-8000-000000000004';
+const lateExtensionId = 'c0000000-0000-4000-8000-000000000005';
+const extensionId = 'c0000000-0000-4000-8000-000000000006';
 
 const timeline: DealTimeline = {
   canManage: true,
+  exclusivityOver: false,
+  teamToday: '2026-10-15',
+  lapsedExtensions: [lateExtensionId],
   milestones: [
     {
       id: loiId,
@@ -43,6 +49,14 @@ const timeline: DealTimeline = {
       targetOn: '2026-10-10',
       actualOn: '2026-10-09',
       shared: false,
+    },
+    {
+      id: exclusivityId,
+      kind: 'exclusivity_end',
+      label: 'Exclusivity ends',
+      targetOn: '2026-10-14',
+      actualOn: null,
+      shared: true,
     },
     {
       id: null,
@@ -82,6 +96,22 @@ const timeline: DealTimeline = {
       label: 'Effective date',
       targetOn: null,
       actualOn: null,
+      shared: true,
+    },
+    {
+      id: lateExtensionId,
+      kind: 'custom',
+      label: 'LOI extension to Nov 30, 2026',
+      targetOn: null,
+      actualOn: '2026-10-15',
+      shared: true,
+    },
+    {
+      id: extensionId,
+      kind: 'custom',
+      label: 'LOI extension to Dec 31, 2026',
+      targetOn: null,
+      actualOn: '2026-10-15',
       shared: true,
     },
     {
@@ -205,6 +235,48 @@ describe('DealTimelineSection', () => {
     expect(row('Landlord consent').textContent).toContain('Overdue');
     expect(row('LOI deadline').textContent).not.toContain('Overdue');
     expect(row('Closing').textContent).not.toContain('Overdue');
+  });
+
+  it('flags a passed exclusivity end lapsed, not overdue, while exclusivity is not over', () => {
+    expect(row('Exclusivity ends').textContent).toContain('Lapsed');
+    expect(row('Exclusivity ends').textContent).not.toContain('Overdue');
+    expect(row('Landlord consent').textContent).not.toContain('Lapsed');
+  });
+
+  it('does not flag exclusivity lapsed while its end is still today for the team', () => {
+    act(() =>
+      root.render(
+        <DealTimelineSection
+          dealId={dealId}
+          timeline={{ ...timeline, teamToday: '2026-10-14' }}
+        />,
+      ),
+    );
+
+    expect(row('Exclusivity ends').textContent).not.toContain('Lapsed');
+  });
+
+  it('flags an extension agreed after the end it extended', () => {
+    expect(row('LOI extension to Nov 30, 2026').textContent).toContain(
+      'Lapsed',
+    );
+    expect(row('LOI extension to Dec 31, 2026').textContent).not.toContain(
+      'Lapsed',
+    );
+  });
+
+  it('drops the lapsed flag once exclusivity is over', () => {
+    act(() =>
+      root.render(
+        <DealTimelineSection
+          dealId={dealId}
+          timeline={{ ...timeline, exclusivityOver: true }}
+        />,
+      ),
+    );
+
+    expect(row('Exclusivity ends').textContent).not.toContain('Lapsed');
+    expect(row('Exclusivity ends').textContent).not.toContain('Overdue');
   });
 
   it('saves a new target, actual and sharing for a milestone', async () => {

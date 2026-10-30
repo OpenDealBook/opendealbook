@@ -18,6 +18,9 @@ export async function assertDealsManager(
   }
 
   if (!allowed) {
-    throw new Error('Not permitted to manage deals');
+    throw Object.assign(
+      new Error('Not permitted to manage deals: needs deals.manage'),
+      { code: '42501' },
+    );
   }
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 
-import { createRoot } from 'react-dom/client';
+import { type Root, createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const refusal = vi.hoisted(() => ({ create: '', revoke: '' }));
@@ -24,12 +24,17 @@ const liveKey = {
   created_at: '2026-10-01T00:00:00Z',
 };
 
+const mounted: Root[] = [];
+
 function show() {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   const container = document.createElement('div');
   document.body.append(container);
+  const root = createRoot(container);
+
+  mounted.push(root);
   act(() =>
-    createRoot(container).render(
+    root.render(
       <ApiKeysManager accountId={'team-1'} initialKeys={[liveKey]} />,
     ),
   );
@@ -51,6 +56,7 @@ function typeName(value: string) {
 }
 
 afterEach(() => {
+  act(() => mounted.splice(0).forEach((root) => root.unmount()));
   document.body.innerHTML = '';
 });
 

@@ -19,17 +19,19 @@
 create table if not exists public.outreach_setting (
   account_id uuid primary key references public.accounts (id) on delete cascade,
   daily_cap int not null,
-  letter_monthly_cap int not null default 0,
   max_touches int not null default 3,
+  created_at timestamptz,
+  updated_at timestamptz,
+  created_by uuid references auth.users,
+  updated_by uuid references auth.users,
+  letter_monthly_cap int not null default 0,
+  lookup_monthly_cap int not null default 0,
+  ai_monthly_cap int not null default 0,
   letter_return_name text,
   letter_return_address_line1 text,
   letter_return_city text,
   letter_return_state text,
-  letter_return_postal_code text,
-  created_at timestamptz,
-  updated_at timestamptz,
-  created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  letter_return_postal_code text
 );
 
 alter table public.outreach_setting enable row level security;
@@ -128,12 +130,12 @@ create table if not exists public.outreach_enrollment (
   current_step int not null default 1,
   next_send_at timestamptz not null default now(),
   sent_count int not null default 0,
-  unsubscribe_token text not null unique default encode(extensions.gen_random_bytes(24), 'hex'),
-  error text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
   updated_by uuid references auth.users,
+  unsubscribe_token text not null unique default encode(extensions.gen_random_bytes(24), 'hex'),
+  error text,
   unique (id, account_id)
 );
 

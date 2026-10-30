@@ -5,6 +5,9 @@ export interface NotifiableDealEvent {
   actorRef: string | null;
   eventType: string;
   stage: string | null;
+  contractType: string | null;
+  signingStatus: string | null;
+  extendsTo: string | null;
 }
 
 export interface DealEventNotificationStep {
@@ -144,6 +147,13 @@ export function routeDealEventNotification(
     case 'contract.review_decided':
     case 'contract.signing_overridden':
       return CONTRACT_NEGOTIATION_WORKFLOW_ID;
+    case 'contract.extension_noted':
+      return 'deal.loi_extension_noted';
+    case 'contract.signature_status_changed':
+      return event.contractType === 'loi_extension' &&
+        event.signingStatus === 'completed'
+        ? 'deal.loi_extension_signed'
+        : null;
     case 'seller_counsel_message.posted':
       return SELLER_COUNSEL_MESSAGE_WORKFLOW_ID;
     case 'deal.stage_changed':

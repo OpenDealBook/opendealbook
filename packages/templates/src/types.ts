@@ -6,6 +6,7 @@ export const templateTypeSchema = z.enum([
   'apa',
   'data_request',
   'letter',
+  'loi_extension',
 ]);
 
 export const fieldTypeSchema = z.enum([

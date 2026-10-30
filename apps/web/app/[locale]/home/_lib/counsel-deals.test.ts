@@ -40,6 +40,21 @@ describe('openReviews', () => {
     ]);
   });
 
+  it('names an LOI extension waiting on review', () => {
+    expect(
+      openReviews(
+        [{ type: 'loi_extension', versions: [{ id: 'v1', version: 1 }] }],
+        { v1: { requests: [request('2026-11-01T10:00:00Z')], decisions: [] } },
+      ).map((review) => review.contract),
+    ).toEqual(['LOI extension']);
+  });
+
+  it('has no open review on a contract with no versions yet', () => {
+    expect(openReviews([{ type: 'loi_extension', versions: [] }], {})).toEqual(
+      [],
+    );
+  });
+
   it('drops a request their side answered after it was made', () => {
     expect(
       openReviews([{ type: 'loi', versions: [{ id: 'v1', version: 1 }] }], {

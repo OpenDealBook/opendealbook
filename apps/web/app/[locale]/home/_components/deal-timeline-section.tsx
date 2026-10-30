@@ -47,12 +47,31 @@ function dayOrNotSet(day: string | null) {
   return day === null ? 'Not set' : plainDate(day);
 }
 
-function isOverdue(milestone: TimelineMilestone, today: string) {
-  return (
-    milestone.targetOn !== null &&
-    milestone.actualOn === null &&
-    milestone.targetOn < today
-  );
+function targetFlag(
+  milestone: TimelineMilestone,
+  today: string,
+  timeline: DealTimeline,
+) {
+  if (
+    milestone.id !== null &&
+    timeline.lapsedExtensions.includes(milestone.id)
+  ) {
+    return 'Lapsed';
+  }
+
+  if (milestone.targetOn === null) {
+    return null;
+  }
+
+  if (milestone.kind === 'exclusivity_end') {
+    return milestone.targetOn < timeline.teamToday && !timeline.exclusivityOver
+      ? 'Lapsed'
+      : null;
+  }
+
+  return milestone.targetOn < today && milestone.actualOn === null
+    ? 'Overdue'
+    : null;
 }
 
 function describeChange(change: TimelineChange) {
@@ -163,6 +182,12 @@ export function DealTimelineSection({
     router.refresh();
   }
 
+  function flagged(milestone: TimelineMilestone) {
+    const flag = targetFlag(milestone, today, timeline);
+
+    return flag === null ? null : <Badge variant={'destructive'}>{flag}</Badge>;
+  }
+
   const rows =
     editing?.id === null && editing.kind === 'custom'
       ? [...timeline.milestones, editing]
@@ -213,9 +238,7 @@ export function DealTimelineSection({
                       milestone.targetOn === null
                         ? 'Same as closing'
                         : dayOrNotSet(milestone.targetOn)}
-                      {isOverdue(milestone, today) ? (
-                        <Badge variant={'destructive'}>Overdue</Badge>
-                      ) : null}
+                      {flagged(milestone)}
                     </span>
                   </TableCell>
                   <TableCell>{dayOrNotSet(milestone.actualOn)}</TableCell>

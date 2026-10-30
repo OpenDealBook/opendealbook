@@ -93,7 +93,7 @@ afterAll(async () => {
 });
 
 describe('deal timeline', () => {
-  it('lists the seven fixed milestones, unset, before anything is entered', async () => {
+  it('lists the eight fixed milestones, unset, before anything is entered', async () => {
     const { milestones, history } = await timeline();
 
     expect(milestones).toEqual([
@@ -109,6 +109,14 @@ describe('deal timeline', () => {
         id: null,
         kind: 'loi_signed',
         label: 'LOI signed',
+        targetOn: null,
+        actualOn: null,
+        shared: true,
+      },
+      {
+        id: null,
+        kind: 'exclusivity_end',
+        label: 'Exclusivity ends',
         targetOn: null,
         actualOn: null,
         shared: true,
@@ -155,6 +163,103 @@ describe('deal timeline', () => {
       },
     ]);
     expect(history).toEqual([]);
+  });
+
+  it('tells whether exclusivity is over, which a resolved deal makes it', async () => {
+    expect((await timeline()).exclusivityOver).toBe(false);
+
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealId,
+        p_aggregate_type: 'deal',
+        p_aggregate_id: dealId,
+        p_event_type: 'deal.resolved',
+        p_payload: { resolution: 'lost' },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+
+    expect((await timeline()).exclusivityOver).toBe(true);
+  });
+
+  it('tells today by the team time zone', async () => {
+    await admin
+      .from('accounts')
+      .update({ timezone: 'Pacific/Kiritimati' })
+      .eq('id', teamId)
+      .throwOnError();
+
+    const { teamToday } = await timeline();
+
+    await admin
+      .from('accounts')
+      .update({ timezone: null })
+      .eq('id', teamId)
+      .throwOnError();
+    expect(teamToday).toBe(
+      new Date(Date.now() + 14 * 3_600_000).toISOString().slice(0, 10),
+    );
+  });
+
+  it('flags an extension agreed after the end it extended, and only that one', async () => {
+    async function extension(agreedOn: string, endBefore: string | null) {
+      const id = crypto.randomUUID();
+      await admin
+        .rpc('append_deal_event', {
+          p_deal_id: dealId,
+          p_aggregate_type: 'deal_milestone',
+          p_aggregate_id: id,
+          p_event_type: 'deal_milestone.set',
+          p_payload: {
+            kind: 'custom',
+            label: 'LOI extension to Dec 15, 2026',
+            target_on: null,
+            actual_on: agreedOn,
+            shared: true,
+            extension_id: crypto.randomUUID(),
+            exclusivity_end_before: endBefore,
+          },
+          p_actor_kind: 'service',
+        })
+        .throwOnError();
+
+      return id;
+    }
+    const late = await extension('2025-11-02', '2025-11-01');
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealId,
+        p_aggregate_type: 'deal_milestone',
+        p_aggregate_id: late,
+        p_event_type: 'deal_milestone.set',
+        p_payload: {
+          kind: 'custom',
+          label: 'LOI extension to Dec 15, 2026',
+          target_on: null,
+          actual_on: '2025-11-02',
+          shared: true,
+          exclusivity_end_before: '2025-11-05',
+        },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+    const onTime = await extension('2025-11-01', '2025-11-01');
+    const noEnd = await extension('2025-11-02', null);
+    await setMilestone({
+      dealId,
+      milestoneId: crypto.randomUUID(),
+      kind: 'custom',
+      label: 'Landlord consent',
+      targetOn: '2025-10-01',
+      actualOn: '2025-11-02',
+      shared: false,
+    });
+
+    const { lapsedExtensions } = await timeline();
+
+    expect(lapsedExtensions).toEqual([late]);
+    expect(lapsedExtensions).not.toContain(onTime);
+    expect(lapsedExtensions).not.toContain(noEnd);
   });
 
   it('tells a manager and a team member they can edit and a read-only teammate they cannot', async () => {
@@ -372,7 +477,7 @@ describe('deal timeline', () => {
       actualOn: null,
       shared: true,
     });
-    expect(milestones).toHaveLength(8);
+    expect(milestones).toHaveLength(9);
   });
 
   it('refuses a custom milestone without a label', async () => {
@@ -469,5 +574,186 @@ describe('deal timeline', () => {
     expect(history.map(({ id, at }) => ({ id, at }))).toEqual(
       events.map((event) => ({ id: event.id, at: event.created_at })),
     );
+  });
+});
+
+describe('setting the LOI signed date on the timeline', () => {
+  let loiSignedId: string;
+
+  function loiSigned(actualOn: string | null) {
+    return setMilestone({
+      dealId,
+      milestoneId: loiSignedId,
+      kind: 'loi_signed',
+      targetOn: null,
+      actualOn,
+      shared: true,
+    });
+  }
+
+  async function acceptOffer() {
+    const offerId = crypto.randomUUID();
+    for (const [eventType, payload] of [
+      ['offer.drafted', {}],
+      [
+        'offer.version_added',
+        {
+          version_id: crypto.randomUUID(),
+          number: 1,
+          author_side: 'buyer',
+          purchase_price: 1_000_000,
+          diligence_days: 45,
+          exclusivity_days: 30,
+          terms: {},
+        },
+      ],
+      ['offer.accepted', {}],
+    ] as const) {
+      await admin
+        .rpc('append_deal_event', {
+          p_deal_id: dealId,
+          p_aggregate_type: 'offer',
+          p_aggregate_id: offerId,
+          p_event_type: eventType,
+          p_payload: payload,
+          p_actor_kind: 'service',
+        })
+        .throwOnError();
+    }
+  }
+
+  async function defaultDiligenceTemplate(itemTitle: string) {
+    await admin
+      .from('checklist_template')
+      .update({ is_default: false })
+      .eq('account_id', teamId)
+      .eq('kind', 'diligence')
+      .throwOnError();
+    const { data: template } = await admin
+      .from('checklist_template')
+      .insert({
+        account_id: teamId,
+        name: 'Timeline diligence',
+        kind: 'diligence',
+        is_default: true,
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    await admin
+      .from('checklist_template_item')
+      .insert({
+        template_id: template.id,
+        title: itemTitle,
+        due_offset_days: 7,
+      })
+      .throwOnError();
+  }
+
+  async function setUpOf() {
+    const [
+      { data: schedules },
+      { data: items },
+      { data: targets },
+      { data: actors },
+    ] = await Promise.all([
+      admin
+        .from('diligence_schedule')
+        .select('start_date, created_by')
+        .eq('deal_id', dealId)
+        .throwOnError(),
+      admin
+        .from('checklist_item')
+        .select('title')
+        .eq('deal_id', dealId)
+        .throwOnError(),
+      admin
+        .from('deal_milestone')
+        .select('kind, target_on')
+        .eq('deal_id', dealId)
+        .in('kind', ['apa_signing', 'exclusivity_end'])
+        .order('kind')
+        .throwOnError(),
+      admin
+        .from('deal_event')
+        .select('actor_kind, actor_ref')
+        .eq('deal_id', dealId)
+        .in('aggregate_type', ['checklist_item', 'deal_milestone'])
+        .throwOnError(),
+    ]);
+
+    return {
+      schedules,
+      items,
+      targets,
+      actors: new Set(actors.map((a) => `${a.actor_kind}:${a.actor_ref}`)),
+    };
+  }
+
+  const firstSetUp = () => ({
+    schedules: [{ start_date: '2026-10-05', created_by: owner.userId }],
+    items: [{ title: 'Tax returns' }],
+    targets: [
+      { kind: 'exclusivity_end', target_on: '2026-11-04' },
+      { kind: 'apa_signing', target_on: '2026-11-19' },
+    ],
+    actors: new Set([`user:${owner.userId}`]),
+  });
+
+  beforeEach(async () => {
+    loiSignedId = crypto.randomUUID();
+    await defaultDiligenceTemplate('Tax returns');
+    await acceptOffer();
+  });
+
+  it('schedules diligence, applies the default checklist and targets APA signing and exclusivity end, as the person who set it', async () => {
+    expect(await loiSigned('2026-10-05')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+
+    expect(await setUpOf()).toEqual(firstSetUp());
+  });
+
+  it('completes the setup on the next save after an earlier setup stopped short', async () => {
+    await loiSigned('2026-10-05');
+    const { data: targets } = await admin
+      .from('deal_milestone')
+      .select('id')
+      .eq('deal_id', dealId)
+      .in('kind', ['apa_signing', 'exclusivity_end'])
+      .throwOnError();
+    for (const { id } of targets) {
+      await removeMilestone({ dealId, milestoneId: id });
+    }
+
+    expect(await loiSigned('2026-10-05')).toEqual({ ok: true, value: undefined });
+
+    expect(await setUpOf()).toEqual(firstSetUp());
+  });
+
+  it('keeps the setup when the date is changed, even after the team switches its default checklist', async () => {
+    await loiSigned('2026-10-05');
+    await defaultDiligenceTemplate('Leases');
+
+    expect(await loiSigned('2026-10-06')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+
+    expect(await setUpOf()).toEqual(firstSetUp());
+  });
+
+  it('keeps the setup when the date is cleared and filled in again, even after the team switches its default checklist', async () => {
+    await loiSigned('2026-10-05');
+    await loiSigned(null);
+    await defaultDiligenceTemplate('Leases');
+
+    expect(await loiSigned('2026-10-07')).toEqual({
+      ok: true,
+      value: undefined,
+    });
+
+    expect(await setUpOf()).toEqual(firstSetUp());
   });
 });

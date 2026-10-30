@@ -103,7 +103,7 @@ async function loadTeamDetails(accountId: string) {
   return {
     legalEntityName: account.legal_entity_name ?? '',
     teamPhone: account.team_phone ?? '',
-    timezone: account.timezone!,
+    timezone: account.timezone,
     nameSpelling: account.diligence_name_spelling,
   };
 }

@@ -22,7 +22,11 @@ import { listPendingReviews } from './pending';
 const WORKFLOW_ID = 'contract-review.reminder';
 const UNANSWERED_WORKFLOW_ID = 'contract-review.unanswered';
 const COUNSEL_LABEL = { buyer: "Buyer's counsel", seller: "Seller's counsel" };
-const CONTRACT_LABEL: Record<string, string> = { loi: 'LOI', apa: 'APA' };
+const CONTRACT_LABEL: Record<string, string> = {
+  loi: 'LOI',
+  apa: 'APA',
+  loi_extension: 'LOI extension',
+};
 
 export async function emailContractReviewReminders(
   deps: { admin: SupabaseClient<Database>; novu: NovuClient },

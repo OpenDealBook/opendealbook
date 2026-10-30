@@ -322,6 +322,10 @@ create trigger refuse_personal_account_row
   for each row execute function tuckin.refuse_personal_account_row();
 
 create trigger refuse_personal_account_row
+  before insert or update of account_id on public.lead_pull
+  for each row execute function tuckin.refuse_personal_account_row();
+
+create trigger refuse_personal_account_row
   before insert or update of account_id on public.lender
   for each row execute function tuckin.refuse_personal_account_row();
 

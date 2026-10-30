@@ -14,8 +14,8 @@ vi.mock('@odb/contracts/esign', async (importOriginal) => ({
   createDocumensoClient: () => documenso,
   handleContractSignatureEvent,
 }));
-vi.mock('@odb/deals/server', () => ({
-  setUpDiligenceOnLoiSigned: vi.fn(),
+vi.mock('@odb/deal-timeline/loi-signed-setup.ts', () => ({
+  setUpLoiSigned: vi.fn(),
 }));
 vi.mock('@odb/lender-rooms/esign/webhook.ts', () => ({
   handleFormSignatureEvent,

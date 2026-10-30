@@ -8,7 +8,6 @@ create table if not exists public.deal (
   firm_id uuid not null references public.firm (id) on delete restrict,
   owner_user_id uuid references auth.users,
   description text,
-  code_name text check (char_length(code_name) between 2 and 40),
   asking_price numeric,
   revenue_ttm numeric,
   sde_ttm numeric,
@@ -41,7 +40,8 @@ create table if not exists public.deal (
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  code_name text check (char_length(code_name) between 2 and 40)
 );
 
 alter table public.deal enable row level security;

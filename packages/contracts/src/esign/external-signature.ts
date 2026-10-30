@@ -48,7 +48,6 @@ export interface ExternalSignatureDeps {
   onLoiSigned?: LoiSignedHook | undefined;
 }
 
-
 type AppendContractEvent = (
   contractId: string,
   eventType: EventType,
@@ -190,10 +189,16 @@ export async function recordExternalSignature(
     version_id: signed.id,
     status: 'completed',
   });
+  const { data: filedAs } = await client
+    .from('contract')
+    .select('type, deal_id, account_id, extends_to')
+    .eq('id', contractId)
+    .single()
+    .throwOnError();
   await fileSignedContract(
     deps.admin,
     signed.id,
-    contract,
+    filedAs,
     async () => signature.copy,
   );
 

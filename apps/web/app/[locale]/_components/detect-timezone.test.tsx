@@ -1,20 +1,28 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 
-import { createRoot } from 'react-dom/client';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Root, createRoot } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DetectTimezone } from './detect-timezone';
 
 const offered = vi.fn();
+const mounted: Root[] = [];
+
+afterEach(() => {
+  act(() => mounted.splice(0).forEach((root) => root.unmount()));
+});
 
 async function mountIn(timeZone: string) {
   vi.spyOn(Intl, 'DateTimeFormat').mockReturnValue({
     resolvedOptions: () => ({ timeZone }),
   } as Intl.DateTimeFormat);
 
+  const root = createRoot(document.createElement('div'));
+
+  mounted.push(root);
   await act(async () => {
-    createRoot(document.createElement('div')).render(<DetectTimezone />);
+    root.render(<DetectTimezone />);
   });
 }
 

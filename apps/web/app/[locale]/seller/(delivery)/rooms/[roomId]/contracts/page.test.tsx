@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import {
+  Children,
+  type ReactElement,
+  type ReactNode,
+  act,
+  isValidElement,
+} from 'react';
 
-import { createRoot } from 'react-dom/client';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Root, createRoot } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeRealtime } from '../../../../../home/_components/fake-realtime';
 
@@ -12,7 +18,23 @@ const world = vi.hoisted(() => ({
   tables: {} as Record<string, unknown[]>,
   confirm: vi.fn(),
   readOnlyReason: null as string | null,
+  contracts: [] as object[],
+  reads: [] as { table: string; columns: string }[],
 }));
+
+const apa = {
+  id: 'c1',
+  type: 'apa',
+  versions: [
+    {
+      id: 'v1',
+      version: 1,
+      party: 'buyer',
+      change_summary: null,
+      is_signed: false,
+    },
+  ],
+};
 
 function rows(table: string) {
   let single = false;
@@ -28,6 +50,13 @@ function rows(table: string) {
 
         if (method === 'single') {
           single = true;
+        }
+
+        if (method === 'select') {
+          return (columns: string) => {
+            world.reads.push({ table, columns });
+            return chain;
+          };
         }
 
         return () => chain;
@@ -85,27 +114,15 @@ vi.mock('@odb/contracts', () => ({
       hasPdf: false,
       redline: null,
     })),
-  sellerSideContracts: async () => [
-    {
-      id: 'c1',
-      type: 'apa',
-      versions: [
-        {
-          id: 'v1',
-          version: 1,
-          party: 'buyer',
-          change_summary: null,
-          is_signed: false,
-        },
-      ],
-    },
-  ],
-  versionComments: async () => ({ v1: [] }),
+  sellerSideContracts: async () => world.contracts,
+  versionComments: async (_client: unknown, ids: string[]) =>
+    Object.fromEntries(ids.map((id) => [id, []])),
   decideContractReview: vi.fn(),
   sellerConfirmContractReview: world.confirm,
 }));
 vi.mock('@odb/contracts/server', () => ({}));
 
+import { ContractList } from '../../../../../counsel/[dealId]/contracts/contract-list';
 import SellerRoomContractsPage from './page';
 
 const roomId = '22222222-2222-4222-8222-222222222222';
@@ -114,12 +131,20 @@ function open(id = roomId) {
   return SellerRoomContractsPage({ params: Promise.resolve({ roomId: id }) });
 }
 
+const mounted: Root[] = [];
+
+afterEach(() => {
+  act(() => mounted.splice(0).forEach((root) => root.unmount()));
+});
+
 async function render() {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   const container = document.createElement('div');
   const page = await open();
+  const root = createRoot(container);
 
-  act(() => createRoot(container).render(page));
+  mounted.push(root);
+  act(() => root.render(page));
 
   return container;
 }
@@ -136,10 +161,14 @@ describe('the seller room contracts page', () => {
     world.rooms = [];
     world.confirm.mockReset();
     world.readOnlyReason = null;
+    world.contracts = [apa];
+    world.reads = [];
     world.confirm.mockResolvedValue({ ok: true });
     world.tables = {
       deal: [{ account_id: 'team-1' }],
       deal_counsel: [],
+      contract: [],
+      contract_version: [],
       contract_review_request: [
         {
           id: 'q1',
@@ -183,6 +212,11 @@ describe('the seller room contracts page', () => {
 
     const container = await render();
 
+    expect(world.reads.map(({ table }) => table)).not.toContain(
+      'contract_version',
+    );
+    expect(world.reads.map(({ table }) => table)).not.toContain('contract');
+
     expect(container.querySelector('[data-review-request]')?.textContent).toBe(
       'Review requested by Olive Owner on Oct 12, 2026',
     );
@@ -211,6 +245,271 @@ describe('the seller room contracts page', () => {
       'Approved on Oct 13, 2026',
     );
     expect(buttons(container)).toEqual([]);
+  });
+
+  function contractsSentBy(page: ReactElement): unknown {
+    return Children.toArray(
+      (page.props as { children: ReactNode }).children,
+    ).flatMap((child) =>
+      isValidElement(child) && child.type === ContractList
+        ? [(child.props as { contracts: unknown }).contracts]
+        : [],
+    );
+  }
+
+  describe('an LOI extension', () => {
+    const loi = {
+      id: 'loi-1',
+      type: 'loi',
+      versions: [
+        {
+          id: 'lv1',
+          version: 1,
+          party: 'buyer',
+          change_summary: null,
+          is_signed: true,
+        },
+      ],
+    };
+
+    function extensionShownAs(sellerVersionId: string) {
+      world.rooms = [{ id: roomId, deal_id: 'deal-1' }];
+      world.contracts = [
+        loi,
+        {
+          id: 'e1',
+          type: 'loi_extension',
+          versions: [
+            {
+              id: sellerVersionId,
+              version: 1,
+              party: 'buyer',
+              change_summary: null,
+              is_signed: false,
+            },
+          ],
+        },
+      ];
+    }
+
+    it('never even reads the note the team wrote for the seller side', async () => {
+      extensionShownAs('ev1');
+      world.tables.contract = [
+        {
+          id: 'e1',
+          parent_contract_id: 'loi-1',
+          extends_to: '2026-12-15',
+          noted_on: '2026-11-20',
+          current_version: 1,
+        },
+      ];
+      world.tables.contract_version = [
+        {
+          id: 'ev1',
+          contract_id: 'e1',
+          version: 1,
+          extends_to: '2026-12-15',
+          signing_status: null,
+        },
+      ];
+
+      await render();
+
+      expect(
+        world.reads
+          .filter(({ table }) => table === 'contract')
+          .flatMap(({ columns }) => columns.split(/,\s*/)),
+      ).not.toContain('note');
+    });
+
+    it('keeps the out for signature badge when the team starts an unshared version after sending a shared one', async () => {
+      extensionShownAs('ev2');
+      world.tables.contract = [
+        {
+          id: 'e1',
+          parent_contract_id: 'loi-1',
+          extends_to: '2026-12-15',
+          note: null,
+          noted_on: null,
+          current_version: 3,
+        },
+      ];
+      world.tables.contract_version = [
+        {
+          id: 'ev1',
+          contract_id: 'e1',
+          version: 1,
+          extends_to: '2026-12-15',
+          signing_status: null,
+        },
+        {
+          id: 'ev2',
+          contract_id: 'e1',
+          version: 2,
+          extends_to: '2026-12-15',
+          signing_status: 'sent',
+        },
+        {
+          id: 'ev3',
+          contract_id: 'e1',
+          version: 3,
+          extends_to: '2026-12-15',
+          signing_status: null,
+        },
+      ];
+
+      const item = (await render()).querySelector('[data-extension]')!;
+
+      expect(item.querySelector('[data-slot="badge"]')?.textContent).toBe(
+        'Out for signature',
+      );
+    });
+
+    function rescheduledAfterSharing(notedOn: string | null) {
+      extensionShownAs('ev1');
+      world.tables.contract = [
+        {
+          id: 'e1',
+          parent_contract_id: 'loi-1',
+          extends_to: '2026-12-22',
+          noted_on: notedOn,
+          current_version: 1,
+        },
+      ];
+      world.tables.contract_version = [
+        {
+          id: 'ev1',
+          contract_id: 'e1',
+          version: 1,
+          signing_status: null,
+          extends_to: '2026-12-15',
+        },
+      ];
+    }
+
+    it('names the extension by the end date on the latest version the seller side can see', async () => {
+      rescheduledAfterSharing(null);
+
+      expect(
+        (await render()).querySelector('[data-extension] h4')?.textContent,
+      ).toBe('LOI extension to Dec 15, 2026');
+    });
+
+    it('names a noted extension by the end date that was agreed', async () => {
+      rescheduledAfterSharing('2026-11-20');
+
+      expect(
+        (await render()).querySelector('[data-extension] h4')?.textContent,
+      ).toBe('LOI extension to Dec 22, 2026');
+    });
+
+    it('never sends the seller side the note the team wrote on it, only the day it was agreed', async () => {
+      extensionShownAs('ev1');
+      world.tables.contract = [
+        {
+          id: 'e1',
+          parent_contract_id: 'loi-1',
+          extends_to: '2026-12-15',
+          note: 'Seller is anxious to close, push for more',
+          noted_on: '2026-11-20',
+          current_version: 1,
+        },
+      ];
+      world.tables.contract_version = [
+        {
+          id: 'ev1',
+          contract_id: 'e1',
+          version: 1,
+          is_signed: false,
+          extends_to: '2026-12-15',
+          signing_status: null,
+        },
+      ];
+
+      const page = await open();
+      const container = await render();
+
+      expect(JSON.stringify(contractsSentBy(page))).not.toContain(
+        'push for more',
+      );
+      expect(
+        container.querySelector('[data-extension-noted]')?.textContent,
+      ).toBe('Agreed on Nov 20, 2026');
+    });
+
+    it("gives the seller side the extension's state and sign-off from the version it can see, whatever the team numbered it", async () => {
+      extensionShownAs('ev2');
+      world.tables.contract = [
+        {
+          id: 'e1',
+          parent_contract_id: 'loi-1',
+          extends_to: '2026-12-15',
+          note: null,
+          noted_on: null,
+          current_version: 2,
+        },
+      ];
+      world.tables.contract_version = [
+        {
+          id: 'ev1',
+          contract_id: 'e1',
+          version: 1,
+          is_signed: false,
+          extends_to: '2026-12-15',
+          signing_status: null,
+        },
+        {
+          id: 'ev2',
+          contract_id: 'e1',
+          version: 2,
+          is_signed: false,
+          extends_to: '2026-12-15',
+          signing_status: 'sent',
+        },
+      ];
+
+      const item = (await render()).querySelector('[data-extension]')!;
+
+      expect(item.querySelector('[data-slot="badge"]')?.textContent).toBe(
+        'Out for signature',
+      );
+      expect(
+        [...item.querySelectorAll('[data-version-review] h3')].map(
+          (heading) => heading.textContent,
+        ),
+      ).toEqual(['Sign-off on version 1']);
+    });
+
+    it('never shows a signed badge over the unsigned versions it shows in the same page', async () => {
+      extensionShownAs('ev1');
+      world.tables.contract = [
+        {
+          id: 'e1',
+          parent_contract_id: 'loi-1',
+          extends_to: '2026-12-15',
+          note: null,
+          noted_on: null,
+          current_version: 1,
+        },
+      ];
+      world.tables.contract_version = [
+        {
+          id: 'ev1',
+          contract_id: 'e1',
+          version: 1,
+          is_signed: true,
+          extends_to: '2026-12-15',
+          signing_status: 'completed',
+        },
+      ];
+
+      const item = (await render()).querySelector('[data-extension]')!;
+
+      expect(item.querySelector('[data-slot="badge"]')?.textContent).toBe(
+        'Out for signature',
+      );
+      expect(item.querySelector('[data-extension-actions] a')).toBeNull();
+    });
   });
 
   it('shows the reason and asks for no answer once the room is read-only', async () => {

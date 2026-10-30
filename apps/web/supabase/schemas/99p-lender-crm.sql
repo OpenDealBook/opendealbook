@@ -302,13 +302,13 @@ create table if not exists public.lender_room_outreach (
   account_id uuid not null,
   sent_by uuid references auth.users on delete set null default auth.uid(),
   sent_at timestamptz not null default now(),
-  kind public.lender_outreach_kind not null default 'outreach',
-  status public.lender_outreach_status not null default 'sending',
-  provider_thread_id text,
-  provider_message_id text,
   to_email text not null,
   subject text not null,
   body text not null,
+  kind public.lender_outreach_kind not null default 'outreach',
+  provider_thread_id text,
+  provider_message_id text,
+  status public.lender_outreach_status not null default 'sending',
   foreign key (room_id, account_id) references public.lender_room (id, account_id) on delete cascade
 );
 

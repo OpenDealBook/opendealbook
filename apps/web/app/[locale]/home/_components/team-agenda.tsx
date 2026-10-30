@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { Badge } from '@odb/ui/badge';
+
 import {
   AGENDA_SECTIONS,
   type AgendaRow,
@@ -32,6 +34,7 @@ const MILESTONE: Record<string, string> = {
   loi_deadline: 'LOI deadline',
   financing_contingency: 'Financing contingency',
   closing: 'Closing',
+  exclusivity_end: 'Exclusivity ends',
 };
 
 function summary(row: AgendaRow): string {
@@ -150,7 +153,14 @@ export function TeamAgenda(props: {
                   <span className={'text-muted-foreground tabular-nums'}>
                     {shortDate(row.at)}
                   </span>
-                  <span className={'line-clamp-2'}>{summary(row)}</span>
+                  <span className={'line-clamp-2'}>
+                    {summary(row)}
+                    {row.lapsed ? (
+                      <Badge variant={'destructive'} className={'ml-2'}>
+                        Lapsed
+                      </Badge>
+                    ) : null}
+                  </span>
                   <span
                     title={row.deal_name ?? undefined}
                     className={'text-muted-foreground truncate md:text-right'}

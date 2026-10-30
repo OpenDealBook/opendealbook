@@ -9,7 +9,7 @@ import {
   checklistImportanceSchema,
   checklistWaitingOnSchema,
 } from '../schema/enums';
-import { applyChecklistTemplateTo } from './checklist-template';
+import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
 import { Refusal, refusableAction } from './refusal';
 
 const applyChecklistTemplateSchema = z.object({

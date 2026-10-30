@@ -601,6 +601,59 @@ describe('contract review notices (integration)', () => {
     ]);
   });
 
+  it('names an LOI extension in words', async () => {
+    const loiId = crypto.randomUUID();
+    await appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'contract',
+      aggregateId: loiId,
+      eventType: 'contract.created',
+      payload: { type: 'loi', status: 'signed', current_version: 1 },
+    });
+    await owner.admin
+      .from('contract_version')
+      .insert({
+        contract_id: loiId,
+        account_id: teamId,
+        version: 1,
+        source: 'upload',
+        party: 'buyer',
+        is_signed: true,
+      })
+      .throwOnError();
+    const extensionId = crypto.randomUUID();
+    await appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'contract',
+      aggregateId: extensionId,
+      eventType: 'contract.created',
+      payload: {
+        type: 'loi_extension',
+        parent_contract_id: loiId,
+        extends_to: '2026-12-01',
+      },
+    });
+    const version = await addVersion(true, extensionId);
+    await owner.admin
+      .from('contract_review_decision')
+      .insert({
+        account_id: teamId,
+        contract_version_id: version.id,
+        side: 'seller',
+        decision: 'changes_needed',
+        decided_by: sellerCounselId,
+        without_counsel: false,
+      })
+      .throwOnError();
+
+    const seq = await relayLatest();
+
+    expect((await inAppNotices(seq)).map((notice) => notice.body)).toEqual([
+      `Sol Seller (Seller's counsel) asked for changes to version ${version.version} of the LOI extension on Acme Tooling.`,
+      `Sol Seller (Seller's counsel) asked for changes to version ${version.version} of the LOI extension on Acme Tooling.`,
+    ]);
+  });
+
   it('writes each in-app notice once when the event is relayed again', async () => {
     const version = await addVersion(true);
     await owner.admin

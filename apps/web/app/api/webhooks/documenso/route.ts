@@ -4,7 +4,7 @@ import {
   isDocumensoConfigured,
   signatureEventDocumentId,
 } from '@odb/contracts/esign';
-import { setUpDiligenceOnLoiSigned } from '@odb/deals/server';
+import { setUpLoiSigned } from '@odb/deal-timeline/loi-signed-setup.ts';
 import { handleFormSignatureEvent } from '@odb/lender-rooms/esign/webhook.ts';
 import { enhanceRouteHandler } from '@odb/next/routes';
 import { getLogger } from '@odb/shared/logger';
@@ -87,7 +87,9 @@ export const POST = enhanceRouteHandler(
           admin,
           documenso,
           onLoiSigned: (loi) =>
-            setUpDiligenceOnLoiSigned(admin, loi, 'documenso'),
+            setUpLoiSigned(admin, loi, {
+              actor: { actorKind: 'service', actorVia: 'documenso' },
+            }),
         });
       }
     } catch (error) {

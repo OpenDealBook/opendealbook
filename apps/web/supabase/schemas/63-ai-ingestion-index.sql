@@ -17,10 +17,10 @@ create table if not exists public.embedding_job (
   chunk_count int,
   model text,
   error text,
-  skipped_reason text,
   created_at timestamptz,
   updated_at timestamptz,
-  created_by uuid references auth.users default auth.uid()
+  created_by uuid references auth.users default auth.uid(),
+  skipped_reason text
 );
 
 alter table public.embedding_job enable row level security;

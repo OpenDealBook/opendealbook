@@ -37,6 +37,7 @@ export async function seedReview(options: {
   buyerCounsel?: boolean;
   sellerCounsel?: boolean;
   shared?: boolean;
+  loiExtension?: boolean;
 }) {
   const owner = await provisionAccount();
   const admin = owner.admin as unknown as SupabaseClient<Database>;
@@ -127,8 +128,51 @@ export async function seedReview(options: {
     aggregateType: 'contract',
     aggregateId: contractId,
     eventType: 'contract.created',
-    payload: { type: 'apa', status: 'draft', current_version: 2 },
+    payload: {
+      status: 'draft',
+      current_version: 2,
+      ...(options.loiExtension
+        ? {
+            type: 'loi_extension',
+            parent_contract_id: await signedLoiNeedingSignOff(),
+            extends_to: '2026-12-01',
+          }
+        : { type: 'apa' }),
+    },
   });
+
+  async function signedLoiNeedingSignOff() {
+    await admin
+      .from('deal_contract_review_gate_change')
+      .insert({
+        account_id: teamId,
+        deal_id: dealId,
+        contract_type: 'loi',
+        required: true,
+        changed_by: owner.userId,
+      })
+      .throwOnError();
+    const loiId = crypto.randomUUID();
+    await appendDealEvent(owner.admin, {
+      dealId,
+      aggregateType: 'contract',
+      aggregateId: loiId,
+      eventType: 'contract.created',
+      payload: { type: 'loi', status: 'signed', current_version: 1 },
+    });
+    await admin
+      .from('contract_version')
+      .insert({
+        contract_id: loiId,
+        account_id: teamId,
+        version: 1,
+        source: 'upload',
+        party: 'buyer',
+        is_signed: true,
+      })
+      .throwOnError();
+    return loiId;
+  }
 
   async function addVersion(version: number, shared: boolean) {
     const { data } = await admin

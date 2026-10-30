@@ -45,6 +45,7 @@ const agendaRow = z.object({
   title: z.string().nullable(),
   detail: z.string().nullable(),
   at: z.string(),
+  lapsed: z.boolean(),
 });
 
 export type AgendaRow = z.infer<typeof agendaRow>;

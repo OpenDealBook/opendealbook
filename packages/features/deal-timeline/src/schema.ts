@@ -9,6 +9,7 @@ export type FixedKind = Exclude<MilestoneKind, 'custom'>;
 export const FIXED_KINDS = [
   'loi_deadline',
   'loi_signed',
+  'exclusivity_end',
   'diligence_end',
   'financing_contingency',
   'apa_signing',
@@ -22,6 +23,7 @@ export const FIXED_MILESTONES: Record<
 > = {
   loi_deadline: { label: 'LOI deadline', startsShared: false },
   loi_signed: { label: 'LOI signed', startsShared: true },
+  exclusivity_end: { label: 'Exclusivity ends', startsShared: true },
   diligence_end: { label: 'Diligence end', startsShared: false },
   financing_contingency: {
     label: 'Financing contingency',

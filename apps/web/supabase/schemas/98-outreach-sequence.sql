@@ -61,13 +61,13 @@ create table if not exists public.outreach_step (
   sequence_id uuid not null references public.outreach_sequence (id) on delete cascade,
   ordinal int not null,
   delay_days int not null default 0,
-  channel public.outreach_channel not null default 'email',
   subject text,
   body text not null,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
   updated_by uuid references auth.users,
+  channel public.outreach_channel not null default 'email',
   unique (sequence_id, ordinal),
   check (channel = 'letter' or subject is not null)
 );

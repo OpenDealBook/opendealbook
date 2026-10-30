@@ -15,8 +15,8 @@ create table if not exists public.notifications (
   link varchar(255),
   dismissed boolean not null default false,
   expires_at timestamptz default now() + interval '1 month',
-  dedupe_key text unique,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  dedupe_key text unique
 );
 
 alter table public.notifications enable row level security;

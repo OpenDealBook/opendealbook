@@ -54,6 +54,7 @@ export async function dealEventNotificationRelay(
           accountId: step.event.accountId,
           actorRef: step.event.actorRef,
           eventType: step.event.eventType,
+          extendsTo: step.event.extendsTo,
         }),
       recordRelayFailedEvent,
     );

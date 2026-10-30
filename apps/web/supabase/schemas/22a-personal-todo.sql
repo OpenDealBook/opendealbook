@@ -11,11 +11,11 @@ create table if not exists public.personal_todo (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   title text not null,
   done boolean not null default false,
-  due_at timestamptz,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users on delete set null,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  due_at timestamptz
 );
 
 alter table public.personal_todo enable row level security;

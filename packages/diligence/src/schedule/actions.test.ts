@@ -81,7 +81,9 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@odb/deals/server', () => ({ applyChecklistTemplateTo: vi.fn() }));
+vi.mock('@odb/deal-timeline/checklist-template.ts', () => ({
+  applyChecklistTemplateTo: vi.fn(),
+}));
 
 vi.mock('@odb/next/actions', () => ({
   enhanceAction: (fn: unknown) => fn,

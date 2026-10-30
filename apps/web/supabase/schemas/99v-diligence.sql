@@ -32,13 +32,13 @@ create table if not exists public.diligence_finding (
   subject_key text not null,
   source public.diligence_source not null,
   severity public.diligence_severity,
-  severity_reason text,
   title text not null,
   summary text not null,
   source_url text not null,
   occurred_on date,
   raw jsonb not null,
   created_at timestamptz not null default now(),
+  severity_reason text,
   foreign key (run_id, deal_id, account_id) references public.diligence_run (id, deal_id, account_id) on delete cascade
 );
 

@@ -18,12 +18,12 @@ create table if not exists public.funding_source (
   term_years numeric,
   guarantee_fee numeric,
   standby_months int,
-  after_standby text check (after_standby in ('remaining_term', 'full_term_after_standby')),
   notes text,
   created_at timestamptz,
   updated_at timestamptz,
   created_by uuid references auth.users,
-  updated_by uuid references auth.users
+  updated_by uuid references auth.users,
+  after_standby text check (after_standby in ('remaining_term', 'full_term_after_standby'))
 );
 
 alter table public.funding_source enable row level security;

@@ -112,6 +112,7 @@ $$;
 revoke all on function public.contract_review_team_required(uuid, text) from public, anon;
 grant execute on function public.contract_review_team_required(uuid, text) to authenticated, service_role;
 
+-- An LOI extension follows its deal's LOI gate.
 create or replace function public.contract_review_required(deal_id uuid, contract_type text)
   returns boolean
   language sql stable
@@ -119,16 +120,20 @@ create or replace function public.contract_review_required(deal_id uuid, contrac
   select coalesce(
     (
       select g.required from public.deal_contract_review_gate_change g
-      where g.deal_id = contract_review_required.deal_id and g.contract_type = contract_review_required.contract_type
+      where g.deal_id = contract_review_required.deal_id and g.contract_type = gate.contract_type
       order by g.changed_at desc
       limit 1
     ),
     (
-      select public.contract_review_team_required(d.account_id, contract_review_required.contract_type)
+      select public.contract_review_team_required(d.account_id, gate.contract_type)
       from public.deal d
       where d.id = contract_review_required.deal_id
     )
-  );
+  )
+  from (
+    select case contract_review_required.contract_type when 'loi_extension' then 'loi'
+      else contract_review_required.contract_type end as contract_type
+  ) gate;
 $$;
 
 revoke all on function public.contract_review_required(uuid, text) from public, anon;
@@ -435,3 +440,7 @@ create trigger same_team_contract_version_id
 create trigger same_team_deal_id
   before insert or update on public.deal_contract_review_gate_change
   for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'deal_id', 'deal');
+
+create trigger same_team_parent_contract_id
+  before insert or update on public.contract
+  for each row execute function tuckin.refuse_cross_team_link('account_id', '', 'parent_contract_id', 'contract');

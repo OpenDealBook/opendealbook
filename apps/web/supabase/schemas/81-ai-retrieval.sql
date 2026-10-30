@@ -1,11 +1,9 @@
--- Per-deal RAG retrieval over document_chunk. llm_endpoint gains chat_model:
--- `model` stays the embedding model, chat_model names the generation model used
--- for the answer call. match_document_chunks runs the ivfflat cosine search
+-- Per-deal RAG retrieval over document_chunk. On llm_endpoint, `model` is the
+-- embedding model and chat_model names the generation model used for the
+-- answer call. match_document_chunks runs the ivfflat cosine search
 -- inside one transaction so `set local ivfflat.probes` governs the scan for the
 -- statement that follows; security invoker keeps the caller's deal-scoped RLS on
 -- document_chunk in force, and the deal_id filter narrows the search to one deal.
-
-alter table public.llm_endpoint add column chat_model text;
 
 create or replace function public.match_document_chunks(
   p_deal_id uuid,

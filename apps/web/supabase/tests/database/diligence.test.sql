@@ -100,7 +100,9 @@ select lives_ok(
 );
 
 select is(
-  (select count(*)::int from public.diligence_finding where severity is null),
+  (select count(*)::int from public.diligence_finding
+   where severity is null
+     and id in ('d4000000-0000-0000-0000-0000000000f1', 'd4000000-0000-0000-0000-0000000000f2')),
   2,
   'a new finding has no severity until the report rates it'
 );

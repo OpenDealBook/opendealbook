@@ -2,7 +2,11 @@ import type { getSupabaseServerClient } from '@odb/supabase/server';
 
 import type { VersionReview } from '../../counsel/[dealId]/contracts/contract-review';
 
-const CONTRACT_LABEL: Record<string, string> = { loi: 'LOI', apa: 'APA' };
+const CONTRACT_LABEL: Record<string, string> = {
+  loi: 'LOI',
+  apa: 'APA',
+  loi_extension: 'LOI extension',
+};
 
 export interface OpenReview {
   contract: string;
@@ -69,6 +73,10 @@ export function openReviews(
   reviews: Record<string, VersionReview>,
 ): OpenReview[] {
   return contracts.flatMap((contract) => {
+    if (contract.versions.length === 0) {
+      return [];
+    }
+
     const latest = contract.versions.reduce((a, b) =>
       b.version > a.version ? b : a,
     );

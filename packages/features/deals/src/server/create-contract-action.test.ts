@@ -64,7 +64,12 @@ vi.mock('@odb/templates/server', () => ({
 
 vi.mock('@odb/contracts', async () => ({
   APA_NEEDS_COUNSEL: 'counsel',
-  contractTypeSchema: (await import('zod')).z.enum(['loi', 'apa', 'nda']),
+  contractTypeSchema: (await import('zod')).z.enum([
+    'loi',
+    'apa',
+    'nda',
+    'loi_extension',
+  ]),
   createContractRecord: async (
     _input: unknown,
     deps: {
@@ -168,7 +173,8 @@ describe('createContract', () => {
   it('tells a read-only member they cannot draft contracts', async () => {
     mocks.recordError = {
       code: '42501',
-      message: 'not authorized to append contract.created on deal: needs deals.work',
+      message:
+        'not authorized to append contract.created on deal: needs deals.work',
     };
 
     expect(await run({ dealId: 'deal-1', type: 'loi' })).toEqual({

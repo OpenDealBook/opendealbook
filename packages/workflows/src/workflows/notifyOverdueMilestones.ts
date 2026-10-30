@@ -7,5 +7,5 @@ const { notifyOverdueMilestones } = proxyActivities<typeof activities>({
 });
 
 export async function notifyOverdueMilestonesDaily(): Promise<void> {
-  await notifyOverdueMilestones(new Date().toISOString().slice(0, 10));
+  await notifyOverdueMilestones(new Date().toISOString());
 }

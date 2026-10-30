@@ -10,10 +10,6 @@ insert into public.role_permissions (role, permission) values
   ('admin', 'workflows.manage')
 on conflict do nothing;
 
-alter table public.outreach_setting
-  add column lookup_monthly_cap int not null default 0,
-  add column ai_monthly_cap int not null default 0;
-
 create type public.workflow_trigger_kind as enum ('schedule', 'event', 'manual');
 
 create type public.workflow_run_status as enum (
@@ -37,8 +33,8 @@ create table if not exists public.workflow (
   name text not null check (btrim(name) <> ''),
   system_key text,
   enabled boolean not null default false,
-  archived_at timestamptz,
   created_at timestamptz not null default now(),
+  archived_at timestamptz,
   enabled_after_deal_seq bigint,
   enabled_after_account_seq bigint,
   constraint workflow_archived_disabled_check check (not (enabled and archived_at is not null)),
@@ -336,12 +332,14 @@ create table if not exists public.workflow_run (
   version_id uuid not null,
   trigger_kind public.workflow_trigger_kind not null,
   trigger_ref text not null,
-  trigger_node_id text not null,
-  trigger_output jsonb not null default '{}'::jsonb,
   status public.workflow_run_status not null default 'running',
   started_at timestamptz not null default now(),
   finished_at timestamptz,
+  trigger_node_id text not null,
   error text,
+  loop_items_processed int not null default 0 check (loop_items_processed between 0 and 500),
+  loop_items_total int not null default 0 check (loop_items_total >= 0),
+  trigger_output jsonb not null default '{}'::jsonb,
   foreign key (workflow_id, account_id) references public.workflow (id, account_id),
   foreign key (version_id, workflow_id) references public.workflow_version (id, workflow_id),
   unique (workflow_id, trigger_ref),
@@ -412,8 +410,8 @@ create table if not exists public.workflow_step_run (
   started_at timestamptz not null default now(),
   finished_at timestamptz,
   wake_at timestamptz,
-  waiting_on text,
   iteration_path int[] not null default '{}',
+  waiting_on text,
   foreign key (run_id, account_id) references public.workflow_run (id, account_id) on delete cascade,
   unique (id, account_id),
   check ((status in ('succeeded', 'failed', 'cancelled')) = (finished_at is not null)),
@@ -482,13 +480,10 @@ create policy workflow_step_run_read on public.workflow_step_run
   for select to authenticated
   using (public.has_role_on_account(account_id));
 
--- A run processes at most 500 loop items, counted across every loop level.
--- Items a loop could not get are saved with the context they need to resume,
--- under the outermost loop around them; that loop's next run claims them first.
-alter table public.workflow_run
-  add column loop_items_processed int not null default 0 check (loop_items_processed between 0 and 500),
-  add column loop_items_total int not null default 0 check (loop_items_total >= 0);
-
+-- A run processes at most 500 loop items (workflow_run.loop_items_processed),
+-- counted across every loop level. Items a loop could not get are saved with
+-- the context they need to resume, under the outermost loop around them; that
+-- loop's next run claims them first.
 create table if not exists public.workflow_loop_saved_work (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null,
@@ -668,10 +663,10 @@ create table if not exists public.workflow_step_log (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null,
   step_run_id uuid not null,
-  level public.workflow_log_level not null,
   message text not null,
-  details jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
+  level public.workflow_log_level not null,
+  details jsonb not null default '{}'::jsonb,
   foreign key (step_run_id, account_id) references public.workflow_step_run (id, account_id) on delete cascade
 );
 
@@ -757,13 +752,13 @@ create table if not exists public.paid_lookup (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   firm_id uuid,
-  deal_id uuid references public.deal (id) on delete set null,
   kind public.provider_kind not null check (kind <> 'letters'),
   provider text not null,
   cost_cents int not null check (cost_cents >= 0),
-  outcome public.paid_lookup_outcome not null,
   result jsonb not null,
   created_at timestamptz not null default now(),
+  outcome public.paid_lookup_outcome not null,
+  deal_id uuid references public.deal (id) on delete set null,
   foreign key (firm_id, account_id) references public.firm (id, account_id) on delete set null (firm_id)
 );
 
@@ -857,6 +852,17 @@ grant select on public.account_event to authenticated, service_role;
 create policy account_event_read on public.account_event
   for select to authenticated
   using (public.has_role_on_account(account_id));
+
+create or replace function public.record_deal_delete_cleanup_failed(p_account_id uuid, p_deal_id uuid, p_leftovers jsonb)
+  returns void
+  language sql security definer
+  set search_path = '' as $$
+  insert into public.account_event (account_id, event_type, payload)
+  values (p_account_id, 'deal.delete_cleanup_failed', jsonb_build_object('deal_id', p_deal_id) || p_leftovers);
+$$;
+
+revoke all on function public.record_deal_delete_cleanup_failed(uuid, uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.record_deal_delete_cleanup_failed(uuid, uuid, jsonb) to service_role;
 
 create or replace function tuckin.record_firm_approved()
   returns trigger

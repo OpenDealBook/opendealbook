@@ -16,6 +16,7 @@ import { UpdateEmailSchema } from '../schema/update-email.schema';
 import { UpdatePasswordSchema } from '../schema/update-password.schema';
 import { UpdatePhoneSchema } from '../schema/update-phone.schema';
 import { UpdateTimezoneSchema } from '../schema/update-timezone.schema';
+import { timeZones } from '../shared/time-zones';
 
 export const updatePersonalAccountNameAction = enhanceAction(
   async (data, user) => {
@@ -37,6 +38,12 @@ export const updatePersonalAccountNameAction = enhanceAction(
 
 export const updatePersonalTimezoneAction = enhanceAction(
   async (data, user) => {
+    if (!timeZones.includes(data.timezone)) {
+      throw new Error(
+        `${data.timezone} isn't a supported time zone; pick another`,
+      );
+    }
+
     await getSupabaseServerClient()
       .from('accounts')
       .update({ timezone: data.timezone })

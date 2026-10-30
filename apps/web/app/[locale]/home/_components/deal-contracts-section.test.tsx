@@ -33,13 +33,34 @@ vi.mock('@odb/supabase/hooks', () => ({
 vi.mock('@odb/deals/server', () => ({
   recordContractSignedElsewhere: vi.fn(),
   sendContractForSignature: vi.fn(),
+  createLoiExtensionFromTemplate: vi.fn(),
+  createNotedLoiExtension: vi.fn(),
+  noteLoiExtension: vi.fn(),
+  rescheduleLoiExtension: vi.fn(),
+  recordLoiExtensionSignedElsewhere: vi.fn(),
+  recordSignedCopyOfLoiExtension: vi.fn(),
+  draftEditorUrl: vi.fn(
+    async (_client: unknown, versionId: string) =>
+      `https://sign.example.test/documents/${versionId}/edit`,
+  ),
 }));
 vi.mock('@odb/deal-timeline/apply-contract-dates.ts', () => ({
   applyContractDates: vi.fn(),
   contractDatesPreview: vi.fn(),
 }));
 
-import { DealContracts } from './deal-contracts-section';
+import {
+  contractVersionViews,
+  versionComments,
+  visibleContracts,
+} from '@odb/contracts';
+import { contractDatesPreview } from '@odb/deal-timeline/apply-contract-dates.ts';
+import { draftEditorUrl } from '@odb/deals/server';
+import { itemAnchor } from '@odb/notifications/relay';
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
+import { getSupabaseServerClient } from '@odb/supabase/server';
+
+import { DealContracts, DealContractsSection } from './deal-contracts-section';
 
 function parse(markup: string) {
   return new DOMParser().parseFromString(markup, 'text/html');
@@ -72,6 +93,7 @@ const contracts = [
     type: 'loi',
     current_version: 1,
     dates: null,
+    extensions: [],
     versions: [
       {
         id: 'v1',
@@ -79,6 +101,7 @@ const contracts = [
         party: 'buyer',
         change_summary: null,
         is_signed: true,
+        editorUrl: null,
         shared: true,
         hasDocx: false,
         hasPdf: true,
@@ -100,6 +123,7 @@ const contracts = [
         to: '2026-12-01',
       },
     ],
+    extensions: [],
     versions: [
       {
         id: 'v2',
@@ -107,6 +131,7 @@ const contracts = [
         party: 'buyer',
         change_summary: 'Internal draft',
         is_signed: false,
+        editorUrl: null,
         shared: false,
         hasDocx: true,
         hasPdf: false,
@@ -120,6 +145,7 @@ const contracts = [
         party: 'seller',
         change_summary: 'Seller redline',
         is_signed: false,
+        editorUrl: null,
         shared: true,
         hasDocx: true,
         hasPdf: true,
@@ -430,5 +456,371 @@ describe('DealContracts', () => {
       ['APA needs counsel sign-off', 'true'],
     ]);
     expect(gates(false)).toEqual([]);
+  });
+
+  describe('LOI extensions', () => {
+    function extensionVersion(id: string, changes: object = {}) {
+      return {
+        id,
+        version: 1,
+        party: 'buyer',
+        change_summary: null,
+        is_signed: false,
+        editorUrl: null,
+        shared: false,
+        hasDocx: true,
+        hasPdf: true,
+        redline: null,
+        comments: [],
+        review,
+        ...changes,
+      };
+    }
+
+    const extension = {
+      note: null,
+      noted_on: null,
+      current_version: 1,
+    };
+    const extensions = [
+      {
+        ...extension,
+        id: 'e1',
+        extends_to: '2026-12-15',
+        state: 'draft' as const,
+        versions: [extensionVersion('ev1')],
+      },
+      {
+        ...extension,
+        id: 'e2',
+        extends_to: '2027-01-15',
+        state: 'out' as const,
+        versions: [extensionVersion('ev2')],
+      },
+      {
+        ...extension,
+        id: 'e3',
+        extends_to: '2027-02-15',
+        state: 'signed' as const,
+        versions: [
+          extensionVersion('ev3', { is_signed: true, hasDocx: false }),
+        ],
+      },
+      {
+        id: 'e4',
+        extends_to: '2027-03-15',
+        note: 'Seller agreed by email to thirty more days',
+        noted_on: '2026-11-20',
+        current_version: null,
+        state: 'noted' as const,
+        versions: [],
+      },
+      {
+        ...extension,
+        id: 'e5',
+        extends_to: '2027-04-15',
+        state: 'signed' as const,
+        versions: [extensionVersion('ev5', { is_signed: true, hasPdf: false })],
+      },
+    ];
+
+    function withExtensions(loiSigned: boolean) {
+      const [loi, apa] = contracts;
+
+      return [
+        {
+          ...loi!,
+          versions: [{ ...loi!.versions[0]!, is_signed: loiSigned }],
+          extensions,
+        },
+        apa!,
+      ];
+    }
+
+    function cardTitled(document: Document, title: string) {
+      return [...document.querySelectorAll('[data-slot="card"]')].find(
+        (card) =>
+          card.querySelector('[data-slot="card-title"]')?.textContent === title,
+      )!;
+    }
+
+    function render(canManage: boolean, loiSigned = true) {
+      return parse(
+        renderToStaticMarkup(
+          <DealContracts
+            dealId={'d1'}
+            contracts={withExtensions(loiSigned)}
+            canManage={canManage}
+            filesPath={FILES}
+            gates={GATES}
+          />,
+        ),
+      );
+    }
+
+    function items(document: Document) {
+      return [
+        ...cardTitled(document, 'LOI').querySelectorAll('[data-extension]'),
+      ];
+    }
+
+    function texts(elements: Iterable<Element>) {
+      return [...elements].map((element) => element.textContent);
+    }
+
+    it('lists each extension under its LOI with its end date, state, note, signed copy, and versions', () => {
+      expect(
+        items(render(false)).map((item) => [
+          item.querySelector('h4')?.textContent,
+          item.querySelector('[data-slot="badge"]')?.textContent,
+          item.querySelector('[data-extension-noted]')?.textContent ?? null,
+          [...item.querySelectorAll('[data-extension-actions] a')].map((link) =>
+            link.getAttribute('href'),
+          ),
+          rows(item.innerHTML),
+        ]),
+      ).toEqual([
+        [
+          'LOI extension to Dec 15, 2026',
+          'Draft',
+          null,
+          [],
+          [['1', 'Buyer', '', '', 'WordPDF']],
+        ],
+        [
+          'LOI extension to Jan 15, 2027',
+          'Out for signature',
+          null,
+          [],
+          [['1', 'Buyer', '', '', 'WordPDF']],
+        ],
+        [
+          'LOI extension to Feb 15, 2027',
+          'Signed',
+          null,
+          [`${FILES}/ev3/pdf`],
+          [['1', 'Buyer', '', 'Signed', 'PDF']],
+        ],
+        [
+          'LOI extension to Mar 15, 2027',
+          'Noted',
+          'Agreed on Nov 20, 2026: Seller agreed by email to thirty more days',
+          [],
+          [],
+        ],
+        [
+          'LOI extension to Apr 15, 2027',
+          'Signed',
+          null,
+          [`${FILES}/ev5/docx`],
+          [['1', 'Buyer', '', 'Signed', 'WordPDF conversion failed']],
+        ],
+      ]);
+    });
+
+    it('gives each extension version what an LOI version has', () => {
+      const [draft, , , noted, docxOnly] = items(render(true));
+
+      expect(rows(draft!.innerHTML)).toEqual([
+        ['1', 'Buyer', '', '', 'WordPDF', 'Current', 'Share with seller side'],
+      ]);
+      expect(rows(docxOnly!.innerHTML)[0]![4]).toBe(
+        'WordPDF conversion failedRetry PDF',
+      );
+      expect(
+        [...draft!.querySelectorAll('tr[id], section[id]')].map(
+          (element) => element.id,
+        ),
+      ).toEqual([
+        itemAnchor({ kind: 'contract-version', id: 'ev1' }),
+        itemAnchor({ kind: 'contract-review', id: 'ev1' }),
+      ]);
+      expect(
+        texts(draft!.querySelectorAll('[data-version-comments] h3')),
+      ).toEqual(['Comments on version 1']);
+      expect(
+        draft!.querySelector('[data-version-comments] [data-new-comment]'),
+      ).not.toBeNull();
+      expect(noted!.querySelector('table')).toBeNull();
+    });
+
+    function actionButtons(document: Document) {
+      return items(document).map((item) =>
+        texts(item.querySelectorAll('[data-extension-actions] button')),
+      );
+    }
+
+    function sendButtons(document: Document) {
+      return items(document).map((item) =>
+        texts(item.querySelectorAll('[data-version-review] button')),
+      );
+    }
+
+    function headerButtons(document: Document, title: string) {
+      return texts(
+        cardTitled(document, title).querySelectorAll(
+          '[data-slot="card-header"] button',
+        ),
+      );
+    }
+
+    it('offers a manager each path that fits the state of each extension of the signed LOI', () => {
+      const document = render(true);
+
+      expect(headerButtons(document, 'LOI')).toEqual([
+        'Record signed LOI',
+        'Extend exclusivity',
+      ]);
+      expect(headerButtons(document, 'APA')).toEqual(['Record signed APA']);
+      expect(actionButtons(document)).toEqual([
+        ['Change end date', 'Note as agreed', 'Record signed LOI extension'],
+        [],
+        [],
+        ['Record signed LOI extension'],
+        [],
+      ]);
+      expect(sendButtons(document)).toEqual([
+        ['Ask counsel to review', 'Override and send'],
+        [],
+        [],
+        [],
+        [],
+      ]);
+    });
+
+    it('offers no extension paths when the LOI is not signed', () => {
+      const document = render(true, false);
+
+      expect(headerButtons(document, 'LOI')).toEqual(['Record signed LOI']);
+      expect(actionButtons(document)).toEqual([[], [], [], [], []]);
+      expect(sendButtons(document)).toEqual([[], [], [], [], []]);
+    });
+
+    it('offers a member without deals.manage no extension paths', () => {
+      const document = render(false);
+
+      expect(headerButtons(document, 'LOI')).toEqual([]);
+      expect(actionButtons(document)).toEqual([[], [], [], [], []]);
+      expect(sendButtons(document)).toEqual([[], [], [], [], []]);
+    });
+  });
+
+  describe('loaded fresh from the database', () => {
+    const tables: Record<string, object[]> = {
+      contract_version: [
+        { id: 'v1', shared_at: null, signing_status: 'draft' },
+        { id: 'v2', shared_at: null, signing_status: 'sent' },
+        { id: 'v3', shared_at: null, signing_status: null },
+      ],
+      contract: [],
+      contract_review_request: [],
+      contract_review_decision: [],
+      contract_signing_override: [],
+      deal_counsel: [],
+    };
+
+    function query(table: string) {
+      const chain: object = new Proxy(
+        {},
+        {
+          get: (_target, method) =>
+            method === 'throwOnError'
+              ? async () => ({ data: tables[table] })
+              : () => chain,
+        },
+      );
+
+      return chain;
+    }
+
+    let canManage = true;
+    const client = {
+      from: query,
+      rpc: (name: string) => ({
+        throwOnError: async () => ({
+          data: name === 'has_deal_permission' ? canManage : true,
+        }),
+      }),
+    };
+
+    async function load() {
+      vi.mocked(getSupabaseServerClient).mockReturnValue(client as never);
+      vi.mocked(getSupabaseServerAdminClient).mockReturnValue(client as never);
+      vi.mocked(contractDatesPreview).mockResolvedValue(null);
+      vi.mocked(versionComments).mockResolvedValue({ v1: [], v2: [], v3: [] });
+      vi.mocked(contractVersionViews).mockImplementation(
+        async (_admin, versions) =>
+          versions.map((version) => ({
+            ...version,
+            hasDocx: false,
+            hasPdf: true,
+            redline: null,
+          })),
+      );
+      vi.mocked(visibleContracts).mockResolvedValue([
+        {
+          id: 'c1',
+          type: 'loi',
+          current_version: 1,
+          versions: [
+            {
+              id: 'v1',
+              version: 1,
+              party: 'buyer',
+              change_summary: null,
+              is_signed: false,
+            },
+          ],
+        },
+        {
+          id: 'c2',
+          type: 'apa',
+          current_version: 2,
+          versions: [
+            {
+              id: 'v2',
+              version: 1,
+              party: 'buyer',
+              change_summary: null,
+              is_signed: false,
+            },
+            {
+              id: 'v3',
+              version: 2,
+              party: 'buyer',
+              change_summary: null,
+              is_signed: false,
+            },
+          ],
+        },
+      ]);
+
+      return [
+        ...parse(
+          renderToStaticMarkup(
+            await DealContractsSection({ dealId: 'd1', filesPath: FILES }),
+          ),
+        ).querySelectorAll('[data-version-review] a'),
+      ].map((link) => [link.textContent, link.getAttribute('href')]);
+    }
+
+    it('links each version that is a Documenso draft to the editor to place its signature fields', async () => {
+      canManage = true;
+
+      expect(await load()).toEqual([
+        [
+          'Open in Documenso to place signature fields',
+          'https://sign.example.test/documents/v1/edit',
+        ],
+      ]);
+    });
+
+    it('never asks Documenso for the editor, or links it, for a member without deals.manage', async () => {
+      canManage = false;
+      vi.mocked(draftEditorUrl).mockClear();
+
+      expect(await load()).toEqual([]);
+      expect(draftEditorUrl).not.toHaveBeenCalled();
+    });
   });
 });

@@ -19,6 +19,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { ContractList } from '../../../../../counsel/[dealId]/contracts/contract-list';
 import { versionReviews } from '../../../../../counsel/[dealId]/contracts/version-reviews';
+import { nestLoiExtensions } from '../../../../../home/_lib/loi-extensions';
 
 export default async function SellerRoomContractsPage({
   params,
@@ -84,17 +85,21 @@ export default async function SellerRoomContractsPage({
   const { data: locked } = await admin
     .rpc('is_account_locked', { target_account_id: deal.account_id })
     .throwOnError();
-  const contracts = await Promise.all(
-    summaries.map(async (contract) => ({
-      ...contract,
-      versions: (await contractVersionViews(admin, contract.versions)).map(
-        (version) => ({
-          ...version,
-          comments: comments[version.id]!,
-          review: reviews[version.id]!,
-        }),
-      ),
-    })),
+  const contracts = await nestLoiExtensions(
+    admin,
+    await Promise.all(
+      summaries.map(async (contract) => ({
+        ...contract,
+        versions: (await contractVersionViews(admin, contract.versions)).map(
+          (version) => ({
+            ...version,
+            comments: comments[version.id]!,
+            review: reviews[version.id]!,
+          }),
+        ),
+      })),
+    ),
+    'seller',
   );
 
   return (

@@ -10,20 +10,23 @@ create table if not exists public.contract_version (
   author_user_id uuid references auth.users,
   party text not null check (party in ('buyer', 'seller')),
   docx_path text,
-  docx_bucket text check (docx_bucket in ('generated', 'contracts')),
   pdf_path text,
-  pdf_bucket text check (pdf_bucket in ('generated', 'contracts')),
   change_summary text,
   is_signed boolean not null default false,
   content_hash text,
+  created_at timestamptz not null default now(),
   signing_document_id text unique,
   signing_status text check (signing_status in ('draft', 'sent', 'completed', 'declined', 'expired')),
   -- Set when the buyer team shares this version with the seller side.
   shared_at timestamptz,
+  docx_bucket text check (docx_bucket in ('generated', 'contracts')),
+  pdf_bucket text check (pdf_bucket in ('generated', 'contracts')),
   -- The number the seller side knows this version by, fixed when they first
   -- see it so later shares never reveal what they did not see.
   seller_number int,
-  created_at timestamptz not null default now(),
+  -- The end of exclusivity an LOI extension version was drafted with, kept
+  -- when the extension's date is later corrected.
+  extends_to date,
   unique (contract_id, version),
   unique (contract_id, seller_number),
   check ((docx_path is null) = (docx_bucket is null)),
@@ -60,6 +63,20 @@ $$;
 create trigger keep_first_shared_at
   before update of shared_at on public.contract_version
   for each row execute function public.keep_first_shared_at();
+
+create or replace function public.stamp_contract_version_extends_to()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  new.extends_to := (select c.extends_to from public.contract c where c.id = new.contract_id);
+  return new;
+end;
+$$;
+
+create trigger stamp_contract_version_extends_to
+  before insert on public.contract_version
+  for each row execute function public.stamp_contract_version_extends_to();
 
 -- A signed version is shown to the seller side. A version the seller side
 -- sees for the first time takes the next seller number on its contract; the
