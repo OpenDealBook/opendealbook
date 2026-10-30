@@ -73,6 +73,7 @@ contract.#Contract & {
 		GOTENBERG_URL: {
 			type:        "url"
 			description: "Base URL of the Gotenberg service used to render PDFs"
+			required:    true
 		}
 		KEYSTATIC_CONTENT_ROOT: {
 			type:        "string"
