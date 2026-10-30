@@ -8,6 +8,22 @@ import { FIXED_MILESTONES } from './schema';
 import { teamDay } from './team-day';
 
 const DAYS_OF_NOTICE = 7;
+const PAGE_SIZE = 1000;
+const NIL_UUID = '00000000-0000-0000-0000-000000000000';
+
+async function everyPage<Row extends { id: string }>(
+  page: (afterId: string) => PromiseLike<{ data: Row[] }>,
+): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let afterId = NIL_UUID; ; ) {
+    const { data } = await page(afterId);
+    if (data.length === 0) {
+      return rows;
+    }
+    rows.push(...data);
+    afterId = data.at(-1)!.id;
+  }
+}
 
 function daysAfter(day: string, days: number) {
   return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000)
@@ -63,17 +79,22 @@ export async function notifyOverdueMilestones(at: string): Promise<void> {
   const now = new Date(at);
   const today = teamDay(now, null);
 
-  const { data: overdue } = await admin
-    .from('deal_milestone')
-    .select(
-      'id, account_id, deal_id, kind, label, target_on, deal!inner(owner_user_id, firm(name), accounts!deal_account_id_fkey(slug)), deal_milestone_overdue_notice(target_on)',
-    )
-    .lt('target_on', today)
-    .neq('kind', 'exclusivity_end')
-    .is('actual_on', null)
-    .is('deal.archived_at', null)
-    .is('deal.resolution', null)
-    .throwOnError();
+  const overdue = await everyPage((afterId) =>
+    admin
+      .from('deal_milestone')
+      .select(
+        'id, account_id, deal_id, kind, label, target_on, deal!inner(owner_user_id, firm(name), accounts!deal_account_id_fkey(slug)), deal_milestone_overdue_notice(target_on)',
+      )
+      .lt('target_on', today)
+      .neq('kind', 'exclusivity_end')
+      .is('actual_on', null)
+      .is('deal.archived_at', null)
+      .is('deal.resolution', null)
+      .gt('id', afterId)
+      .order('id')
+      .limit(PAGE_SIZE)
+      .throwOnError(),
+  );
 
   const lockedAccounts = await lockedAccountIds(
     overdue.map((m) => m.account_id),
@@ -133,16 +154,21 @@ async function notifyExclusivityEnd(now: Date): Promise<void> {
   const admin = getSupabaseServerAdminClient();
   const utcToday = teamDay(now, null);
 
-  const { data: ends } = await admin
-    .from('deal_milestone')
-    .select(
-      'id, account_id, deal_id, target_on, deal!inner(owner_user_id, firm(name), accounts!deal_account_id_fkey(slug, timezone)), deal_milestone_overdue_notice(target_on)',
-    )
-    .eq('kind', 'exclusivity_end')
-    // A team's date is within a day of the UTC one.
-    .gte('target_on', daysAfter(utcToday, -(DAYS_OF_NOTICE + 1)))
-    .lte('target_on', daysAfter(utcToday, DAYS_OF_NOTICE + 1))
-    .throwOnError();
+  const ends = await everyPage((afterId) =>
+    admin
+      .from('deal_milestone')
+      .select(
+        'id, account_id, deal_id, target_on, deal!inner(owner_user_id, firm(name), accounts!deal_account_id_fkey(slug, timezone)), deal_milestone_overdue_notice(target_on)',
+      )
+      .eq('kind', 'exclusivity_end')
+      // A team's date is within a day of the UTC one.
+      .gte('target_on', daysAfter(utcToday, -(DAYS_OF_NOTICE + 1)))
+      .lte('target_on', daysAfter(utcToday, DAYS_OF_NOTICE + 1))
+      .gt('id', afterId)
+      .order('id')
+      .limit(PAGE_SIZE)
+      .throwOnError(),
+  );
 
   const lockedAccounts = await lockedAccountIds(
     ends.map((end) => end.account_id),

@@ -427,6 +427,53 @@ describe('overdue milestone notice', () => {
     ]);
   });
 
+  it('still tells the deal owner when more overdue milestones sort ahead of it than one read returns', async () => {
+    const fillerDealId = await newDeal(teamId, dealOwner);
+    const fillerIds = Array.from({ length: 1000 }, () => crypto.randomUUID());
+    for (let batch = 0; batch < fillerIds.length; batch += 50) {
+      await Promise.all(
+        fillerIds.slice(batch, batch + 50).map((id) =>
+          admin
+            .rpc('append_deal_event', {
+              p_deal_id: fillerDealId,
+              p_aggregate_type: 'deal_milestone',
+              p_aggregate_id: id,
+              p_event_type: 'deal_milestone.set',
+              p_payload: {
+                kind: 'custom',
+                label: 'Filler consent',
+                target_on: '2025-04-01',
+                actual_on: null,
+              },
+              p_actor_kind: 'service',
+            })
+            .throwOnError(),
+        ),
+      );
+    }
+    await admin
+      .from('deal_milestone_overdue_notice')
+      .insert(
+        fillerIds.map((id) => ({ milestone_id: id, target_on: '2025-04-01' })),
+      )
+      .throwOnError();
+    await setMilestone({
+      id: `ffffffff-ffff-4fff-bfff-${crypto.randomUUID().slice(-12)}`,
+      kind: 'closing',
+      targetOn: YESTERDAY,
+      actualOn: null,
+    });
+
+    await notifyOverdueMilestones(TODAY);
+
+    expect(await noticesForDeal()).toEqual([
+      notice(
+        dealOwner.userId,
+        'Closing on Seller room deal was due Apr 15, 2025 and has no actual date.',
+      ),
+    ]);
+  });
+
   it('skips a locked team', async () => {
     await setMilestone({
       kind: 'closing',

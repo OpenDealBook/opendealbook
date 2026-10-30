@@ -254,6 +254,41 @@ describe('exclusivity lapse notice', () => {
     ]);
   });
 
+  it('still tells the deal owner when more ends near today sort ahead of it than one read returns', async () => {
+    for (let batch = 0; batch < 20; batch++) {
+      await Promise.all(
+        Array.from({ length: 50 }, async () => {
+          const otherDealId = await newDeal(teamId, dealOwner);
+          await admin
+            .rpc('append_deal_event', {
+              p_deal_id: otherDealId,
+              p_aggregate_type: 'deal_milestone',
+              p_aggregate_id: crypto.randomUUID(),
+              p_event_type: 'deal_milestone.set',
+              p_payload: {
+                kind: 'exclusivity_end',
+                target_on: '2025-04-08',
+                actual_on: null,
+              },
+              p_actor_kind: 'service',
+            })
+            .throwOnError();
+        }),
+      );
+    }
+    milestoneId = `ffffffff-ffff-4fff-bfff-${crypto.randomUUID().slice(-12)}`;
+    await exclusivityEnds(YESTERDAY);
+
+    await notifyOverdueMilestones(NOW);
+
+    expect(await noticesForDeal()).toEqual([
+      notice(
+        dealOwner.userId,
+        'Exclusivity on Seller room deal lapsed on Apr 15, 2025.',
+      ),
+    ]);
+  });
+
   it('skips a locked team', async () => {
     await exclusivityEnds(YESTERDAY);
 
