@@ -26,6 +26,20 @@ describe('csvRecords', () => {
       { ACK_ID: 'A1', NAME: 'CAFÃ' },
     ]);
   });
+
+  it('decodes every Windows-1252 byte from 0x80 to 0x9F to its WHATWG code point', async () => {
+    const block = Array.from({ length: 32 }, (_, index) => 0x80 + index);
+    const bytes = Buffer.concat([Buffer.from('NAME\n'), Buffer.from(block)]);
+
+    const [record] = await collect(csvRecords(Readable.from([bytes]), []));
+
+    expect([...record!.NAME!].map((char) => char.codePointAt(0))).toEqual([
+      0x20ac, 0x0081, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6,
+      0x2030, 0x0160, 0x2039, 0x0152, 0x008d, 0x017d, 0x008f, 0x0090, 0x2018,
+      0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161,
+      0x203a, 0x0153, 0x009d, 0x017e, 0x0178,
+    ]);
+  });
 });
 
 describe('csvRecords header check', () => {

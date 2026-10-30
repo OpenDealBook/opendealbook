@@ -35,6 +35,19 @@ export async function* csvRecords(
   if (!checked) checkHeader();
 }
 
+const WINDOWS_1252_0X80_TO_0X9F =
+  '\u20ac\u0081\u201a\u0192\u201e\u2026\u2020\u2021\u02c6\u2030\u0160\u2039\u0152\u008d\u017d\u008f' +
+  '\u0090\u2018\u2019\u201c\u201d\u2022\u2013\u2014\u02dc\u2122\u0161\u203a\u0153\u009d\u017e\u0178';
+
+function decodeWindows1252(bytes: Buffer): string {
+  return bytes
+    .toString('latin1')
+    .replace(
+      /[\u0080-\u009f]/g,
+      (char) => WINDOWS_1252_0X80_TO_0X9F[char.charCodeAt(0) - 0x80]!,
+    );
+}
+
 function completeUtf8Length(bytes: Buffer): number {
   for (let back = 1; back <= Math.min(3, bytes.length); back += 1) {
     const byte = bytes[bytes.length - back]!;
@@ -66,15 +79,10 @@ function utf8OrWindows1252(): Transform {
           encoding = 'windows-1252';
         }
       }
-      done(null, new TextDecoder('windows-1252').decode(bytes));
+      done(null, decodeWindows1252(bytes));
     },
     flush(done) {
-      done(
-        null,
-        carry.length > 0
-          ? new TextDecoder('windows-1252').decode(carry)
-          : undefined,
-      );
+      done(null, carry.length > 0 ? decodeWindows1252(carry) : undefined);
     },
   });
 }
