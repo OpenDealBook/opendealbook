@@ -87,7 +87,7 @@ describe('the email lookup key setting', () => {
   });
 
   it('shows the saved actor, never the saved key', async () => {
-    await render({ kind: 'email_lookup', current: { actorId: 'acme~site-contacts' }, canManage: true });
+    await render({ kind: 'email_lookup', current: { actorId: 'acme~site-contacts', provider: 'apify' }, canManage: true });
 
     expect(field('Apify actor')!.value).toBe('acme~site-contacts');
     expect(field('Apify API key')!.value).toBe('');
@@ -96,7 +96,7 @@ describe('the email lookup key setting', () => {
   });
 
   it('shows other members the provider and actor, with nothing to change', async () => {
-    await render({ kind: 'email_lookup', current: { actorId: 'acme~site-contacts' }, canManage: false });
+    await render({ kind: 'email_lookup', current: { actorId: 'acme~site-contacts', provider: 'apify' }, canManage: false });
 
     expect(container.textContent).toContain('Connected to Apify, actor acme~site-contacts');
     expect(container.querySelector('input')).toBeNull();
@@ -132,7 +132,7 @@ describe('the letters key setting', () => {
   });
 
   it('saves the Lob webhook secret beside the key, then clears it', async () => {
-    await render({ kind: 'letters', current: { actorId: null }, canManage: true });
+    await render({ kind: 'letters', current: { actorId: null, provider: 'lob' }, canManage: true });
 
     await type('Lob webhook secret', 'hook-secret');
     await save();
@@ -149,13 +149,13 @@ describe('the letters key setting', () => {
   });
 
   it('shows the webhook address to paste into Lob', async () => {
-    await render({ kind: 'letters', current: { actorId: null }, canManage: true });
+    await render({ kind: 'letters', current: { actorId: null, provider: 'lob' }, canManage: true });
 
     expect(container.textContent).toContain('https://app.odb.test/api/webhooks/lob/team-1');
   });
 
   it('asks a settings manager to confirm before disconnecting', async () => {
-    await render({ kind: 'letters', current: { actorId: null }, canManage: true });
+    await render({ kind: 'letters', current: { actorId: null, provider: 'lob' }, canManage: true });
 
     await act(async () => button('Disconnect')!.click());
     const dialog = document.body.querySelector('[role=dialog]')!;
@@ -195,12 +195,59 @@ describe('the federal courts key setting', () => {
   });
 
   it('warns that diligence skips federal courts once disconnected', async () => {
-    await render({ kind: 'courts', current: { actorId: null }, canManage: true });
+    await render({ kind: 'courts', current: { actorId: null, provider: 'courtlistener' }, canManage: true });
 
     await act(async () => button('Disconnect')!.click());
     const dialog = document.body.querySelector('[role=dialog]')!;
 
     expect(dialog.textContent).toContain('Disconnect CourtListener?');
     expect(dialog.textContent).toContain('Diligence will skip federal courts until you connect it again.');
+  });
+});
+
+describe('the court records broker setting', () => {
+  function broker() {
+    return container.querySelector('select')!;
+  }
+
+  async function pick(value: string) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(broker(), value);
+      broker().dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+
+  it('saves the key for the broker a settings manager picks', async () => {
+    await render({ kind: 'court_records', current: null, canManage: true });
+
+    expect(broker().value).toBe('baselayer');
+    await pick('middesk');
+    await type('Middesk API key', 'mk-team-key');
+    await save();
+
+    expect(server.save).toHaveBeenCalledWith({
+      accountId: 'team-1',
+      kind: 'court_records',
+      provider: 'middesk',
+      apiKey: 'mk-team-key',
+      actorId: '',
+    });
+  });
+
+  it('starts on the connected broker and warns that picking the other replaces its key', async () => {
+    await render({ kind: 'court_records', current: { actorId: null, provider: 'middesk' }, canManage: true });
+
+    expect(broker().value).toBe('middesk');
+    expect(container.textContent).not.toContain('replaces');
+
+    await pick('baselayer');
+
+    expect(container.textContent).toContain('Saving replaces the saved Middesk key.');
+  });
+
+  it('shows other members which broker is connected', async () => {
+    await render({ kind: 'court_records', current: { actorId: null, provider: 'baselayer' }, canManage: false });
+
+    expect(container.textContent).toContain('Connected to Baselayer');
   });
 });

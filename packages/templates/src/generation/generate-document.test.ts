@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Tables } from '@odb/supabase';
 
@@ -42,8 +42,13 @@ const deal: DealContext = {
 };
 
 describe('generateDocument', () => {
+  beforeEach(() => {
+    vi.stubEnv('GOTENBERG_URL', 'http://localhost:3009');
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('fills, converts to pdf via gotenberg and uploads both artifacts', async () => {

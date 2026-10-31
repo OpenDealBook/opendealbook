@@ -1,11 +1,12 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { docketHit, fakeCourtListener, searchPage } from '../../../test-support/fake-courtlistener';
 import { provisionAccount, seedDeal, type IntegrationAccount } from '../../../test-support/integration-harness';
 import { CourtListenerLimit } from '../../diligence/sources/courts';
+import { indexScreeningNames } from '../../sanctions/load';
 import { diligenceSearch } from './diligenceSearch';
 
 const network = vi.hoisted(() => ({ trustedFakeUrls: [] as string[] }));
@@ -175,6 +176,7 @@ beforeAll(async () => {
       raw: { id: 'sdn-1' },
     })
     .throwOnError();
+  await indexScreeningNames();
 });
 
 afterAll(async () => {
@@ -267,6 +269,10 @@ describe('diligenceSearch', () => {
       .from('outreach_setting')
       .upsert({ account_id: owner.accountId, daily_cap: 10, lookup_monthly_cap: 100 }, { onConflict: 'account_id' })
       .throwOnError();
+  });
+
+  beforeEach(async () => {
+    await owner.admin.from('courtlistener_pace').delete().eq('account_id', owner.accountId).throwOnError();
   });
 
   it('lets the news search finish before failing on a court error, so nothing is left paying in the background', async () => {

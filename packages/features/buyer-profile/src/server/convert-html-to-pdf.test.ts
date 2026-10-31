@@ -1,10 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { convertHtmlToPdf } from './convert-html-to-pdf';
 
 describe('convertHtmlToPdf', () => {
+  beforeEach(() => {
+    vi.stubEnv('GOTENBERG_URL', 'http://gotenberg.test');
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('posts the html to the gotenberg chromium route', async () => {
@@ -37,5 +42,13 @@ describe('convertHtmlToPdf', () => {
     );
 
     await expect(convertHtmlToPdf('<html></html>')).rejects.toThrow('500');
+  });
+
+  it('refuses to run without GOTENBERG_URL configured', async () => {
+    vi.stubEnv('GOTENBERG_URL', undefined);
+
+    await expect(convertHtmlToPdf('<html></html>')).rejects.toThrow(
+      'Missing required environment variable: GOTENBERG_URL',
+    );
   });
 });

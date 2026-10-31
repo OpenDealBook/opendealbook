@@ -12,6 +12,7 @@ import { Button } from '@odb/ui/button';
 
 import { SCHEDULES_NOT_SYNCED } from '../[account]/workflows/workflow-refusals';
 import { UnsavedChangesGuard } from './calc-shared';
+import { SchedulesSyncBanner } from './schedules-sync-banner';
 import type {
   Draft,
   EditorCanvasHandle,
@@ -71,6 +72,7 @@ export function WorkflowEditor(props: {
   version: Draft;
   palette: PaletteItem[];
   canManage: boolean;
+  schedulesSyncFailed: boolean;
   saveDraft: (
     input: WorkflowInput & Draft,
   ) => Promise<ActionResult<unknown>>;
@@ -135,7 +137,9 @@ export function WorkflowEditor(props: {
       if (dirty && !(await persist(canvas.current!.draft()))) {
         return;
       }
-      if (await accepted(props.publishDraft(target))) {
+      const published = await props.publishDraft(target);
+      setRefusal(published.ok ? null : published.refusal);
+      if (published.ok || published.refusal === SCHEDULES_NOT_SYNCED) {
         router.refresh();
       }
     });
@@ -145,14 +149,6 @@ export function WorkflowEditor(props: {
     startTransition(async () => {
       await canvas.current!.tidy();
       await persist(canvas.current!.draft());
-    });
-  }
-
-  function retrySchedules() {
-    startTransition(async () => {
-      if (await accepted(props.retryScheduleSync(target))) {
-        router.refresh();
-      }
     });
   }
 
@@ -210,16 +206,6 @@ export function WorkflowEditor(props: {
         ) : null}
         {editable ? (
           <div className={'ml-auto flex items-center gap-2'}>
-            {refusal === SCHEDULES_NOT_SYNCED ? (
-              <Button
-                variant={'outline'}
-                size={'sm'}
-                disabled={pending}
-                onClick={retrySchedules}
-              >
-                Retry schedules
-              </Button>
-            ) : null}
             <Button variant={'outline'} size={'sm'} disabled={pending} onClick={tidy}>
               Tidy
             </Button>
@@ -238,6 +224,13 @@ export function WorkflowEditor(props: {
         ) : null}
       </header>
 
+      {props.schedulesSyncFailed ? (
+        <SchedulesSyncBanner
+          workflowId={props.workflowId}
+          canManage={props.canManage}
+          retryScheduleSync={props.retryScheduleSync}
+        />
+      ) : null}
       {notice ? (
         <p className={'bg-muted text-muted-foreground px-4 py-2 text-sm'}>
           {notice}

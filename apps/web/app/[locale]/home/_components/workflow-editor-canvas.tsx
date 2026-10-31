@@ -78,6 +78,7 @@ export interface EditorCanvasProps {
 type NodeType = keyof typeof NODE_TYPE_DISPLAY;
 
 const NODE_SIZE = { width: 240, height: 72 };
+const BLOCK_GAP = 60;
 const LAYOUT_FAILED = 'This workflow could not be laid out. Reload the page to try again.';
 
 const NodeErrors = createContext<NodeError[]>([]);
@@ -291,13 +292,10 @@ function HostConnection(props: EditorCanvasProps) {
 
 async function positioned(version: Draft) {
   const data = toEditorData(version.graph, version.layout);
-  const placed = data.nodes.every((node) => node.position)
+  const saved = data.nodes.flatMap((node) => (node.position ? [node.position] : []));
+  const placed = saved.length === data.nodes.length
     ? new Map()
-    : await tidyPositions(
-        data.nodes.map((node) => ({ id: node.id, ...NODE_SIZE })),
-        data.edges,
-        data.layoutDirection,
-      );
+    : await placeBesideSaved(data, saved);
 
   return {
     ...data,
@@ -306,6 +304,27 @@ async function positioned(version: Draft) {
       position: node.position ?? placed.get(node.id)!,
     })),
   };
+}
+
+async function placeBesideSaved(
+  data: ReturnType<typeof toEditorData>,
+  saved: { x: number; y: number }[],
+) {
+  const tidied = await tidyPositions(
+    data.nodes.map((node) => ({ id: node.id, ...NODE_SIZE })),
+    data.edges,
+    data.layoutDirection,
+  );
+  const fresh = data.nodes.filter((node) => !node.position).map((node) => tidied.get(node.id)!);
+  const shift = saved.length === 0
+    ? 0
+    : Math.max(...saved.map((position) => position.x + NODE_SIZE.width)) +
+      BLOCK_GAP -
+      Math.min(...fresh.map((position) => position.x));
+
+  return new Map(
+    [...tidied].map(([id, { x, y }]) => [id, { x: x + shift, y }]),
+  );
 }
 
 function NodePropertiesPanel() {

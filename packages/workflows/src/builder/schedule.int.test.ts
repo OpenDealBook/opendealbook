@@ -337,6 +337,40 @@ describe('syncTeamSchedules (integration)', () => {
       spec: scheduleSpec(weekly, TIME_ZONE),
     });
   });
+
+  it('remembers each workflow whose schedules failed to update and clears the one that recovered', async () => {
+    const earlier = '2026-10-30T09:00:00+00:00';
+    const workflowIds: string[] = [];
+    const versionIds: string[] = [];
+    for (const name of ['First', 'Second', 'Third']) {
+      const { data } = await owner.admin
+        .from('workflow')
+        .insert({ account_id: teamId, name, schedules_sync_failed_at: earlier })
+        .select('id')
+        .single()
+        .throwOnError();
+      workflowId = data.id;
+      workflowIds.push(data.id);
+      versionIds.push(await publish(graphWith({ id: 'weekly', config: weekly })));
+    }
+    temporal.createFails = (scheduleId) => !scheduleId.includes(versionIds[1]!);
+
+    await expect(syncTeamSchedules({ accountId: teamId })).rejects.toBeInstanceOf(
+      SchedulesPartlyUpdated,
+    );
+
+    const { data } = await owner.admin
+      .from('workflow')
+      .select('id, schedules_sync_failed_at')
+      .in('id', workflowIds)
+      .throwOnError();
+    const failedAt = new Map(data.map((row) => [row.id, row.schedules_sync_failed_at]));
+    expect(failedAt.get(workflowIds[1]!)).toBeNull();
+    for (const failed of [workflowIds[0]!, workflowIds[2]!]) {
+      expect(failedAt.get(failed)).not.toBeNull();
+      expect(failedAt.get(failed)).not.toBe(earlier);
+    }
+  });
 });
 
 describe('a schedule firing (integration)', () => {

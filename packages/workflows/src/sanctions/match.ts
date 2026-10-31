@@ -94,6 +94,28 @@ function bigramCounts(text: string): Map<string, number> {
   return counts;
 }
 
+export function screeningKey(name: string, kind: ScreeningSubject['kind']): string {
+  return sortedWords(kind === 'business' ? businessName(name) : name);
+}
+
+export function screeningPairs(key: string): string[] {
+  return [...bigramCounts(key)].flatMap(([pair, count]) =>
+    Array.from({ length: count }, (_, occurrence) => `${pair}${occurrence + 1}`),
+  );
+}
+
+export function screeningNames(
+  entry: Pick<ScreenedEntry, 'name' | 'alt_names' | 'entry_type'>,
+): { variant: ScreeningSubject['kind']; key: string; pairs: string[] }[] {
+  return (['person', 'business'] as const)
+    .filter((kind) => entry.entry_type === null || entry.entry_type === SCREENED_TYPE[kind])
+    .flatMap((variant) =>
+      [...new Set([entry.name, ...entry.alt_names].map((name) => screeningKey(name, variant)))].map(
+        (key) => ({ variant, key, pairs: screeningPairs(key) }),
+      ),
+    );
+}
+
 export function screeningScore(a: string, b: string): number {
   const left = sortedWords(a);
   const right = sortedWords(b);

@@ -6,6 +6,7 @@ import {
   ensureContractReviewReminderEmailSchedule,
   ensureContractReviewTodoSyncSchedule,
   ensureDealEventNotificationRelay,
+  ensureFloridaLicenseSchedule,
   ensureLeadImportSchedules,
   ensureLenderNudgeEmailSchedule,
   ensureLenderNudgeTodoSyncSchedule,
@@ -68,6 +69,7 @@ for (const ensure of [
   ensureLeadImportSchedules,
   ensureScreeningListSchedule,
   ensureScreeningListLoaded,
+  ensureFloridaLicenseSchedule,
 ]) {
   try {
     await ensure(client);

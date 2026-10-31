@@ -1,6 +1,8 @@
 import { ApplicationFailure } from '@temporalio/common';
 import { z } from 'zod';
 
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
+
 import { pinnedGet } from '../../builder/aiClient';
 import { CapReached } from '../../builder/caps';
 import { providerKey } from '../../builder/providerKeys';
@@ -11,10 +13,11 @@ const COURTLISTENER_ORIGIN = 'https://www.courtlistener.com';
 const SEARCH_TIMEOUT_MS = 60_000;
 const REQUEST_SPACING_MS = 12_000;
 const HOURLY_LIMIT_RESETS_MS = 60 * 60 * 1000;
+const LONGEST_SLEEP_MS = 10 * 60 * 1000;
 
 export class CourtListenerLimit extends CapReached {
-  constructor() {
-    super('Waiting for the CourtListener hourly limit', new Date(Date.now() + HOURLY_LIMIT_RESETS_MS));
+  constructor(resumeAt = new Date(Date.now() + HOURLY_LIMIT_RESETS_MS)) {
+    super('Waiting for the CourtListener hourly limit', resumeAt);
   }
 }
 
@@ -151,21 +154,26 @@ function partyQuery(name: string): string {
   return `party:"${name.replaceAll('"', '\\"')}" AND (dateFiled:[${since} TO *] OR dateTerminated:[${since} TO *] OR (*:* -dateTerminated:[* TO *]))`;
 }
 
-export function courtListenerPacer({ now, sleep }: { now: () => number; sleep: (ms: number) => Promise<void> }) {
-  const nextSlot = new Map<string, number>();
+export function courtListenerPacer({ sleep }: { sleep: (ms: number) => Promise<void> }) {
   return async (accountId: string) => {
-    const slot = Math.max(now(), nextSlot.get(accountId) ?? 0);
-    nextSlot.set(accountId, slot + REQUEST_SPACING_MS);
-    await sleep(slot - now());
+    const { data: claim } = await getSupabaseServerAdminClient()
+      .rpc('claim_courtlistener_slot', { p_account_id: accountId, p_spacing: `${REQUEST_SPACING_MS} milliseconds` })
+      .single()
+      .throwOnError();
+    if (claim.wait_ms > LONGEST_SLEEP_MS) {
+      const resumeAt = new Date(Date.now() + claim.wait_ms);
+      throw claim.held ? new CourtListenerLimit(resumeAt) : new CapReached('Waiting for a CourtListener slot', resumeAt);
+    }
+    await sleep(claim.wait_ms);
   };
 }
 
 const teamPacer = courtListenerPacer({
-  now: Date.now,
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 });
 
 async function searchParty(
+  accountId: string,
   baseUrl: string,
   token: string,
   name: string,
@@ -181,6 +189,9 @@ async function searchParty(
     return 'refused';
   }
   if (response.status === 429) {
+    await getSupabaseServerAdminClient()
+      .rpc('hold_courtlistener_slots', { p_account_id: accountId, p_for: `${HOURLY_LIMIT_RESETS_MS} milliseconds` })
+      .throwOnError();
     throw new CourtListenerLimit();
   }
   if (response.status >= 500) {
@@ -212,7 +223,7 @@ export async function searchFederalCourts(
   const candidates: CourtCandidate[] = [];
   for (const subject of subjects) {
     await pace(accountId);
-    const hits = await searchParty(credentials.baseUrl, credentials.apiKey, subject.name, signal);
+    const hits = await searchParty(accountId, credentials.baseUrl, credentials.apiKey, subject.name, signal);
     if (hits === 'refused') {
       return { skipped: 'The CourtListener token was refused; reconnect it' };
     }

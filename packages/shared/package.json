@@ -14,7 +14,8 @@
     "./logger": "./src/logger/index.ts",
     "./utils": "./src/utils/index.ts",
     "./env": "./src/env/index.ts",
-    "./archive": "./src/archive/index.ts"
+    "./archive": "./src/archive/index.ts",
+    "./gotenberg": "./src/gotenberg/index.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

@@ -101,6 +101,12 @@ select throws_ok(
        'cc000000-0000-0000-0000-0000000000e1', tests.get_uid('cc_owner'), 'buyer', 'Wrong version') $$,
   '23503', null, 'a reply sits on the same version as its parent'
 );
+select throws_ok(
+  $$ insert into public.contract_comment (account_id, contract_version_id, parent_id, author_user_id, author_side, body)
+     values (tests.account_id('cc-team'), 'cc000000-0000-0000-0000-0000000000a2',
+       'cc000000-0000-0000-0000-0000000000e4', tests.get_uid('cc_owner'), 'buyer', 'Reply to a reply') $$,
+  'P0001', 'You can only reply to a top-level comment.', 'a reply cannot be replied to'
+);
 
 -- ---- Resolving ----
 select lives_ok(

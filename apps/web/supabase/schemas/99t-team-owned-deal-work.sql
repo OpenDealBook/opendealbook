@@ -11,7 +11,9 @@ create table if not exists odb.personal_account_tables (
 insert into odb.personal_account_tables (table_name, reason) values
   ('notifications', 'addressed to the person'),
   ('nonces', 'sign-in plumbing'),
-  ('account_slug_history', 'names the account once had')
+  ('account_slug_history', 'names the account once had'),
+  ('middesk_business', 'service-role only bookkeeping, keyed by a team firm'),
+  ('courtlistener_pace', 'service-role only bookkeeping, one pacing row per account')
 on conflict (table_name) do update set reason = excluded.reason;
 
 create or replace function odb.refuse_personal_account_row()

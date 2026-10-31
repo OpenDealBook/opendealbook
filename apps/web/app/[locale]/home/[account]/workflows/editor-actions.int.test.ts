@@ -79,6 +79,7 @@ import {
   type WorkflowGraph,
 } from '@odb/workflows/builder/client';
 
+import { setWorkflowArchived, setWorkflowEnabled } from './actions';
 import {
   createWorkflow,
   publishDraft,
@@ -158,6 +159,16 @@ async function triggersOf(workflowId: string) {
     .eq('workflow_id', workflowId)
     .throwOnError();
   return data;
+}
+
+async function syncFailedAt(workflowId: string) {
+  const { data } = await admin
+    .from('workflow')
+    .select('schedules_sync_failed_at')
+    .eq('id', workflowId)
+    .single()
+    .throwOnError();
+  return data.schedules_sync_failed_at;
 }
 
 async function newWorkflow(name = 'Quiet lender nudge'): Promise<string> {
@@ -478,6 +489,7 @@ describe('publishDraft', () => {
         "Published, but schedules couldn't be updated. Use Retry schedules to try again.",
     });
     expect((await versionsOf(workflowId))[0]!.published_at).not.toBeNull();
+    expect(await syncFailedAt(workflowId)).not.toBeNull();
   });
 
   it('publishes nothing when the draft is saved again while publishing', async () => {
@@ -628,6 +640,7 @@ describe('retryScheduleSync', () => {
     });
     const [daily] = await triggersOf(workflowId);
     expect(world.schedules.has(daily!.temporal_schedule_id!)).toBe(true);
+    expect(await syncFailedAt(workflowId)).toBeNull();
   });
 
   it('asks to try again while the scheduler is still down', async () => {
@@ -640,7 +653,66 @@ describe('retryScheduleSync', () => {
       ok: false,
       refusal: "Schedules couldn't be updated; try again",
     });
+    expect(await syncFailedAt(workflowId)).not.toBeNull();
   });
+
+  it.each([
+    [
+      'enabling',
+      (workflowId: string) => setWorkflowEnabled({ workflowId, enabled: true }),
+    ],
+    [
+      'archiving',
+      (workflowId: string) =>
+        setWorkflowArchived({ workflowId, archived: true }),
+    ],
+  ])(
+    'remembers schedules that failed to update when %s',
+    async (_change, change) => {
+      const workflowId = await newWorkflow();
+      await saveDraft({ workflowId, graph: publishable, layout });
+      await publishDraft({ workflowId });
+      world.schedulerDown = true;
+
+      await expect(change(workflowId)).resolves.toEqual({
+        ok: false,
+        refusal: "Saved, but schedules couldn't be updated; try again",
+      });
+      expect(await syncFailedAt(workflowId)).not.toBeNull();
+    },
+  );
+
+  it.each([
+    ['publishing', false, (workflowId: string) => publishDraft({ workflowId })],
+    [
+      'enabling',
+      true,
+      (workflowId: string) => setWorkflowEnabled({ workflowId, enabled: true }),
+    ],
+    [
+      'archiving',
+      true,
+      (workflowId: string) =>
+        setWorkflowArchived({ workflowId, archived: true }),
+    ],
+  ])(
+    'forgets an earlier failed update once %s reaches the schedules',
+    async (_change, alreadyPublished, change) => {
+      const workflowId = await newWorkflow();
+      await saveDraft({ workflowId, graph: publishable, layout });
+      if (alreadyPublished) {
+        await publishDraft({ workflowId });
+      }
+      await admin
+        .from('workflow')
+        .update({ schedules_sync_failed_at: '2026-10-30T09:00:00Z' })
+        .eq('id', workflowId)
+        .throwOnError();
+
+      await expect(change(workflowId)).resolves.toMatchObject({ ok: true });
+      expect(await syncFailedAt(workflowId)).toBeNull();
+    },
+  );
 
   it('refuses a member and schedules nothing', async () => {
     const workflowId = await newWorkflow();

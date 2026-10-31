@@ -227,6 +227,23 @@ it('places only the nodes without a saved position on load', async () => {
   expect(position('tell').x).toBeGreaterThan(position('ask').x);
 });
 
+it('places new nodes as a block to the right of the saved ones so none overlap', async () => {
+  await open({
+    direction: 'RIGHT',
+    positions: { start: { x: 0, y: 0 }, ask: { x: 300, y: 0 } },
+  });
+
+  const position = (id: string) =>
+    vendor.root!.initialNodes.find((node) => node.id === id)!.position;
+  const savedRightEdge = 300 + 240;
+
+  for (const id of ['check', 'each', 'ok', 'firm', 'tell']) {
+    expect(position(id).x).toBeGreaterThan(savedRightEdge);
+  }
+  expect(position('start')).toEqual({ x: 0, y: 0 });
+  expect(position('ask')).toEqual({ x: 300, y: 0 });
+});
+
 it('explains when the layout cannot be worked out instead of a blank canvas', async () => {
   await open({ direction: 'RIGHT', positions: {} }, [], {
     nodes: [{ id: 'start', type: 'manual_trigger', config: {} }],

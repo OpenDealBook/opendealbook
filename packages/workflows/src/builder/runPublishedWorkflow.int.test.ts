@@ -684,6 +684,7 @@ describe('a published workflow run manually (integration)', () => {
       await runPublishedWorkflow({ runId });
 
       expect(seenWhileLocked).toEqual([{ status: 'paused_locked', notified: {} }]);
+      expect(temporal.conditionTimeouts).toEqual(['1 day']);
       expect((await runRow(runId)).status).toBe('succeeded');
       expect(await notificationCounts()).toEqual({
         [owner.userId]: 1,
@@ -2676,6 +2677,7 @@ describe('a step waiting on a person (integration)', () => {
     await runPublishedWorkflow({ runId });
 
     expect(noticeCalls).toBe(1);
+    expect(temporal.conditionTimeouts).toEqual(['1 day', '1 day', '1 day']);
     expect(statuses).toEqual(['awaiting_approval', 'running', 'succeeded']);
     expect(await runStatus(runId)).toBe('succeeded');
   });

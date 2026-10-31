@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, expect, it, vi } from 'vitest';
 
+import { SCHEDULES_SYNC_FAILED } from '../../workflow-refusals';
 import { tables, workspace } from '../workflow-route-test-kit';
 import WorkflowEditPage from './page';
 
@@ -68,4 +69,27 @@ it('renders the toolbar on the server and leaves the vendor canvas to the client
   expect(html).toContain('New deal alert');
   expect(html).toContain('Save draft');
   expect(html).not.toContain('Vendor canvas rendered');
+});
+
+it('keeps saying schedules failed to update in the editor', async () => {
+  Object.assign(tables, {
+    workflow: {
+      id: WORKFLOW,
+      name: 'New deal alert',
+      schedules_sync_failed_at: '2026-10-30T09:00:00Z',
+    },
+    workflow_version: [
+      {
+        id: '00000000-0000-4000-8000-0000000000d1',
+        published_at: null,
+        graph: { nodes: [], edges: [] },
+        layout: {},
+      },
+    ],
+  });
+
+  const html = renderToStaticMarkup(await open(WORKFLOW));
+
+  expect(html.replaceAll('&#x27;', "'")).toContain(SCHEDULES_SYNC_FAILED);
+  expect(html).not.toContain('Retry schedules');
 });

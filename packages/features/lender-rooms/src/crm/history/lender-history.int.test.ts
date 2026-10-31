@@ -80,6 +80,11 @@ beforeAll(async () => {
   const secondDeal = await dealOn(firstDeal.accountId);
   const otherTeamDeal = await seedTeamDeal(otherTeamOwner, colleague);
 
+  olderRoom = await roomOn(firstDeal, domain, 'Older room');
+  newerRoom = await roomOn(secondDeal, domain, 'Newer room');
+  otherDomainRoom = await roomOn(firstDeal, otherDomain, 'Other domain room');
+  otherTeamRoom = await roomOn(otherTeamDeal, domain, 'Other team room');
+
   const { data: lender } = await admin
     .from('lender')
     .insert({
@@ -92,11 +97,6 @@ beforeAll(async () => {
     .single()
     .throwOnError();
   lenderId = lender.id;
-
-  olderRoom = await roomOn(firstDeal, domain, 'Older room');
-  newerRoom = await roomOn(secondDeal, domain, 'Newer room');
-  otherDomainRoom = await roomOn(firstDeal, otherDomain, 'Other domain room');
-  otherTeamRoom = await roomOn(otherTeamDeal, domain, 'Other team room');
 
   await admin
     .from('lender_ask')
@@ -122,7 +122,7 @@ afterAll(async () => {
 });
 
 describe('listLenderHistory (integration)', () => {
-  it("lists this team's rooms on the lender's domain, newest first, with ask counts", async () => {
+  it('lists the rooms linked to the lender when it was saved, newest first, with ask counts', async () => {
     const history = await listLenderHistory(owner.client, lenderId);
 
     expect(history.map((row) => [row.room_id, row.asks_count])).toEqual([

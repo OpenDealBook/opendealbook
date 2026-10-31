@@ -385,14 +385,16 @@ create policy firm_email_read on public.firm_email
   using (public.has_role_on_account(account_id));
 
 -- A team's own key for each provider: email lookup runs on Apify, letters on
--- Lob, federal courts on a free CourtListener token, and registry takes bulk
--- files only, so it has no key. The key lives
+-- Lob, federal courts on a free CourtListener token, court records on the
+-- team's one broker (Baselayer or Middesk; saving the other replaces it), and
+-- registry takes bulk files only, so it has no key. The key lives
 -- encrypted in Supabase Vault and members never see its secret id; settings
 -- managers write only through save_provider_credential and
--- disconnect_provider_credential. Each kind has a fixed provider and address,
--- a changed address needs a fresh key, and email lookup names its Apify actor.
+-- disconnect_provider_credential. Each kind but court records has a fixed
+-- provider and address, a changed provider or address needs a fresh key, and
+-- email lookup names its Apify actor.
 -- Letters also keep the Lob webhook signing secret in Vault beside the key.
-create type public.provider_kind as enum ('email_lookup', 'registry', 'letters', 'courts');
+create type public.provider_kind as enum ('email_lookup', 'registry', 'letters', 'courts', 'court_records');
 
 create table if not exists public.provider_credential (
   id uuid primary key default gen_random_uuid(),
@@ -435,7 +437,8 @@ create or replace function public.save_provider_credential(
   p_kind public.provider_kind,
   p_api_key text default null,
   p_actor_id text default null,
-  p_webhook_secret text default null
+  p_webhook_secret text default null,
+  p_provider text default null
 )
   returns void
   language plpgsql security definer
@@ -448,11 +451,14 @@ declare
     when 'email_lookup' then 'apify'
     when 'letters' then 'lob'
     when 'courts' then 'courtlistener'
+    when 'court_records' then p_provider
   end;
-  base_url text := case p_kind
+  base_url text := case coalesce(p_provider, p_kind::text)
     when 'email_lookup' then 'https://api.apify.com/v2'
     when 'letters' then 'https://api.lob.com/v1'
     when 'courts' then 'https://www.courtlistener.com/api/rest/v4'
+    when 'baselayer' then 'https://api.baselayer.com'
+    when 'middesk' then 'https://api.middesk.com/v1'
   end;
 begin
   if not public.has_permission((select auth.uid()), p_account_id, 'settings.manage') then
@@ -475,6 +481,14 @@ begin
     raise exception 'only letters take a webhook secret' using errcode = 'invalid_parameter_value';
   end if;
 
+  if p_kind = 'court_records' and p_provider is distinct from 'baselayer' and p_provider is distinct from 'middesk' then
+    raise exception 'pick Baselayer or Middesk' using errcode = 'invalid_parameter_value';
+  end if;
+
+  if p_kind <> 'court_records' and p_provider is not null then
+    raise exception 'only court records pick a broker' using errcode = 'invalid_parameter_value';
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended('provider_credential:' || p_account_id || ':' || p_kind, 0));
 
   select * into existing from public.provider_credential where account_id = p_account_id and kind = p_kind;
@@ -487,6 +501,10 @@ begin
     or existing.base_url is distinct from base_url
   ) then
     raise exception 'paste an API key' using errcode = 'check_violation';
+  end if;
+
+  if p_kind = 'court_records' and p_api_key is not null then
+    delete from public.middesk_business where account_id = p_account_id;
   end if;
 
   if p_api_key is not null and secret_id is not null then
@@ -518,8 +536,61 @@ begin
 end;
 $$;
 
-revoke all on function public.save_provider_credential(uuid, public.provider_kind, text, text, text) from public, anon;
-grant execute on function public.save_provider_credential(uuid, public.provider_kind, text, text, text) to authenticated;
+revoke all on function public.save_provider_credential(uuid, public.provider_kind, text, text, text, text) from public, anon;
+grant execute on function public.save_provider_credential(uuid, public.provider_kind, text, text, text, text) to authenticated;
+
+-- The Middesk business a team already paid to verify for a firm, so later
+-- searches read its records again without a new order. A row without a
+-- business is a run's claim to create one; a claim older than 2 minutes was
+-- left by a crashed run and may be taken over. Saving a new court records key
+-- forgets them. Service role only.
+create table if not exists public.middesk_business (
+  account_id uuid not null,
+  firm_id uuid not null,
+  business_id text,
+  claimed_at timestamptz not null default now(),
+  primary key (account_id, firm_id),
+  foreign key (firm_id, account_id) references public.firm (id, account_id) on delete cascade
+);
+
+alter table public.middesk_business enable row level security;
+
+revoke all on public.middesk_business from anon, authenticated, service_role;
+grant select, insert, update, delete on public.middesk_business to service_role;
+
+insert into odb.billing_lock_exempt_tables (table_name, reason) values
+  ('middesk_business', 'service-role only bookkeeping for court records searches')
+on conflict (table_name) do update set reason = excluded.reason;
+
+create trigger refuse_team_move
+  before update on public.middesk_business
+  for each row execute function odb.refuse_team_move();
+
+create or replace function public.claim_middesk_business(p_account_id uuid, p_firm_id uuid)
+  returns table (business_id text, claimed boolean)
+  language plpgsql
+  set search_path = '' as $$
+declare
+  claimed_business text;
+begin
+  insert into public.middesk_business as m (account_id, firm_id, claimed_at)
+  values (p_account_id, p_firm_id, clock_timestamp())
+  on conflict (account_id, firm_id) do update
+    set claimed_at = excluded.claimed_at
+    where m.business_id is null and m.claimed_at < clock_timestamp() - interval '2 minutes'
+  returning m.business_id into claimed_business;
+  if found then
+    return query select claimed_business, true;
+  else
+    return query
+      select m.business_id, false from public.middesk_business m
+      where m.account_id = p_account_id and m.firm_id = p_firm_id;
+  end if;
+end;
+$$;
+
+revoke all on function public.claim_middesk_business(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.claim_middesk_business(uuid, uuid) to service_role;
 
 create or replace function public.disconnect_provider_credential(p_account_id uuid, p_kind public.provider_kind)
   returns void

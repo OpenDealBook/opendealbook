@@ -13,7 +13,7 @@ const workspace = vi.hoisted(() => ({
     model?: string | null;
     base_url: string;
   } | null,
-  providerKeys: [] as { kind: string; actor_id: string | null }[],
+  providerKeys: [] as { kind: string; actor_id: string | null; provider?: string }[],
 }));
 
 vi.mock('../layout', () => ({
@@ -155,6 +155,16 @@ describe('team settings page', () => {
 
     expect(html).toContain('Federal courts');
     expect(html).toContain('Connected to CourtListener');
+  });
+
+  it('shows the court records broker beside the other provider keys', async () => {
+    workspace.permissions = [];
+    workspace.providerKeys = [{ kind: 'court_records', actor_id: null, provider: 'middesk' }];
+
+    const html = await render();
+
+    expect(html).toContain('State court and lien records');
+    expect(html).toContain('Connected to Middesk');
   });
 
   it("shows the team's background search name spelling", async () => {

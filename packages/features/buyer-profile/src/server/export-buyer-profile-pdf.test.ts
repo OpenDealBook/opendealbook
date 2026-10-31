@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '@odb/supabase';
 
@@ -37,8 +37,13 @@ function sampleProfile(overrides: Partial<BuyerProfile> = {}): BuyerProfile {
 }
 
 describe('exportBuyerProfilePdf', () => {
+  beforeEach(() => {
+    vi.stubEnv('GOTENBERG_URL', 'http://gotenberg.test');
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('loads, renders, and converts a profile into pdf bytes', async () => {

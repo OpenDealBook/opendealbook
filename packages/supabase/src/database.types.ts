@@ -3165,6 +3165,46 @@ export type Database = {
           },
         ]
       }
+      courtlistener_pace: {
+        Row: {
+          account_id: string
+          held_until: string
+          next_free_at: string
+        }
+        Insert: {
+          account_id: string
+          held_until?: string
+          next_free_at: string
+        }
+        Update: {
+          account_id?: string
+          held_until?: string
+          next_free_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courtlistener_pace_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courtlistener_pace_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courtlistener_pace_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: true
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_source: {
         Row: {
           account_id: string
@@ -6469,6 +6509,77 @@ export type Database = {
           },
         ]
       }
+      florida_license: {
+        Row: {
+          expires_on: string | null
+          file: string
+          id: number
+          import_id: string
+          license_number: string | null
+          license_type: string
+          licensee_name: string
+          normalized_names: string[]
+          raw: Json
+          status: string | null
+        }
+        Insert: {
+          expires_on?: string | null
+          file: string
+          id?: never
+          import_id: string
+          license_number?: string | null
+          license_type: string
+          licensee_name: string
+          normalized_names: string[]
+          raw: Json
+          status?: string | null
+        }
+        Update: {
+          expires_on?: string | null
+          file?: string
+          id?: never
+          import_id?: string
+          license_number?: string | null
+          license_type?: string
+          licensee_name?: string
+          normalized_names?: string[]
+          raw?: Json
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "florida_license_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "florida_license_import"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      florida_license_import: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          license_count: number | null
+          status: Database["public"]["Enums"]["florida_license_import_status"]
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          license_count?: number | null
+          status?: Database["public"]["Enums"]["florida_license_import_status"]
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          license_count?: number | null
+          status?: Database["public"]["Enums"]["florida_license_import_status"]
+        }
+        Relationships: []
+      }
       form_5500_filing: {
         Row: {
           ack_id: string
@@ -8949,6 +9060,42 @@ export type Database = {
         }
         Relationships: []
       }
+      middesk_business: {
+        Row: {
+          account_id: string
+          business_id: string | null
+          claimed_at: string
+          firm_id: string
+        }
+        Insert: {
+          account_id: string
+          business_id?: string | null
+          claimed_at?: string
+          firm_id: string
+        }
+        Update: {
+          account_id?: string
+          business_id?: string | null
+          claimed_at?: string
+          firm_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "middesk_business_firm_id_account_id_fkey"
+            columns: ["firm_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "firm"
+            referencedColumns: ["id", "account_id"]
+          },
+          {
+            foreignKeyName: "middesk_business_firm_id_account_id_fkey"
+            columns: ["firm_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lead_pipeline"
+            referencedColumns: ["firm_id", "account_id"]
+          },
+        ]
+      }
       nonces: {
         Row: {
           account_id: string | null
@@ -10701,6 +10848,45 @@ export type Database = {
           url?: string
         }
         Relationships: []
+      }
+      screening_name: {
+        Row: {
+          entry_id: number
+          key: string
+          pair_count: number | null
+          pairs: string[]
+          variant: string
+        }
+        Insert: {
+          entry_id: number
+          key: string
+          pair_count?: number | null
+          pairs: string[]
+          variant: string
+        }
+        Update: {
+          entry_id?: number
+          key?: string
+          pair_count?: number | null
+          pairs?: string[]
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_name_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "screening_entry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_name_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "screening_entry_current"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sde_line: {
         Row: {
@@ -12627,6 +12813,7 @@ export type Database = {
           enabled_after_deal_seq: number | null
           id: string
           name: string
+          schedules_sync_failed_at: string | null
           system_key: string | null
         }
         Insert: {
@@ -12638,6 +12825,7 @@ export type Database = {
           enabled_after_deal_seq?: number | null
           id?: string
           name: string
+          schedules_sync_failed_at?: string | null
           system_key?: string | null
         }
         Update: {
@@ -12649,6 +12837,7 @@ export type Database = {
           enabled_after_deal_seq?: number | null
           id?: string
           name?: string
+          schedules_sync_failed_at?: string | null
           system_key?: string | null
         }
         Relationships: [
@@ -13625,6 +13814,20 @@ export type Database = {
         Args: { p_deal_id: string; p_template_id: string }
         Returns: boolean
       }
+      claim_courtlistener_slot: {
+        Args: { p_account_id: string; p_spacing: string }
+        Returns: {
+          held: boolean
+          wait_ms: number
+        }[]
+      }
+      claim_middesk_business: {
+        Args: { p_account_id: string; p_firm_id: string }
+        Returns: {
+          business_id: string
+          claimed: boolean
+        }[]
+      }
       close_date: {
         Args: { "": Database["public"]["Tables"]["deal"]["Row"] }
         Returns: {
@@ -13894,6 +14097,7 @@ export type Database = {
       ensure_seller_room: { Args: { deal_id: string }; Returns: string }
       expire_superseded_live_offers: { Args: never; Returns: undefined }
       firm_outreach_approved: { Args: { p_firm_id: string }; Returns: boolean }
+      florida_licenses_named: { Args: { p_name: string }; Returns: Json }
       get_config: { Args: never; Returns: Json }
       get_upper_system_role: { Args: never; Returns: string }
       grant_workflow_loop_items: {
@@ -13934,6 +14138,10 @@ export type Database = {
         Returns: boolean
       }
       has_super_admin_role: { Args: never; Returns: boolean }
+      hold_courtlistener_slots: {
+        Args: { p_account_id: string; p_for: string }
+        Returns: undefined
+      }
       is_aal2: { Args: never; Returns: boolean }
       is_account_locked: {
         Args: { target_account_id: string }
@@ -14435,6 +14643,7 @@ export type Database = {
           p_actor_id?: string
           p_api_key?: string
           p_kind: Database["public"]["Enums"]["provider_kind"]
+          p_provider?: string
           p_webhook_secret?: string
         }
         Returns: undefined
@@ -14442,6 +14651,35 @@ export type Database = {
       save_workflow_draft: {
         Args: { p_graph: Json; p_layout: Json; p_workflow_id: string }
         Returns: string
+      }
+      screening_candidates: {
+        Args: {
+          p_key: string
+          p_pairs: string[]
+          p_threshold: number
+          p_variant: string
+        }
+        Returns: {
+          addresses: Json
+          alt_names: string[]
+          as_of: string
+          countries: string[]
+          entry_type: string | null
+          id: number
+          import_id: string
+          list_name: string
+          name: string
+          programs: string[]
+          raw: Json
+          source_entry_id: string
+          source_url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "screening_entry"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       search_documents: {
         Args: { p_account_id: string; p_query: string }
@@ -15036,6 +15274,7 @@ export type Database = {
       discovery_revenue_trend: "up" | "down" | "flat"
       embedding_job_status: "queued" | "running" | "done" | "failed" | "skipped"
       event_actor_kind: "user" | "service" | "api_key" | "system"
+      florida_license_import_status: "running" | "succeeded" | "failed"
       lead_import_status: "running" | "succeeded" | "failed" | "skipped"
       lead_source: "ppp" | "sba_7a" | "sba_504" | "form_5500" | "state_registry"
       lender_activity_action:
@@ -15109,7 +15348,12 @@ export type Database = {
       participant_permission: "view" | "comment" | "suggest" | "edit" | "sign"
       participant_scope: "deal" | "contract" | "data_room_folder" | "checklist"
       payment_status: "pending" | "succeeded" | "failed"
-      provider_kind: "email_lookup" | "registry" | "letters" | "courts"
+      provider_kind:
+        | "email_lookup"
+        | "registry"
+        | "letters"
+        | "courts"
+        | "court_records"
       registry_source: "api" | "bulk_file"
       screening_import_status: "running" | "succeeded" | "failed"
       seller_activity_action:
@@ -15428,6 +15672,7 @@ export const Constants = {
       discovery_revenue_trend: ["up", "down", "flat"],
       embedding_job_status: ["queued", "running", "done", "failed", "skipped"],
       event_actor_kind: ["user", "service", "api_key", "system"],
+      florida_license_import_status: ["running", "succeeded", "failed"],
       lead_import_status: ["running", "succeeded", "failed", "skipped"],
       lead_source: ["ppp", "sba_7a", "sba_504", "form_5500", "state_registry"],
       lender_activity_action: [
@@ -15507,7 +15752,13 @@ export const Constants = {
       participant_permission: ["view", "comment", "suggest", "edit", "sign"],
       participant_scope: ["deal", "contract", "data_room_folder", "checklist"],
       payment_status: ["pending", "succeeded", "failed"],
-      provider_kind: ["email_lookup", "registry", "letters", "courts"],
+      provider_kind: [
+        "email_lookup",
+        "registry",
+        "letters",
+        "courts",
+        "court_records",
+      ],
       registry_source: ["api", "bulk_file"],
       screening_import_status: ["running", "succeeded", "failed"],
       seller_activity_action: [

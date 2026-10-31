@@ -74,7 +74,7 @@ export async function syncTeamSchedules(input: { accountId: string }): Promise<v
 
   const results = await Promise.allSettled(
     workflows.map((workflow) =>
-      syncWorkflowSchedulesInZone(timeZone, { accountId: input.accountId, workflowId: workflow.id }),
+      syncRememberingFailure(timeZone, { accountId: input.accountId, workflowId: workflow.id }),
     ),
   );
   const failures = results.flatMap((result, index) =>
@@ -102,7 +102,28 @@ export async function syncWorkflowSchedules(input: {
   accountId: string;
   workflowId: string;
 }): Promise<void> {
-  await syncWorkflowSchedulesInZone(await teamTimezone(input.accountId), input);
+  await syncRememberingFailure(await teamTimezone(input.accountId), input);
+}
+
+async function syncRememberingFailure(
+  timeZone: string,
+  input: { accountId: string; workflowId: string },
+): Promise<void> {
+  try {
+    await syncWorkflowSchedulesInZone(timeZone, input);
+  } catch (error) {
+    await setSyncFailedAt(input.workflowId, new Date().toISOString());
+    throw error;
+  }
+  await setSyncFailedAt(input.workflowId, null);
+}
+
+async function setSyncFailedAt(workflowId: string, failedAt: string | null): Promise<void> {
+  await getSupabaseServerAdminClient()
+    .from('workflow')
+    .update({ schedules_sync_failed_at: failedAt })
+    .eq('id', workflowId)
+    .throwOnError();
 }
 
 async function syncWorkflowSchedulesInZone(

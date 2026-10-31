@@ -24,6 +24,9 @@ export const COMMENT_TOO_LONG =
 export const INTERNAL_BUYER_ONLY =
   'Only the buyer side can post internal comments.';
 
+export const REPLY_TO_TOP_LEVEL_ONLY =
+  'You can only reply to a top-level comment.';
+
 export const CANNOT_SHARE = "You can't share contracts.";
 
 export const APA_NEEDS_COUNSEL =

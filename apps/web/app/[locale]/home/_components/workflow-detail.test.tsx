@@ -18,6 +18,7 @@ import {
   submit,
   type,
 } from './lender-test-kit';
+import { SCHEDULES_SYNC_FAILED } from '../[account]/workflows/workflow-refusals';
 import { WorkflowDetail } from './workflow-detail';
 
 vi.mock(
@@ -87,9 +88,10 @@ const props: Props = {
     },
   ],
   canManage: true,
-  ...(fakeActions('cancelWaitingRuns', 'renameWorkflow') as Pick<
+  schedulesSyncFailed: false,
+  ...(fakeActions('cancelWaitingRuns', 'renameWorkflow', 'retryScheduleSync') as Pick<
     Props,
-    'cancelWaitingRuns' | 'renameWorkflow'
+    'cancelWaitingRuns' | 'renameWorkflow' | 'retryScheduleSync'
   >),
 };
 
@@ -232,4 +234,36 @@ it('says how many waiting runs could not be reached', async () => {
   expect(announced()).toEqual([
     "Cancelled 3 runs. 2 couldn't be reached, try again.",
   ]);
+});
+
+it('keeps saying schedules failed to update and lets a manager retry', async () => {
+  show(<WorkflowDetail {...props} schedulesSyncFailed />);
+  expect(document.body.textContent).toContain(SCHEDULES_SYNC_FAILED);
+
+  await press('Retry schedules');
+
+  expect(fakeServer.inputsTo('retryScheduleSync')).toEqual([{ workflowId: WORKFLOW }]);
+  expect(fakeServer.refreshes).toBe(1);
+});
+
+it('shows why a retry of the schedules was refused', async () => {
+  fakeServer.refusalFor.retryScheduleSync = "Schedules couldn't be updated; try again";
+  show(<WorkflowDetail {...props} schedulesSyncFailed />);
+
+  await press('Retry schedules');
+
+  expect(alerts()).toEqual(["Schedules couldn't be updated; try again"]);
+});
+
+it('says schedules failed to update without Retry to someone who cannot edit workflows', () => {
+  show(<WorkflowDetail {...props} schedulesSyncFailed canManage={false} />);
+
+  expect(document.body.textContent).toContain(SCHEDULES_SYNC_FAILED);
+  expect(buttonNames()).not.toContain('Retry schedules');
+});
+
+it('says nothing about schedules when the last update reached them', () => {
+  show(<WorkflowDetail {...props} />);
+
+  expect(document.body.textContent).not.toContain(SCHEDULES_SYNC_FAILED);
 });

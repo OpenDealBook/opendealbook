@@ -14,5 +14,10 @@ export function createNovuClient(): NovuClient {
     throw new Error('Missing required environment variable: NOVU_API_URL');
   }
 
-  return new Novu(secretKey, { backendUrl }) as unknown as NovuClient;
+  const novu = new Novu(secretKey, { backendUrl });
+  (
+    novu as unknown as { http: { defaults: { timeout: number } } }
+  ).http.defaults.timeout = 15_000;
+
+  return novu as unknown as NovuClient;
 }

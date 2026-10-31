@@ -34,6 +34,7 @@ export {
   ensureScreeningListLoaded,
   ensureScreeningListSchedule,
 } from './sanctions/schedules';
+export { ensureFloridaLicenseSchedule } from './schedules/floridaLicenses';
 export {
   ManualRunRefused,
   resumeLockedWorkflowRuns,

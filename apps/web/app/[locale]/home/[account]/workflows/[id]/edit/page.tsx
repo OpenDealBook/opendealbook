@@ -33,7 +33,7 @@ export default async function WorkflowEditPage(props: {
   const [{ data: workflow }, { data: versions }] = await Promise.all([
     client
       .from('workflow')
-      .select('id, name')
+      .select('id, name, schedules_sync_failed_at')
       .eq('id', id)
       .eq('account_id', team.id)
       .maybeSingle()
@@ -79,6 +79,7 @@ export default async function WorkflowEditPage(props: {
       }}
       palette={paletteNodeTypes()}
       canManage={permissions.includes('workflows.manage')}
+      schedulesSyncFailed={workflow.schedules_sync_failed_at !== null}
       saveDraft={saveDraft}
       publishDraft={publishDraft}
       retryScheduleSync={retryScheduleSync}

@@ -39,7 +39,7 @@ const {
   resolveContractComment,
 } = await import('./actions');
 
-const { COMMENT_TOO_LONG, INTERNAL_BUYER_ONLY, NOT_ALLOWED } =
+const { COMMENT_TOO_LONG, INTERNAL_BUYER_ONLY, NOT_ALLOWED, REPLY_TO_TOP_LEVEL_ONLY } =
   await import('../types');
 
 const READ_ONLY = 'This team is read-only until billing is updated.';
@@ -574,6 +574,22 @@ describe('replyToContractComment', () => {
       expect.objectContaining({ id: parentId, internal: false }),
       expect.objectContaining({ parent_id: parentId, internal: true }),
     ]);
+  });
+
+  it('refuses a reply to a reply', async () => {
+    const versionId = await newVersion('buyer');
+    const parentId = await seedComment(versionId, buyerCounsel, 'buyer');
+    await replyToContractComment({ parentId, body: 'Agreed', internal: false });
+    const [, reply] = await commentsOn(versionId);
+
+    await expect(
+      replyToContractComment({
+        parentId: reply!.id,
+        body: 'Agreed with the agreement',
+        internal: false,
+      }),
+    ).resolves.toEqual({ ok: false, refusal: REPLY_TO_TOP_LEVEL_ONLY });
+    expect(await commentsOn(versionId)).toHaveLength(2);
   });
 
   it("refuses seller's counsel a reply to an internal comment", async () => {

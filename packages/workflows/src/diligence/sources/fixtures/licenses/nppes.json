@@ -1,0 +1,101 @@
+{
+  "result_count": 2,
+  "results": [
+    {
+      "addresses": [
+        {
+          "address_1": "1180 N HARBOUR ST",
+          "address_purpose": "LOCATION",
+          "address_type": "DOM",
+          "city": "ABILENE",
+          "country_code": "US",
+          "country_name": "United States",
+          "postal_code": "796034622",
+          "state": "TX",
+          "telephone_number": "325-555-0142"
+        }
+      ],
+      "basic": {
+        "enumeration_date": "2015-05-18",
+        "last_updated": "2015-05-18",
+        "organization_name": "HARBOR FIXTURE DENTAL, PLLC",
+        "organizational_subpart": "NO",
+        "status": "A"
+      },
+      "created_epoch": "1431949836000",
+      "endpoints": [],
+      "enumeration_type": "NPI-2",
+      "identifiers": [],
+      "last_updated_epoch": "1431949836000",
+      "number": "1999000017",
+      "other_names": [],
+      "practiceLocations": [],
+      "taxonomies": [
+        {
+          "code": "1223G0001X",
+          "desc": "Dentist, General Practice",
+          "license": null,
+          "primary": true,
+          "state": null,
+          "taxonomy_group": "193400000X - Single Specialty Group"
+        },
+        {
+          "code": "1223X0400X",
+          "desc": "Dentist, Orthodontics and Dentofacial Orthopedics",
+          "license": "TX-40021",
+          "primary": false,
+          "state": "TX",
+          "taxonomy_group": ""
+        },
+        {
+          "code": "",
+          "desc": null,
+          "license": null,
+          "primary": false,
+          "state": null,
+          "taxonomy_group": ""
+        }
+      ]
+    },
+    {
+      "addresses": [
+        {
+          "address_1": "77 HARBOUR VIEW RD",
+          "address_purpose": "LOCATION",
+          "address_type": "DOM",
+          "city": "AMARILLO",
+          "country_code": "US",
+          "country_name": "United States",
+          "postal_code": "79101",
+          "state": "TX",
+          "telephone_number": "806-555-0188"
+        }
+      ],
+      "basic": {
+        "enumeration_date": "2018-02-01",
+        "last_updated": "2021-07-09",
+        "organization_name": "HARBOR FIXTURE DENTAL GROUP OF AMARILLO PLLC",
+        "organizational_subpart": "NO",
+        "status": "A"
+      },
+      "created_epoch": "1517443200000",
+      "endpoints": [],
+      "enumeration_type": "NPI-2",
+      "identifiers": [],
+      "last_updated_epoch": "1625788800000",
+      "number": "1999000025",
+      "other_names": [],
+      "practiceLocations": [],
+      "taxonomies": [
+        {
+          "code": "1223G0001X",
+          "desc": "Dentist, General Practice",
+          "license": null,
+          "primary": true,
+          "state": null,
+          "taxonomy_group": ""
+        }
+      ]
+    }
+  ]
+}

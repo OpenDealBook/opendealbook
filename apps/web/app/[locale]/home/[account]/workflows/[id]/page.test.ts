@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, expect, it, vi } from 'vitest';
 
+import { SCHEDULES_SYNC_FAILED } from '../workflow-refusals';
 import WorkflowDetailPage from './page';
-import { tables } from './workflow-route-test-kit';
+import { tables, workspace } from './workflow-route-test-kit';
 
 vi.mock(
   'next/navigation',
@@ -26,6 +27,7 @@ afterEach(() => {
   for (const table of Object.keys(tables)) {
     delete tables[table];
   }
+  workspace.permissions = [];
 });
 
 function open(id: string) {
@@ -96,4 +98,27 @@ it('names the publisher of a version whose publisher was deleted as a removed us
   );
 
   expect(html).toContain('Published by a removed user');
+});
+
+it('keeps saying schedules failed to update, with Retry for a workflows manager', async () => {
+  workspace.permissions = ['workflows.manage'];
+  Object.assign(tables, {
+    workflow: {
+      id: '00000000-0000-4000-8000-0000000000c1',
+      name: 'New deal alert',
+      enabled: true,
+      archived_at: null,
+      schedules_sync_failed_at: '2026-10-30T09:00:00Z',
+    },
+    workflow_version: [],
+    workflow_run: [],
+    accounts: [],
+  });
+
+  const html = renderToStaticMarkup(
+    await open('00000000-0000-4000-8000-0000000000c1'),
+  );
+
+  expect(html.replaceAll('&#x27;', "'")).toContain(SCHEDULES_SYNC_FAILED);
+  expect(html).toContain('Retry schedules');
 });

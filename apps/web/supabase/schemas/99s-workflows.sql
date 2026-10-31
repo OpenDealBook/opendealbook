@@ -37,6 +37,8 @@ create table if not exists public.workflow (
   archived_at timestamptz,
   enabled_after_deal_seq bigint,
   enabled_after_account_seq bigint,
+  -- When the last schedule sync failed; cleared by the next one that succeeds.
+  schedules_sync_failed_at timestamptz,
   constraint workflow_archived_disabled_check check (not (enabled and archived_at is not null)),
   unique (account_id, system_key),
   unique (id, account_id)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { type ComponentProps, useState, useTransition } from 'react';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,6 +28,7 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
+import { SchedulesSyncBanner } from './schedules-sync-banner';
 import { WorkflowRunStatus, workflowTime } from './workflow-run-status';
 
 type Version = Pick<
@@ -63,8 +64,10 @@ export function WorkflowDetail(props: {
   versions: Version[];
   runs: Run[];
   canManage: boolean;
+  schedulesSyncFailed: boolean;
   cancelWaitingRuns: CancelWaitingRuns;
   renameWorkflow: RenameWorkflow;
+  retryScheduleSync: ComponentProps<typeof SchedulesSyncBanner>['retryScheduleSync'];
 }) {
   const [renaming, setRenaming] = useState(false);
   const published = props.versions.filter(
@@ -97,6 +100,13 @@ export function WorkflowDetail(props: {
         </Badge>
         {props.workflow.archived_at ? (
           <Badge variant={'secondary'}>Archived</Badge>
+        ) : null}
+        {props.schedulesSyncFailed ? (
+          <SchedulesSyncBanner
+            workflowId={props.workflow.id}
+            canManage={props.canManage}
+            retryScheduleSync={props.retryScheduleSync}
+          />
         ) : null}
         {props.canManage && !renaming ? (
           <Button

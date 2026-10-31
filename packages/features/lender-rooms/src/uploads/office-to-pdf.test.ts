@@ -49,6 +49,7 @@ afterEach(() => {
   gotenberg.neverAnswers = false;
   gotenberg.uploads.length = 0;
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 afterAll(async () => {
@@ -87,6 +88,14 @@ describe('converting an office file to PDF', () => {
       ]);
     },
   );
+
+  it('refuses to run without GOTENBERG_URL configured', async () => {
+    vi.stubEnv('GOTENBERG_URL', undefined);
+
+    await expect(
+      convertOfficeToPdf(new Uint8Array([1, 2, 3]), 'guaranty.docx'),
+    ).rejects.toThrow('Missing required environment variable: GOTENBERG_URL');
+  });
 
   it('gives up after 60 seconds when Gotenberg never answers', async () => {
     const realTimeout = AbortSignal.timeout.bind(AbortSignal);

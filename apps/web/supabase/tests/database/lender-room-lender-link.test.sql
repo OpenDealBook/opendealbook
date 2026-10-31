@@ -28,6 +28,9 @@ insert into public.lender_room (id, account_id, deal_id, brand_domain, lender_id
   ('1f000000-0000-0000-0000-0000000000b2', tests.account_id('lrl-acct'), '1f000000-0000-0000-0000-0000000000d1',
    'link-a.test', null, 'Unlinked', '1f000000-0000-0000-0000-0000000000f2');
 
+update public.lender_room set lender_id = null
+where id = '1f000000-0000-0000-0000-0000000000b2';
+
 set local session_replication_role = replica;
 update public.lender_room set created_at = now() - interval '10 days'
 where deal_id = '1f000000-0000-0000-0000-0000000000d1';

@@ -6,7 +6,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 import { areUuids } from '../../../_components/lender-page-params';
 import { WorkflowDetail } from '../../../_components/workflow-detail';
 import { loadTeamWorkspace } from '../../layout';
-import { renameWorkflow } from '../editor-actions';
+import { renameWorkflow, retryScheduleSync } from '../editor-actions';
 import { cancelWaitingRunsAction } from './actions';
 
 export default async function WorkflowDetailPage(props: {
@@ -25,7 +25,7 @@ export default async function WorkflowDetailPage(props: {
     await Promise.all([
       client
         .from('workflow')
-        .select('id, name, enabled, archived_at')
+        .select('id, name, enabled, archived_at, schedules_sync_failed_at')
         .eq('id', id)
         .eq('account_id', team.id)
         .maybeSingle()
@@ -75,6 +75,7 @@ export default async function WorkflowDetailPage(props: {
         accountId={team.id}
         workflowPath={`/home/${account}/workflows/${id}`}
         workflow={workflow}
+        schedulesSyncFailed={workflow.schedules_sync_failed_at !== null}
         versions={versions.map((version) => ({
           id: version.id,
           published_at: version.published_at,
@@ -87,6 +88,7 @@ export default async function WorkflowDetailPage(props: {
         canManage={permissions.includes('workflows.manage')}
         cancelWaitingRuns={cancelWaitingRunsAction}
         renameWorkflow={renameWorkflow}
+        retryScheduleSync={retryScheduleSync}
       />
     </main>
   );

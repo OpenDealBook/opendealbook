@@ -16,6 +16,7 @@ import {
   INTERNAL_BUYER_ONLY,
   MAX_COMMENT_CHARACTERS,
   NOT_ALLOWED,
+  REPLY_TO_TOP_LEVEL_ONLY,
 } from '../types';
 import { visibleVersion } from '../versioning/queries';
 
@@ -226,12 +227,13 @@ async function visibleComment(
   commentId: string,
 ): Promise<{
   contract_version_id: string;
+  parent_id: string | null;
   author_side: CounselSide;
   internal: boolean;
 } | null> {
   const { data: comment } = await client
     .from('contract_comment')
-    .select('contract_version_id, author_side, internal')
+    .select('contract_version_id, parent_id, author_side, internal')
     .eq('id', commentId)
     .maybeSingle()
     .throwOnError();
@@ -270,6 +272,9 @@ export const replyToContractComment = enhanceAction(
 
     if (!parent) {
       return refused(NOT_ALLOWED);
+    }
+    if (parent.parent_id !== null) {
+      return refused(REPLY_TO_TOP_LEVEL_ONLY);
     }
 
     return postComment(user.id, {

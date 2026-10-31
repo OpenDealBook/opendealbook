@@ -1,8 +1,8 @@
 -- A team's lender CRM: saved lenders and their contacts, the team's outreach
 -- template, what a deal seeks from lenders, its hard close deadline, and each
 -- lender room's answer to the closing timeline. Lender history needs no
--- storage of its own: rooms point at a saved lender by account and brand
--- domain (lender_history).
+-- storage of its own: it is the rooms linked to a saved lender
+-- (lender_history).
 
 create type public.lender_rate_type as enum ('fixed', 'variable', 'either');
 create type public.lender_timeline_answer as enum ('yes', 'no', 'need_to_talk');
@@ -463,9 +463,8 @@ $$;
 revoke all on function public.lender_rooms_due_nudge(uuid, timestamptz) from public, anon;
 grant execute on function public.lender_rooms_due_nudge(uuid, timestamptz) to authenticated, service_role;
 
--- The rooms a saved lender has had: those of its team whose brand domain is
--- the lender's domain. Rooms are readable by the deal's managers alone, so
--- history is too.
+-- The rooms a saved lender has had: those linked to it. Rooms are readable by
+-- the deal's managers alone, so history is too.
 create or replace function public.lender_history(lender_id uuid)
   returns table (
     room_id uuid,
@@ -480,7 +479,7 @@ create or replace function public.lender_history(lender_id uuid)
   select r.id, r.deal_id, f.name::text, r.created_at, r.status,
     (select count(*) from public.lender_ask a where a.room_id = r.id and a.kind = 'ask')
   from public.lender l
-  join public.lender_room r on r.account_id = l.account_id and r.brand_domain = l.domain
+  join public.lender_room r on r.lender_id = l.id
   join public.deal d on d.id = r.deal_id
   left join public.firm f on f.id = d.firm_id
   where l.id = lender_history.lender_id
@@ -490,6 +489,48 @@ $$;
 
 revoke all on function public.lender_history(uuid) from public, anon;
 grant execute on function public.lender_history(uuid) to authenticated, service_role;
+
+-- Saving a lender links the team's unlinked rooms on its domain, compared the
+-- way brand domains are keyed. Security definer: a saver with deals.manage may
+-- lack deals.work and so not see some rooms, and every matching room must link.
+create or replace function odb.link_rooms_to_saved_lender()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  update public.lender_room r set lender_id = new.id
+  where r.account_id = new.account_id
+    and r.lender_id is null
+    and regexp_replace(lower(r.brand_domain), '^www\.', '') = new.domain;
+  return null;
+end;
+$$;
+
+create trigger link_rooms_to_saved_lender
+  after insert or update of domain on public.lender
+  for each row execute function odb.link_rooms_to_saved_lender();
+
+-- A new room with no link takes the saved lender on its domain. Security
+-- definer, like the save-side trigger, so linking never depends on what the
+-- room's creator may read.
+create or replace function odb.link_new_room_to_saved_lender()
+  returns trigger
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  new.lender_id := (
+    select l.id from public.lender l
+    where l.account_id = new.account_id
+      and l.domain = regexp_replace(lower(new.brand_domain), '^www\.', '')
+  );
+  return new;
+end;
+$$;
+
+create trigger link_new_room_to_saved_lender
+  before insert on public.lender_room
+  for each row when (new.lender_id is null)
+  execute function odb.link_new_room_to_saved_lender();
 
 -- Runs as the caller, so the deals.manage policies of lender_contact apply.
 -- Demote first, then promote, so lender_contact_one_primary is never tripped.

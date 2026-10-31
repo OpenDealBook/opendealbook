@@ -2,6 +2,7 @@ import type { Client } from '@temporalio/client';
 
 import { TASK_QUEUE } from '../ids';
 import { ensureSchedule } from '../schedules/ensureSchedule';
+import { indexScreeningNames } from './load';
 import { currentSnapshot } from './screenSubjects';
 import { isLoaded } from './snapshot';
 
@@ -21,6 +22,7 @@ export async function ensureScreeningListSchedule(client: Client): Promise<void>
 }
 
 export async function ensureScreeningListLoaded(client: Client): Promise<void> {
+  await indexScreeningNames();
   if (!isLoaded(await currentSnapshot())) {
     await client.schedule.getHandle(SCREENING_LIST_SCHEDULE_ID).trigger();
   }

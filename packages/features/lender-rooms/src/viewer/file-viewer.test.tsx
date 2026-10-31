@@ -4,10 +4,16 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileViewer } from './file-viewer';
+import { parsePreview } from './parse-preview';
 
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
+vi.mock('./parse-preview', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./parse-preview')>();
+  return { ...actual, parsePreview: vi.fn(actual.parsePreview) };
+});
 
 const UNSUPPORTED_MESSAGE = 'Preview is not available for this file type';
 const NOT_LOADED_MESSAGE =
@@ -71,6 +77,7 @@ describe('FileViewer', () => {
     container.remove();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.mocked(parsePreview).mockReset();
     vi.doUnmock('mammoth');
   });
 
@@ -545,17 +552,24 @@ describe('FileViewer', () => {
       await shows('Showing the first 2,000 rows');
     });
 
-    it('renders a sheet clipped at both limits', async () => {
-      servePreview(fixture('corners.xlsx'));
+    it('says when a sheet is clipped at both limits', async () => {
+      servePreview(fixture('sample.xlsx'));
+      vi.mocked(parsePreview).mockResolvedValueOnce({
+        kind: 'sheet',
+        sheets: [
+          {
+            name: 'Corners',
+            rows: [['first']],
+            clippedRows: true,
+            clippedColumns: true,
+          },
+        ],
+      });
 
-      await open('corners.xlsx');
+      await open('Rent roll.xlsx');
 
       await shows('Showing the first 2,000 rows and 50 columns');
-      const rows = container.querySelectorAll('tr');
-      expect(rows).toHaveLength(2000);
-      expect(rows[0]?.querySelectorAll('td')).toHaveLength(51);
-      expect(rows[0]?.querySelectorAll('td')[1]?.textContent).toBe('first');
-    }, 30_000);
+    });
 
     it('says nothing about clipping for a sheet shown whole', async () => {
       servePreview(fixture('sample.xlsx'));

@@ -15,7 +15,10 @@ import {
   settle,
   show,
 } from './lender-test-kit';
-import { SCHEDULES_NOT_SYNCED } from '../[account]/workflows/workflow-refusals';
+import {
+  SCHEDULES_NOT_SYNCED,
+  SCHEDULES_SYNC_FAILED,
+} from '../[account]/workflows/workflow-refusals';
 import { WorkflowEditor } from './workflow-editor';
 import type { EditorCanvasProps, NodeError } from './workflow-editor-canvas';
 
@@ -69,6 +72,7 @@ const props: Props = {
   version: { graph: { nodes: [], edges: [] }, layout: { direction: 'RIGHT', positions: {} } },
   palette: [],
   canManage: true,
+  schedulesSyncFailed: false,
   ...(fakeActions(
     'saveDraft',
     'publishDraft',
@@ -208,20 +212,40 @@ it('shows the AI provider refusal from publish', async () => {
   expect(fakeServer.refreshes).toBe(0);
 });
 
-it('offers Retry schedules after schedules failed to update on publish', async () => {
+it('refreshes after a publish whose schedules failed to update, so the lasting notice shows', async () => {
   fakeServer.refusalFor.publishDraft = SCHEDULES_NOT_SYNCED;
   await open();
-  expect(buttonNames()).not.toContain('Retry schedules');
 
   await press('Publish');
+
+  expect(alerts()).toEqual([SCHEDULES_NOT_SYNCED]);
+  expect(fakeServer.refreshes).toBe(1);
+});
+
+it('keeps saying schedules failed to update and lets a manager retry', async () => {
+  await open({ schedulesSyncFailed: true });
+  expect(pageText()).toContain(SCHEDULES_SYNC_FAILED);
+
   await press('Retry schedules');
 
   expect(fakeServer.inputsTo('retryScheduleSync')).toEqual([
     { workflowId: WORKFLOW },
   ]);
-  expect(alerts()).toEqual([]);
-  expect(buttonNames()).not.toContain('Retry schedules');
   expect(fakeServer.refreshes).toBe(1);
+});
+
+it('says schedules failed to update without Retry to someone who cannot edit workflows', async () => {
+  await open({ schedulesSyncFailed: true, canManage: false });
+
+  expect(pageText()).toContain(SCHEDULES_SYNC_FAILED);
+  expect(buttonNames()).not.toContain('Retry schedules');
+});
+
+it('says nothing about schedules when the last update reached them', async () => {
+  await open();
+
+  expect(pageText()).not.toContain(SCHEDULES_SYNC_FAILED);
+  expect(buttonNames()).not.toContain('Retry schedules');
 });
 
 it('links the draft and every published version, marking the one shown', async () => {

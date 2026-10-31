@@ -101,6 +101,30 @@ describe('saving the CourtListener token', () => {
   });
 });
 
+describe('saving a court records broker key', () => {
+  it('saves the key for the broker the team picked', async () => {
+    expect(
+      await saveProviderKeyAction({
+        accountId: TEAM_ID,
+        kind: 'court_records',
+        provider: 'middesk',
+        apiKey: 'mk-team-key',
+        actorId: '',
+      }),
+    ).toEqual({ ok: true, value: undefined });
+    expect(world.calls).toEqual([
+      {
+        name: 'save_provider_credential',
+        p_account_id: TEAM_ID,
+        p_kind: 'court_records',
+        p_api_key: 'mk-team-key',
+        p_actor_id: undefined,
+        p_provider: 'middesk',
+      },
+    ]);
+  });
+});
+
 describe('saving the Lob webhook secret', () => {
   it('saves the webhook secret with the letters key', async () => {
     await saveProviderKeyAction({

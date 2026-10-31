@@ -68,7 +68,7 @@ const { failWorkflowRun } = proxyActivities<typeof activities>({
   },
 });
 
-const SIGNAL_RECHECK_INTERVAL = '1 hour';
+const SIGNAL_RECHECK_INTERVAL = '1 day';
 
 function failureMessage(error: Error): string {
   return error.cause instanceof Error ? failureMessage(error.cause) : error.message;

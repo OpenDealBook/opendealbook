@@ -52,7 +52,7 @@ export default async function TeamSettingsPage({
         current={aiEndpoint}
         canManage={permissions.includes('settings.manage')}
       />
-      {(['email_lookup', 'letters', 'courts'] as const).map((kind) => (
+      {(['email_lookup', 'letters', 'courts', 'court_records'] as const).map((kind) => (
         <ProviderKeySetting
           key={kind}
           accountId={team.id}
@@ -129,9 +129,9 @@ async function loadAiEndpoint(accountId: string) {
 async function loadProviderKeys(accountId: string) {
   const { data: keys } = await getSupabaseServerClient()
     .from('provider_credential')
-    .select('kind, actor_id')
+    .select('kind, actor_id, provider')
     .eq('account_id', accountId)
     .throwOnError();
 
-  return new Map(keys.map((key) => [key.kind, { actorId: key.actor_id }]));
+  return new Map(keys.map((key) => [key.kind, { actorId: key.actor_id, provider: key.provider }]));
 }

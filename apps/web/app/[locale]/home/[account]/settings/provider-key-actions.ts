@@ -6,7 +6,7 @@ import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
-const kindSchema = z.enum(['email_lookup', 'letters', 'courts']);
+const kindSchema = z.enum(['email_lookup', 'letters', 'courts', 'court_records']);
 
 const REFUSALS: Record<string, string> = {
   '42501': 'Changing provider keys needs settings.manage',
@@ -24,13 +24,14 @@ function refuseOrThrow(error: { code: string } | null) {
 }
 
 export const saveProviderKeyAction = refusableAction(
-  async ({ accountId, kind, apiKey, actorId, webhookSecret }) => {
+  async ({ accountId, kind, apiKey, actorId, webhookSecret, provider }) => {
     const { error } = await getSupabaseServerClient().rpc('save_provider_credential', {
       p_account_id: accountId,
       p_kind: kind,
       p_api_key: apiKey || undefined,
       p_actor_id: actorId || undefined,
       p_webhook_secret: webhookSecret || undefined,
+      p_provider: provider,
     });
     refuseOrThrow(error);
   },
@@ -40,6 +41,7 @@ export const saveProviderKeyAction = refusableAction(
     apiKey: z.string(),
     actorId: z.string().trim(),
     webhookSecret: z.string().optional(),
+    provider: z.enum(['baselayer', 'middesk']).optional(),
   }),
 );
 

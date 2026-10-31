@@ -47,7 +47,21 @@ const KINDS = {
     provider: 'CourtListener',
     stepsFail: 'Diligence will skip federal courts until you connect it again.',
   },
+  court_records: {
+    title: 'State court and lien records',
+    description:
+      "Searches the business's state court cases, liens and UCC filings through your team's broker, Baselayer or Middesk. A team connects one broker.",
+    stepsFail: 'Diligence will skip state court and lien records until you connect it again.',
+  },
 };
+
+const BROKERS = { baselayer: 'Baselayer', middesk: 'Middesk' };
+
+type Broker = keyof typeof BROKERS;
+
+function isBroker(provider: string): provider is Broker {
+  return Object.hasOwn(BROKERS, provider);
+}
 
 export function ProviderKeySetting({
   accountId,
@@ -57,10 +71,12 @@ export function ProviderKeySetting({
 }: {
   accountId: string;
   kind: keyof typeof KINDS;
-  current: { actorId: string | null } | null;
+  current: { actorId: string | null; provider: string } | null;
   canManage: boolean;
 }) {
-  const { title, description, provider, stepsFail } = KINDS[kind];
+  const { title, description, stepsFail } = KINDS[kind];
+  const [broker, setBroker] = useState<Broker>(current && isBroker(current.provider) ? current.provider : 'baselayer');
+  const provider = kind === 'court_records' ? BROKERS[broker] : KINDS[kind].provider;
   const { refusal, pending, run } = useRefusableAction();
   const [apiKey, setApiKey] = useState('');
   const [actorId, setActorId] = useState(current?.actorId ?? '');
@@ -86,6 +102,7 @@ export function ProviderKeySetting({
                     apiKey,
                     actorId,
                     ...(kind === 'letters' && { webhookSecret }),
+                    ...(kind === 'court_records' && { provider: broker }),
                   }),
                 () => {
                   setApiKey('');
@@ -94,6 +111,28 @@ export function ProviderKeySetting({
               );
             }}
           >
+            {kind === 'court_records' ? (
+              <Label className={'flex flex-col items-start gap-1'}>
+                Broker
+                <select
+                  className={'bg-background h-9 w-full rounded-md border px-2 text-sm'}
+                  value={broker}
+                  disabled={pending}
+                  onChange={(event) => setBroker(event.target.value as Broker)}
+                >
+                  {Object.entries(BROKERS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Label>
+            ) : null}
+            {kind === 'court_records' && current && isBroker(current.provider) && current.provider !== broker ? (
+              <p className={'text-muted-foreground text-sm'}>
+                Saving replaces the saved {BROKERS[current.provider]} key.
+              </p>
+            ) : null}
             <Label className={'flex flex-col items-start gap-1'}>
               {provider} API key
               <Input
