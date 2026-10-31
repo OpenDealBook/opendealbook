@@ -70,6 +70,12 @@ if [[ "$(psql_as_supabase_admin "select exists (select 1 from pg_db_role_setting
   psql_as_supabase_admin "alter database postgres set odb.allow_private_ai_url = 'on'"
   # PostgREST's pooled sessions keep the settings they connected with.
   docker compose -p "$COMPOSE_PROJECT_NAME" restart rest
+  rest_ready=false
+  for _ in $(seq 60); do
+    [[ "$(curl -s -o /dev/null -w '%{http_code}' -H "apikey: $anon_key" "$SUPABASE_URL/rest/v1/")" == 200 ]] && { rest_ready=true; break; }
+    sleep 2
+  done
+  [[ "$rest_ready" == true ]] || { echo "worktree-up: PostgREST not answering at $SUPABASE_URL/rest/v1/ after 120s" >&2; exit 1; }
 fi
 
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon_key SUPABASE_SERVICE_ROLE_KEY=$service_role_key pnpm db:seed

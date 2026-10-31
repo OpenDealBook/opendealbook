@@ -10,6 +10,10 @@ const WEB_PORT = Number(process.env.APP_PORT ?? 3000);
 const TASK_QUEUE_URL =
   `http://localhost:${process.env.TEMPORAL_UI_PORT ?? 8233}/api/v1/namespaces/default/task-queues/opendealbook?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW`;
 const WORKER_POLL_DEADLINE_MS = 120_000;
+const REST_ROOT_URL = `${process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'}/rest/v1/`;
+const ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+const REST_READY_DEADLINE_MS = 120_000;
 const MATCH_NO_TESTS = '^$';
 
 const groupLeaders = [];
@@ -138,6 +142,14 @@ if (allowsPrivateAiUrl !== 't') {
   psqlAsSupabaseAdmin(`alter database postgres set odb.allow_private_ai_url = 'on'`);
   // PostgREST's pooled sessions keep the settings they connected with.
   run('docker', ['compose', 'restart', 'rest'], root);
+  const restartedAt = Date.now();
+  while ((await fetch(REST_ROOT_URL, { headers: { apikey: ANON_KEY } })).status !== 200) {
+    if (Date.now() - restartedAt > REST_READY_DEADLINE_MS) {
+      console.error(`PostgREST did not answer at ${REST_ROOT_URL} within 120s of its restart.`);
+      process.exit(1);
+    }
+    await sleep(1000);
+  }
 }
 
 if (!existsSync(`${root}${WORKERS_ENV_FILE}`)) {
