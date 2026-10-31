@@ -62,6 +62,16 @@ pnpm install
 
 (cd apps/web && supabase migration up --db-url "$SUPABASE_DB_URL")
 
+psql_as_supabase_admin() {
+  docker exec "$SUPABASE_DB_CONTAINER" psql -U supabase_admin -d postgres -tAc "$1"
+}
+if [[ "$(psql_as_supabase_admin "select exists (select 1 from pg_db_role_setting s join pg_database d on d.oid = s.setdatabase
+  where d.datname = 'postgres' and s.setrole = 0 and 'odb.allow_private_ai_url=on' = any (s.setconfig))")" != t ]]; then
+  psql_as_supabase_admin "alter database postgres set odb.allow_private_ai_url = 'on'"
+  # PostgREST's pooled sessions keep the settings they connected with.
+  docker compose -p "$COMPOSE_PROJECT_NAME" restart rest
+fi
+
 NEXT_PUBLIC_SUPABASE_ANON_KEY=$anon_key SUPABASE_SERVICE_ROLE_KEY=$service_role_key pnpm db:seed
 
 direnv allow "$WT_DIR"

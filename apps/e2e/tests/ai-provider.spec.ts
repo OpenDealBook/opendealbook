@@ -27,6 +27,7 @@ test('a manager connects a local stand-in URL on the e2e stack and disconnects t
   await page.getByLabel('Base URL', { exact: true }).fill('http://127.0.0.1:9999/v1');
   await page.getByRole('button', { name: 'Save', exact: true }).first().click();
   await expect(page.getByLabel('API key', { exact: true })).toBeEnabled({ timeout: 60 * 1000 });
+  expect(await page.locator('p[role=alert]').allTextContents()).toEqual([]);
   await page.reload();
   await expect(page.getByLabel('API key', { exact: true })).toHaveAttribute(
     'placeholder',

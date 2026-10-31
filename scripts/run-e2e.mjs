@@ -122,6 +122,24 @@ run(
 
 run('pnpm', ['db:migrate'], root);
 
+function psqlAsSupabaseAdmin(sql) {
+  return execFileSync(
+    'docker',
+    ['compose', 'exec', '-T', 'db', 'psql', '-U', 'supabase_admin', '-d', 'postgres', '-tAc', sql],
+    { cwd: root, encoding: 'utf8' },
+  ).trim();
+}
+
+const allowsPrivateAiUrl = psqlAsSupabaseAdmin(
+  `select exists (select 1 from pg_db_role_setting s join pg_database d on d.oid = s.setdatabase
+     where d.datname = 'postgres' and s.setrole = 0 and 'odb.allow_private_ai_url=on' = any (s.setconfig))`,
+);
+if (allowsPrivateAiUrl !== 't') {
+  psqlAsSupabaseAdmin(`alter database postgres set odb.allow_private_ai_url = 'on'`);
+  // PostgREST's pooled sessions keep the settings they connected with.
+  run('docker', ['compose', 'restart', 'rest'], root);
+}
+
 if (!existsSync(`${root}${WORKERS_ENV_FILE}`)) {
   console.log(
     `Minting ${WORKERS_ENV_FILE} with a global-setup-only Playwright run.`,
