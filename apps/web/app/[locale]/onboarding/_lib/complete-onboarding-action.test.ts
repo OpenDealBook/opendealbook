@@ -127,6 +127,8 @@ describe('completeOnboardingAction for a buyer', () => {
   });
 
   it('starts the trial drip for the new team, addressed to the buyer and linking into the team', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://opendealbook.com');
+
     await complete(buyer);
 
     expect(startTrialDrip).toHaveBeenCalledWith({

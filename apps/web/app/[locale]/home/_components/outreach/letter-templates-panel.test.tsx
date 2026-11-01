@@ -132,6 +132,9 @@ describe('LetterTemplatesPanel', () => {
     await act(async () => {
       items.find((item) => item.textContent === 'Sender name')!.click();
     });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     await save();
 
     expect(server.update).toHaveBeenCalledWith(
