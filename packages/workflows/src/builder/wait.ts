@@ -7,7 +7,14 @@ const PLAIN_DATE = /^\d{4}-\d{2}-\d{2}$/;
 function offsetMs(at: number, timeZone: string): number {
   const parts = wallClockParts(new Date(at), timeZone);
   return (
-    Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) - at
+    Date.UTC(
+      parts.year,
+      parts.month - 1,
+      parts.day,
+      parts.hour,
+      parts.minute,
+      parts.second,
+    ) - at
   );
 }
 
@@ -18,7 +25,11 @@ function nineInTheMorning(date: string, timeZone: string): Date {
   return new Date(nineUtc - offsetMs(guess, timeZone));
 }
 
-export function wakeAt(config: NodeConfig<'wait'>, startedAt: Date, timeZone: string): Date {
+export function wakeAt(
+  config: NodeConfig<'wait'>,
+  startedAt: Date,
+  timeZone: string,
+): Date {
   if (config.kind === 'duration') {
     return new Date(startedAt.getTime() + config.amount * UNIT_MS[config.unit]);
   }

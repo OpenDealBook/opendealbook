@@ -18,25 +18,23 @@ export default async function OpenGraphImage({
   const post = await cms.getContentItemBySlug({ slug, collection: 'posts' });
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          background: '#0b0f19',
-          color: '#ffffff',
-          padding: 80,
-        }}
-      >
-        <div style={{ fontSize: 32, opacity: 0.7 }}>{appConfig.name}</div>
-        <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.1 }}>
-          {post?.title ?? appConfig.name}
-        </div>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        background: '#0b0f19',
+        color: '#ffffff',
+        padding: 80,
+      }}
+    >
+      <div style={{ fontSize: 32, opacity: 0.7 }}>{appConfig.name}</div>
+      <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.1 }}>
+        {post?.title ?? appConfig.name}
       </div>
-    ),
+    </div>,
     size,
   );
 }

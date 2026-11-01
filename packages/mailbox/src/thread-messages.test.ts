@@ -5,7 +5,11 @@ const { resolveAccessToken } = vi.hoisted(() => ({
 }));
 vi.mock('./nango', () => ({ resolveAccessToken }));
 
-import { MailboxAccessDenied, MailboxRequestFailed, listThreadMessages } from './index';
+import {
+  MailboxAccessDenied,
+  MailboxRequestFailed,
+  listThreadMessages,
+} from './index';
 import type { MailboxConnection } from './types';
 
 const gmailConnection: MailboxConnection = {
@@ -107,7 +111,9 @@ describe('listThreadMessages microsoft', () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     const parsed = new URL(url);
     expect(parsed.pathname).toBe('/v1.0/me/messages');
-    expect(parsed.searchParams.get('$filter')).toBe("conversationId eq 'conv-1'");
+    expect(parsed.searchParams.get('$filter')).toBe(
+      "conversationId eq 'conv-1'",
+    );
     expect(init.headers.Authorization).toBe('Bearer access-token');
   });
 
@@ -121,19 +127,34 @@ describe('listThreadMessages microsoft', () => {
 });
 
 describe('listThreadMessages for a thread that cannot be read now', () => {
-  it.each([404, 429])('throws MailboxRequestFailed with status %i from Gmail', async (status) => {
-    fetchMock.mockResolvedValue({ ok: false, status, json: async () => ({ error: {} }) });
+  it.each([404, 429])(
+    'throws MailboxRequestFailed with status %i from Gmail',
+    async (status) => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status,
+        json: async () => ({ error: {} }),
+      });
 
-    await expect(listThreadMessages(gmailConnection, 'gone')).rejects.toMatchObject({
-      constructor: MailboxRequestFailed,
-      status,
-    });
-  });
+      await expect(
+        listThreadMessages(gmailConnection, 'gone'),
+      ).rejects.toMatchObject({
+        constructor: MailboxRequestFailed,
+        status,
+      });
+    },
+  );
 
   it('throws MailboxRequestFailed with the status from Microsoft', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 429, json: async () => ({ error: {} }) });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: {} }),
+    });
 
-    await expect(listThreadMessages(microsoftConnection, 'busy')).rejects.toMatchObject({
+    await expect(
+      listThreadMessages(microsoftConnection, 'busy'),
+    ).rejects.toMatchObject({
       constructor: MailboxRequestFailed,
       status: 429,
     });

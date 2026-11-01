@@ -9,7 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from '#components/card';
-import { SeverityBadge, type SeverityBadgeProps } from '#components/severity-badge';
+import {
+  SeverityBadge,
+  type SeverityBadgeProps,
+} from '#components/severity-badge';
 import { cn } from '#lib/utils';
 
 export type FindingCardProps = {
@@ -33,7 +36,11 @@ function FindingCard({
   ...props
 }: FindingCardProps) {
   return (
-    <Card data-slot="finding-card" className={cn('gap-3', className)} {...props}>
+    <Card
+      data-slot="finding-card"
+      className={cn('gap-3', className)}
+      {...props}
+    >
       <CardHeader>
         <div className="flex min-w-0 flex-col gap-1.5">
           <SeverityBadge severity={severity}>{severityLabel}</SeverityBadge>

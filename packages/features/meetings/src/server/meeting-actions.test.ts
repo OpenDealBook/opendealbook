@@ -156,7 +156,10 @@ describe('scheduleMeeting', () => {
       type: 'weekly',
       scheduled_at: '2026-10-01T15:00:00.000Z',
     });
-    expect(mocks.insertSpy).not.toHaveBeenCalledWith('meeting', expect.anything());
+    expect(mocks.insertSpy).not.toHaveBeenCalledWith(
+      'meeting',
+      expect.anything(),
+    );
   });
 
   it('carries a valid status through in the event payload', async () => {

@@ -54,7 +54,11 @@ test('seller journey: invite, sign in, uploads, questions, contracts, timeline, 
   const teamSlug = await completeTeamOnboarding(page, teamName);
   const { dealId } = await createDeal(page, teamSlug, dealDescription);
   const dealPath = `/home/${teamSlug}/deals/${dealId}`;
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   await page.goto(`${dealPath}/parties`);
   const sellerRoom = card(page, 'Seller room');
@@ -235,7 +239,9 @@ test('seller journey: invite, sign in, uploads, questions, contracts, timeline, 
   await updates.getByLabel('Update body').fill(updateBody);
   await updates.getByLabel('Send to Sellers').check();
   await updates.getByRole('button', { name: 'Save draft' }).click();
-  await updates.getByRole('button', { name: `Submit ${updateSubject}` }).click();
+  await updates
+    .getByRole('button', { name: `Submit ${updateSubject}` })
+    .click();
   await expect(
     updates.getByRole('button', { name: `Submit ${updateSubject}` }),
   ).toHaveCount(0);
@@ -297,14 +303,20 @@ test('seller journey: invite, sign in, uploads, questions, contracts, timeline, 
 
   await sellerPage.reload();
   await expect(
-    sellerPage.getByText('The seller room is closed, so this is read-only.').first(),
+    sellerPage
+      .getByText('The seller room is closed, so this is read-only.')
+      .first(),
   ).toBeVisible();
   await sellerPage
     .getByRole('navigation', { name: 'Folders' })
     .getByRole('button', { name: 'Uploads' })
     .click();
-  await expect(sellerPage.getByRole('button', { name: uploadName, exact: true })).toBeVisible();
-  await expect(sellerPage.getByLabel('Add files', { exact: true })).toHaveCount(0);
+  await expect(
+    sellerPage.getByRole('button', { name: uploadName, exact: true }),
+  ).toBeVisible();
+  await expect(sellerPage.getByLabel('Add files', { exact: true })).toHaveCount(
+    0,
+  );
   await sellerPage.getByRole('button', { name: 'Ask to reopen' }).click();
   await expect(
     sellerPage.getByText('Your request has been sent.'),

@@ -90,8 +90,7 @@ export function NewDealForm({
   const [draft, setDraft] = useState<DealIntakeDraft | null>(null);
 
   const duplicateName = existingBusinessNames.some(
-    (name) =>
-      name.trim().toLowerCase() === businessName.trim().toLowerCase(),
+    (name) => name.trim().toLowerCase() === businessName.trim().toLowerCase(),
   );
 
   function identity() {
@@ -231,7 +230,9 @@ export function NewDealForm({
           <Textarea
             id={'intake-text'}
             value={intakeText}
-            placeholder={'Paste a listing or CIM memo; AI extracts the deal for you to check'}
+            placeholder={
+              'Paste a listing or CIM memo; AI extracts the deal for you to check'
+            }
             onChange={(event) => setIntakeText(event.target.value)}
           />
           <Button

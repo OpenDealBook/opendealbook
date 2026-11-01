@@ -15,10 +15,10 @@
     "sonner": "^2.0.7"
   },
   "devDependencies": {
+    "@odb/tsconfig": "workspace:*",
     "@storybook/addon-themes": "catalog:",
     "@storybook/react-vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
-    "@odb/tsconfig": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",

@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { Json } from '@odb/supabase';
 import {
   admin,
   cleanUp,
@@ -8,12 +7,15 @@ import {
   provisionPerson,
   provisionTeam,
 } from '@odb/seller-rooms/test-support/world.ts';
+import type { Json } from '@odb/supabase';
 
 import { setUpLoiSigned } from './loi-signed-setup';
 import { seedLoiSignedTargets } from './loi-signed-targets';
 
 const SIGNED_ON = '2026-10-05';
-const SERVICE = { actor: { actorKind: 'service', actorVia: 'documenso' } } as const;
+const SERVICE = {
+  actor: { actorKind: 'service', actorVia: 'documenso' },
+} as const;
 
 type Person = Awaited<ReturnType<typeof provisionPerson>>;
 
@@ -140,11 +142,17 @@ function writingBetweenReadAndAppend(write: () => Promise<unknown>) {
 }
 
 async function signedLoiMilestone(dealId: string) {
-  await appendEvent(dealId, 'deal_milestone', crypto.randomUUID(), 'deal_milestone.set', {
-    kind: 'loi_signed',
-    target_on: null,
-    actual_on: SIGNED_ON,
-  });
+  await appendEvent(
+    dealId,
+    'deal_milestone',
+    crypto.randomUUID(),
+    'deal_milestone.set',
+    {
+      kind: 'loi_signed',
+      target_on: null,
+      actual_on: SIGNED_ON,
+    },
+  );
 }
 
 async function checklistOf(dealId: string) {
@@ -264,11 +272,17 @@ describe('setUpLoiSigned as the service (integration)', () => {
     const exclusivityEnd = (await targetsOf(dealId)).find(
       ({ kind }) => kind === 'exclusivity_end',
     )!;
-    await appendEvent(dealId, 'deal_milestone', exclusivityEnd.id, 'deal_milestone.set', {
-      kind: 'exclusivity_end',
-      target_on: '2026-12-15',
-      actual_on: null,
-    });
+    await appendEvent(
+      dealId,
+      'deal_milestone',
+      exclusivityEnd.id,
+      'deal_milestone.set',
+      {
+        kind: 'exclusivity_end',
+        target_on: '2026-12-15',
+        actual_on: null,
+      },
+    );
 
     await signLoi(dealId);
 
@@ -284,11 +298,17 @@ describe('setUpLoiSigned as the service (integration)', () => {
       ['apa_signing', '2026-12-01'],
       ['exclusivity_end', '2026-12-15'],
     ]) {
-      await appendEvent(dealId, 'deal_milestone', crypto.randomUUID(), 'deal_milestone.set', {
-        kind,
-        target_on,
-        actual_on: null,
-      });
+      await appendEvent(
+        dealId,
+        'deal_milestone',
+        crypto.randomUUID(),
+        'deal_milestone.set',
+        {
+          kind,
+          target_on,
+          actual_on: null,
+        },
+      );
     }
 
     await signLoi(dealId);
@@ -304,7 +324,13 @@ describe('setUpLoiSigned as the service (integration)', () => {
     const dealId = await dealWithAcceptedOffer(45, 30);
     await signLoi(dealId);
     for (const { id } of await targetsOf(dealId)) {
-      await appendEvent(dealId, 'deal_milestone', id, 'deal_milestone.removed', {});
+      await appendEvent(
+        dealId,
+        'deal_milestone',
+        id,
+        'deal_milestone.removed',
+        {},
+      );
     }
 
     await signLoi(dealId);
@@ -322,9 +348,9 @@ describe('setUpLoiSigned as the service (integration)', () => {
 
     await signLoi(dealId);
 
-    expect((await schedulesOf(dealId)).map(({ start_date }) => start_date)).toEqual([
-      '2026-09-01',
-    ]);
+    expect(
+      (await schedulesOf(dealId)).map(({ start_date }) => start_date),
+    ).toEqual(['2026-09-01']);
     expect(await targetDatesOf(dealId)).toEqual(SEEDED);
   });
 
@@ -373,11 +399,17 @@ describe('setUpLoiSigned as the service (integration)', () => {
   it('keeps a target the team set between reading the targets and seeding them', async () => {
     const dealId = await dealWithAcceptedOffer(45, 30);
     const handSet = async () => {
-      await appendEvent(dealId, 'deal_milestone', crypto.randomUUID(), 'deal_milestone.set', {
-        kind: 'exclusivity_end',
-        target_on: '2026-12-15',
-        actual_on: null,
-      });
+      await appendEvent(
+        dealId,
+        'deal_milestone',
+        crypto.randomUUID(),
+        'deal_milestone.set',
+        {
+          kind: 'exclusivity_end',
+          target_on: '2026-12-15',
+          actual_on: null,
+        },
+      );
     };
 
     await seedLoiSignedTargets(
@@ -403,7 +435,13 @@ describe('setUpLoiSigned as the service (integration)', () => {
       .eq('deal_id', dealId)
       .throwOnError();
     for (const { id } of items) {
-      await appendEvent(dealId, 'checklist_item', id, 'checklist_item.removed', {});
+      await appendEvent(
+        dealId,
+        'checklist_item',
+        id,
+        'checklist_item.removed',
+        {},
+      );
     }
 
     await signLoi(dealId);

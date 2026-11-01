@@ -1,13 +1,13 @@
 'use server';
 
+import { z } from 'zod';
+
 import { enhanceAction } from '@odb/next/actions';
 import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
 import { DEFAULT_OUTREACH_SEQUENCES } from '@odb/outreach';
 import type { TablesInsert, TablesUpdate } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
-
-import { z } from 'zod';
 
 import {
   connectMailboxSchema,
@@ -39,7 +39,11 @@ function stepRows(
   sequenceId: string,
   steps: StepInput[],
 ): TablesInsert<'outreach_step'>[] {
-  return steps.map((step) => ({ account_id: accountId, sequence_id: sequenceId, ...stepFields(step) }));
+  return steps.map((step) => ({
+    account_id: accountId,
+    sequence_id: sequenceId,
+    ...stepFields(step),
+  }));
 }
 
 export const connectMailbox = enhanceAction(
@@ -205,16 +209,21 @@ export const updateLetterTemplate = refusableAction(async (data) => {
     throw error;
   }
   if (!updated) {
-    throw new Refusal('Only deal managers can edit letter templates. Ask a deal manager.');
+    throw new Refusal(
+      'Only deal managers can edit letter templates. Ask a deal manager.',
+    );
   }
 }, updateLetterTemplateSchema);
 
 export const resolveUnknownSend = refusableAction(
   async (data) => {
-    const { error } = await getSupabaseServerClient().rpc('resolve_unknown_outreach_send', {
-      p_enrollment_id: data.enrollmentId,
-      p_resolution: data.resolution,
-    });
+    const { error } = await getSupabaseServerClient().rpc(
+      'resolve_unknown_outreach_send',
+      {
+        p_enrollment_id: data.enrollmentId,
+        p_resolution: data.resolution,
+      },
+    );
     if (error?.code === 'P0002') {
       throw new Refusal(error.message);
     }
@@ -222,7 +231,10 @@ export const resolveUnknownSend = refusableAction(
       throw error;
     }
   },
-  z.object({ enrollmentId: z.uuid(), resolution: z.enum(['mark_sent', 'retry', 'stop']) }),
+  z.object({
+    enrollmentId: z.uuid(),
+    resolution: z.enum(['mark_sent', 'retry', 'stop']),
+  }),
   { what: 'settle an unknown send', needs: 'deals.manage' },
 );
 

@@ -84,7 +84,10 @@ function StringListEditor({
   );
 }
 
-export function BuyerProfileForm({ accountId, initial }: BuyerProfileFormProps) {
+export function BuyerProfileForm({
+  accountId,
+  initial,
+}: BuyerProfileFormProps) {
   const router = useRouter();
   const client = useSupabase();
   const [values, setValues] = useState(initial);

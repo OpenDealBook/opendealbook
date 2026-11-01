@@ -9,7 +9,12 @@ import {
   waitForMessage,
 } from './fixtures';
 import { settle } from './fixtures/cleanup';
-import { MAILPIT_URL, STAND_INS, SUPABASE_URL, serviceHeaders } from './fixtures/stack';
+import {
+  MAILPIT_URL,
+  STAND_INS,
+  SUPABASE_URL,
+  serviceHeaders,
+} from './fixtures/stack';
 
 async function sendThroughMailpit(message: {
   to: string;
@@ -261,10 +266,14 @@ test.describe('auth and onboarding fixtures', () => {
     test.setTimeout(240 * 1000);
     const user = await auth.signUp(page, newCredentials());
 
-    const slug = await completeTeamOnboarding(page, `Fixture Team ${Date.now()}`, {
-      dealBox: { industries: 'Accounting', states: 'TX' },
-      compPoolOptIn: true,
-    });
+    const slug = await completeTeamOnboarding(
+      page,
+      `Fixture Team ${Date.now()}`,
+      {
+        dealBox: { industries: 'Accounting', states: 'TX' },
+        compPoolOptIn: true,
+      },
+    );
 
     const [team] = await db.rows<{ id: string }>(
       'accounts',

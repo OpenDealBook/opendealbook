@@ -17,7 +17,9 @@ export interface StructuredGenerateInput<T> {
   parse: (raw: unknown) => T;
 }
 
-export type Structured<T> = { ok: true; value: T } | { ok: false; reason: string };
+export type Structured<T> =
+  | { ok: true; value: T }
+  | { ok: false; reason: string };
 
 export async function generateStructured<T>({
   scope,

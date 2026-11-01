@@ -7,7 +7,8 @@ import WorkflowEditPage from './page';
 
 vi.mock(
   'next/navigation',
-  async () => (await import('../workflow-route-test-kit')).routeMocks.navigation,
+  async () =>
+    (await import('../workflow-route-test-kit')).routeMocks.navigation,
 );
 vi.mock(
   '@odb/supabase/server',

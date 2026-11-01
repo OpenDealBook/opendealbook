@@ -43,7 +43,9 @@ class SampleProvider implements CompProvider {
   readonly sourceLabel = 'Sample External API';
   seenCriteria: unknown;
   constructor(private readonly records: ExternalCompRecord[]) {}
-  async fetchComps(criteria: { naics?: string[] }): Promise<ExternalCompRecord[]> {
+  async fetchComps(criteria: {
+    naics?: string[];
+  }): Promise<ExternalCompRecord[]> {
     this.seenCriteria = criteria;
     return this.records;
   }
@@ -54,7 +56,10 @@ describe('ingestExternalComps', () => {
     const { client, capture } = makeClient();
     const provider = new SampleProvider([record]);
 
-    const result = await ingestExternalComps(provider, { client, criteria: { naics: ['541211'] } });
+    const result = await ingestExternalComps(provider, {
+      client,
+      criteria: { naics: ['541211'] },
+    });
 
     expect(result.upserted).toBe(1);
     expect(capture.upserts).toHaveLength(1);
@@ -85,7 +90,10 @@ describe('ingestExternalComps', () => {
     const { client } = makeClient();
     const provider = new SampleProvider([record]);
 
-    await ingestExternalComps(provider, { client, criteria: { naics: ['111'] } });
+    await ingestExternalComps(provider, {
+      client,
+      criteria: { naics: ['111'] },
+    });
 
     expect(provider.seenCriteria).toEqual({ naics: ['111'] });
   });
@@ -94,7 +102,10 @@ describe('ingestExternalComps', () => {
     const { client, capture } = makeClient();
     const provider = new SampleProvider([]);
 
-    const result = await ingestExternalComps(provider, { client, criteria: {} });
+    const result = await ingestExternalComps(provider, {
+      client,
+      criteria: {},
+    });
 
     expect(result.upserted).toBe(0);
     expect(capture.upserts).toHaveLength(0);
@@ -111,7 +122,10 @@ describe('NullCompProvider', () => {
 
   it('drives the runner without writing any rows', async () => {
     const { client, capture } = makeClient();
-    const result = await ingestExternalComps(new NullCompProvider(), { client, criteria: {} });
+    const result = await ingestExternalComps(new NullCompProvider(), {
+      client,
+      criteria: {},
+    });
     expect(result.upserted).toBe(0);
     expect(capture.upserts).toHaveLength(0);
   });

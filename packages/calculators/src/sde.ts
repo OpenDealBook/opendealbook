@@ -39,12 +39,14 @@ export const sdePeriodSchema = z.object({
   minor: minorAddbacksSchema,
 });
 
-export const sdePeriodsSchema = z.array(sdePeriodSchema).refine(
-  (periods) =>
-    Math.abs(periods.reduce((sum, period) => sum + period.weight, 0) - 1) <
-    1e-6,
-  { message: 'SDE period weights must sum to 1' },
-);
+export const sdePeriodsSchema = z
+  .array(sdePeriodSchema)
+  .refine(
+    (periods) =>
+      Math.abs(periods.reduce((sum, period) => sum + period.weight, 0) - 1) <
+      1e-6,
+    { message: 'SDE period weights must sum to 1' },
+  );
 
 export type PrimaryAddbacks = z.infer<typeof primaryAddbacksSchema>;
 export type CustomAddback = z.infer<typeof customAddbackSchema>;
@@ -113,7 +115,8 @@ export function recastPeriod(period: SdePeriod): PeriodRecast {
 
 export function weightedSde(periods: SdePeriod[]): number {
   const weighted = periods.reduce(
-    (total, period) => total + recastPeriod(period).annualized_sde * period.weight,
+    (total, period) =>
+      total + recastPeriod(period).annualized_sde * period.weight,
     0,
   );
   return Math.round(weighted);

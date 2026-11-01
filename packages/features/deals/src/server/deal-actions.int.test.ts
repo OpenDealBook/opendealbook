@@ -96,7 +96,9 @@ describe('createDeal (integration)', () => {
 
     const { data: deal } = await account.admin
       .from('deal')
-      .select('id, account_id, stage, source, description, owner_user_id, firm:firm_id(name, account_id)')
+      .select(
+        'id, account_id, stage, source, description, owner_user_id, firm:firm_id(name, account_id)',
+      )
       .eq('id', dealId)
       .single();
 
@@ -112,7 +114,9 @@ describe('createDeal (integration)', () => {
 
     const { data: profile } = await account.admin
       .from('deal_profile')
-      .select('deal_id, industry, employee_band, website, owner_role, reason_for_sale, year_established')
+      .select(
+        'deal_id, industry, employee_band, website, owner_role, reason_for_sale, year_established',
+      )
       .eq('deal_id', dealId)
       .single();
 
@@ -201,7 +205,11 @@ describe('setDealResolution (integration)', () => {
     const dealId = await newDeal('Resolution deal');
 
     await (setDealResolution as unknown as Action)(
-      { deal_id: dealId, resolution: 'lost', resolution_reason: 'deal_did_not_close' },
+      {
+        deal_id: dealId,
+        resolution: 'lost',
+        resolution_reason: 'deal_did_not_close',
+      },
       actor,
     );
 

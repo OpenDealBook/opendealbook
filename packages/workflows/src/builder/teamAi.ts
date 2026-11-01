@@ -1,6 +1,10 @@
 import { ApplicationFailure } from '@temporalio/common';
 
-import { completeMetered, CONNECT_AI_PROVIDER, resolveTeamAi } from './teamAiKey';
+import {
+  completeMetered,
+  CONNECT_AI_PROVIDER,
+  resolveTeamAi,
+} from './teamAiKey';
 
 export function parsedJson(text: string): unknown {
   try {
@@ -20,7 +24,9 @@ export async function askTeamAi(args: {
 }): Promise<{ text: string; endpointId: string; model: string }> {
   const ai = await resolveTeamAi(args.accountId, 'chat');
   if (!ai) {
-    throw ApplicationFailure.nonRetryable(args.noProviderMessage ?? CONNECT_AI_PROVIDER);
+    throw ApplicationFailure.nonRetryable(
+      args.noProviderMessage ?? CONNECT_AI_PROVIDER,
+    );
   }
 
   args.signal?.throwIfAborted();

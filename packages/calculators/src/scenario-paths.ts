@@ -12,8 +12,18 @@ import type { FundingSource } from './funding-source';
 export const NO_REVENUE_FOR_PATHS = 'Add revenue to see scenario paths.';
 
 export const STARTER_SCENARIO_PATHS: ScenarioPathDrivers = {
-  worst: { revenue_loss: 0.1, growth: 0, margin_change: -0.02, rate_shift: 0.02 },
-  great: { revenue_loss: 0, growth: 0.05, margin_change: 0.02, rate_shift: -0.01 },
+  worst: {
+    revenue_loss: 0.1,
+    growth: 0,
+    margin_change: -0.02,
+    rate_shift: 0.02,
+  },
+  great: {
+    revenue_loss: 0,
+    growth: 0.05,
+    margin_change: 0.02,
+    rate_shift: -0.01,
+  },
 };
 
 export interface PathYear extends ProjectedYear {

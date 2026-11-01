@@ -9,7 +9,9 @@ const industries = [
 
 describe('industryChoiceFor', () => {
   it('picks the listed industry the extracted one names, ignoring case and spaces', () => {
-    expect(industryChoiceFor(industries, ' hvac ')).toEqual({ industry_id: 'hvac-id' });
+    expect(industryChoiceFor(industries, ' hvac ')).toEqual({
+      industry_id: 'hvac-id',
+    });
   });
 
   it('falls back to Other with the extracted text when no listed industry matches', () => {

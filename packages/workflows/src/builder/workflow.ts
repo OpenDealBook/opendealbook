@@ -1,3 +1,4 @@
+import type { RetryPolicy } from '@temporalio/common';
 import {
   CancellationScope,
   condition,
@@ -9,15 +10,17 @@ import {
   sleep,
 } from '@temporalio/workflow';
 
-import type { RetryPolicy } from '@temporalio/common';
-
 import type { Enums, Json } from '@odb/supabase';
 
 import type * as activities from '../activities';
 import type { LoopCarried, LoopGrant, StepResult } from './activities';
 import type { StepOutputs } from './expressions';
 import type { StepIo, WorkflowEdge, WorkflowNode } from './graph';
-import { APPROVAL_DECIDED_SIGNAL, CAP_RAISED_SIGNAL, TEAM_UNLOCKED_SIGNAL } from './ids';
+import {
+  APPROVAL_DECIDED_SIGNAL,
+  CAP_RAISED_SIGNAL,
+  TEAM_UNLOCKED_SIGNAL,
+} from './ids';
 import {
   AI_NODE_TYPES,
   AI_STEP_TIMEOUT,
@@ -47,13 +50,17 @@ const {
   retry: STEP_RETRY,
 });
 
-const { executeWorkflowStep: executeAiStep } = proxyActivities<typeof activities>({
+const { executeWorkflowStep: executeAiStep } = proxyActivities<
+  typeof activities
+>({
   startToCloseTimeout: AI_STEP_TIMEOUT,
   heartbeatTimeout: STEP_HEARTBEAT_TIMEOUT,
   retry: STEP_RETRY,
 });
 
-const { executeWorkflowStep: executeSearchStep } = proxyActivities<typeof activities>({
+const { executeWorkflowStep: executeSearchStep } = proxyActivities<
+  typeof activities
+>({
   startToCloseTimeout: SEARCH_STEP_TIMEOUT,
   heartbeatTimeout: STEP_HEARTBEAT_TIMEOUT,
   retry: STEP_RETRY,
@@ -71,22 +78,30 @@ const { failWorkflowRun } = proxyActivities<typeof activities>({
 const SIGNAL_RECHECK_INTERVAL = '1 day';
 
 function failureMessage(error: Error): string {
-  return error.cause instanceof Error ? failureMessage(error.cause) : error.message;
+  return error.cause instanceof Error
+    ? failureMessage(error.cause)
+    : error.message;
 }
 
 async function sendNotice(notice: Promise<void>): Promise<void> {
   await notice.catch((error: Error) => {
-    log.warn('A workflow notice could not be sent', { error: failureMessage(error) });
+    log.warn('A workflow notice could not be sent', {
+      error: failureMessage(error),
+    });
   });
 }
 
 const teamUnlockedSignal = defineSignal(TEAM_UNLOCKED_SIGNAL);
-const approvalDecidedSignal = defineSignal<[{ stepRunId: string }]>(APPROVAL_DECIDED_SIGNAL);
+const approvalDecidedSignal = defineSignal<[{ stepRunId: string }]>(
+  APPROVAL_DECIDED_SIGNAL,
+);
 const capRaisedSignal = defineSignal(CAP_RAISED_SIGNAL);
 
 function untilNextUtcMonth(): number {
   const now = new Date();
-  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now.getTime();
+  return (
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1) - now.getTime()
+  );
 }
 
 export interface RunPublishedWorkflowInput {
@@ -154,7 +169,9 @@ export async function runPublishedWorkflow({
     const arrivals = new Map<string, Map<string, Arrival>>();
     const reachable = new Set([triggerNodeId]);
     for (const id of reachable) {
-      for (const edge of graph.edges.filter((candidate) => candidate.sourceNodeId === id)) {
+      for (const edge of graph.edges.filter(
+        (candidate) => candidate.sourceNodeId === id,
+      )) {
         reachable.add(edge.targetNodeId);
       }
     }
@@ -236,16 +253,27 @@ export async function runPublishedWorkflow({
       scope: Scope,
       arrivalFor: (edge: WorkflowEdge) => Arrival,
     ): Promise<void> => {
-      await Promise.all(edges.map((edge) => deliver(edge, arrivalFor(edge), scope)));
+      await Promise.all(
+        edges.map((edge) => deliver(edge, arrivalFor(edge), scope)),
+      );
     };
 
-    const deliver = async (edge: WorkflowEdge, arrival: Arrival, scope: Scope): Promise<void> => {
+    const deliver = async (
+      edge: WorkflowEdge,
+      arrival: Arrival,
+      scope: Scope,
+    ): Promise<void> => {
       const node = nodes.get(edge.targetNodeId)!;
       const key = `${node.id}:${scope.path.join('.')}`;
-      const received = (arrivals.get(key) ?? new Map<string, Arrival>()).set(edge.id, arrival);
+      const received = (arrivals.get(key) ?? new Map<string, Arrival>()).set(
+        edge.id,
+        arrival,
+      );
       arrivals.set(key, received);
       const expected = graph.edges.filter(
-        (candidate) => candidate.targetNodeId === node.id && reachable.has(candidate.sourceNodeId),
+        (candidate) =>
+          candidate.targetNodeId === node.id &&
+          reachable.has(candidate.sourceNodeId),
       );
       if (received.size < expected.length) {
         return;
@@ -259,7 +287,12 @@ export async function runPublishedWorkflow({
         node.type === 'merge'
           ? Object.fromEntries(came.map((each) => [each.from, each.output]))
           : came[0]!.output;
-      return run(node, input, Object.assign({}, ...came.map((each) => each.steps)), scope);
+      return run(
+        node,
+        input,
+        Object.assign({}, ...came.map((each) => each.steps)),
+        scope,
+      );
     };
 
     const execute = async (
@@ -324,7 +357,10 @@ export async function runPublishedWorkflow({
           await reconcileStatus();
           await sendNotice(notifyApprovalWaiting({ stepRunId }));
           do {
-            await condition(() => decided.has(stepRunId), SIGNAL_RECHECK_INTERVAL);
+            await condition(
+              () => decided.has(stepRunId),
+              SIGNAL_RECHECK_INTERVAL,
+            );
             result = await execute(node, input, steps, scope);
           } while (result?.kind === 'awaiting_decision');
           awaitingPerson -= 1;
@@ -337,12 +373,20 @@ export async function runPublishedWorkflow({
           if (!pausedForCap) {
             pausedForCap = true;
             capPauses += 1;
-            await sendNotice(notifyRunPaused({ runId, pause: capPauses, reason: result.reason }));
+            await sendNotice(
+              notifyRunPaused({
+                runId,
+                pause: capPauses,
+                reason: result.reason,
+              }),
+            );
           }
           const raisesSeen = capRaises;
           await condition(
             () => capRaises !== raisesSeen,
-            result.until ? Math.max(0, Date.parse(result.until) - Date.now()) : untilNextUtcMonth(),
+            result.until
+              ? Math.max(0, Date.parse(result.until) - Date.now())
+              : untilNextUtcMonth(),
           );
           capped -= 1;
         }
@@ -389,7 +433,10 @@ export async function runPublishedWorkflow({
         },
         io: { item, index },
       }));
-      const runIteration = ({ scope: inner, io }: (typeof iterations)[number]) =>
+      const runIteration = ({
+        scope: inner,
+        io,
+      }: (typeof iterations)[number]) =>
         follow(edgesFrom(loopNode.id, 'each'), inner, () => ({
           from: loopNode.id,
           output: io,
@@ -433,11 +480,13 @@ export async function runPublishedWorkflow({
           return {
             nodeId: node.id,
             context: unit.context,
-            items: ownEntries.slice(start, start + unit.items.length).map((entry) => ({
-              item: entry.item,
-              path: String(entry.index),
-              tracker: entry.tracker,
-            })),
+            items: ownEntries
+              .slice(start, start + unit.items.length)
+              .map((entry) => ({
+                item: entry.item,
+                path: String(entry.index),
+                tracker: entry.tracker,
+              })),
           };
         });
         claims.push({ rootNodeId: node.id, units: carriedUnits });
@@ -460,7 +509,9 @@ export async function runPublishedWorkflow({
             tracker: entry.tracker,
           })),
         });
-        const pending = entries.filter((entry) => !released.has(`${index}.${entry.index}`));
+        const pending = entries.filter(
+          (entry) => !released.has(`${index}.${entry.index}`),
+        );
         const resumeScope = {
           path: [...scope.path, index],
           failed: false,
@@ -468,11 +519,14 @@ export async function runPublishedWorkflow({
           rootLoopId: scope.rootLoopId ?? node.id,
           root,
         };
-        const ok = await iterate(resumed, pending, resume.context.steps, resumeScope, root, (position) => [
-          ...scope.path,
-          index,
-          position,
-        ]);
+        const ok = await iterate(
+          resumed,
+          pending,
+          resume.context.steps,
+          resumeScope,
+          root,
+          (position) => [...scope.path, index, position],
+        );
         completed &&= ok;
         if (ok && resume.complete && pending.length === entries.length) {
           const resumedOutput = {
@@ -488,25 +542,39 @@ export async function runPublishedWorkflow({
         }
       }
 
-      const pendingOwn = ownEntries.filter((entry) => !released.has(String(entry.index)));
-      const ownCompleted = await iterate(node, pendingOwn, steps, scope, root, (index) => [
-        ...scope.path,
-        index,
-      ]);
+      const pendingOwn = ownEntries.filter(
+        (entry) => !released.has(String(entry.index)),
+      );
+      const ownCompleted = await iterate(
+        node,
+        pendingOwn,
+        steps,
+        scope,
+        root,
+        (index) => [...scope.path, index],
+      );
       if (!completed || !ownCompleted) {
         scope.failed = true;
         return;
       }
       if (isRoot ? !root.saved : grant.saved === 0) {
-        await follow(edgesFrom(node.id, 'done'), scope, () => ({ from: node.id, output, steps }));
+        await follow(edgesFrom(node.id, 'done'), scope, () => ({
+          from: node.id,
+          output,
+          steps,
+        }));
       }
     };
 
-    await follow(edgesFrom(triggerNodeId), { path: [], failed: false, items: [] }, () => ({
-      from: triggerNodeId,
-      output: triggerOutput,
-      steps: { [triggerNodeId]: triggerOutput },
-    }));
+    await follow(
+      edgesFrom(triggerNodeId),
+      { path: [], failed: false, items: [] },
+      () => ({
+        from: triggerNodeId,
+        output: triggerOutput,
+        steps: { [triggerNodeId]: triggerOutput },
+      }),
+    );
     await reconcileStatus();
     if (failed || runCancelled) {
       await releaseUnprocessed();

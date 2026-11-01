@@ -83,8 +83,7 @@ describe('NotificationsBell', () => {
 
   function button(name: string) {
     return [...menu().querySelectorAll('button, [role="menuitem"]')].find(
-      (node) =>
-        (node.getAttribute('aria-label') ?? node.textContent) === name,
+      (node) => (node.getAttribute('aria-label') ?? node.textContent) === name,
     ) as HTMLElement;
   }
 

@@ -68,7 +68,11 @@ beforeAll(async () => {
       p_aggregate_type: 'deal_milestone',
       p_aggregate_id: crypto.randomUUID(),
       p_event_type: 'deal_milestone.set',
-      p_payload: { kind: 'closing', target_on: '2026-03-01', actual_on: '2026-02-20' },
+      p_payload: {
+        kind: 'closing',
+        target_on: '2026-03-01',
+        actual_on: '2026-02-20',
+      },
       p_actor_kind: 'service',
     })
     .throwOnError();

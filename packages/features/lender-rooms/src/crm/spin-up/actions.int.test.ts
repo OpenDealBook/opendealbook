@@ -2,9 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
-
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 const caller = vi.hoisted(() => ({
   client: null as unknown,

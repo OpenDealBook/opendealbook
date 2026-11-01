@@ -1,11 +1,11 @@
 import type { AiScope } from '@odb/ai/scope';
 import { generateStructured, type Structured } from '@odb/ai/server';
 
-import type { DealPayload } from '../schema/deal.schema';
 import {
   type DealIntakeDraft,
   dealIntakeDraftSchema,
 } from '../schema/deal-intake.schema';
+import type { DealPayload } from '../schema/deal.schema';
 
 const INTAKE_SYSTEM =
   'You extract structured facts about an acquisition target from a business ' +

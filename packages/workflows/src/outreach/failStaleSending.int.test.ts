@@ -4,7 +4,6 @@ import {
   provisionAccount,
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
-
 import { failStaleSendingOutreachMessages } from './failStaleSending';
 
 const MINUTE = 60_000;
@@ -12,7 +11,10 @@ const MINUTE = 60_000;
 let account: IntegrationAccount;
 let sequenceId: string;
 
-async function stage(status: 'sending' | 'sent', ageMinutes: number): Promise<string> {
+async function stage(
+  status: 'sending' | 'sent',
+  ageMinutes: number,
+): Promise<string> {
   const { data: enrollment } = await account.admin
     .from('outreach_enrollment')
     .insert({
@@ -81,8 +83,17 @@ describe('failStaleSendingOutreachMessages (integration)', () => {
     await failStaleSendingOutreachMessages();
     await failStaleSendingOutreachMessages();
 
-    expect(await statusesOf(stale)).toEqual({ message: 'failed', enrollment: 'failed' });
-    expect(await statusesOf(fresh)).toEqual({ message: 'sending', enrollment: 'queued' });
-    expect(await statusesOf(sent)).toEqual({ message: 'sent', enrollment: 'sent' });
+    expect(await statusesOf(stale)).toEqual({
+      message: 'failed',
+      enrollment: 'failed',
+    });
+    expect(await statusesOf(fresh)).toEqual({
+      message: 'sending',
+      enrollment: 'queued',
+    });
+    expect(await statusesOf(sent)).toEqual({
+      message: 'sent',
+      enrollment: 'sent',
+    });
   });
 });

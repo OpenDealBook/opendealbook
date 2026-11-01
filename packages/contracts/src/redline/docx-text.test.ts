@@ -31,7 +31,9 @@ describe('docxText', () => {
   }, 60_000);
 
   it('reads nothing from a file that is not a zip', async () => {
-    expect(await docxText(new TextEncoder().encode('not a word file'))).toBeNull();
+    expect(
+      await docxText(new TextEncoder().encode('not a word file')),
+    ).toBeNull();
   });
 
   it('reads nothing from a zip that holds no Word document', async () => {

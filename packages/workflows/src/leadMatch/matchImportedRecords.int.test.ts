@@ -15,7 +15,8 @@ let bulkMatch: Promise<unknown> = Promise.resolve();
 
 const postal = String(10000 + Math.floor(Math.random() * 89999));
 const runTag = crypto.randomUUID().slice(0, 8);
-const einOf = (n: number) => String(100000000 + Math.floor(Math.random() * 800000000) + n).slice(0, 9);
+const einOf = (n: number) =>
+  String(100000000 + Math.floor(Math.random() * 800000000) + n).slice(0, 9);
 const knownEin = einOf(1);
 const unknownEin = einOf(2);
 const strongEin = einOf(3);
@@ -39,8 +40,16 @@ async function newImport(admin: IntegrationAccount['admin'], source: string) {
   return data.id as string;
 }
 
-async function newBusiness(admin: IntegrationAccount['admin'], row: Record<string, string>) {
-  const { data } = await admin.from('public_business').insert(row).select('id').single().throwOnError();
+async function newBusiness(
+  admin: IntegrationAccount['admin'],
+  row: Record<string, string>,
+) {
+  const { data } = await admin
+    .from('public_business')
+    .insert(row)
+    .select('id')
+    .single()
+    .throwOnError();
   return data.id as string;
 }
 
@@ -74,7 +83,12 @@ async function reviews() {
   return data;
 }
 
-function loan(suffix: string, borrowerName: string, addressLine1: string | null, importRef = importId) {
+function loan(
+  suffix: string,
+  borrowerName: string,
+  addressLine1: string | null,
+  importRef = importId,
+) {
   return {
     loan_number: `${runTag}-${suffix}`,
     import_id: importRef,
@@ -90,13 +104,26 @@ beforeAll(async () => {
   einTeam = await provisionAccount();
   const { admin } = pipelineTeam;
 
-  acmeId = await newBusiness(admin, { name: 'Acme Plumbing LLC', match_key: `${postal}|12|acme plumbing` });
-  dentalId = await newBusiness(admin, { name: 'Lakeside Dental Care', match_key: `${postal}|40|lakeside dental care` });
-  filedId = await newBusiness(admin, { name: 'Harrow Freightworks Partners', ein: knownEin });
+  acmeId = await newBusiness(admin, {
+    name: 'Acme Plumbing LLC',
+    match_key: `${postal}|12|acme plumbing`,
+  });
+  dentalId = await newBusiness(admin, {
+    name: 'Lakeside Dental Care',
+    match_key: `${postal}|40|lakeside dental care`,
+  });
+  filedId = await newBusiness(admin, {
+    name: 'Harrow Freightworks Partners',
+    ein: knownEin,
+  });
 
   await admin
     .from('firm')
-    .insert({ account_id: pipelineTeam.accountId, name: 'Acme Plumbing', public_business_id: acmeId })
+    .insert({
+      account_id: pipelineTeam.accountId,
+      name: 'Acme Plumbing',
+      public_business_id: acmeId,
+    })
     .throwOnError();
 
   importId = await newImport(admin, 'ppp');
@@ -121,16 +148,40 @@ beforeAll(async () => {
 afterAll(async () => {
   await Promise.allSettled([bulkMatch]);
   const { admin } = pipelineTeam;
-  await admin.from('ppp_loan').delete().like('loan_number', `${runTag}%`).throwOnError();
-  await admin.from('form_5500_filing').delete().like('ack_id', `${runTag}%`).throwOnError();
-  await admin.from('sba_loan').delete().like('source_key', `${runTag}%`).throwOnError();
-  await admin.from('state_registry_entity').delete().like('entity_number', `${runTag}%`).throwOnError();
+  await admin
+    .from('ppp_loan')
+    .delete()
+    .like('loan_number', `${runTag}%`)
+    .throwOnError();
+  await admin
+    .from('form_5500_filing')
+    .delete()
+    .like('ack_id', `${runTag}%`)
+    .throwOnError();
+  await admin
+    .from('sba_loan')
+    .delete()
+    .like('source_key', `${runTag}%`)
+    .throwOnError();
+  await admin
+    .from('state_registry_entity')
+    .delete()
+    .like('entity_number', `${runTag}%`)
+    .throwOnError();
   await admin
     .from('firm')
     .delete()
-    .in('account_id', [pipelineTeam.accountId, otherTeam.accountId, einTeam.accountId])
+    .in('account_id', [
+      pipelineTeam.accountId,
+      otherTeam.accountId,
+      einTeam.accountId,
+    ])
     .throwOnError();
-  await admin.from('public_business').delete().like('match_key', `${postal}|%`).throwOnError();
+  await admin
+    .from('public_business')
+    .delete()
+    .like('match_key', `${postal}|%`)
+    .throwOnError();
   await admin
     .from('business_match_review')
     .delete()
@@ -139,9 +190,23 @@ afterAll(async () => {
   await admin
     .from('public_business')
     .delete()
-    .in('ein', [knownEin, unknownEin, strongEin, weakEin, lonelyEin, heldEin, clashEin, loneHeldEin, loneClashEin])
+    .in('ein', [
+      knownEin,
+      unknownEin,
+      strongEin,
+      weakEin,
+      lonelyEin,
+      heldEin,
+      clashEin,
+      loneHeldEin,
+      loneClashEin,
+    ])
     .throwOnError();
-  await admin.from('lead_import').delete().like('filename', `match-${runTag}%`).throwOnError();
+  await admin
+    .from('lead_import')
+    .delete()
+    .like('filename', `match-${runTag}%`)
+    .throwOnError();
   await pipelineTeam.cleanup();
   await otherTeam.cleanup();
   await einTeam.cleanup();
@@ -157,7 +222,9 @@ describe('matchImportedRecords', () => {
   });
 
   it('creates a business for a record that matches nothing and links it', async () => {
-    const created = (await businessesInBlock()).find((b) => b.match_key === `${postal}|12|golden dragon restaurant`);
+    const created = (await businessesInBlock()).find(
+      (b) => b.match_key === `${postal}|12|golden dragon restaurant`,
+    );
     expect(created?.name).toBe('Golden Dragon Restaurant');
     expect(await pppLink(`${runTag}-new`)).toBe(created?.id);
   });
@@ -175,10 +242,14 @@ describe('matchImportedRecords', () => {
   });
 
   it('gives a weak match no team reviews its own business and links it', async () => {
-    const own = (await businessesInBlock()).find((b) => b.match_key === `${postal}|40|lakeside dental care and ortho`);
+    const own = (await businessesInBlock()).find(
+      (b) => b.match_key === `${postal}|40|lakeside dental care and ortho`,
+    );
     expect(own?.name).toBe('Lakeside Dental Care and Ortho');
     expect(await pppLink(`${runTag}-unheld`)).toBe(own?.id);
-    expect((await reviews()).map((r) => r.ppp_loan_number)).not.toContain(`${runTag}-unheld`);
+    expect((await reviews()).map((r) => r.ppp_loan_number)).not.toContain(
+      `${runTag}-unheld`,
+    );
   });
 
   it('leaves a record without a street number unlinked and creates nothing for it', async () => {
@@ -190,18 +261,30 @@ describe('matchImportedRecords', () => {
   });
 
   it('converges to the same links, businesses and reviews when run again', async () => {
-    const before = { businesses: await businessesInBlock(), reviews: await reviews() };
+    const before = {
+      businesses: await businessesInBlock(),
+      reviews: await reviews(),
+    };
 
     await matchImportedRecords({ source: 'ppp', importId });
 
-    expect({ businesses: await businessesInBlock(), reviews: await reviews() }).toEqual(before);
-    expect(await pppLink(`${runTag}-new`)).toBe(before.businesses.find((b) => b.name === 'Golden Dragon Restaurant')?.id);
+    expect({
+      businesses: await businessesInBlock(),
+      reviews: await reviews(),
+    }).toEqual(before);
+    expect(await pppLink(`${runTag}-new`)).toBe(
+      before.businesses.find((b) => b.name === 'Golden Dragon Restaurant')?.id,
+    );
   });
 
   it('keeps a team decision when the import is matched again', async () => {
     await pipelineTeam.admin
       .from('business_match_review')
-      .update({ status: 'rejected', reviewed_by: pipelineTeam.userId, reviewed_at: new Date().toISOString() })
+      .update({
+        status: 'rejected',
+        reviewed_by: pipelineTeam.userId,
+        reviewed_at: new Date().toISOString(),
+      })
       .eq('ppp_loan_number', `${runTag}-weak`)
       .throwOnError();
 
@@ -216,8 +299,18 @@ describe('matchImportedRecords', () => {
     await admin
       .from('form_5500_filing')
       .insert([
-        { ack_id: `${runTag}-known`, import_id: filingImport, ein: knownEin, sponsor_name: 'Harrow Freightworks Partners LP' },
-        { ack_id: `${runTag}-unknown`, import_id: filingImport, ein: unknownEin, sponsor_name: 'Quarry Tile Works' },
+        {
+          ack_id: `${runTag}-known`,
+          import_id: filingImport,
+          ein: knownEin,
+          sponsor_name: 'Harrow Freightworks Partners LP',
+        },
+        {
+          ack_id: `${runTag}-unknown`,
+          import_id: filingImport,
+          ein: unknownEin,
+          sponsor_name: 'Quarry Tile Works',
+        },
       ])
       .throwOnError();
 
@@ -233,7 +326,10 @@ describe('matchImportedRecords', () => {
       {
         ack_id: `${runTag}-known`,
         business_id: filedId,
-        public_business: { name: 'Harrow Freightworks Partners', ein: knownEin },
+        public_business: {
+          name: 'Harrow Freightworks Partners',
+          ein: knownEin,
+        },
       },
       {
         ack_id: `${runTag}-unknown`,
@@ -246,7 +342,12 @@ describe('matchImportedRecords', () => {
   it('falls back to name and address when no business has the EIN', async () => {
     const { admin } = pipelineTeam;
     const filingImport = await newImport(admin, 'form_5500');
-    const filing = (suffix: string, ein: string, sponsorName: string, addressLine1: string) => ({
+    const filing = (
+      suffix: string,
+      ein: string,
+      sponsorName: string,
+      addressLine1: string,
+    ) => ({
       ack_id: `${runTag}-fb-${suffix}`,
       import_id: filingImport,
       ein,
@@ -258,7 +359,12 @@ describe('matchImportedRecords', () => {
       .from('form_5500_filing')
       .insert([
         filing('strong', strongEin, 'Lakeside Dental Care PC', '40 Shore Rd'),
-        filing('weak', weakEin, 'Acme Plumbing and Heating Inc', '12 Congress Ave'),
+        filing(
+          'weak',
+          weakEin,
+          'Acme Plumbing and Heating Inc',
+          '12 Congress Ave',
+        ),
         filing('lonely', lonelyEin, 'Quarry Tile Works', '77 Stone Ln'),
       ])
       .throwOnError();
@@ -271,7 +377,9 @@ describe('matchImportedRecords', () => {
       .like('ack_id', `${runTag}-fb-%`)
       .order('ack_id')
       .throwOnError();
-    const linkOf = Object.fromEntries(filings.map((f) => [f.ack_id, f.business_id]));
+    const linkOf = Object.fromEntries(
+      filings.map((f) => [f.ack_id, f.business_id]),
+    );
     const { data: dental } = await admin
       .from('public_business')
       .select('ein')
@@ -302,8 +410,14 @@ describe('matchImportedRecords', () => {
         [`${runTag}-fb-weak`]: null,
       },
       dental: { ein: strongEin },
-      lonely: { name: 'Quarry Tile Works', ein: lonelyEin, match_key: `${postal}|77|quarry tile works` },
-      weakReviews: [{ account_id: pipelineTeam.accountId, business_id: acmeId }],
+      lonely: {
+        name: 'Quarry Tile Works',
+        ein: lonelyEin,
+        match_key: `${postal}|77|quarry tile works`,
+      },
+      weakReviews: [
+        { account_id: pipelineTeam.accountId, business_id: acmeId },
+      ],
       weakEinBusinesses: 0,
     });
   });
@@ -318,10 +432,26 @@ describe('matchImportedRecords', () => {
     await admin
       .from('firm')
       .insert([
-        { account_id: pipelineTeam.accountId, name: 'Pine Ridge Roofing', public_business_id: clashId },
-        { account_id: pipelineTeam.accountId, name: 'Pine Ridge Roofing (filing)', ein: clashEin },
-        { account_id: otherTeam.accountId, name: 'Pine Ridge Roofing', ein: clashEin },
-        { account_id: einTeam.accountId, name: 'Pine Ridge Roofing', ein: heldEin },
+        {
+          account_id: pipelineTeam.accountId,
+          name: 'Pine Ridge Roofing',
+          public_business_id: clashId,
+        },
+        {
+          account_id: pipelineTeam.accountId,
+          name: 'Pine Ridge Roofing (filing)',
+          ein: clashEin,
+        },
+        {
+          account_id: otherTeam.accountId,
+          name: 'Pine Ridge Roofing',
+          ein: clashEin,
+        },
+        {
+          account_id: einTeam.accountId,
+          name: 'Pine Ridge Roofing',
+          ein: heldEin,
+        },
       ])
       .throwOnError();
     const filingImport = await newImport(admin, 'form_5500');
@@ -345,7 +475,12 @@ describe('matchImportedRecords', () => {
       .eq('ack_id', `${runTag}-clash`)
       .single()
       .throwOnError();
-    const { data: clash } = await admin.from('public_business').select('ein').eq('id', clashId).single().throwOnError();
+    const { data: clash } = await admin
+      .from('public_business')
+      .select('ein')
+      .eq('id', clashId)
+      .single()
+      .throwOnError();
     const { data: clashReviews } = await admin
       .from('business_match_review')
       .select('account_id, business_id, score, reason, status')
@@ -359,10 +494,20 @@ describe('matchImportedRecords', () => {
       reason: 'ein_conflict',
       status: 'pending',
     });
-    expect({ filing, clash, clashReviews: clashReviews.sort((a, b) => a.account_id.localeCompare(b.account_id)) }).toEqual({
+    expect({
+      filing,
+      clash,
+      clashReviews: clashReviews.sort((a, b) =>
+        a.account_id.localeCompare(b.account_id),
+      ),
+    }).toEqual({
       filing: { business_id: null },
       clash: { ein: heldEin },
-      clashReviews: [pipelineTeam.accountId, otherTeam.accountId, einTeam.accountId]
+      clashReviews: [
+        pipelineTeam.accountId,
+        otherTeam.accountId,
+        einTeam.accountId,
+      ]
         .sort()
         .map(review),
     });
@@ -396,7 +541,12 @@ describe('matchImportedRecords', () => {
       .eq('ack_id', `${runTag}-lone-clash`)
       .single()
       .throwOnError();
-    const { data: held } = await admin.from('public_business').select('ein').eq('id', heldId).single().throwOnError();
+    const { data: held } = await admin
+      .from('public_business')
+      .select('ein')
+      .eq('id', heldId)
+      .single()
+      .throwOnError();
     const { count: reviewCount } = await admin
       .from('business_match_review')
       .select('id', { count: 'exact', head: true })
@@ -406,7 +556,11 @@ describe('matchImportedRecords', () => {
     expect({ filing, held, reviewCount }).toEqual({
       filing: {
         business_id: expect.not.stringMatching(heldId),
-        public_business: { name: 'Birch Hollow Kennels Inc', ein: loneClashEin, match_key: null },
+        public_business: {
+          name: 'Birch Hollow Kennels Inc',
+          ein: loneClashEin,
+          match_key: null,
+        },
       },
       held: { ein: loneHeldEin },
       reviewCount: 0,
@@ -415,11 +569,25 @@ describe('matchImportedRecords', () => {
 
   it('sends a weak match to teams whose firm holds the candidate business EIN', async () => {
     const { admin } = pipelineTeam;
-    await admin.from('firm').insert({ account_id: einTeam.accountId, name: 'Pine Ridge', ein: heldEin }).throwOnError();
+    await admin
+      .from('firm')
+      .insert({
+        account_id: einTeam.accountId,
+        name: 'Pine Ridge',
+        ein: heldEin,
+      })
+      .throwOnError();
     const loanImport = await newImport(admin, 'ppp');
     await admin
       .from('ppp_loan')
-      .insert(loan('pine-weak', 'Pine Ridge Roofing and Gutters', '88 Timber Way', loanImport))
+      .insert(
+        loan(
+          'pine-weak',
+          'Pine Ridge Roofing and Gutters',
+          '88 Timber Way',
+          loanImport,
+        ),
+      )
       .throwOnError();
 
     await matchImportedRecords({ source: 'ppp', importId: loanImport });
@@ -463,7 +631,10 @@ describe('matchImportedRecords', () => {
       .throwOnError();
 
     await matchImportedRecords({ source: 'sba_7a', importId: sbaImport });
-    await matchImportedRecords({ source: 'state_registry', importId: registryImport });
+    await matchImportedRecords({
+      source: 'state_registry',
+      importId: registryImport,
+    });
 
     const { data: sba } = await admin
       .from('sba_loan')
@@ -477,7 +648,10 @@ describe('matchImportedRecords', () => {
       .eq('entity_number', `${runTag}-reg`)
       .single()
       .throwOnError();
-    expect({ sba, registry }).toEqual({ sba: { business_id: acmeId }, registry: { business_id: dentalId } });
+    expect({ sba, registry }).toEqual({
+      sba: { business_id: acmeId },
+      registry: { business_id: dentalId },
+    });
   });
 
   it('pages through an import larger than one batch', async () => {
@@ -487,7 +661,12 @@ describe('matchImportedRecords', () => {
       .from('ppp_loan')
       .insert(
         Array.from({ length: 501 }, (_, i) =>
-          loan(`bulk-${String(i).padStart(3, '0')}`, `Bulk Shop ${i}`, `${1000 + i} Market St`, bulkImport),
+          loan(
+            `bulk-${String(i).padStart(3, '0')}`,
+            `Bulk Shop ${i}`,
+            `${1000 + i} Market St`,
+            bulkImport,
+          ),
         ),
       )
       .throwOnError();

@@ -24,9 +24,7 @@ const actionClient = createSafeActionClient({
     getLogger().error({ err: error }, 'Server action failed');
     monitoring.captureException(error);
 
-    return isTeamReadOnly(error)
-      ? TEAM_READ_ONLY
-      : error.message;
+    return isTeamReadOnly(error) ? TEAM_READ_ONLY : error.message;
   },
 });
 

@@ -69,7 +69,9 @@ function buildIsFresh(distDir: string): boolean {
     existsSync(marker) &&
     statSync(marker).mtimeMs >
       Math.max(
-        ...SOURCE_ROOTS.map((root) => newestSourceChange(`${REPO_ROOT}${root}`)),
+        ...SOURCE_ROOTS.map((root) =>
+          newestSourceChange(`${REPO_ROOT}${root}`),
+        ),
       )
   );
 }

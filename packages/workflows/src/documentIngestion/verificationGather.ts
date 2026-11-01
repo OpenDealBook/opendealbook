@@ -98,7 +98,9 @@ export async function buildDocumentExtractionChecks(
   const ai = await resolveTeamAi(accountId, 'chat');
 
   if (!ai) {
-    return unavailable(`no AI provider key and chat model for account ${accountId}`);
+    return unavailable(
+      `no AI provider key and chat model for account ${accountId}`,
+    );
   }
 
   const documents = await loadDealDocuments(client, dealId);
@@ -223,7 +225,12 @@ async function resolveSide(
   for (const document of matched) {
     const signedUrl = await signDocument(context.client, document.storagePath);
     const markdown = await extractMarkdown(context.docling, signedUrl);
-    const amount = await extractFigure(context.ai, context.dealId, instruction, markdown);
+    const amount = await extractFigure(
+      context.ai,
+      context.dealId,
+      instruction,
+      markdown,
+    );
 
     if (amount !== null) {
       amounts.push(amount);

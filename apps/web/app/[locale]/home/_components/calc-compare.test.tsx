@@ -202,14 +202,17 @@ it('puts two versions side by side and marks the inputs and outputs that differ'
 it('tells two unnamed versions apart in the headers and pickers', () => {
   const unnamed = VERSIONS.map((version) => ({ ...version, name: null }));
   const unnamedSide = (detail: CalcDetail, index: number) =>
-    ({ ...detail, version: { ...detail.version, ...unnamed[index] } }) as CalcDetail;
+    ({
+      ...detail,
+      version: { ...detail.version, ...unnamed[index] },
+    }) as CalcDetail;
 
   showCompare(true, unnamedSide(base, 0), unnamedSide(stretch, 1), unnamed);
 
   expect(
-    [
-      ...document.querySelectorAll('[aria-label="Inputs"] thead th'),
-    ].map((th) => th.textContent),
+    [...document.querySelectorAll('[aria-label="Inputs"] thead th')].map(
+      (th) => th.textContent,
+    ),
   ).toEqual([
     '',
     'Deal v1, saved Oct 20 3:14 PM',

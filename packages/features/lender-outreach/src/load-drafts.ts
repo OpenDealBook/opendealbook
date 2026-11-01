@@ -1,10 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { fetchCloseDeadline, loadDealTermsSought } from '@odb/deals/server';
 import { outsideDealName } from '@odb/deals/shared';
-import {
-  fetchCloseDeadline,
-  loadDealTermsSought,
-} from '@odb/deals/server';
 import { Refusal } from '@odb/lender-rooms/actions/refusal.ts';
 import { requireEnv } from '@odb/shared/env';
 import type { Database } from '@odb/supabase';
@@ -14,7 +11,11 @@ import { loadOutreachTemplate } from './template';
 
 type Client = SupabaseClient<Database>;
 
-export async function loadDrafts(client: Client, dealId: string, userId: string) {
+export async function loadDrafts(
+  client: Client,
+  dealId: string,
+  userId: string,
+) {
   const { data: mayWork } = await client
     .rpc('has_deal_permission', { deal_id: dealId, permission: 'deals.work' })
     .throwOnError();

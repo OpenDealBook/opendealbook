@@ -4,12 +4,17 @@ import { NODE_TYPES } from '../graph';
 import { paletteNodeTypes } from './palette';
 
 const palette = paletteNodeTypes();
-const item = (type: string) => palette.find((candidate) => candidate.type === type)!;
+const item = (type: string) =>
+  palette.find((candidate) => candidate.type === type)!;
 
 describe('paletteNodeTypes', () => {
   it('offers every node type once, with its friendly label', () => {
     expect(palette.map((candidate) => candidate.type)).toEqual([...NODE_TYPES]);
-    expect(Object.fromEntries(palette.map((candidate) => [candidate.type, candidate.label]))).toEqual({
+    expect(
+      Object.fromEntries(
+        palette.map((candidate) => [candidate.type, candidate.label]),
+      ),
+    ).toEqual({
       manual_trigger: 'Run now',
       schedule_trigger: 'Schedule',
       event_trigger: 'App event',
@@ -47,8 +52,14 @@ describe('paletteNodeTypes', () => {
     });
     expect(item('wait').schema).toMatchObject({
       type: 'object',
-      properties: { label: { type: 'string' }, description: { type: 'string' } },
-      oneOf: [{ properties: { kind: { const: 'duration' } } }, { properties: { kind: { const: 'until' } } }],
+      properties: {
+        label: { type: 'string' },
+        description: { type: 'string' },
+      },
+      oneOf: [
+        { properties: { kind: { const: 'duration' } } },
+        { properties: { kind: { const: 'until' } } },
+      ],
     });
   });
 
@@ -56,11 +67,15 @@ describe('paletteNodeTypes', () => {
     expect(item('ask_ai').defaultPropertiesData).toEqual({ output: 'text' });
     expect(item('loop').defaultPropertiesData).toEqual({ parallel: false });
     expect(item('notify_team').defaultPropertiesData).toEqual({});
-    expect(item('diligence_search').defaultPropertiesData).toEqual({ searchAllNames: false });
+    expect(item('diligence_search').defaultPropertiesData).toEqual({
+      searchAllNames: false,
+    });
   });
 
   it('offers the background search a checkbox to search news and reviews for every business name', () => {
-    expect(item('diligence_search').schema.properties!.searchAllNames).toMatchObject({
+    expect(
+      item('diligence_search').schema.properties!.searchAllNames,
+    ).toMatchObject({
       type: 'boolean',
       default: false,
       title: 'Search news and reviews for every business name',
@@ -71,7 +86,11 @@ describe('paletteNodeTypes', () => {
     expect(item('ask_ai').uischema.elements).toEqual([
       { type: 'Control', scope: '#/properties/label' },
       { type: 'Control', scope: '#/properties/description' },
-      { type: 'Control', scope: '#/properties/prompt', options: { expression: true } },
+      {
+        type: 'Control',
+        scope: '#/properties/prompt',
+        options: { expression: true },
+      },
       { type: 'Control', scope: '#/properties/output' },
     ]);
   });
@@ -100,7 +119,10 @@ describe('paletteNodeTypes', () => {
         index: { type: 'number', label: 'index' },
       },
     });
-    expect(Object.keys(item('ask_ai').outputSchema!.properties)).toEqual(['text', 'json']);
+    expect(Object.keys(item('ask_ai').outputSchema!.properties)).toEqual([
+      'text',
+      'json',
+    ]);
     expect(item('event_trigger').outputSchema).toEqual({
       type: 'default',
       properties: {

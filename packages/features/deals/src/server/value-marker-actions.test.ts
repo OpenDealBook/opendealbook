@@ -8,7 +8,13 @@ vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({
     from: (table: string) => {
       const builder: Record<string, unknown> = {};
-      for (const method of ['select', 'eq', 'single', 'maybeSingle', 'upsert']) {
+      for (const method of [
+        'select',
+        'eq',
+        'single',
+        'maybeSingle',
+        'upsert',
+      ]) {
         builder[method] = () => builder;
       }
       builder.throwOnError = () =>
@@ -21,7 +27,9 @@ vi.mock('@odb/supabase/server', () => ({
       return builder;
     },
     rpc: () => ({
-      throwOnError: async () => ({ data: [{ user_id: 'o', name: 'Dana Owner' }] }),
+      throwOnError: async () => ({
+        data: [{ user_id: 'o', name: 'Dana Owner' }],
+      }),
     }),
   }),
 }));

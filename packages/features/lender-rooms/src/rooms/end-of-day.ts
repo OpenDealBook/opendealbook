@@ -46,7 +46,5 @@ export function endOfDayIn({
   const endOfDayAsUtc = Date.UTC(year!, month! - 1, day!, 23, 59, 59, 999);
   const firstGuess = endOfDayAsUtc - offsetMs(endOfDayAsUtc, timeZone);
 
-  return new Date(
-    endOfDayAsUtc - offsetMs(firstGuess, timeZone),
-  ).toISOString();
+  return new Date(endOfDayAsUtc - offsetMs(firstGuess, timeZone)).toISOString();
 }

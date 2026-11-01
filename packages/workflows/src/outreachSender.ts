@@ -1,9 +1,16 @@
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-export async function outreachSender(accountId: string): Promise<{ name: string; company: string }> {
+export async function outreachSender(
+  accountId: string,
+): Promise<{ name: string; company: string }> {
   const admin = getSupabaseServerAdminClient();
   const [{ data: team }, { data: profile }] = await Promise.all([
-    admin.from('accounts').select('name, primary_owner_user_id').eq('id', accountId).single().throwOnError(),
+    admin
+      .from('accounts')
+      .select('name, primary_owner_user_id')
+      .eq('id', accountId)
+      .single()
+      .throwOnError(),
     admin
       .from('buyer_profile')
       .select('display_name')

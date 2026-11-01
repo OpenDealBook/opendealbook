@@ -13,7 +13,11 @@ const workspace = vi.hoisted(() => ({
     model?: string | null;
     base_url: string;
   } | null,
-  providerKeys: [] as { kind: string; actor_id: string | null; provider?: string }[],
+  providerKeys: [] as {
+    kind: string;
+    actor_id: string | null;
+    provider?: string;
+  }[],
 }));
 
 vi.mock('../layout', () => ({
@@ -134,12 +138,16 @@ describe('team settings page', () => {
       base_url: 'https://api.openai.com/v1',
     };
 
-    expect(await render()).toMatch(/aria-label="Embedding model"[^>]*value="text-embedding-3-small"/);
+    expect(await render()).toMatch(
+      /aria-label="Embedding model"[^>]*value="text-embedding-3-small"/,
+    );
   });
 
   it("shows members who cannot manage settings the team's email lookup and letters providers", async () => {
     workspace.permissions = [];
-    workspace.providerKeys = [{ kind: 'email_lookup', actor_id: 'acme~site-contacts' }];
+    workspace.providerKeys = [
+      { kind: 'email_lookup', actor_id: 'acme~site-contacts' },
+    ];
 
     const html = await render();
 
@@ -159,7 +167,9 @@ describe('team settings page', () => {
 
   it('shows the court records broker beside the other provider keys', async () => {
     workspace.permissions = [];
-    workspace.providerKeys = [{ kind: 'court_records', actor_id: null, provider: 'middesk' }];
+    workspace.providerKeys = [
+      { kind: 'court_records', actor_id: null, provider: 'middesk' },
+    ];
 
     const html = await render();
 

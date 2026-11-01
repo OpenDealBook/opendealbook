@@ -24,7 +24,9 @@ const NO_DATA = 'No data';
 const NEW_MONTH = '__new__';
 
 function formatMoney(value: number | null): string {
-  return value === null ? NO_DATA : `$${Math.round(value).toLocaleString('en-US')}`;
+  return value === null
+    ? NO_DATA
+    : `$${Math.round(value).toLocaleString('en-US')}`;
 }
 
 function formatPercent(value: number | null): string {
@@ -63,7 +65,7 @@ function VarianceRow(props: { label: string; variance: OperatingVariance }) {
   return (
     <div className={'flex flex-col gap-1 rounded-md border p-3'}>
       <span className={'text-sm font-medium'}>{props.label}</span>
-      <div className={'flex flex-wrap gap-4 text-sm text-muted-foreground'}>
+      <div className={'text-muted-foreground flex flex-wrap gap-4 text-sm'}>
         <span>Underwriting: {formatMoney(props.variance.baseline)}</span>
         <span>Actual (annualized): {formatMoney(props.variance.actual)}</span>
         <span>Delta: {formatSignedMoney(props.variance.absolute_delta)}</span>
@@ -149,7 +151,9 @@ export function DealOperating(props: {
       <div className={'grid grid-cols-2 gap-4 sm:grid-cols-5'}>
         <Card>
           <CardHeader>
-            <CardTitle className={'text-sm text-muted-foreground'}>Revenue</CardTitle>
+            <CardTitle className={'text-muted-foreground text-sm'}>
+              Revenue
+            </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
             {formatMoney(latest?.revenue ?? null)}
@@ -157,7 +161,7 @@ export function DealOperating(props: {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className={'text-sm text-muted-foreground'}>
+            <CardTitle className={'text-muted-foreground text-sm'}>
               Net operating income
             </CardTitle>
           </CardHeader>
@@ -167,7 +171,7 @@ export function DealOperating(props: {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className={'text-sm text-muted-foreground'}>
+            <CardTitle className={'text-muted-foreground text-sm'}>
               Operating margin
             </CardTitle>
           </CardHeader>
@@ -177,7 +181,9 @@ export function DealOperating(props: {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className={'text-sm text-muted-foreground'}>Cash balance</CardTitle>
+            <CardTitle className={'text-muted-foreground text-sm'}>
+              Cash balance
+            </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
             {formatMoney(latestRaw?.cash_balance ?? null)}
@@ -185,7 +191,9 @@ export function DealOperating(props: {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className={'text-sm text-muted-foreground'}>Headcount</CardTitle>
+            <CardTitle className={'text-muted-foreground text-sm'}>
+              Headcount
+            </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
             {latestRaw?.headcount ?? NO_DATA}
@@ -199,7 +207,7 @@ export function DealOperating(props: {
         </CardHeader>
         <CardContent>
           {props.summary.periods.length === 0 ? (
-            <p className={'text-sm text-muted-foreground'}>
+            <p className={'text-muted-foreground text-sm'}>
               No operating periods recorded yet
             </p>
           ) : (
@@ -211,17 +219,17 @@ export function DealOperating(props: {
                 >
                   <div className={'flex h-24 items-end gap-1'}>
                     <div
-                      className={'w-3 rounded-t bg-primary'}
+                      className={'bg-primary w-3 rounded-t'}
                       style={{ height: `${revenueHeights[index] ?? 0}%` }}
                       title={`Revenue: ${formatMoney(period.revenue)}`}
                     />
                     <div
-                      className={'w-3 rounded-t bg-muted-foreground'}
+                      className={'bg-muted-foreground w-3 rounded-t'}
                       style={{ height: `${noiHeights[index] ?? 0}%` }}
                       title={`Net operating income: ${formatMoney(period.net_operating_income)}`}
                     />
                   </div>
-                  <span className={'text-xs text-muted-foreground'}>
+                  <span className={'text-muted-foreground text-xs'}>
                     {formatMonthLabel(period.period_month)}
                   </span>
                 </div>
@@ -236,7 +244,10 @@ export function DealOperating(props: {
           <CardTitle>Actual vs underwriting</CardTitle>
         </CardHeader>
         <CardContent className={'flex flex-col gap-3'}>
-          <VarianceRow label={'Revenue'} variance={props.summary.variance.revenue} />
+          <VarianceRow
+            label={'Revenue'}
+            variance={props.summary.variance.revenue}
+          />
           <VarianceRow
             label={'Net operating income'}
             variance={props.summary.variance.net_operating_income}
@@ -258,7 +269,10 @@ export function DealOperating(props: {
               <SelectContent>
                 <SelectItem value={NEW_MONTH}>New month</SelectItem>
                 {props.periods.map((period) => (
-                  <SelectItem key={period.period_month} value={period.period_month}>
+                  <SelectItem
+                    key={period.period_month}
+                    value={period.period_month}
+                  >
                     {formatMonthLabel(period.period_month)}
                   </SelectItem>
                 ))}
@@ -323,7 +337,10 @@ export function DealOperating(props: {
             </div>
           </div>
 
-          <Button disabled={pending || periodMonth.trim() === ''} onClick={save}>
+          <Button
+            disabled={pending || periodMonth.trim() === ''}
+            onClick={save}
+          >
             Save month
           </Button>
           {refusal ? (

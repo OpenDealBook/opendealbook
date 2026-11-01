@@ -45,7 +45,12 @@ export async function recordLookup(
 
 export async function reserveAiCall(
   accountId: string,
-  call: { model: string; endpointId: string | null; firmId?: string; dealId?: string },
+  call: {
+    model: string;
+    endpointId: string | null;
+    firmId?: string;
+    dealId?: string;
+  },
 ): Promise<{ callId: string }> {
   const { data: callId } = await getSupabaseServerAdminClient()
     .rpc('reserve_ai_call', {
@@ -68,7 +73,10 @@ export async function recordAiCallUsage(
 ): Promise<void> {
   await getSupabaseServerAdminClient()
     .from('ai_call_log')
-    .update({ prompt_tokens: usage.promptTokens, completion_tokens: usage.completionTokens })
+    .update({
+      prompt_tokens: usage.promptTokens,
+      completion_tokens: usage.completionTokens,
+    })
     .eq('id', callId)
     .throwOnError();
 }

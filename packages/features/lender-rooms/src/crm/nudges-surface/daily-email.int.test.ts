@@ -1,13 +1,9 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
+import type { NovuClient } from '@odb/notifications/server';
 import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
-import type { NovuClient } from '@odb/notifications/server';
-
-import {
-  admin,
-  removeEverythingSeeded,
-} from '../../asks/integration-harness';
+import { admin, removeEverythingSeeded } from '../../asks/integration-harness';
 import { emailLendersToNudge } from './daily-email';
 import { seedQuietTeam } from './test-support';
 
@@ -16,8 +12,10 @@ const NINE_UTC = new Date('2026-10-18T09:05:00Z');
 const EIGHT_NEW_YORK = new Date('2026-10-18T12:05:00Z');
 
 function recordingNovu() {
-  const sent: { workflowId: string; data: Parameters<NovuClient['trigger']>[1] }[] =
-    [];
+  const sent: {
+    workflowId: string;
+    data: Parameters<NovuClient['trigger']>[1];
+  }[] = [];
   const novu: NovuClient = {
     trigger: async (workflowId, data) => {
       sent.push({ workflowId, data });

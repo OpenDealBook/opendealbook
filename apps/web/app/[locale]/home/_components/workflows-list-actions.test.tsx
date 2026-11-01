@@ -100,7 +100,10 @@ describe('WorkflowRowActions', () => {
 
     const [first, second] = server.runNow.mock.calls.map(([input]) => input);
 
-    expect(first).toEqual({ workflowId: 'wf-1', requestId: expect.any(String) });
+    expect(first).toEqual({
+      workflowId: 'wf-1',
+      requestId: expect.any(String),
+    });
     expect(second.requestId).not.toBe(first.requestId);
     expect(server.refresh).toHaveBeenCalled();
   });

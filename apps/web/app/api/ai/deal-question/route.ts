@@ -34,7 +34,10 @@ export async function POST(request: Request) {
   }
 
   if (scope === 'forbidden') {
-    return Response.json({ error: 'Only the deal team can ask about this deal.' }, { status: 403 });
+    return Response.json(
+      { error: 'Only the deal team can ask about this deal.' },
+      { status: 403 },
+    );
   }
 
   const { data: locked } = await client
@@ -42,10 +45,7 @@ export async function POST(request: Request) {
     .throwOnError();
 
   if (locked) {
-    return Response.json(
-      { error: TEAM_READ_ONLY },
-      { status: 403 },
-    );
+    return Response.json({ error: TEAM_READ_ONLY }, { status: 403 });
   }
 
   try {

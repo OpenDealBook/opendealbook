@@ -13,7 +13,9 @@ export function pdfDocument(pages: number): Buffer {
     objects.push(
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${5 + index * 2} 0 R >>`,
     );
-    objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    objects.push(
+      `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    );
   }
   let out = '%PDF-1.4\n';
   const offsets: number[] = [];
@@ -23,7 +25,9 @@ export function pdfDocument(pages: number): Buffer {
   });
   const xref = out.length;
   out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  out += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  out += offsets
+    .map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`)
+    .join('');
   out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(out);
 }

@@ -7,7 +7,11 @@ const world = vi.hoisted(() => ({
 
 vi.mock('@temporalio/workflow', () => ({
   proxyActivities: () => ({
-    createEmbeddingJob: async () => ({ jobId: 'job1', accountId: 'acct1', dealId: 'deal1' }),
+    createEmbeddingJob: async () => ({
+      jobId: 'job1',
+      accountId: 'acct1',
+      dealId: 'deal1',
+    }),
     markEmbeddingJobRunning: async () => world.log.push('running'),
     extractDocumentMarkdown: async () => ({ markdown: '# Doc' }),
     embedDocumentChunks: async () => {

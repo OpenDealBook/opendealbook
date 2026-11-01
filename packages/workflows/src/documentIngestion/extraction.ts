@@ -19,7 +19,12 @@ export async function extractFigure(
     ai,
     { dealId },
     `${instruction}\n\nDocument:\n\n${markdown}`,
-    { system: EXTRACTION_SYSTEM_PROMPT, json: true, temperature: TEMPERATURE, maxTokens: MAX_TOKENS },
+    {
+      system: EXTRACTION_SYSTEM_PROMPT,
+      json: true,
+      temperature: TEMPERATURE,
+      maxTokens: MAX_TOKENS,
+    },
   );
 
   return (aiJson(text) as { amount: number | null }).amount;

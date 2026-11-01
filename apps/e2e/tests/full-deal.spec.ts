@@ -10,19 +10,17 @@ import {
   test,
   waitForMessage,
 } from './fixtures';
-
+import { calcRowAction } from './fixtures/calc';
+import { setFirmOwnerNames } from './fixtures/db-update';
+import { createDeal } from './fixtures/deal';
 import {
   DOCUMENSO_VIEWPORT,
   openDocumensoSender,
   placeSignaturesAndSend,
   signDocumentFromEmail,
 } from './fixtures/documenso';
-
-import { setFirmOwnerNames } from './fixtures/db-update';
-import { calcRowAction } from './fixtures/calc';
-import { createDeal } from './fixtures/deal';
-import { gmail } from './fixtures/stand-ins';
 import { wordDocument, wordDocumentText } from './fixtures/docx';
+import { gmail } from './fixtures/stand-ins';
 
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +45,9 @@ function comboboxWithText(scope: Page | Locator, text: string) {
 
 async function selectOption(combobox: Locator, optionName: string) {
   const page = combobox.page();
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await combobox.click();
   await page.getByRole('option', { name: optionName, exact: true }).click();
 }
@@ -88,7 +88,10 @@ async function editMilestone(
   { target, actual }: { target?: string; actual?: string },
 ) {
   await expect(async () => {
-    await timeline.page().waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await timeline
+      .page()
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await timeline
       .getByRole('row')
       .filter({ hasText: name })
@@ -103,7 +106,9 @@ async function editMilestone(
     await timeline
       .getByRole('button', { name: 'Save', exact: true })
       .click({ timeout: 5000 });
-    await expect(timeline.getByLabel('Target')).toHaveCount(0, { timeout: 5000 });
+    await expect(timeline.getByLabel('Target')).toHaveCount(0, {
+      timeout: 5000,
+    });
   }).toPass({ timeout: 60 * 1000 });
 }
 
@@ -134,7 +139,10 @@ async function expectNotice(ownerId: string, body: string) {
 
 const team = newCredentials();
 const secondAdmin = newCredentials();
-const seller = { email: newCredentials().email, name: `Sam Seller ${Date.now()}` };
+const seller = {
+  email: newCredentials().email,
+  name: `Sam Seller ${Date.now()}`,
+};
 const buyerCounsel = {
   email: newCredentials().email,
   name: `Bea Buyers-Counsel ${Date.now()}`,
@@ -177,8 +185,12 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       await page.goto(`/home/${teamSlug}/settings/templates/new`);
       await page.getByLabel('Name').fill(name);
       await selectOption(page.getByLabel('Type'), type);
-      await page.getByLabel('Document (.docx)').setInputFiles(templateFixture(file));
-      await expect(page.getByRole('heading', { name: /^Fields \(/ })).toBeVisible({
+      await page
+        .getByLabel('Document (.docx)')
+        .setInputFiles(templateFixture(file));
+      await expect(
+        page.getByRole('heading', { name: /^Fields \(/ }),
+      ).toBeVisible({
         timeout: 30 * 1000,
       });
       await page.getByRole('button', { name: 'Save template' }).click();
@@ -187,7 +199,11 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
 
     ({ dealId, dealPath } = await createDeal(page, teamSlug, firmName));
-    cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+    cleanup.track({
+      kind: 'storage',
+      bucket: 'data-room',
+      prefix: `deal/${dealId}`,
+    });
 
     const [deal] = await db.rows<{ firm_id: string }>(
       'deal',
@@ -209,7 +225,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
 
   await test.step('2. Financials: P&L, funding, close date, DSCR, paths', async () => {
     await page.goto(`${dealPath}/financials`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByRole('button', { name: 'New Deal' }).click();
     await page.waitForURL(/\/financials\/calcs\/[0-9a-f-]{36}$/);
     const editor = page.getByRole('main');
@@ -233,7 +251,10 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
     await labelledInput(editor, 'Minimum DSCR').fill('1.25');
 
-    await selectOption(comboboxWithText(editor, 'Months from close'), 'Fiscal year');
+    await selectOption(
+      comboboxWithText(editor, 'Months from close'),
+      'Fiscal year',
+    );
     await editor
       .getByText('Close date', { exact: true })
       .locator('xpath=following-sibling::input')
@@ -242,17 +263,32 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
 
     await editor.getByRole('button', { name: 'Add source' }).click();
     await editor.getByRole('button', { name: 'Add source' }).click();
-    await editor.locator('input[aria-label="Amount, source 1"]').fill('2000000');
+    await editor
+      .locator('input[aria-label="Amount, source 1"]')
+      .fill('2000000');
     await editor.locator('input[aria-label="Rate (%), source 1"]').fill('10.5');
-    await editor.locator('input[aria-label="Term (years), source 1"]').fill('10');
-    await selectOption(editor.getByRole('combobox', { name: 'Type, source 2' }), 'Seller financing');
+    await editor
+      .locator('input[aria-label="Term (years), source 1"]')
+      .fill('10');
+    await selectOption(
+      editor.getByRole('combobox', { name: 'Type, source 2' }),
+      'Seller financing',
+    );
     await editor.locator('input[aria-label="Amount, source 2"]').fill('300000');
     await editor.locator('input[aria-label="Rate (%), source 2"]').fill('6');
-    await editor.locator('input[aria-label="Term (years), source 2"]').fill('10');
-    await editor.locator('input[aria-label="Standby (months), source 2"]').fill('24');
+    await editor
+      .locator('input[aria-label="Term (years), source 2"]')
+      .fill('10');
+    await editor
+      .locator('input[aria-label="Standby (months), source 2"]')
+      .fill('24');
 
-    const years = editor.getByRole('heading', { name: 'Years 1-3' }).locator('xpath=..');
-    await expect(years.getByRole('columnheader', { name: 'Yr 3' })).toBeVisible();
+    const years = editor
+      .getByRole('heading', { name: 'Years 1-3' })
+      .locator('xpath=..');
+    await expect(
+      years.getByRole('columnheader', { name: 'Yr 3' }),
+    ).toBeVisible();
     const dscrCells = years
       .getByRole('row')
       .filter({ has: page.getByRole('cell', { name: 'DSCR', exact: true }) })
@@ -260,7 +296,12 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await expect(dscrCells).toHaveCount(4);
     const debtCells = years
       .getByRole('row')
-      .filter({ has: page.getByRole('cell', { name: 'Total debt service', exact: true }) })
+      .filter({
+        has: page.getByRole('cell', {
+          name: 'Total debt service',
+          exact: true,
+        }),
+      })
       .getByRole('cell');
     for (const cell of (await debtCells.allTextContents()).slice(1)) {
       expect(cell).toMatch(/^\$[\d,]+$/);
@@ -270,10 +311,16 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
 
     const pathBlock = (title: string) =>
-      editor.getByRole('heading', { name: title, exact: true }).locator('xpath=..');
+      editor
+        .getByRole('heading', { name: title, exact: true })
+        .locator('xpath=..');
     for (const title of ['Worst', 'Good', 'Great']) {
-      await expect(pathBlock(title).getByRole('cell', { name: 'DSCR' })).toBeVisible();
-      await expect(pathBlock(title).getByTitle('Below minimum DSCR')).toHaveCount(0);
+      await expect(
+        pathBlock(title).getByRole('cell', { name: 'DSCR' }),
+      ).toBeVisible();
+      await expect(
+        pathBlock(title).getByTitle('Below minimum DSCR'),
+      ).toHaveCount(0);
     }
 
     const worstLoss = editor
@@ -283,19 +330,27 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await expect(
       pathBlock('Worst').getByTitle('Below minimum DSCR').first(),
     ).toBeVisible();
-    await expect(pathBlock('Good').getByTitle('Below minimum DSCR')).toHaveCount(0);
+    await expect(
+      pathBlock('Good').getByTitle('Below minimum DSCR'),
+    ).toHaveCount(0);
 
     await labelledInput(worstLoss, 'Revenue lost at close (%)').fill('10');
-    await expect(pathBlock('Worst').getByTitle('Below minimum DSCR')).toHaveCount(0);
+    await expect(
+      pathBlock('Worst').getByTitle('Below minimum DSCR'),
+    ).toHaveCount(0);
 
     await editor.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(page.getByText('Saved', { exact: true })).toBeVisible({ timeout: 60 * 1000 });
+    await expect(page.getByText('Saved', { exact: true })).toBeVisible({
+      timeout: 60 * 1000,
+    });
     await page.goto(`${dealPath}/financials`);
     await expect(page.getByText(/DSCR \d+\.\d\dx/)).toBeVisible({
       timeout: 60 * 1000,
     });
 
-    const calcRow = page.getByRole('row').filter({ hasText: /DSCR \d+\.\d\dx/ });
+    const calcRow = page
+      .getByRole('row')
+      .filter({ hasText: /DSCR \d+\.\d\dx/ });
     await calcRowAction(page, calcRow, 'Mark primary');
     await expect(calcRow.getByText('Primary')).toBeVisible();
     await expect(page.getByText('No financials adopted yet')).toBeVisible();
@@ -348,10 +403,14 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
 
     await generateLoi.click();
-    await expect(page.getByText(/Fill in: /)).toBeVisible({ timeout: 30 * 1000 });
+    await expect(page.getByText(/Fill in: /)).toBeVisible({
+      timeout: 30 * 1000,
+    });
 
     await page.goto(`/home/${teamSlug}/settings`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByLabel('Legal entity name').fill(legalEntityName);
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(async () => {
@@ -366,11 +425,15 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }).toPass({ timeout: 30 * 1000 });
 
     await page.goto(`${dealPath}/financials`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByRole('button', { name: 'Generate LOI' }).click();
     await expect(async () => {
       await page.goto(`${dealPath}/documents`);
-      await expect(card(page, 'LOI').getByRole('link', { name: 'Word' })).toBeVisible({
+      await expect(
+        card(page, 'LOI').getByRole('link', { name: 'Word' }),
+      ).toBeVisible({
         timeout: 5 * 1000,
       });
     }).toPass({ timeout: 90 * 1000 });
@@ -380,7 +443,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       .getAttribute('href');
     const generated = wordDocumentText(
       Buffer.from(
-        await (await page.request.get(new URL(wordHref!, page.url()).href)).body(),
+        await (
+          await page.request.get(new URL(wordHref!, page.url()).href)
+        ).body(),
       ),
     );
     expect(generated).not.toContain('{{');
@@ -421,7 +486,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
 
     await page.goto(`${dealPath}/documents`);
     const teamLoi = card(page, 'LOI');
-    await teamLoi.getByRole('button', { name: 'Share with seller side' }).click();
+    await teamLoi
+      .getByRole('button', { name: 'Share with seller side' })
+      .click();
     await expect(
       teamLoi.getByRole('button', { name: 'Stop sharing' }),
     ).toBeVisible();
@@ -498,7 +565,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       sellerSigner.name,
     ]);
     for (const signer of [buyerSigner, sellerSigner]) {
-      const context = await browser.newContext({ viewport: DOCUMENSO_VIEWPORT });
+      const context = await browser.newContext({
+        viewport: DOCUMENSO_VIEWPORT,
+      });
       await signDocumentFromEmail(await context.newPage(), signer);
       await context.close();
     }
@@ -510,7 +579,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         timeout: 3000,
       });
       await expect(
-        card(page, 'Timeline').getByRole('row').filter({ hasText: 'LOI signed' }),
+        card(page, 'Timeline')
+          .getByRole('row')
+          .filter({ hasText: 'LOI signed' }),
       ).toContainText(medium(utcToday()), { timeout: 3000 });
     }).toPass({ timeout: 120 * 1000 });
     await page.goto(`${dealPath}/documents`);
@@ -519,7 +590,6 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     ).toBeVisible();
     await expectNotice(ownerId, `LOI accepted on ${firmName}`);
   });
-
 
   await test.step('4. Diligence: checklist with requested items, seller uploads', async () => {
     const [loiSigned] = await db.rows<{ actual_on: string }>(
@@ -569,20 +639,24 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     for (const title of requested) {
       const status = page.getByLabel(`Status of ${title}`);
       await expect(status).toBeVisible({ timeout: 30 * 1000 });
-      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+      await page
+        .waitForLoadState('networkidle', { timeout: 3000 })
+        .catch(() => undefined);
       await status.selectOption('requested');
       await expect(status).toHaveValue('requested', { timeout: 30 * 1000 });
     }
-    await expect(checklists.getByRole('columnheader', { name: 'Due' }).first()).toBeVisible();
+    await expect(
+      checklists.getByRole('columnheader', { name: 'Due' }).first(),
+    ).toBeVisible();
     await expect(
       checklists.getByRole('columnheader', { name: 'Review by' }).first(),
     ).toBeVisible();
     const taxRow = checklists
       .getByRole('row')
       .filter({ hasText: '3 years business tax returns' });
-    await expect(page.getByLabel('Due date for 3 years business tax returns')).toHaveValue(
-      addDays(signedOn, 7),
-    );
+    await expect(
+      page.getByLabel('Due date for 3 years business tax returns'),
+    ).toHaveValue(addDays(signedOn, 7));
     await expect(taxRow).toContainText(longDate(addDays(signedOn, 10)));
 
     const [schedule] = await db.rows<{ id: string; start_date: string }>(
@@ -604,7 +678,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await page.goto(`${dealPath}/schedule`);
     await expect(page.getByText('No diligence schedule')).toHaveCount(0);
     await expect(
-      page.getByRole('row').filter({ has: page.getByRole('cell', { name: /^[1-6]$/ }) }),
+      page
+        .getByRole('row')
+        .filter({ has: page.getByRole('cell', { name: /^[1-6]$/ }) }),
     ).toHaveCount(6);
 
     const sellerFiles = ['financials', 'customers', 'leases', 'payroll'].map(
@@ -660,8 +736,12 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
 
   await test.step('5. Lenders: 12 rooms, SBA package, questions, FAQ, selection', async () => {
     await page.goto(lendersPath);
-    await page.getByRole('button', { name: 'Start the lender package' }).click();
-    await page.getByLabel('Add files', { exact: true }).setInputFiles(packageFiles);
+    await page
+      .getByRole('button', { name: 'Start the lender package' })
+      .click();
+    await page
+      .getByLabel('Add files', { exact: true })
+      .setInputFiles(packageFiles);
     for (const file of packageFiles) {
       await expect(
         page.getByRole('link', { name: `Download ${file.name}` }),
@@ -671,13 +751,17 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     const savedPath = `/home/${teamSlug}/lenders/saved`;
     await page.goto(savedPath);
     for (const [index, lender] of lenders.entries()) {
-      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+      await page
+        .waitForLoadState('networkidle', { timeout: 3000 })
+        .catch(() => undefined);
       await page.getByRole('button', { name: 'Add lender' }).click();
       const form = page.getByRole('dialog', { name: 'Add a lender' });
       await form.getByLabel('Lender name').fill(lender.room);
       await form.getByLabel('Website').fill(lender.domain);
       await form.getByLabel('Typical rate (%)').fill('10.5');
-      await form.getByLabel('Largest loan ($)').fill(String(500000 + index * 250000));
+      await form
+        .getByLabel('Largest loan ($)')
+        .fill(String(500000 + index * 250000));
       if (index < 8) {
         await form.getByLabel('Prefers SBA loans').check();
       }
@@ -691,10 +775,14 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
 
       const saved = page
         .getByRole('listitem')
-        .filter({ has: page.getByRole('heading', { name: lender.room, exact: true }) })
+        .filter({
+          has: page.getByRole('heading', { name: lender.room, exact: true }),
+        })
         .first();
       await expect(saved).toBeVisible({ timeout: 60 * 1000 });
-      await saved.getByRole('button', { name: `Add contact to ${lender.room}` }).click();
+      await saved
+        .getByRole('button', { name: `Add contact to ${lender.room}` })
+        .click();
       const contact = page.getByRole('dialog', {
         name: `Add a contact at ${lender.room}`,
       });
@@ -702,8 +790,12 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       await contact.getByLabel('Email').fill(lender.email);
       await contact.getByRole('button', { name: 'Save contact' }).click();
       await expect(contact).toBeHidden({ timeout: 60 * 1000 });
-      await expect(saved.getByText(lender.email)).toBeVisible({ timeout: 60 * 1000 });
-      await saved.getByRole('button', { name: `Make ${lender.name} primary` }).click();
+      await expect(saved.getByText(lender.email)).toBeVisible({
+        timeout: 60 * 1000,
+      });
+      await saved
+        .getByRole('button', { name: `Make ${lender.name} primary` })
+        .click();
       await expect(saved.getByText('Primary', { exact: true })).toBeVisible({
         timeout: 60 * 1000,
       });
@@ -733,20 +825,29 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await expect(shownLenders).toHaveCount(12);
 
     await page.goto(`/home/${teamSlug}/settings/lenders`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByLabel('Days quiet before a nudge').fill('7');
     await page.getByRole('button', { name: 'Save quiet days' }).click();
     await expect(async () => {
       await page.reload();
-      await expect(page.getByLabel('Days quiet before a nudge')).toHaveValue('7', {
-        timeout: 3000,
-      });
+      await expect(page.getByLabel('Days quiet before a nudge')).toHaveValue(
+        '7',
+        {
+          timeout: 3000,
+        },
+      );
     }).toPass({ timeout: 30 * 1000 });
 
     await page.goto(lendersPath);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByLabel('Must close by').fill('2027-03-31');
-    await page.getByLabel('Why that date').fill(`The seller retires in March ${stamp}`);
+    await page
+      .getByLabel('Why that date')
+      .fill(`The seller retires in March ${stamp}`);
     await page.getByRole('button', { name: 'Save deadline' }).click();
     await page.getByLabel('Loan amount ($)').fill('2000000');
     await page.getByLabel('Term (years)').fill('10');
@@ -757,9 +858,12 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       await expect(page.getByLabel('Must close by')).toHaveValue('2027-03-31', {
         timeout: 3000,
       });
-      await expect(page.getByLabel('Loan amount ($)')).toHaveValue('2,000,000', {
-        timeout: 3000,
-      });
+      await expect(page.getByLabel('Loan amount ($)')).toHaveValue(
+        '2,000,000',
+        {
+          timeout: 3000,
+        },
+      );
     }).toPass({ timeout: 60 * 1000 });
 
     for (const lender of lenders) {
@@ -801,18 +905,25 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     });
 
     await page.reload();
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByRole('button', { name: 'Draft outreach' }).click();
-    await expect(page.getByRole('button', { name: /^Send to / })).toHaveCount(12, {
-      timeout: 60 * 1000,
-    });
+    await expect(page.getByRole('button', { name: /^Send to / })).toHaveCount(
+      12,
+      {
+        timeout: 60 * 1000,
+      },
+    );
     const sentSubjects = new Map<string, string>();
     for (const lender of lenders) {
       const subject = await page
         .locator(`#outreach-subject-${lender.roomId}`)
         .inputValue();
       sentSubjects.set(lender.email, subject);
-      await page.getByRole('button', { name: `Send to ${lender.room}` }).click();
+      await page
+        .getByRole('button', { name: `Send to ${lender.room}` })
+        .click();
       await expect(page.getByText(`Sent to ${lender.email}`)).toBeVisible({
         timeout: 60 * 1000,
       });
@@ -823,7 +934,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         sent.mime.includes(`To: ${lender.email}`),
       );
       expect(message, `a Gmail message to ${lender.email}`).toBeDefined();
-      expect(message!.mime).toContain(`Subject: ${sentSubjects.get(lender.email)}`);
+      expect(message!.mime).toContain(
+        `Subject: ${sentSubjects.get(lender.email)}`,
+      );
     }
 
     const askers = lenders.slice(0, 4);
@@ -836,58 +949,65 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await page.request.get(`/lender/${lenders[0]!.roomId}`);
     await page.request.get(`/lender/${lenders[0]!.roomId}/requests`);
     const LENDER_CONCURRENCY = 4;
-    const signInLender = async (lender: (typeof lenders)[number], index: number) => {
-        const side = await freshPage(browser);
-        lender.page = side.page;
-        await lenderFlow.signIn(lender.page, {
-          email: lender.email,
-          roomId: lender.roomId,
+    const signInLender = async (
+      lender: (typeof lenders)[number],
+      index: number,
+    ) => {
+      const side = await freshPage(browser);
+      lender.page = side.page;
+      await lenderFlow.signIn(lender.page, {
+        email: lender.email,
+        roomId: lender.roomId,
+      });
+      await expect(
+        lender.page.getByText(`Prepared for ${lender.room}`),
+      ).toBeVisible({ timeout: 90 * 1000 });
+      for (const file of packageFiles) {
+        const downloading = lender.page.waitForEvent('download', {
+          timeout: 60 * 1000,
         });
+        await lender.page
+          .getByRole('link', { name: `Download ${file.name}` })
+          .click();
+        expect((await downloading).suggestedFilename()).toBe(file.name);
+      }
+      const timelineChoices = ['Yes', 'Need to talk', 'No'];
+      if (index < timelineChoices.length) {
         await expect(
-          lender.page.getByText(`Prepared for ${lender.room}`),
-        ).toBeVisible({ timeout: 90 * 1000 });
-        for (const file of packageFiles) {
-          const downloading = lender.page.waitForEvent('download', {
-            timeout: 60 * 1000,
+          lender.page.getByRole('heading', {
+            name: 'Can you close by March 31, 2027?',
+          }),
+        ).toBeVisible({ timeout: 60 * 1000 });
+        const choice = lender.page.getByRole('button', {
+          name: timelineChoices[index]!,
+          exact: true,
+        });
+        await expect(async () => {
+          await choice.click();
+          await expect(choice).toHaveAttribute('aria-pressed', 'true', {
+            timeout: 5000,
           });
+        }).toPass({ timeout: 60 * 1000 });
+      }
+      if (index < askers.length) {
+        const composer = lender.page.getByRole('dialog', {
+          name: 'Request something',
+        });
+        await lender.page
+          .waitForLoadState('networkidle', { timeout: 3000 })
+          .catch(() => undefined);
+        await expect(async () => {
           await lender.page
-            .getByRole('link', { name: `Download ${file.name}` })
+            .getByRole('button', { name: 'Request something' })
             .click();
-          expect((await downloading).suggestedFilename()).toBe(file.name);
-        }
-        const timelineChoices = ['Yes', 'Need to talk', 'No'];
-        if (index < timelineChoices.length) {
-          await expect(
-            lender.page.getByRole('heading', { name: 'Can you close by March 31, 2027?' }),
-          ).toBeVisible({ timeout: 60 * 1000 });
-          const choice = lender.page.getByRole('button', {
-            name: timelineChoices[index]!,
-            exact: true,
-          });
-          await expect(async () => {
-            await choice.click();
-            await expect(choice).toHaveAttribute('aria-pressed', 'true', {
-              timeout: 5000,
-            });
-          }).toPass({ timeout: 60 * 1000 });
-        }
-        if (index < askers.length) {
-          const composer = lender.page.getByRole('dialog', {
-            name: 'Request something',
-          });
-          await lender.page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
-          await expect(async () => {
-            await lender.page
-              .getByRole('button', { name: 'Request something' })
-              .click();
-            await expect(composer).toBeVisible({ timeout: 5000 });
-          }).toPass({ timeout: 60 * 1000 });
-          await composer
-            .getByRole('textbox', { name: /What do you need from/ })
-            .fill(questions[index]!);
-          await composer.getByRole('button', { name: 'Send request' }).click();
-          await expect(composer).toBeHidden({ timeout: 60 * 1000 });
-        }
+          await expect(composer).toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 60 * 1000 });
+        await composer
+          .getByRole('textbox', { name: /What do you need from/ })
+          .fill(questions[index]!);
+        await composer.getByRole('button', { name: 'Send request' }).click();
+        await expect(composer).toBeHidden({ timeout: 60 * 1000 });
+      }
     };
     for (let start = 0; start < lenders.length; start += LENDER_CONCURRENCY) {
       await Promise.all(
@@ -916,7 +1036,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         await page.getByRole('button', { name: 'Add to FAQ' }).click();
         const faq = page.getByRole('dialog', { name: 'Add to the FAQ' });
         await faq.getByRole('button', { name: 'Publish' }).click();
-        await expect(page.getByText('Published to the FAQ.').first()).toBeVisible();
+        await expect(
+          page.getByText('Published to the FAQ.').first(),
+        ).toBeVisible();
         await expect(
           faq.getByText('The FAQ already has entries like this one'),
         ).toHaveCount(0);
@@ -936,7 +1058,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
 
     await page.goto(lendersPath);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     const answerFor = (lender: (typeof lenders)[number]) =>
       page
         .getByRole('listitem')
@@ -945,7 +1069,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await expect(answerFor(lenders[0]!)).toContainText('Yes, from the lender', {
       timeout: 30 * 1000,
     });
-    await expect(answerFor(lenders[1]!)).toContainText('Need to talk, from the lender');
+    await expect(answerFor(lenders[1]!)).toContainText(
+      'Need to talk, from the lender',
+    );
     await expect(answerFor(lenders[2]!)).toContainText('No, from the lender');
     await page
       .getByRole('button', { name: `Record yes for ${lenders[3]!.room}` })
@@ -955,12 +1081,16 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     });
 
     await page.goto(`/home/${teamSlug}/lenders/saved`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await expect(
       page.getByRole('heading', { name: 'Lenders to nudge' }),
     ).toBeVisible();
     await expect(page.getByText('No lender has gone quiet.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Draft nudges' })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Draft nudges' }),
+    ).toHaveCount(0);
 
     for (const [index, lender] of lenders.entries()) {
       await page.goto(`${lendersPath}/${lender.roomId}?tab=settings`);
@@ -973,23 +1103,30 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
   });
 
-
   const apaEditorLinks = () =>
-    page.getByRole('link', { name: 'Open in Documenso to place signature fields' });
+    page.getByRole('link', {
+      name: 'Open in Documenso to place signature fields',
+    });
 
   await test.step('6. APA: generate, 10 redline rounds, real signing', async () => {
     await page.goto(`${dealPath}/financials`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await Promise.all([
       page.waitForResponse(
-        (response) => response.request().method() === 'POST' && response.url().includes('/financials'),
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url().includes('/financials'),
       ),
       page.getByRole('button', { name: 'Generate APA' }).click(),
     ]);
     await page.goto(`${dealPath}/documents`);
     await expect(async () => {
       await page.goto(`${dealPath}/documents`);
-      await expect(card(page, 'APA').getByRole('link', { name: 'Word' })).toBeVisible({
+      await expect(
+        card(page, 'APA').getByRole('link', { name: 'Word' }),
+      ).toBeVisible({
         timeout: 5 * 1000,
       });
     }).toPass({ timeout: 90 * 1000 });
@@ -1004,18 +1141,28 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       ),
     );
     expect(apaText).not.toContain('{{');
-    for (const expected of ['$2,500,000', legalEntityName, seller.name, firmName]) {
+    for (const expected of [
+      '$2,500,000',
+      legalEntityName,
+      seller.name,
+      firmName,
+    ]) {
       expect(apaText).toContain(expected);
     }
 
     const teamApa = card(page, 'APA');
-    await teamApa.getByRole('button', { name: 'Share with seller side' }).click();
-    await expect(teamApa.getByRole('button', { name: 'Stop sharing' })).toBeVisible();
+    await teamApa
+      .getByRole('button', { name: 'Share with seller side' })
+      .click();
+    await expect(
+      teamApa.getByRole('button', { name: 'Stop sharing' }),
+    ).toBeVisible();
 
     const rounds = 10;
     for (let round = 1; round <= rounds; round++) {
       const side = round % 2 === 1 ? 'buyer' : 'seller';
-      const counselPage = side === 'buyer' ? buyerCounselPage : sellerCounselPage;
+      const counselPage =
+        side === 'buyer' ? buyerCounselPage : sellerCounselPage;
       const summary = `APA round ${round} ${side} redline ${stamp}`;
 
       const apa = card(counselPage, 'APA');
@@ -1032,12 +1179,14 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
           'Asset Purchase Agreement',
           `Round ${round}, marked up by the ${side}'s counsel`,
           `Section ${(round % 12) + 1}: the purchase price adjustment is ${1000 + round * 25} dollars`,
-          `Indemnity cap changes to ${round % 7 + 3} percent of the price`,
+          `Indemnity cap changes to ${(round % 7) + 3} percent of the price`,
         ]),
       });
       await apa.getByLabel('What changed (optional)').fill(summary);
       await apa.getByRole('button', { name: 'Upload redline' }).click();
-      await expect(apa.getByRole('row').filter({ hasText: summary })).toBeVisible({
+      await expect(
+        apa.getByRole('row').filter({ hasText: summary }),
+      ).toBeVisible({
         timeout: 60 * 1000,
       });
       await postComment(
@@ -1048,7 +1197,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       if (round % 10 === 0) {
         await expect(async () => {
           await page.goto(`${dealPath}/documents`);
-          await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+          await page
+            .waitForLoadState('networkidle', { timeout: 3000 })
+            .catch(() => undefined);
           await card(page, 'APA')
             .getByRole('row')
             .filter({ hasText: summary })
@@ -1074,7 +1225,10 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       }
     }
 
-    const [apaContract] = await db.rows<{ id: string; current_version: number }>(
+    const [apaContract] = await db.rows<{
+      id: string;
+      current_version: number;
+    }>(
       'contract',
       `deal_id=eq.${dealId}&type=eq.apa&select=id,current_version`,
     );
@@ -1086,12 +1240,12 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     expect(apaContract!.current_version).toBe(rounds + 1);
 
     const finalVersion = rounds + 1;
-    const [{ seller_number: finalSellerNumber }] = await db.rows<{
+    const [{ seller_number: finalSellerNumber }] = (await db.rows<{
       seller_number: number;
     }>(
       'contract_version',
       `contract_id=eq.${apaContract!.id}&version=eq.${finalVersion}&select=seller_number`,
-    ) as [{ seller_number: number }];
+    )) as [{ seller_number: number }];
     const finalReview = (on: Page, number: number) =>
       card(on, 'APA')
         .locator('[data-version-review]')
@@ -1107,7 +1261,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     ] as const) {
       await expect(async () => {
         await counselPage.goto(`${portal()}/contracts`);
-        await counselPage.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+        await counselPage
+          .waitForLoadState('networkidle', { timeout: 3000 })
+          .catch(() => undefined);
         const section = finalReview(counselPage, number);
         await section
           .getByRole('button', { name: 'Approve', exact: true })
@@ -1119,7 +1275,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
 
     await page.goto(`${dealPath}/documents`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     const request = page.getByRole('dialog', { name: 'Send for signature' });
     await expect(async () => {
       await finalReview(page, finalVersion)
@@ -1144,7 +1302,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       sellerSigner.name,
     ]);
     for (const signer of [buyerSigner, sellerSigner]) {
-      const context = await browser.newContext({ viewport: DOCUMENSO_VIEWPORT });
+      const context = await browser.newContext({
+        viewport: DOCUMENSO_VIEWPORT,
+      });
       await signDocumentFromEmail(await context.newPage(), signer);
       await context.close();
     }
@@ -1197,7 +1357,10 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         }));
 
     await page.goto(`${dealPath}/diligence`);
-    await selectOption(checklists.getByRole('combobox').first(), 'Standard Closing');
+    await selectOption(
+      checklists.getByRole('combobox').first(),
+      'Standard Closing',
+    );
     await checklists.getByRole('button', { name: 'Apply template' }).click();
     await expect
       .poll(
@@ -1215,11 +1378,15 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       due: '2027-03-17',
       review: '2027-03-20',
     });
-    expect(await itemDates('SBA loan authorization received', 'closing')).toEqual({
+    expect(
+      await itemDates('SBA loan authorization received', 'closing'),
+    ).toEqual({
       due: '2027-03-10',
       review: '2027-03-13',
     });
-    expect(await itemDates('Funds flow confirmed and wired', 'closing')).toEqual({
+    expect(
+      await itemDates('Funds flow confirmed and wired', 'closing'),
+    ).toEqual({
       due: '2027-03-31',
       review: '2027-04-03',
     });
@@ -1231,7 +1398,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         timeout: 60 * 1000,
       })
       .toEqual({ due: '2027-03-31', review: '2027-04-03' });
-    expect(await itemDates('Funds flow confirmed and wired', 'closing')).toEqual({
+    expect(
+      await itemDates('Funds flow confirmed and wired', 'closing'),
+    ).toEqual({
       due: '2027-04-14',
       review: '2027-04-17',
     });
@@ -1240,15 +1409,26 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await expect(
       card(page, 'Timeline').getByRole('row').filter({ hasText: 'Closing' }),
     ).toContainText('Apr 14, 2027');
-    await editMilestone(card(page, 'Timeline'), 'Closing', { actual: utcToday() });
+    await editMilestone(card(page, 'Timeline'), 'Closing', {
+      actual: utcToday(),
+    });
     await editMilestone(timeline, 'Effective date', { actual: utcToday() });
     await selectOption(comboboxWithText(page, 'PA Accepted'), 'Integration');
     await expect(comboboxWithText(page, 'Integration')).toBeVisible({
       timeout: 30 * 1000,
     });
 
-    const sharedNames = ['LOI signed', 'APA signing', 'Closing', 'Effective date'];
-    const teamOnlyNames = ['Diligence end', 'Financing contingency', 'LOI deadline'];
+    const sharedNames = [
+      'LOI signed',
+      'APA signing',
+      'Closing',
+      'Effective date',
+    ];
+    const teamOnlyNames = [
+      'Diligence end',
+      'Financing contingency',
+      'LOI deadline',
+    ];
     const lenderToCheck = lenders[1]!;
     for (const outsider of [
       { page: lenderToCheck.page, path: `/lender/${lenderToCheck.roomId}` },
@@ -1284,11 +1464,18 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     const updates = card(page, 'Updates');
     await updates.getByLabel('Update subject').fill(updateSubject);
     await updates.getByLabel('Update body').fill(updateBody);
-    for (const group of ['Lenders', 'Sellers', "Buyer's counsel", "Seller's counsel"]) {
+    for (const group of [
+      'Lenders',
+      'Sellers',
+      "Buyer's counsel",
+      "Seller's counsel",
+    ]) {
       await updates.getByLabel(`Send to ${group}`).check();
     }
     await updates.getByRole('button', { name: 'Save draft' }).click();
-    await updates.getByRole('button', { name: `Submit ${updateSubject}` }).click();
+    await updates
+      .getByRole('button', { name: `Submit ${updateSubject}` })
+      .click();
     await expect(
       updates.getByRole('button', { name: `Submit ${updateSubject}` }),
     ).toHaveCount(0);
@@ -1310,7 +1497,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       await expect(recipients).toContainText(email);
     }
     await expect(recipients).not.toContainText(lenders[1]!.email);
-    await approverPage.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await approverPage
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await approverUpdates
       .getByRole('button', { name: `Approve ${updateSubject}` })
       .click();
@@ -1360,7 +1549,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     }
     for (const { title } of await postClose()) {
       const status = page.getByLabel(`Status of ${title}`);
-      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+      await page
+        .waitForLoadState('networkidle', { timeout: 3000 })
+        .catch(() => undefined);
       await status.selectOption('clean');
       await expect(status).toHaveValue('clean', { timeout: 30 * 1000 });
     }
@@ -1373,7 +1564,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       const openCloseControl = async () => {
         await page.goto(roomSettings);
         await page.getByRole('tab', { name: 'Status and access' }).click();
-        await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+        await page
+          .waitForLoadState('networkidle', { timeout: 3000 })
+          .catch(() => undefined);
         await page.getByRole('button', { name: 'Close room' }).click();
       };
       await openCloseControl();
@@ -1383,7 +1576,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         }),
       ).toBeVisible({ timeout: 30 * 1000 });
       await page.goto(`${dealPath}/todos`);
-      await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+      await page
+        .waitForLoadState('networkidle', { timeout: 3000 })
+        .catch(() => undefined);
       const todo = page
         .getByRole('listitem')
         .filter({ hasText: `Tell ${lender.room} the room is closing` })
@@ -1392,14 +1587,18 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       await expect(todo).toBeChecked({ timeout: 30 * 1000 });
       await openCloseControl();
       await page.getByRole('button', { name: 'Close this room' }).click();
-      await expect(page.getByRole('button', { name: 'Reopen room' })).toBeVisible({
+      await expect(
+        page.getByRole('button', { name: 'Reopen room' }),
+      ).toBeVisible({
         timeout: 60 * 1000,
       });
     }
 
     await page.goto(`${dealPath}/parties`);
     const sellerRoom = card(page, 'Seller room');
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await sellerRoom.getByRole('button', { name: 'Close room' }).click();
     await expect
       .poll(
@@ -1414,18 +1613,25 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       )
       .toBe(1);
     await page.goto(`${dealPath}/todos`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     const sellerTodo = page
       .getByRole('listitem')
       .filter({ hasText: /the room is closing/ })
       .getByRole('checkbox', { checked: false });
     await expect(sellerTodo).toHaveCount(1);
     await sellerTodo.click();
-    await expect(page.getByRole('checkbox', { checked: false })).toHaveCount(0, {
-      timeout: 30 * 1000,
-    });
+    await expect(page.getByRole('checkbox', { checked: false })).toHaveCount(
+      0,
+      {
+        timeout: 30 * 1000,
+      },
+    );
     await page.goto(`${dealPath}/parties`);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await sellerRoom.getByRole('button', { name: 'Close room' }).click();
     await page
       .getByRole('dialog', { name: 'Close the seller room?' })
@@ -1459,12 +1665,16 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     );
 
     await page.goto(dealPath);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.locator('button:has(svg.lucide-bell)').click();
     await expect(page.getByText(notice.body)).toBeVisible();
 
     await page.goto(dealPath);
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByRole('button', { name: 'Mark won' }).click();
     await expect(page.getByText('Won (closed)').first()).toBeVisible({
       timeout: 30 * 1000,
@@ -1490,7 +1700,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await expect(row('Diligence end')).toContainText(
       medium(diligenceEnd.toISOString().slice(0, 10)),
     );
-    await expect(row('Financing contingency')).toContainText(medium('2026-09-01'));
+    await expect(row('Financing contingency')).toContainText(
+      medium('2026-09-01'),
+    );
     await expect(row('Financing contingency')).toContainText('Overdue');
     await expect(row('Financing contingency')).toContainText('Not set');
     const [signedOn] = await db.rows<{ actual_on: string }>(
@@ -1509,19 +1721,27 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
 
     const history = timeline.locator('[data-timeline-change]');
     await expect(
-      history.filter({ hasText: 'LOI signed set' }).filter({ hasText: 'System via Documenso' }),
+      history
+        .filter({ hasText: 'LOI signed set' })
+        .filter({ hasText: 'System via Documenso' }),
     ).not.toHaveCount(0);
     await expect(
-      history.filter({ hasText: 'APA signing set' }).filter({ hasText: 'System via Documenso' }),
+      history
+        .filter({ hasText: 'APA signing set' })
+        .filter({ hasText: 'System via Documenso' }),
     ).not.toHaveCount(0);
     await expect(
-      history.filter({ hasText: 'Closing set' }).filter({ hasText: 'Playwright Owner' }),
+      history
+        .filter({ hasText: 'Closing set' })
+        .filter({ hasText: 'Playwright Owner' }),
     ).not.toHaveCount(0);
     await expect(history.first()).toContainText(/\d{1,2}:\d{2}/);
 
     const secondTeam = `Second Crew ${stamp}`;
     await page.goto('/home/create-team');
-    await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+    await page
+      .waitForLoadState('networkidle', { timeout: 3000 })
+      .catch(() => undefined);
     await page.getByLabel('Team name').fill(secondTeam);
     await page.getByRole('button', { name: 'Create team' }).click();
     const { slug: secondSlug } = await db.waitForRow<{ slug: string }>(
@@ -1535,5 +1755,4 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await page.goto('/home');
     await expect(page).toHaveURL(new RegExp(`/home/${teamSlug}(/|$)`));
   });
-
 });

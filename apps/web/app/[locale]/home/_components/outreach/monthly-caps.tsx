@@ -70,7 +70,7 @@ export function MonthlyCaps({
         />
       </div>
 
-      {refusal ?? resumeError ? (
+      {(refusal ?? resumeError) ? (
         <p role={'alert'} className={'text-destructive text-sm'}>
           {refusal ?? resumeError}
         </p>

@@ -10,7 +10,10 @@ const base = {
 
 describe('scheduleMeetingSchema status', () => {
   it('rejects a status outside the meeting_status enum', () => {
-    const result = scheduleMeetingSchema.safeParse({ ...base, status: 'bogus' });
+    const result = scheduleMeetingSchema.safeParse({
+      ...base,
+      status: 'bogus',
+    });
 
     expect(result.success).toBe(false);
   });

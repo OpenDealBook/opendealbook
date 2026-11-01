@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  cashOnCash,
-  dealBoxGap,
-  purchaseMultiple,
-  tenYearProForma,
-} from './deal-calc';
-import type { FundingSource } from './funding-source';
-import {
   band,
   baseOf,
   computeDealBand,
@@ -19,6 +12,13 @@ import {
   sweep,
   type DealAssumptions,
 } from './bands';
+import {
+  cashOnCash,
+  dealBoxGap,
+  purchaseMultiple,
+  tenYearProForma,
+} from './deal-calc';
+import type { FundingSource } from './funding-source';
 
 const sba: FundingSource = {
   type: 'sba_7a',
@@ -77,7 +77,13 @@ describe('computeDealPoint on funding-source debt service', () => {
     const point = computeDealPoint({
       ...referenceInputs,
       funding_sources: [
-        { type: 'seller_financing', amount: 120_000, rate: 0, term_years: 5, standby_months: 18 },
+        {
+          type: 'seller_financing',
+          amount: 120_000,
+          rate: 0,
+          term_years: 5,
+          standby_months: 18,
+        },
       ],
     });
     expect(point.net_cash_flow).toBe(100_000);
@@ -98,7 +104,10 @@ describe('computeDealPoint on funding-source debt service', () => {
   });
 
   it('prefers an explicit buyer_equity override over the derived value', () => {
-    const point = computeDealPoint({ ...referenceInputs, buyer_equity: 100_000 });
+    const point = computeDealPoint({
+      ...referenceInputs,
+      buyer_equity: 100_000,
+    });
     expect(point.cash_on_cash).toBe(cashOnCash(point.net_cash_flow, 100_000));
   });
 });
@@ -113,8 +122,14 @@ describe('computeDealBand over the interest rate delta', () => {
 
     expect(series.map((point) => point.driverValue)).toEqual([-0.06, 0, 0.06]);
     expect(series[0]!.outputs.net_cash_flow).toBeCloseTo(100_000 - 36_000, 6);
-    expect(series[1]!.outputs.net_cash_flow).toBeCloseTo(100_000 - DEBT_AT_6, 2);
-    expect(series[2]!.outputs.net_cash_flow).toBeCloseTo(100_000 - DEBT_AT_12, 2);
+    expect(series[1]!.outputs.net_cash_flow).toBeCloseTo(
+      100_000 - DEBT_AT_6,
+      2,
+    );
+    expect(series[2]!.outputs.net_cash_flow).toBeCloseTo(
+      100_000 - DEBT_AT_12,
+      2,
+    );
   });
 });
 
@@ -151,12 +166,18 @@ describe('computeDealProjection', () => {
     const projection = computeDealProjection({
       ...referenceInputs,
       funding_sources: [
-        { type: 'seller_financing', amount: 120_000, rate: 0, term_years: 5, standby_months: 18 },
+        {
+          type: 'seller_financing',
+          amount: 120_000,
+          rate: 0,
+          term_years: 5,
+          standby_months: 18,
+        },
       ],
     });
     expect(projection).toEqual([
-      100_000, 88_000, 76_000, 76_000, 76_000, 76_000, 88_000, 100_000,
-      100_000, 100_000,
+      100_000, 88_000, 76_000, 76_000, 76_000, 76_000, 88_000, 100_000, 100_000,
+      100_000,
     ]);
   });
 

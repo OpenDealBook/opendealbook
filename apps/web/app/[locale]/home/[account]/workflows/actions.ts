@@ -14,13 +14,18 @@ import {
   syncSchedulesOrRefuse,
 } from './require-workflows-manager';
 
-const UNPUBLISHED_ENABLE_DB_ERROR = 'a workflow needs a published version to be enabled';
+const UNPUBLISHED_ENABLE_DB_ERROR =
+  'a workflow needs a published version to be enabled';
 
-const SAVED_BUT_NOT_SYNCED = "Saved, but schedules couldn't be updated; try again";
+const SAVED_BUT_NOT_SYNCED =
+  "Saved, but schedules couldn't be updated; try again";
 
 export const setWorkflowEnabled = refusableAction(
   async ({ workflowId, enabled }, user) => {
-    const { client, accountId, archived } = await manageWorkflow(workflowId, user.id);
+    const { client, accountId, archived } = await manageWorkflow(
+      workflowId,
+      user.id,
+    );
 
     refuseIfArchived(enabled && archived);
 

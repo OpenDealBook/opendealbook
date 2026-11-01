@@ -27,6 +27,7 @@ import {
   useWorkflowBuilderActions,
   withJsonFormsControlProps,
 } from '@workflowbuilder/sdk';
+
 import '@workflowbuilder/sdk/style.css';
 import { Handle, Position } from '@xyflow/react';
 
@@ -79,7 +80,8 @@ type NodeType = keyof typeof NODE_TYPE_DISPLAY;
 
 const NODE_SIZE = { width: 240, height: 72 };
 const BLOCK_GAP = 60;
-const LAYOUT_FAILED = 'This workflow could not be laid out. Reload the page to try again.';
+const LAYOUT_FAILED =
+  'This workflow could not be laid out. Reload the page to try again.';
 
 const NodeErrors = createContext<NodeError[]>([]);
 const Palette = createContext<PaletteItem[]>([]);
@@ -116,7 +118,9 @@ function ExpressionControl(props: ControlProps) {
           className={'rounded border px-2 py-1'}
           value={value}
           disabled={!props.enabled}
-          onChange={(event) => props.handleChange(props.path, event.target.value)}
+          onChange={(event) =>
+            props.handleChange(props.path, event.target.value)
+          }
         />
       </label>
       {props.enabled ? (
@@ -182,7 +186,10 @@ function UnionControl(props: ControlProps) {
 const jsonForm = {
   renderers: [
     {
-      tester: rankWith(10, or(optionIs('expression', true), scopeEndsWith('items'))),
+      tester: rankWith(
+        10,
+        or(optionIs('expression', true), scopeEndsWith('items')),
+      ),
       renderer: withJsonFormsControlProps(ExpressionControl),
     },
     {
@@ -190,14 +197,19 @@ const jsonForm = {
       renderer: withJsonFormsControlProps(RuleControl),
     },
     {
-      tester: rankWith(10, schemaMatches((schema) => Array.isArray(schema.oneOf))),
+      tester: rankWith(
+        10,
+        schemaMatches((schema) => Array.isArray(schema.oneOf)),
+      ),
       renderer: withJsonFormsControlProps(UnionControl),
     },
   ],
 };
 
 function NodeErrorList(props: { nodeId: string }) {
-  const errors = use(NodeErrors).filter((error) => error.nodeId === props.nodeId);
+  const errors = use(NodeErrors).filter(
+    (error) => error.nodeId === props.nodeId,
+  );
 
   return errors.length > 0 ? (
     <ul role={'alert'} className={'pt-1 text-xs text-red-600'}>
@@ -219,7 +231,10 @@ function StepNode(props: WorkflowNodeTemplateProps) {
       className={`rounded-md border bg-white px-3 py-2 shadow-sm ${props.selected ? 'border-blue-500' : ''}`}
     >
       {(TRIGGER_TYPES as readonly string[]).includes(type) ? null : (
-        <Handle type={'target'} position={down ? Position.Top : Position.Left} />
+        <Handle
+          type={'target'}
+          position={down ? Position.Top : Position.Left}
+        />
       )}
       <p className={'text-sm font-medium'}>
         {props.label || NODE_TYPE_DISPLAY[type].label}
@@ -229,7 +244,10 @@ function StepNode(props: WorkflowNodeTemplateProps) {
       </p>
       <NodeErrorList nodeId={props.id} />
       {handles.length === 0 ? (
-        <Handle type={'source'} position={down ? Position.Bottom : Position.Right} />
+        <Handle
+          type={'source'}
+          position={down ? Position.Bottom : Position.Right}
+        />
       ) : (
         handles.map((handle, index) => (
           <Handle
@@ -237,9 +255,16 @@ function StepNode(props: WorkflowNodeTemplateProps) {
             id={handle}
             type={'source'}
             position={down ? Position.Bottom : Position.Right}
-            style={{ [down ? 'left' : 'top']: `${((index + 1) * 100) / (handles.length + 1)}%` }}
+            style={{
+              [down ? 'left' : 'top']:
+                `${((index + 1) * 100) / (handles.length + 1)}%`,
+            }}
           >
-            <span className={'pointer-events-none absolute ml-3 text-[10px] text-gray-500'}>
+            <span
+              className={
+                'pointer-events-none absolute ml-3 text-[10px] text-gray-500'
+              }
+            >
               {handle}
             </span>
           </Handle>
@@ -280,7 +305,10 @@ function HostConnection(props: EditorCanvasProps) {
           data.layoutDirection,
         );
         setStoreNodes(
-          data.nodes.map((node) => ({ ...node, position: positions.get(node.id)! })),
+          data.nodes.map((node) => ({
+            ...node,
+            position: positions.get(node.id)!,
+          })),
         );
         latest.current.onEdit();
       },
@@ -292,10 +320,13 @@ function HostConnection(props: EditorCanvasProps) {
 
 async function positioned(version: Draft) {
   const data = toEditorData(version.graph, version.layout);
-  const saved = data.nodes.flatMap((node) => (node.position ? [node.position] : []));
-  const placed = saved.length === data.nodes.length
-    ? new Map()
-    : await placeBesideSaved(data, saved);
+  const saved = data.nodes.flatMap((node) =>
+    node.position ? [node.position] : [],
+  );
+  const placed =
+    saved.length === data.nodes.length
+      ? new Map()
+      : await placeBesideSaved(data, saved);
 
   return {
     ...data,
@@ -315,12 +346,15 @@ async function placeBesideSaved(
     data.edges,
     data.layoutDirection,
   );
-  const fresh = data.nodes.filter((node) => !node.position).map((node) => tidied.get(node.id)!);
-  const shift = saved.length === 0
-    ? 0
-    : Math.max(...saved.map((position) => position.x + NODE_SIZE.width)) +
-      BLOCK_GAP -
-      Math.min(...fresh.map((position) => position.x));
+  const fresh = data.nodes
+    .filter((node) => !node.position)
+    .map((node) => tidied.get(node.id)!);
+  const shift =
+    saved.length === 0
+      ? 0
+      : Math.max(...saved.map((position) => position.x + NODE_SIZE.width)) +
+        BLOCK_GAP -
+        Math.min(...fresh.map((position) => position.x));
 
   return new Map(
     [...tidied].map(([id, { x, y }]) => [id, { x: x + shift, y }]),
@@ -328,7 +362,9 @@ async function placeBesideSaved(
 }
 
 function NodePropertiesPanel() {
-  return useSingleSelectedElement()?.edge ? null : <WorkflowBuilder.PropertiesPanel />;
+  return useSingleSelectedElement()?.edge ? null : (
+    <WorkflowBuilder.PropertiesPanel />
+  );
 }
 
 export function WorkflowEditorCanvas(props: EditorCanvasProps) {

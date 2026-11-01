@@ -412,7 +412,14 @@ describe('DealPeopleSection', () => {
           roster={{
             people,
             canEdit: true,
-            addressBook: [{ id: 'c-7', name: null, email: 'owner@harbor.test', company: null }],
+            addressBook: [
+              {
+                id: 'c-7',
+                name: null,
+                email: 'owner@harbor.test',
+                company: null,
+              },
+            ],
           }}
         />,
       ),
@@ -421,7 +428,9 @@ describe('DealPeopleSection', () => {
     fill('Contact name', 'harbor');
 
     const match = button('Use owner@harbor.test')!.closest('li')!;
-    expect(match.querySelector('.font-medium')!.textContent).toBe('owner@harbor.test');
+    expect(match.querySelector('.font-medium')!.textContent).toBe(
+      'owner@harbor.test',
+    );
   });
 
   it('offers no address book matches before anything is typed', () => {

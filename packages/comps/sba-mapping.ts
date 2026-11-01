@@ -1,12 +1,20 @@
-import { createHash } from 'crypto';
-
 import { deriveSbaPrice, type SbaCompFacts, type SbaProgram } from './sba';
 import { parseField } from './vendors/column-map';
 
-const UPSERT_KEY_FIELDS = ['Program', 'LocationID', 'BorrName', 'ApprovalDate', 'GrossApproval'];
+import { createHash } from 'crypto';
+
+const UPSERT_KEY_FIELDS = [
+  'Program',
+  'LocationID',
+  'BorrName',
+  'ApprovalDate',
+  'GrossApproval',
+];
 
 export function sbaUpsertKey(row: Record<string, string>): string {
-  const material = UPSERT_KEY_FIELDS.map((field) => (row[field] ?? '').trim()).join('|');
+  const material = UPSERT_KEY_FIELDS.map((field) =>
+    (row[field] ?? '').trim(),
+  ).join('|');
   return createHash('sha256').update(material).digest('hex');
 }
 
@@ -52,7 +60,7 @@ export function mapSbaRow(
   const termMonths = parseField('integer', row.TermInMonths ?? '');
   const lender =
     program === '504'
-      ? text(row, 'ThirdPartyLender_Name') ?? text(row, 'CDC_Name')
+      ? (text(row, 'ThirdPartyLender_Name') ?? text(row, 'CDC_Name'))
       : text(row, 'BankName');
 
   return {
@@ -72,7 +80,9 @@ export function mapSbaRow(
     termMonths: typeof termMonths === 'number' ? termMonths : null,
     businessAge: text(row, 'BusinessAge'),
     lender,
-    franchiseFlag: text(row, 'FranchiseName') !== null || text(row, 'FranchiseCode') !== null,
+    franchiseFlag:
+      text(row, 'FranchiseName') !== null ||
+      text(row, 'FranchiseCode') !== null,
   };
 }
 

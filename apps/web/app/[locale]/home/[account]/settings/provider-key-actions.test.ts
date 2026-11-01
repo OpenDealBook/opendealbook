@@ -26,7 +26,8 @@ vi.mock('@odb/supabase/server', () => ({
   }),
 }));
 
-const { saveProviderKeyAction, disconnectProviderKeyAction } = await import('./provider-key-actions');
+const { saveProviderKeyAction, disconnectProviderKeyAction } =
+  await import('./provider-key-actions');
 
 beforeEach(() => {
   world.calls = [];
@@ -55,7 +56,12 @@ describe('saving a provider key', () => {
   });
 
   it('keeps the stored key and actor when those fields are left empty', async () => {
-    await saveProviderKeyAction({ accountId: TEAM_ID, kind: 'letters', apiKey: '', actorId: '' });
+    await saveProviderKeyAction({
+      accountId: TEAM_ID,
+      kind: 'letters',
+      apiKey: '',
+      actorId: '',
+    });
 
     expect(world.calls).toEqual([
       {
@@ -69,7 +75,13 @@ describe('saving a provider key', () => {
   });
 
   it.each([
-    [{ code: '42501', message: 'changing provider keys needs settings.manage' }, 'Changing provider keys needs settings.manage'],
+    [
+      {
+        code: '42501',
+        message: 'changing provider keys needs settings.manage',
+      },
+      'Changing provider keys needs settings.manage',
+    ],
     [{ code: '23514', message: 'paste an API key' }, 'Paste an API key'],
     [
       { code: '22P02', message: 'use an Apify actor id' },
@@ -79,7 +91,12 @@ describe('saving a provider key', () => {
     world.error = error;
 
     expect(
-      await saveProviderKeyAction({ accountId: TEAM_ID, kind: 'email_lookup', apiKey: 'k', actorId: 'bad id' }),
+      await saveProviderKeyAction({
+        accountId: TEAM_ID,
+        kind: 'email_lookup',
+        apiKey: 'k',
+        actorId: 'bad id',
+      }),
     ).toEqual({ ok: false, refusal });
   });
 });
@@ -87,7 +104,12 @@ describe('saving a provider key', () => {
 describe('saving the CourtListener token', () => {
   it('saves the federal courts key', async () => {
     expect(
-      await saveProviderKeyAction({ accountId: TEAM_ID, kind: 'courts', apiKey: 'cl-team-token', actorId: '' }),
+      await saveProviderKeyAction({
+        accountId: TEAM_ID,
+        kind: 'courts',
+        apiKey: 'cl-team-token',
+        actorId: '',
+      }),
     ).toEqual({ ok: true, value: undefined });
     expect(world.calls).toEqual([
       {
@@ -150,12 +172,22 @@ describe('saving the Lob webhook secret', () => {
 
 describe('an unexpected database error', () => {
   it('is rethrown, not shown as a refusal', async () => {
-    world.error = { code: '57014', message: 'canceling statement due to statement timeout' };
+    world.error = {
+      code: '57014',
+      message: 'canceling statement due to statement timeout',
+    };
 
     await expect(
-      saveProviderKeyAction({ accountId: TEAM_ID, kind: 'letters', apiKey: 'k', actorId: '' }),
+      saveProviderKeyAction({
+        accountId: TEAM_ID,
+        kind: 'letters',
+        apiKey: 'k',
+        actorId: '',
+      }),
     ).rejects.toMatchObject({ code: '57014' });
-    await expect(disconnectProviderKeyAction({ accountId: TEAM_ID, kind: 'letters' })).rejects.toMatchObject({
+    await expect(
+      disconnectProviderKeyAction({ accountId: TEAM_ID, kind: 'letters' }),
+    ).rejects.toMatchObject({
       code: '57014',
     });
   });
@@ -163,22 +195,38 @@ describe('an unexpected database error', () => {
 
 describe('disconnecting a provider key', () => {
   it('refuses members who cannot manage settings', async () => {
-    world.error = { code: '42501', message: 'changing provider keys needs settings.manage' };
+    world.error = {
+      code: '42501',
+      message: 'changing provider keys needs settings.manage',
+    };
 
-    expect(await disconnectProviderKeyAction({ accountId: TEAM_ID, kind: 'email_lookup' })).toEqual({
+    expect(
+      await disconnectProviderKeyAction({
+        accountId: TEAM_ID,
+        kind: 'email_lookup',
+      }),
+    ).toEqual({
       ok: false,
       refusal: 'Changing provider keys needs settings.manage',
     });
   });
 
-
   it("disconnects the team's key for that kind", async () => {
-    expect(await disconnectProviderKeyAction({ accountId: TEAM_ID, kind: 'letters' })).toEqual({
+    expect(
+      await disconnectProviderKeyAction({
+        accountId: TEAM_ID,
+        kind: 'letters',
+      }),
+    ).toEqual({
       ok: true,
       value: undefined,
     });
     expect(world.calls).toEqual([
-      { name: 'disconnect_provider_credential', p_account_id: TEAM_ID, p_kind: 'letters' },
+      {
+        name: 'disconnect_provider_credential',
+        p_account_id: TEAM_ID,
+        p_kind: 'letters',
+      },
     ]);
   });
 });

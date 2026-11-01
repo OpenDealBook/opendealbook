@@ -102,23 +102,27 @@ beforeEach(() => {
   server.save.mockReset();
   server.begin.mockResolvedValue({
     ok: true,
-    value: { templateId: 'template-1', path: 'account-1/template-1/v1.docx', token: 't' },
+    value: {
+      templateId: 'template-1',
+      path: 'account-1/template-1/v1.docx',
+      token: 't',
+    },
   });
   server.upload.mockResolvedValue({ data: {}, error: null });
   server.save.mockResolvedValue({ ok: true, value: { id: 'template-1' } });
   server.parse.mockResolvedValue({
     ok: true,
     value: [
-    {
-      key: 'extends_to',
-      label: 'Extends to',
-      type: 'date',
-      source: 'manual',
-      source_path: null,
-      format: null,
-      required: true,
-      sort_order: 0,
-    },
+      {
+        key: 'extends_to',
+        label: 'Extends to',
+        type: 'date',
+        source: 'manual',
+        source_path: null,
+        format: null,
+        required: true,
+        sort_order: 0,
+      },
     ],
   });
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -216,7 +220,9 @@ describe('TemplateAuthoring', () => {
     await uploadDocx();
     await save();
 
-    expect(alertText()).toBe('Only deal managers can save templates. Ask a deal manager.');
+    expect(alertText()).toBe(
+      'Only deal managers can save templates. Ask a deal manager.',
+    );
   });
 
   it('shows why saving failed', async () => {

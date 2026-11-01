@@ -2,12 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { Button } from '@odb/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@odb/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 
 import { StructuredData } from '~/components/structured-data';
 import appConfig from '~/config/app.config';
@@ -77,9 +72,9 @@ export default async function SecurityPage({
           Deal data stays in the right hands
         </h1>
         <p className={'text-muted-foreground max-w-2xl'}>
-          Acquisitions bring outsiders close to sensitive information. Open
-          Deal Book is built so each person sees only their part of a deal, and
-          so you can prove exactly who saw what.
+          Acquisitions bring outsiders close to sensitive information. Open Deal
+          Book is built so each person sees only their part of a deal, and so
+          you can prove exactly who saw what.
         </p>
       </div>
 

@@ -19,12 +19,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:",
-    "@tanstack/react-query": "catalog:",
-    "@tanstack/react-table": "catalog:",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/ui": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-table": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

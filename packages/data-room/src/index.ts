@@ -14,10 +14,7 @@ export type {
 } from './folders/schema';
 
 export { nextVersion } from './documents/version';
-export {
-  documentType,
-  groupDocumentsByFolder,
-} from './documents/grouped';
+export { documentType, groupDocumentsByFolder } from './documents/grouped';
 export type {
   BrowseDocument,
   DocumentRow,
@@ -42,9 +39,6 @@ export {
 } from './shared';
 
 export { stageUploadSchema, expandBatchSchema } from './uploads/schema';
-export type {
-  StageUploadInput,
-  ExpandBatchInput,
-} from './uploads/schema';
+export type { StageUploadInput, ExpandBatchInput } from './uploads/schema';
 export type { StagedBatch } from './uploads/stage';
 export type { ExpandResult } from './uploads/expand';

@@ -32,7 +32,10 @@ const noTerms = {
 describe('draftEmail', () => {
   it('fills the template fields', () => {
     const email = draftEmail(
-      { subject: 'Hello {{contactName}}', body: '{{lenderName}} / {{dealName}} / {{teamName}}' },
+      {
+        subject: 'Hello {{contactName}}',
+        body: '{{lenderName}} / {{dealName}} / {{teamName}}',
+      },
       facts,
     );
 
@@ -43,7 +46,10 @@ describe('draftEmail', () => {
   });
 
   it('states the terms sought as a block', () => {
-    const { body } = draftEmail({ subject: 's', body: '{{termsBlock}}' }, facts);
+    const { body } = draftEmail(
+      { subject: 's', body: '{{termsBlock}}' },
+      facts,
+    );
 
     expect(body).toBe(
       [
@@ -58,7 +64,10 @@ describe('draftEmail', () => {
   });
 
   it('states the timeline and asks whether they can close by the deadline', () => {
-    const { body } = draftEmail({ subject: 's', body: '{{timelineBlock}}' }, facts);
+    const { body } = draftEmail(
+      { subject: 's', body: '{{timelineBlock}}' },
+      facts,
+    );
 
     expect(body).toBe(
       [
@@ -73,11 +82,18 @@ describe('draftEmail', () => {
   it('omits terms lines that are not saved', () => {
     const { body } = draftEmail(
       { subject: 's', body: '{{termsBlock}}' },
-      { ...facts, terms: { ...noTerms, loanAmount: 500000, rateType: 'either' } },
+      {
+        ...facts,
+        terms: { ...noTerms, loanAmount: 500000, rateType: 'either' },
+      },
     );
 
     expect(body).toBe(
-      ['What we are looking for:', '- Loan amount: $500,000', '- Rate: fixed or variable'].join('\n'),
+      [
+        'What we are looking for:',
+        '- Loan amount: $500,000',
+        '- Rate: fixed or variable',
+      ].join('\n'),
     );
   });
 

@@ -41,37 +41,44 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'financial_viability.margin_health',
     category: 'financial_viability',
-    prompt: 'Are profit margins healthy for this industry and trending steady or up?',
+    prompt:
+      'Are profit margins healthy for this industry and trending steady or up?',
   },
   {
     key: 'financial_viability.debt_load',
     category: 'financial_viability',
-    prompt: 'Is existing debt modest enough that the business can carry acquisition financing?',
+    prompt:
+      'Is existing debt modest enough that the business can carry acquisition financing?',
   },
   {
     key: 'diversification.customer_concentration',
     category: 'diversification',
-    prompt: 'Is revenue spread across many customers rather than a few large accounts?',
+    prompt:
+      'Is revenue spread across many customers rather than a few large accounts?',
   },
   {
     key: 'diversification.supplier_concentration',
     category: 'diversification',
-    prompt: 'Can the business source from several suppliers without a single point of failure?',
+    prompt:
+      'Can the business source from several suppliers without a single point of failure?',
   },
   {
     key: 'diversification.product_mix',
     category: 'diversification',
-    prompt: 'Does revenue come from a mix of products or services rather than one offering?',
+    prompt:
+      'Does revenue come from a mix of products or services rather than one offering?',
   },
   {
     key: 'employee_risk.key_staff_retention',
     category: 'employee_risk',
-    prompt: 'Are the employees critical to operations likely to stay through the transition?',
+    prompt:
+      'Are the employees critical to operations likely to stay through the transition?',
   },
   {
     key: 'employee_risk.staffing_levels',
     category: 'employee_risk',
-    prompt: 'Is the team adequately staffed without obvious gaps or heavy turnover?',
+    prompt:
+      'Is the team adequately staffed without obvious gaps or heavy turnover?',
   },
   {
     key: 'employee_risk.management_depth',
@@ -81,7 +88,8 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'cashflow_quality.collections',
     category: 'cashflow_quality',
-    prompt: 'Does the business collect receivables promptly without large overdue balances?',
+    prompt:
+      'Does the business collect receivables promptly without large overdue balances?',
   },
   {
     key: 'cashflow_quality.seasonality',
@@ -91,12 +99,14 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'cashflow_quality.working_capital',
     category: 'cashflow_quality',
-    prompt: 'Does the business operate on reasonable working capital without constant cash strain?',
+    prompt:
+      'Does the business operate on reasonable working capital without constant cash strain?',
   },
   {
     key: 'competitive_advantage.moat',
     category: 'competitive_advantage',
-    prompt: 'Does the business hold a durable edge that is hard for rivals to copy?',
+    prompt:
+      'Does the business hold a durable edge that is hard for rivals to copy?',
   },
   {
     key: 'competitive_advantage.pricing_power',
@@ -106,7 +116,8 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'competitive_advantage.market_position',
     category: 'competitive_advantage',
-    prompt: 'Does the business hold a defensible position in its local or niche market?',
+    prompt:
+      'Does the business hold a defensible position in its local or niche market?',
   },
   {
     key: 'customer_satisfaction.retention',
@@ -116,7 +127,8 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'customer_satisfaction.reputation',
     category: 'customer_satisfaction',
-    prompt: 'Is the public reputation and review sentiment strong and credible?',
+    prompt:
+      'Is the public reputation and review sentiment strong and credible?',
   },
   {
     key: 'customer_satisfaction.referrals',
@@ -126,7 +138,8 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'recurring_revenue.contract_share',
     category: 'recurring_revenue',
-    prompt: 'Is a large share of revenue contracted or recurring rather than one-off?',
+    prompt:
+      'Is a large share of revenue contracted or recurring rather than one-off?',
   },
   {
     key: 'recurring_revenue.renewal_rate',
@@ -136,12 +149,14 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'recurring_revenue.backlog',
     category: 'recurring_revenue',
-    prompt: 'Is there a visible backlog or pipeline that supports forward revenue?',
+    prompt:
+      'Is there a visible backlog or pipeline that supports forward revenue?',
   },
   {
     key: 'owner_dependency.relationships',
     category: 'owner_dependency',
-    prompt: 'Do customer and supplier relationships sit with the business rather than the owner personally?',
+    prompt:
+      'Do customer and supplier relationships sit with the business rather than the owner personally?',
   },
   {
     key: 'owner_dependency.daily_operations',
@@ -151,7 +166,8 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'owner_dependency.transition_support',
     category: 'owner_dependency',
-    prompt: 'Is the owner willing to support a transition long enough to transfer knowledge?',
+    prompt:
+      'Is the owner willing to support a transition long enough to transfer knowledge?',
   },
   {
     key: 'upside_potential.growth_runway',
@@ -161,17 +177,20 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'upside_potential.untapped_channels',
     category: 'upside_potential',
-    prompt: 'Are there untapped channels, markets, or offerings a new owner could pursue?',
+    prompt:
+      'Are there untapped channels, markets, or offerings a new owner could pursue?',
   },
   {
     key: 'upside_potential.operational_leverage',
     category: 'upside_potential',
-    prompt: 'Could straightforward operational improvements lift margins or capacity?',
+    prompt:
+      'Could straightforward operational improvements lift margins or capacity?',
   },
   {
     key: 'process_maturity.documented_procedures',
     category: 'process_maturity',
-    prompt: 'Are core procedures documented well enough for someone new to follow them?',
+    prompt:
+      'Are core procedures documented well enough for someone new to follow them?',
   },
   {
     key: 'process_maturity.bookkeeping',
@@ -181,7 +200,8 @@ export const valueMarkerCatalog: ValueMarkerQuestion[] = [
   {
     key: 'process_maturity.systems',
     category: 'process_maturity',
-    prompt: 'Do reliable systems support operations rather than ad hoc manual effort?',
+    prompt:
+      'Do reliable systems support operations rather than ad hoc manual effort?',
   },
 ];
 

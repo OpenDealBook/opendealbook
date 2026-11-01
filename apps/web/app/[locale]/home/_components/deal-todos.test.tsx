@@ -70,7 +70,10 @@ function setValue(input: HTMLInputElement | HTMLSelectElement, value: string) {
 
 async function add(title: string) {
   await act(async () => {
-    setValue(container.querySelector('input[placeholder="Add a to-do"]')!, title);
+    setValue(
+      container.querySelector('input[placeholder="Add a to-do"]')!,
+      title,
+    );
   });
   await act(async () => {
     [...container.querySelectorAll('button')]

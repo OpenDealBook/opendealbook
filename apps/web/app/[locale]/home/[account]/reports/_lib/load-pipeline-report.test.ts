@@ -34,14 +34,25 @@ function dealRow(id: string, firmName: string): DealFacetedRow {
 }
 
 const tables: Record<string, unknown[]> = {
-  deal: [dealRow('real', 'Brennan Climate Services'), dealRow('sample', '[Example] Coastal HVAC')],
+  deal: [
+    dealRow('real', 'Brennan Climate Services'),
+    dealRow('sample', '[Example] Coastal HVAC'),
+  ],
   pipeline_stage: [
     { key: 'sourcing', label: 'Sourcing', sort_order: 1 },
     { key: 'nda', label: 'NDA', sort_order: 2 },
   ],
   deal_event: ['real', 'sample'].flatMap((dealId) => [
-    { deal_id: dealId, event_type: 'deal.created', payload: { stage: 'sourcing' } },
-    { deal_id: dealId, event_type: 'deal.stage_changed', payload: { stage: 'nda' } },
+    {
+      deal_id: dealId,
+      event_type: 'deal.created',
+      payload: { stage: 'sourcing' },
+    },
+    {
+      deal_id: dealId,
+      event_type: 'deal.stage_changed',
+      payload: { stage: 'nda' },
+    },
   ]),
 };
 
@@ -69,7 +80,9 @@ describe('loadPipelineReport', () => {
     const report = await loadPipelineReport(fakeClient() as never, 'acct-1');
 
     expect(report.activeTotal).toBe(1);
-    expect(report.stageDistribution.find((stage) => stage.key === 'nda')?.count).toBe(1);
+    expect(
+      report.stageDistribution.find((stage) => stage.key === 'nda')?.count,
+    ).toBe(1);
     expect(report.funnel.map((step) => [step.key, step.reached])).toEqual([
       ['sourcing', 1],
       ['nda', 1],

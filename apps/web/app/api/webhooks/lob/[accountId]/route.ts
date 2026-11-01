@@ -1,11 +1,18 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
-
 import { z } from 'zod';
 
 import { getSupabaseServerAdminClient } from '@odb/supabase/server';
 
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+
 const FIVE_MINUTES = 5 * 60_000;
-const STATUS_ORDER = ['queued', 'created', 'mailed', 'in_transit', 'delivered', 'returned'] as const;
+const STATUS_ORDER = [
+  'queued',
+  'created',
+  'mailed',
+  'in_transit',
+  'delivered',
+  'returned',
+] as const;
 
 const LETTER_STATUSES: Record<string, (typeof STATUS_ORDER)[number]> = {
   'letter.mailed': 'mailed',
@@ -20,16 +27,27 @@ function sha256(value: string): Buffer {
   return createHash('sha256').update(value).digest();
 }
 
-function signedRecentlyBy(secret: string, request: Request, body: string): boolean {
+function signedRecentlyBy(
+  secret: string,
+  request: Request,
+  body: string,
+): boolean {
   const timestamp = request.headers.get('Lob-Signature-Timestamp') ?? '';
-  const expected = createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
+  const expected = createHmac('sha256', secret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex');
   return (
-    timingSafeEqual(sha256(request.headers.get('Lob-Signature') ?? ''), sha256(expected)) &&
-    Date.now() - Number(timestamp) <= FIVE_MINUTES
+    timingSafeEqual(
+      sha256(request.headers.get('Lob-Signature') ?? ''),
+      sha256(expected),
+    ) && Date.now() - Number(timestamp) <= FIVE_MINUTES
   );
 }
 
-export async function POST(request: Request, context: { params: Promise<{ accountId: string }> }) {
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ accountId: string }> },
+) {
   const { accountId } = await context.params;
   if (!z.uuid().safeParse(accountId).success) {
     return new Response('Not Found', { status: 404 });
@@ -44,7 +62,10 @@ export async function POST(request: Request, context: { params: Promise<{ accoun
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const event = JSON.parse(body) as { event_type: { id: string }; body: { id: string } };
+  const event = JSON.parse(body) as {
+    event_type: { id: string };
+    body: { id: string };
+  };
   const status = LETTER_STATUSES[event.event_type.id];
   if (status !== undefined) {
     await admin

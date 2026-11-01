@@ -30,10 +30,14 @@ describe('EnrollForm', () => {
     const html = render();
 
     expect(html).toContain('owner@found.test');
-    expect(html).not.toContain('<span class="text-muted-foreground">owner@found.test</span>');
+    expect(html).not.toContain(
+      '<span class="text-muted-foreground">owner@found.test</span>',
+    );
   });
 
   it('names a contact by name, with its email beside it', () => {
-    expect(render()).toContain('Pat Owner<span class="text-muted-foreground">pat@found.test</span>');
+    expect(render()).toContain(
+      'Pat Owner<span class="text-muted-foreground">pat@found.test</span>',
+    );
   });
 });

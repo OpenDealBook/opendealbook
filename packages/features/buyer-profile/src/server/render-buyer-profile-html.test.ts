@@ -100,7 +100,10 @@ describe('renderBuyerProfileHtml', () => {
 
   it('omits sensitive data by default', () => {
     const html = renderBuyerProfileHtml(
-      sampleProfile({ include_sensitive: true, sensitive_json: { ssn: '123' } }),
+      sampleProfile({
+        include_sensitive: true,
+        sensitive_json: { ssn: '123' },
+      }),
     );
 
     expect(html).not.toContain('Sensitive');
@@ -109,7 +112,10 @@ describe('renderBuyerProfileHtml', () => {
 
   it('omits sensitive data when the profile allows it but the caller does not opt in', () => {
     const html = renderBuyerProfileHtml(
-      sampleProfile({ include_sensitive: true, sensitive_json: { ssn: '123' } }),
+      sampleProfile({
+        include_sensitive: true,
+        sensitive_json: { ssn: '123' },
+      }),
       { includeSensitive: false },
     );
 
@@ -130,7 +136,10 @@ describe('renderBuyerProfileHtml', () => {
 
   it('renders sensitive data only when the profile allows it and the caller opts in', () => {
     const html = renderBuyerProfileHtml(
-      sampleProfile({ include_sensitive: true, sensitive_json: { ssn: '123' } }),
+      sampleProfile({
+        include_sensitive: true,
+        sensitive_json: { ssn: '123' },
+      }),
       { includeSensitive: true },
     );
 

@@ -23,7 +23,9 @@ export async function syncContractReviewTodosForTeams(): Promise<void> {
   }
 }
 
-export async function emailContractReviewRemindersDue(now: string): Promise<void> {
+export async function emailContractReviewRemindersDue(
+  now: string,
+): Promise<void> {
   if (!process.env.NOVU_API_KEY || !process.env.NOVU_API_URL) {
     return;
   }
@@ -32,6 +34,10 @@ export async function emailContractReviewRemindersDue(now: string): Promise<void
   const novu = createNovuClient();
 
   for (const accountId of await teamsWithReviews(admin)) {
-    await emailContractReviewReminders({ admin, novu }, accountId, new Date(now));
+    await emailContractReviewReminders(
+      { admin, novu },
+      accountId,
+      new Date(now),
+    );
   }
 }

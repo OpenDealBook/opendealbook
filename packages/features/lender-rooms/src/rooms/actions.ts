@@ -20,7 +20,10 @@ function sixtyDaysFromNow() {
   return new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
 }
 
-async function updateRoom(roomId: string, changes: TablesUpdate<'lender_room'>) {
+async function updateRoom(
+  roomId: string,
+  changes: TablesUpdate<'lender_room'>,
+) {
   await getSupabaseServerClient()
     .from('lender_room')
     .update(changes)
@@ -389,4 +392,3 @@ export const listLenderRooms = refusableAction(
   },
   { auth: true, schema: z.object({ dealId: z.uuid() }) },
 );
-

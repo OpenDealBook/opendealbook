@@ -36,7 +36,10 @@ function refuseNarrower(field: string): never {
   );
 }
 
-function widenedFilters(dealBox: z.output<typeof dealBoxFilters>, widen: Widen): PullFilters {
+function widenedFilters(
+  dealBox: z.output<typeof dealBoxFilters>,
+  widen: Widen,
+): PullFilters {
   const filters: PullFilters = {
     states: dealBox.states,
     minJobs: dealBox.size.jobs.min,
@@ -47,7 +50,12 @@ function widenedFilters(dealBox: z.output<typeof dealBoxFilters>, widen: Widen):
     minHeadcount: dealBox.size.form5500Participants.min,
     maxHeadcount: dealBox.size.form5500Participants.max,
   };
-  for (const field of ['minJobs', 'minPppLoan', 'minAgeYears', 'minHeadcount'] as const) {
+  for (const field of [
+    'minJobs',
+    'minPppLoan',
+    'minAgeYears',
+    'minHeadcount',
+  ] as const) {
     const wider = widen[field];
     if (wider !== undefined) {
       if (wider > (filters[field] ?? 0)) refuseNarrower(field);
@@ -57,13 +65,17 @@ function widenedFilters(dealBox: z.output<typeof dealBoxFilters>, widen: Widen):
   for (const field of ['maxJobs', 'maxPppLoan', 'maxHeadcount'] as const) {
     const wider = widen[field];
     if (wider !== undefined) {
-      if (filters[field] === undefined || wider < filters[field]) refuseNarrower(field);
+      if (filters[field] === undefined || wider < filters[field])
+        refuseNarrower(field);
       filters[field] = wider;
     }
   }
   if (widen.states !== undefined) {
     const wider: string[] = widen.states;
-    if (filters.states.length === 0 || !filters.states.every((state) => wider.includes(state))) {
+    if (
+      filters.states.length === 0 ||
+      !filters.states.every((state) => wider.includes(state))
+    ) {
       refuseNarrower('states');
     }
     filters.states = wider;
@@ -88,9 +100,14 @@ export const pullLeads = defineStep({
       .maybeSingle()
       .throwOnError();
     if (!dealBox) {
-      throw ApplicationFailure.nonRetryable('Set your deal box before pulling leads.');
+      throw ApplicationFailure.nonRetryable(
+        'Set your deal box before pulling leads.',
+      );
     }
-    const filters = widenedFilters(dealBoxFilters.parse(dealBox.criteria_json), config.widen ?? {});
+    const filters = widenedFilters(
+      dealBoxFilters.parse(dealBox.criteria_json),
+      config.widen ?? {},
+    );
 
     const { data: firmIds } = await admin
       .rpc('pull_leads', {

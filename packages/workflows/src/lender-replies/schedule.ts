@@ -5,9 +5,7 @@ import { ensureSchedule } from '../schedules/ensureSchedule';
 
 const LENDER_REPLY_SYNC_SCHEDULE_ID = 'lender-reply-sync';
 
-export function ensureLenderReplySyncSchedule(
-  client: Client,
-): Promise<void> {
+export function ensureLenderReplySyncSchedule(client: Client): Promise<void> {
   return ensureSchedule(client, {
     scheduleId: LENDER_REPLY_SYNC_SCHEDULE_ID,
     spec: { intervals: [{ every: '1h' }] },

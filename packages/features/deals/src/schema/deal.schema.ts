@@ -1,9 +1,9 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-import { dealSourceSchema } from "./enums";
+import { dealSourceSchema } from './enums';
 
 export const businessIdentityFields = {
-  business_name: z.string().trim().min(1, "Enter the business name."),
+  business_name: z.string().trim().min(1, 'Enter the business name.'),
   industry_id: z.uuid().optional(),
   industry: z.string().trim().optional(),
 };
@@ -13,7 +13,7 @@ export const hasIndustry: [
   { message: string; path: string[] },
 ] = [
   (value) => Boolean(value.industry_id) || Boolean(value.industry),
-  { message: "Pick an industry.", path: ["industry"] },
+  { message: 'Pick an industry.', path: ['industry'] },
 ];
 
 export const dealSchema = z
@@ -25,9 +25,9 @@ export const dealSchema = z
     revenue_ttm: z.number().optional(),
     sde_ttm: z.number().optional(),
     ebitda_ttm: z.number().optional(),
-    source: dealSourceSchema.default("manual"),
+    source: dealSourceSchema.default('manual'),
     source_url: z.string().optional(),
-    stage: z.string().default("sourcing"),
+    stage: z.string().default('sourcing'),
     notes: z.string().optional(),
     business_model: z.string().optional(),
     location_id: z.uuid().optional(),
@@ -61,15 +61,15 @@ export const updateDealProfileSchema = z
 
 export type UpdateDealProfilePayload = z.infer<typeof updateDealProfileSchema>;
 
-export const resolutionSchema = z.enum(["won", "lost"]);
+export const resolutionSchema = z.enum(['won', 'lost']);
 
 export const resolutionReasonSchema = z.enum([
-  "closed",
-  "offer_not_made",
-  "offer_not_accepted",
-  "deal_did_not_close",
-  "listing_pulled_or_sold",
-  "other",
+  'closed',
+  'offer_not_made',
+  'offer_not_accepted',
+  'deal_did_not_close',
+  'listing_pulled_or_sold',
+  'other',
 ]);
 
 export type Resolution = z.infer<typeof resolutionSchema>;
@@ -96,16 +96,16 @@ export const setDealResolutionSchema = z
   })
   .refine(
     (value) =>
-      value.resolution !== "lost" || value.resolution_reason !== undefined,
+      value.resolution !== 'lost' || value.resolution_reason !== undefined,
     {
-      message: "A reason is required when a deal is lost",
-      path: ["resolution_reason"],
+      message: 'A reason is required when a deal is lost',
+      path: ['resolution_reason'],
     },
   );
 
 export type SetDealResolutionPayload = z.infer<typeof setDealResolutionSchema>;
 
-export const listingStatusSchema = z.enum(["active", "pulled", "sold"]);
+export const listingStatusSchema = z.enum(['active', 'pulled', 'sold']);
 
 export type ListingStatus = z.infer<typeof listingStatusSchema>;
 
@@ -118,7 +118,7 @@ export type SetDealListingStatusPayload = z.infer<
   typeof setDealListingStatusSchema
 >;
 
-export const earningsBasisSchema = z.enum(["sde", "ebitda"]);
+export const earningsBasisSchema = z.enum(['sde', 'ebitda']);
 
 export type EarningsBasis = z.infer<typeof earningsBasisSchema>;
 

@@ -96,8 +96,18 @@ describe('scenarioPaths', () => {
         sde: 150_000,
         minimumDscr: 1.25,
         drivers: {
-          worst: { revenue_loss: 0, growth: 0, margin_change: 0, rate_shift: 0 },
-          great: { revenue_loss: 0, growth: 0, margin_change: 0, rate_shift: 0 },
+          worst: {
+            revenue_loss: 0,
+            growth: 0,
+            margin_change: 0,
+            rate_shift: 0,
+          },
+          great: {
+            revenue_loss: 0,
+            growth: 0,
+            margin_change: 0,
+            rate_shift: 0,
+          },
         },
       }),
     );
@@ -125,7 +135,12 @@ describe('scenarioPaths', () => {
         sources: [{ ...loan, rate: 0.005 }],
         drivers: {
           ...drivers,
-          great: { revenue_loss: 0, growth: 0, margin_change: 0, rate_shift: -0.01 },
+          great: {
+            revenue_loss: 0,
+            growth: 0,
+            margin_change: 0,
+            rate_shift: -0.01,
+          },
         },
       }),
     ).great;
@@ -144,8 +159,18 @@ describe('scenarioPaths', () => {
 describe('STARTER_SCENARIO_PATHS', () => {
   it('holds the ruled starters', () => {
     expect(STARTER_SCENARIO_PATHS).toEqual({
-      worst: { revenue_loss: 0.1, growth: 0, margin_change: -0.02, rate_shift: 0.02 },
-      great: { revenue_loss: 0, growth: 0.05, margin_change: 0.02, rate_shift: -0.01 },
+      worst: {
+        revenue_loss: 0.1,
+        growth: 0,
+        margin_change: -0.02,
+        rate_shift: 0.02,
+      },
+      great: {
+        revenue_loss: 0,
+        growth: 0.05,
+        margin_change: 0.02,
+        rate_shift: -0.01,
+      },
     });
   });
 });

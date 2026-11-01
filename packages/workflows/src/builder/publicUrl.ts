@@ -48,7 +48,12 @@ function withinLookupTimeout<T>(lookup: Promise<T>): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(
-      () => reject(Object.assign(new Error('DNS lookup timed out'), { code: 'ETIMEOUT' })),
+      () =>
+        reject(
+          Object.assign(new Error('DNS lookup timed out'), {
+            code: 'ETIMEOUT',
+          }),
+        ),
       LOOKUP_TIMEOUT_MS,
     );
   });
@@ -63,7 +68,9 @@ export interface VettedAddress {
 }
 
 function vetted(address: string): VettedAddress | null {
-  return isPublicAddress(address) ? { address, family: isIP(address) as 4 | 6 } : null;
+  return isPublicAddress(address)
+    ? { address, family: isIP(address) as 4 | 6 }
+    : null;
 }
 
 export async function publicAddressOf(
@@ -84,12 +91,19 @@ export async function publicAddressOf(
   if (isInternalHostname(host)) {
     return null;
   }
-  const addresses = await withinLookupTimeout(resolve(host)).catch((error: { code?: string }) => {
-    throw new AddressNotFound(error.code !== 'ENOTFOUND');
-  });
-  return addresses.every(({ address }) => isPublicAddress(address)) ? vetted(addresses[0]!.address) : null;
+  const addresses = await withinLookupTimeout(resolve(host)).catch(
+    (error: { code?: string }) => {
+      throw new AddressNotFound(error.code !== 'ENOTFOUND');
+    },
+  );
+  return addresses.every(({ address }) => isPublicAddress(address))
+    ? vetted(addresses[0]!.address)
+    : null;
 }
 
-export async function isPublicHttpsUrl(raw: string, resolve: Lookup = resolveAll): Promise<boolean> {
+export async function isPublicHttpsUrl(
+  raw: string,
+  resolve: Lookup = resolveAll,
+): Promise<boolean> {
   return (await publicAddressOf(raw, resolve)) !== null;
 }

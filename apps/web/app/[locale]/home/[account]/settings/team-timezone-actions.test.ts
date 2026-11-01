@@ -70,9 +70,8 @@ vi.mock('@odb/supabase/server', () => ({
 vi.mock('@odb/workflows/builder/schedule', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   syncTeamSchedules: async ({ accountId }: { accountId: string }) => {
-    const { SchedulesPartlyUpdated } = await importOriginal<
-      typeof import('@odb/workflows/builder/schedule')
-    >();
+    const { SchedulesPartlyUpdated } =
+      await importOriginal<typeof import('@odb/workflows/builder/schedule')>();
     if (world.someSchedulesFail) {
       throw new SchedulesPartlyUpdated(2, 5);
     }
@@ -83,9 +82,8 @@ vi.mock('@odb/workflows/builder/schedule', async (importOriginal) => ({
   },
 }));
 
-const { updateTeamTimezoneAction, retryTeamScheduleSyncAction } = await import(
-  './team-timezone-actions'
-);
+const { updateTeamTimezoneAction, retryTeamScheduleSyncAction } =
+  await import('./team-timezone-actions');
 
 beforeEach(() => {
   world.events = [];

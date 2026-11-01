@@ -9,7 +9,10 @@ import { seedLoiSignedTargets } from './loi-signed-targets';
 export async function setUpLoiSigned(
   client: SupabaseClient<Database>,
   { dealId, signedOn }: { dealId: string; signedOn: string },
-  { actor, createdBy }: {
+  {
+    actor,
+    createdBy,
+  }: {
     actor: Pick<DealEventInput, 'actorKind' | 'actorVia'>;
     createdBy?: string;
   },

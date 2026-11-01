@@ -67,11 +67,7 @@ export function ContactForm() {
 
       <div className={'flex flex-col gap-2'}>
         <Label htmlFor={'company'}>Company</Label>
-        <Input
-          id={'company'}
-          name={'company'}
-          placeholder={'Your firm'}
-        />
+        <Input id={'company'} name={'company'} placeholder={'Your firm'} />
       </div>
 
       <div className={'flex flex-col gap-2'}>

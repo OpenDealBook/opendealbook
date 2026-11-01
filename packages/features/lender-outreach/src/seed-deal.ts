@@ -48,7 +48,12 @@ export async function seedLender(
 ) {
   const { data: lender } = await admin
     .from('lender')
-    .insert({ account_id: accountId, name, website: `https://${domain}`, domain })
+    .insert({
+      account_id: accountId,
+      name,
+      website: `https://${domain}`,
+      domain,
+    })
     .select('id')
     .single()
     .throwOnError();

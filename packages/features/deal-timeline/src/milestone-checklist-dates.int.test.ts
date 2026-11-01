@@ -1,3 +1,4 @@
+import pg from 'pg';
 import {
   afterAll,
   beforeAll,
@@ -7,8 +8,6 @@ import {
   it,
   vi,
 } from 'vitest';
-
-import pg from 'pg';
 
 import { appendDealEvents } from '@odb/events';
 import {
@@ -254,8 +253,13 @@ describe('checklist dates follow the deal anchors', () => {
         review_due_at: at('2026-06-28'),
       });
     } finally {
-      await db.query('delete from public.accounts_memberships where user_id = $1', [member.userId]);
-      await db.query('delete from public.role_permissions where role = $1', [roleName]);
+      await db.query(
+        'delete from public.accounts_memberships where user_id = $1',
+        [member.userId],
+      );
+      await db.query('delete from public.role_permissions where role = $1', [
+        roleName,
+      ]);
       await db.query('delete from public.roles where name = $1', [roleName]);
       await db.end();
     }

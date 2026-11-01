@@ -37,9 +37,7 @@ describe('WORKSHEET_FIELD_CATALOG', () => {
       for (const field of WORKSHEET_FIELD_CATALOG[type]) {
         expect(typeof field.key).toBe('string');
         expect(typeof field.label).toBe('string');
-        expect(['text', 'number', 'currency', 'select']).toContain(
-          field.kind,
-        );
+        expect(['text', 'number', 'currency', 'select']).toContain(field.kind);
       }
     }
   });
@@ -56,9 +54,7 @@ describe('WORKSHEET_FIELD_CATALOG', () => {
 
   it('includes the flight_risk and status select fields for retention_plan', () => {
     const keys = WORKSHEET_FIELD_CATALOG.retention_plan.map((f) => f.key);
-    expect(keys).toEqual(
-      expect.arrayContaining(['flight_risk', 'status']),
-    );
+    expect(keys).toEqual(expect.arrayContaining(['flight_risk', 'status']));
   });
 });
 
@@ -75,7 +71,8 @@ describe('deriveWorksheetRow margin_analysis', () => {
 
   it('is a null margin when either input is missing', () => {
     expect(
-      deriveWorksheetRow('margin_analysis', { revenue: 100, direct_cost: null }).margin,
+      deriveWorksheetRow('margin_analysis', { revenue: 100, direct_cost: null })
+        .margin,
     ).toBeNull();
     expect(
       deriveWorksheetRow('margin_analysis', { direct_cost: 60 }).margin,
@@ -106,8 +103,10 @@ describe('deriveWorksheetRow marketing_effectiveness', () => {
 
   it('is a null cac when customers is 0 or missing', () => {
     expect(
-      deriveWorksheetRow('marketing_effectiveness', { spend: 1000, customers: 0 })
-        .cac,
+      deriveWorksheetRow('marketing_effectiveness', {
+        spend: 1000,
+        customers: 0,
+      }).cac,
     ).toBeNull();
     expect(
       deriveWorksheetRow('marketing_effectiveness', { spend: 1000 }).cac,
@@ -120,9 +119,9 @@ describe('deriveWorksheetRow marketing_effectiveness', () => {
 
 describe('deriveWorksheetRow with no derived fields', () => {
   it('derives nothing for retention_plan', () => {
-    expect(
-      deriveWorksheetRow('retention_plan', { employee: 'Jane' }),
-    ).toEqual({});
+    expect(deriveWorksheetRow('retention_plan', { employee: 'Jane' })).toEqual(
+      {},
+    );
   });
 
   it('derives nothing for process_sop', () => {

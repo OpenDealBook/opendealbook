@@ -22,7 +22,10 @@ const DELIVERY_REPORT_SENDER = /^(mailer-daemon|postmaster)@/;
 
 const FINISHED_WATCH_MS = 30 * 86_400_000;
 
-function stopReason(messages: ThreadMessage[], team: Set<string>): StopReason | undefined {
+function stopReason(
+  messages: ThreadMessage[],
+  team: Set<string>,
+): StopReason | undefined {
   const senders = messages
     .map((message) => message.fromAddress.toLowerCase())
     .filter((sender) => !team.has(sender));
@@ -37,7 +40,9 @@ export async function syncOutreachReplies(): Promise<void> {
 
   const { data: connections } = await admin
     .from('mailbox_connection')
-    .select('account_id, provider, nango_connection_id, provider_config_key, email_address')
+    .select(
+      'account_id, provider, nango_connection_id, provider_config_key, email_address',
+    )
     .eq('status', 'active')
     .throwOnError();
 
@@ -52,7 +57,10 @@ export async function syncOutreachReplies(): Promise<void> {
   }
 }
 
-async function syncTeamReplies(admin: AdminClient, row: MailboxConnectionRow): Promise<void> {
+async function syncTeamReplies(
+  admin: AdminClient,
+  row: MailboxConnectionRow,
+): Promise<void> {
   const connection: MailboxConnection = {
     provider: row.provider as MailboxConnection['provider'],
     nangoConnectionId: row.nango_connection_id,
@@ -76,10 +84,14 @@ async function syncTeamReplies(admin: AdminClient, row: MailboxConnectionRow): P
     .not('provider_thread_id', 'is', null)
     .throwOnError();
   const sends = recorded.filter(
-    (send) => send.from_email?.toLowerCase() === row.email_address.toLowerCase(),
+    (send) =>
+      send.from_email?.toLowerCase() === row.email_address.toLowerCase(),
   );
   const targets = new Map(
-    sends.map((send) => [send.enrollment_id, send.outreach_enrollment.target_email]),
+    sends.map((send) => [
+      send.enrollment_id,
+      send.outreach_enrollment.target_email,
+    ]),
   );
   const finished = new Set(
     sends
@@ -96,7 +108,8 @@ async function syncTeamReplies(admin: AdminClient, row: MailboxConnectionRow): P
   const watchFrom = new Date(Date.now() - FINISHED_WATCH_MS).toISOString();
   const watched = sends.filter(
     (send) =>
-      !finished.has(send.enrollment_id) || lastTouch.get(send.enrollment_id)! >= watchFrom,
+      !finished.has(send.enrollment_id) ||
+      lastTouch.get(send.enrollment_id)! >= watchFrom,
   );
 
   for (const send of watched) {
@@ -104,7 +117,10 @@ async function syncTeamReplies(admin: AdminClient, row: MailboxConnectionRow): P
     try {
       messages = await listThreadMessages(connection, send.provider_thread_id!);
     } catch (error) {
-      if (error instanceof MailboxRequestFailed && (error.status === 404 || error.status === 429)) {
+      if (
+        error instanceof MailboxRequestFailed &&
+        (error.status === 404 || error.status === 429)
+      ) {
         continue;
       }
       throw error;

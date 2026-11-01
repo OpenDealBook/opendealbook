@@ -94,9 +94,7 @@ export function createMemoryClient(
       single() {
         return Promise.resolve(run(true));
       },
-      then<T>(
-        onFulfilled: (value: ReturnType<typeof run>) => T,
-      ): Promise<T> {
+      then<T>(onFulfilled: (value: ReturnType<typeof run>) => T): Promise<T> {
         return Promise.resolve(run(false)).then(onFulfilled);
       },
     };
@@ -112,7 +110,11 @@ export function createMemoryClient(
           bytes: Uint8Array,
           uploadOptions?: { contentType?: string },
         ) {
-          uploads.push({ path, bytes, contentType: uploadOptions?.contentType });
+          uploads.push({
+            path,
+            bytes,
+            contentType: uploadOptions?.contentType,
+          });
           return Promise.resolve({ data: { path }, error: null });
         },
       };

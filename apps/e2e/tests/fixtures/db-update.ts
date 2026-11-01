@@ -21,8 +21,12 @@ function psql(sql: string) {
 // The business creation form has no owner field, so the firm's owner names are
 // set through the database container.
 export async function setFirmOwnerNames(firmId: string, names: string[]) {
-  const array = names.map((name) => `'${name.replaceAll("'", "''")}'`).join(', ');
-  await psql(`update public.firm set owner_names = array[${array}] where id = '${firmId}'`);
+  const array = names
+    .map((name) => `'${name.replaceAll("'", "''")}'`)
+    .join(', ');
+  await psql(
+    `update public.firm set owner_names = array[${array}] where id = '${firmId}'`,
+  );
 }
 
 export async function deleteDataRoomDocument(id: string) {

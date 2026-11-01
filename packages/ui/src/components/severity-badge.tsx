@@ -9,9 +9,9 @@ const severityBadgeVariants = cva(
   {
     variants: {
       severity: {
-        info: 'border-transparent bg-brass/10 text-brass',
-        warning: 'border-transparent bg-warning/10 text-warning',
-        error: 'border-transparent bg-destructive/10 text-destructive',
+        info: 'bg-brass/10 text-brass border-transparent',
+        warning: 'bg-warning/10 text-warning border-transparent',
+        error: 'bg-destructive/10 text-destructive border-transparent',
       },
     },
     defaultVariants: {
@@ -44,7 +44,7 @@ function SeverityBadge({
       {...props}
     >
       <Icon />
-      {children ?? (severity ?? 'info')}
+      {children ?? severity ?? 'info'}
     </span>
   );
 }

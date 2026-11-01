@@ -62,14 +62,19 @@ export const summarizeMeeting = enhanceAction(
     const scope = await dealAiScope(client, data.deal_id, 'deals.work');
 
     if (typeof scope === 'string') {
-      return { ok: false as const, reason: 'Only the deal team can summarize this meeting.' };
+      return {
+        ok: false as const,
+        reason: 'Only the deal team can summarize this meeting.',
+      };
     }
 
     const generated = await generateStructured<{ summary: string }>({
       scope,
       system: SUMMARY_SYSTEM,
       prompt: data.transcript_text,
-      parse: (raw) => ({ summary: String((raw as { summary: string }).summary) }),
+      parse: (raw) => ({
+        summary: String((raw as { summary: string }).summary),
+      }),
     });
 
     if (!generated.ok) {

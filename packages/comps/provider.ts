@@ -70,7 +70,9 @@ export async function ingestExternalComps(
   }
 
   const rows = records.map((record) => toCompRow(provider, record));
-  const { error } = await deps.client.from('comp').upsert(rows, { onConflict: 'source,source_ref' });
+  const { error } = await deps.client
+    .from('comp')
+    .upsert(rows, { onConflict: 'source,source_ref' });
   if (error) {
     throw error;
   }

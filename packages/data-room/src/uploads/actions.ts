@@ -4,8 +4,8 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { assertDealPermission, resolveDealAccountId } from '../permission';
 import type { UploadBody } from '../storage';
-import { expandBatch } from './expand';
 import type { ZipEntry } from './entries';
+import { expandBatch } from './expand';
 import { expandBatchSchema, stageUploadSchema } from './schema';
 import { stageBatch } from './stage';
 import { extractZipEntries } from './zip';

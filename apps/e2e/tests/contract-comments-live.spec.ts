@@ -18,12 +18,23 @@ test('contract comments and resolve or reopen reach the other side without a rel
   test.setTimeout(120 * 1000);
 
   const stamp = Date.now();
-  const counselPerson = { email: newCredentials().email, name: `Bea Counsel ${stamp}` };
+  const counselPerson = {
+    email: newCredentials().email,
+    name: `Bea Counsel ${stamp}`,
+  };
 
   await auth.signUp(page);
   const teamSlug = await completeTeamOnboarding(page, `Live Team ${stamp}`);
-  const { dealId, dealPath } = await createDeal(page, teamSlug, `Live Deal ${stamp}`);
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  const { dealId, dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Live Deal ${stamp}`,
+  );
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
   await contracts.seed({
     dealId,
     versions: [{ party: 'buyer', summary: `Draft ${stamp}`, shared: true }],

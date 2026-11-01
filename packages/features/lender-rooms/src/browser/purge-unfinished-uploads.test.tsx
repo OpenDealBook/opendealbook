@@ -59,10 +59,9 @@ it('drops what this person left in rooms they can no longer use, and anything pa
   );
   await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
-  expect([...kept.values()].map(({ roomId, userId }) => `${roomId}/${userId}`)).toEqual([
-    'open-room/ana',
-    'closed-room/ben',
-  ]);
+  expect(
+    [...kept.values()].map(({ roomId, userId }) => `${roomId}/${userId}`),
+  ).toEqual(['open-room/ana', 'closed-room/ben']);
 
   act(() => root.unmount());
   vi.unstubAllGlobals();

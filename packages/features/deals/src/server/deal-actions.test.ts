@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const GENERATED_ID = '00000000-0000-0000-0000-000000000001';
 
 const mocks = vi.hoisted(() => {
-  const appendDealEvent = vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]);
+  const appendDealEvent = vi.fn(async () => [
+    { deal_seq: 1, aggregate_seq: 1 },
+  ]);
   const appendDealEvents = vi.fn(async () => [
     { deal_seq: 1, aggregate_seq: 1 },
   ]);
@@ -31,7 +33,11 @@ const mocks = vi.hoisted(() => {
       return stages;
     }
     if (table === 'deal') {
-      return { id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', account_id: 'd189aa4d-3d82-46d6-8967-4a2079217dfb', stage: 'sourced' };
+      return {
+        id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        account_id: 'd189aa4d-3d82-46d6-8967-4a2079217dfb',
+        stage: 'sourced',
+      };
     }
     if (table === 'approval' || table === 'checklist_item') {
       return { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' };
@@ -98,7 +104,10 @@ const removal = vi.hoisted(() => {
       throw new Error(`storage is unreachable for ${bucket}`);
     }
     if (paths.length > 1000 || failingBuckets.has(bucket)) {
-      return { data: null, error: { message: `could not remove from ${bucket}` } };
+      return {
+        data: null,
+        error: { message: `could not remove from ${bucket}` },
+      };
     }
     removed.push(...paths.map((path) => ({ bucket, path })));
     return { data: [], error: null };
@@ -276,7 +285,10 @@ describe('setDealResolution', () => {
 
 describe('archiveDeal', () => {
   it('appends a deal.archived event', async () => {
-    await runArchiveDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
+    await runArchiveDeal(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' },
+      { id: 'user-1' },
+    );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
       dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
@@ -289,7 +301,8 @@ describe('archiveDeal', () => {
   it('returns a named refusal to someone who does not manage the deal', async () => {
     mocks.appendDealEvent.mockRejectedValueOnce({
       code: '42501',
-      message: 'not authorized to append deal.archived on deal 6221ddef: needs deals.manage',
+      message:
+        'not authorized to append deal.archived on deal 6221ddef: needs deals.manage',
     });
 
     const result = await runArchiveDeal(
@@ -306,7 +319,10 @@ describe('archiveDeal', () => {
 
 describe('unarchiveDeal', () => {
   it('appends a deal.unarchived event', async () => {
-    await runUnarchiveDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
+    await runUnarchiveDeal(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' },
+      { id: 'user-1' },
+    );
 
     expect(mocks.appendDealEvent).toHaveBeenCalledWith(expect.anything(), {
       dealId: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
@@ -392,8 +408,16 @@ describe('deleteDeal', () => {
   it('tells each outside party by the name they know the deal by', async () => {
     deleted({
       recipients: [
-        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
-        { user_id: 'seller-1', email: 'sam@harbor.test', deal_name: 'Harbor Plumbing' },
+        {
+          user_id: 'lender-1',
+          email: 'lender@bank.test',
+          deal_name: 'Project Pipe',
+        },
+        {
+          user_id: 'seller-1',
+          email: 'sam@harbor.test',
+          deal_name: 'Harbor Plumbing',
+        },
       ],
     });
 
@@ -402,7 +426,9 @@ describe('deleteDeal', () => {
       { id: 'user-1' },
     );
 
-    expect(removal.triggerNotification.mock.calls.map(([, input]) => input)).toEqual([
+    expect(
+      removal.triggerNotification.mock.calls.map(([, input]) => input),
+    ).toEqual([
       {
         eventType: 'deal.deleted',
         recipientUserId: 'lender-1',
@@ -421,12 +447,20 @@ describe('deleteDeal', () => {
   it('records and logs the files, runs and emails it could not clean up after the delete', async () => {
     const kept = { bucket: 'data-room', path: `deal/${dealId}/kept.pdf` };
     const stuck = { bucket: 'contracts', path: 'team/c1/v1.pdf' };
-    const unreached = { user_id: 'seller-1', email: 'sam@harbor.test', deal_name: 'Harbor Plumbing' };
+    const unreached = {
+      user_id: 'seller-1',
+      email: 'sam@harbor.test',
+      deal_name: 'Harbor Plumbing',
+    };
     deleted({
       files: [kept, stuck],
       run_ids: ['run-1', 'run-2'],
       recipients: [
-        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+        {
+          user_id: 'lender-1',
+          email: 'lender@bank.test',
+          deal_name: 'Project Pipe',
+        },
         unreached,
       ],
     });
@@ -447,15 +481,22 @@ describe('deleteDeal', () => {
       { id: 'user-1' },
     );
 
-    const leftovers = { files: [stuck], run_ids: ['run-2'], recipients: ['seller-1'] };
+    const leftovers = {
+      files: [stuck],
+      run_ids: ['run-2'],
+      recipients: ['seller-1'],
+    };
     expect(result).toEqual({ ok: true, value: undefined });
     expect(removal.removed).toEqual([kept]);
     expect(removal.cancelRuns).toHaveBeenCalledWith(['run-1', 'run-2']);
-    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
-      p_account_id: accountId,
-      p_deal_id: dealId,
-      p_leftovers: leftovers,
-    });
+    expect(removal.adminRpc).toHaveBeenCalledWith(
+      'record_deal_delete_cleanup_failed',
+      {
+        p_account_id: accountId,
+        p_deal_id: dealId,
+        p_leftovers: leftovers,
+      },
+    );
     expect(removal.logError).toHaveBeenCalledWith(
       {
         dealId,
@@ -470,10 +511,16 @@ describe('deleteDeal', () => {
     deleted({
       run_ids: ['run-1', 'run-2'],
       recipients: [
-        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+        {
+          user_id: 'lender-1',
+          email: 'lender@bank.test',
+          deal_name: 'Project Pipe',
+        },
       ],
     });
-    removal.cancelRuns.mockRejectedValueOnce(new Error('workflow_run update failed'));
+    removal.cancelRuns.mockRejectedValueOnce(
+      new Error('workflow_run update failed'),
+    );
 
     const result = await runDeleteDeal(
       { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
@@ -482,19 +529,30 @@ describe('deleteDeal', () => {
 
     expect(result).toEqual({ ok: true, value: undefined });
     expect(removal.triggerNotification).toHaveBeenCalledTimes(1);
-    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
-      p_account_id: accountId,
-      p_deal_id: dealId,
-      p_leftovers: { files: [], run_ids: ['run-1', 'run-2'], recipients: [] },
-    });
+    expect(removal.adminRpc).toHaveBeenCalledWith(
+      'record_deal_delete_cleanup_failed',
+      {
+        p_account_id: accountId,
+        p_deal_id: dealId,
+        p_leftovers: { files: [], run_ids: ['run-1', 'run-2'], recipients: [] },
+      },
+    );
   });
 
   it('records every outside recipient as not notified when email is not set up', async () => {
     vi.stubEnv('NOVU_API_KEY', '');
     deleted({
       recipients: [
-        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
-        { user_id: 'seller-1', email: 'sam@harbor.test', deal_name: 'Harbor Plumbing' },
+        {
+          user_id: 'lender-1',
+          email: 'lender@bank.test',
+          deal_name: 'Project Pipe',
+        },
+        {
+          user_id: 'seller-1',
+          email: 'sam@harbor.test',
+          deal_name: 'Harbor Plumbing',
+        },
       ],
     });
 
@@ -504,11 +562,18 @@ describe('deleteDeal', () => {
     );
 
     expect(removal.triggerNotification).not.toHaveBeenCalled();
-    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
-      p_account_id: accountId,
-      p_deal_id: dealId,
-      p_leftovers: { files: [], run_ids: [], recipients: ['lender-1', 'seller-1'] },
-    });
+    expect(removal.adminRpc).toHaveBeenCalledWith(
+      'record_deal_delete_cleanup_failed',
+      {
+        p_account_id: accountId,
+        p_deal_id: dealId,
+        p_leftovers: {
+          files: [],
+          run_ids: [],
+          recipients: ['lender-1', 'seller-1'],
+        },
+      },
+    );
     expect(removal.logError).toHaveBeenCalledWith(
       expect.objectContaining({ errors: ['Email is not set up'] }),
       'Deal deleted, but its cleanup did not finish',
@@ -517,7 +582,9 @@ describe('deleteDeal', () => {
 
   it('logs the message of each cleanup step that threw', async () => {
     deleted({ run_ids: ['run-1'] });
-    removal.cancelRuns.mockRejectedValueOnce(new Error('workflow_run update failed'));
+    removal.cancelRuns.mockRejectedValueOnce(
+      new Error('workflow_run update failed'),
+    );
 
     await runDeleteDeal(
       { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
@@ -537,7 +604,11 @@ describe('deleteDeal', () => {
   it('records every recipient when the email client cannot be made', async () => {
     deleted({
       recipients: [
-        { user_id: 'lender-1', email: 'lender@bank.test', deal_name: 'Project Pipe' },
+        {
+          user_id: 'lender-1',
+          email: 'lender@bank.test',
+          deal_name: 'Project Pipe',
+        },
       ],
     });
     removal.createNovuClient.mockImplementationOnce(() => {
@@ -550,11 +621,14 @@ describe('deleteDeal', () => {
     );
 
     expect(result).toEqual({ ok: true, value: undefined });
-    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
-      p_account_id: accountId,
-      p_deal_id: dealId,
-      p_leftovers: { files: [], run_ids: [], recipients: ['lender-1'] },
-    });
+    expect(removal.adminRpc).toHaveBeenCalledWith(
+      'record_deal_delete_cleanup_failed',
+      {
+        p_account_id: accountId,
+        p_deal_id: dealId,
+        p_leftovers: { files: [], run_ids: [], recipients: ['lender-1'] },
+      },
+    );
   });
 
   it('records the files of a storage call that throws', async () => {
@@ -568,11 +642,14 @@ describe('deleteDeal', () => {
     );
 
     expect(result).toEqual({ ok: true, value: undefined });
-    expect(removal.adminRpc).toHaveBeenCalledWith('record_deal_delete_cleanup_failed', {
-      p_account_id: accountId,
-      p_deal_id: dealId,
-      p_leftovers: { files: [file], run_ids: [], recipients: [] },
-    });
+    expect(removal.adminRpc).toHaveBeenCalledWith(
+      'record_deal_delete_cleanup_failed',
+      {
+        p_account_id: accountId,
+        p_deal_id: dealId,
+        p_leftovers: { files: [file], run_ids: [], recipients: [] },
+      },
+    );
   });
 
   it('says the deal was deleted when its cleanup list cannot be read', async () => {
@@ -588,14 +665,19 @@ describe('deleteDeal', () => {
         { deal_id: dealId, confirm_name: 'Harbor Plumbing' },
         { id: 'user-1' },
       ),
-    ).rejects.toThrow(`Deal ${dealId} was deleted, but its cleanup list could not be read`);
+    ).rejects.toThrow(
+      `Deal ${dealId} was deleted, but its cleanup list could not be read`,
+    );
   });
 });
 
 describe('setDealListingStatus', () => {
   it('appends a deal.listing_status_changed event with the status', async () => {
     await runSetDealListingStatus(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', listing_status: 'sold' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        listing_status: 'sold',
+      },
       { id: 'user-1' },
     );
 
@@ -612,7 +694,10 @@ describe('setDealListingStatus', () => {
 describe('setEarningsBasis', () => {
   it('appends a deal.earnings_basis_changed event with the basis', async () => {
     await runSetEarningsBasis(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', earnings_basis: 'ebitda' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        earnings_basis: 'ebitda',
+      },
       { id: 'user-1' },
     );
 
@@ -629,7 +714,10 @@ describe('setEarningsBasis', () => {
     mocks.appendDealEvent.mockRejectedValueOnce({ code: '42501' });
 
     const result = await runSetEarningsBasis(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', earnings_basis: 'ebitda' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        earnings_basis: 'ebitda',
+      },
       { id: 'user-1' },
     );
 
@@ -674,12 +762,16 @@ describe('adoptDealFinancials refusal', () => {
   it('names who can adopt financials when the caller cannot', async () => {
     mocks.appendDealEvent.mockRejectedValueOnce({
       code: '42501',
-      message: 'not authorized to append deal.financials_adopted on deal: needs deals.manage',
+      message:
+        'not authorized to append deal.financials_adopted on deal: needs deals.manage',
     });
 
     expect(
       await runAdoptDealFinancials(
-        { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', adopted_revenue: 1000000 },
+        {
+          deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+          adopted_revenue: 1000000,
+        },
         { id: 'user-1' },
       ),
     ).toEqual({
@@ -717,15 +809,14 @@ describe('upsertDealBox', () => {
 
 describe('starDeal', () => {
   it('inserts a deal_star row scoped to the current user and the deal account', async () => {
-    await runStarDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
+    await runStarDeal(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' },
+      { id: 'user-1' },
+    );
 
     const [table, payload, options] = mocks.upsertSpy.mock.calls.at(
       -1,
-    ) as unknown as [
-      string,
-      Record<string, unknown>,
-      Record<string, unknown>,
-    ];
+    ) as unknown as [string, Record<string, unknown>, Record<string, unknown>];
 
     expect(table).toBe('deal_star');
     expect(payload).toEqual({
@@ -739,7 +830,10 @@ describe('starDeal', () => {
 
 describe('unstarDeal', () => {
   it('deletes the deal_star row', async () => {
-    await runUnstarDeal({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' }, { id: 'user-1' });
+    await runUnstarDeal(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30' },
+      { id: 'user-1' },
+    );
 
     expect(mocks.deleteSpy).toHaveBeenCalledWith('deal_star');
   });
@@ -866,7 +960,8 @@ describe('approval refusals', () => {
   function refuseAppend() {
     mocks.appendDealEvent.mockRejectedValueOnce({
       code: '42501',
-      message: 'not authorized to append approval.requested on deal: needs deals.manage',
+      message:
+        'not authorized to append approval.requested on deal: needs deals.manage',
     });
   }
 
@@ -874,7 +969,10 @@ describe('approval refusals', () => {
     refuseAppend();
 
     const result = await runRequestApproval(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', subject: 'stage_move' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        subject: 'stage_move',
+      },
       { id: 'user-1' },
     );
 
@@ -902,7 +1000,10 @@ describe('approval refusals', () => {
 describe('requestApproval', () => {
   it('appends an approval.requested event with the subject payload', async () => {
     await runRequestApproval(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', subject: 'stage_move' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        subject: 'stage_move',
+      },
       { id: 'user-1' },
     );
 

@@ -40,11 +40,17 @@ function batchesThatFitAUrl(values: string[]): string[][] {
   return batches;
 }
 
-async function list(admin: Admin, bucket: string, prefix: string): Promise<Entry[]> {
+async function list(
+  admin: Admin,
+  bucket: string,
+  prefix: string,
+): Promise<Entry[]> {
   const entries: Entry[] = [];
 
   for (let offset = 0; ; offset += LIST_PAGE_SIZE) {
-    const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: LIST_PAGE_SIZE, offset });
+    const { data, error } = await admin.storage
+      .from(bucket)
+      .list(prefix, { limit: LIST_PAGE_SIZE, offset });
 
     if (error) {
       throw error;
@@ -66,21 +72,36 @@ async function list(admin: Admin, bucket: string, prefix: string): Promise<Entry
   }
 }
 
-async function filesUnder(admin: Admin, bucket: string, prefix: string): Promise<StoredFile[]> {
+async function filesUnder(
+  admin: Admin,
+  bucket: string,
+  prefix: string,
+): Promise<StoredFile[]> {
   const files: StoredFile[] = [];
 
   for (const entry of await list(admin, bucket, prefix)) {
-    files.push(...(entry.kind === 'folder' ? await filesUnder(admin, bucket, entry.path) : [entry]));
+    files.push(
+      ...(entry.kind === 'folder'
+        ? await filesUnder(admin, bucket, entry.path)
+        : [entry]),
+    );
   }
 
   return files;
 }
 
-async function missingDealIds(admin: Admin, dealIds: string[]): Promise<string[]> {
+async function missingDealIds(
+  admin: Admin,
+  dealIds: string[],
+): Promise<string[]> {
   const existing = new Set<string>();
 
   for (const batch of batchesThatFitAUrl(dealIds)) {
-    const { data } = await admin.from('deal').select('id').in('id', batch).throwOnError();
+    const { data } = await admin
+      .from('deal')
+      .select('id')
+      .in('id', batch)
+      .throwOnError();
 
     for (const row of data) {
       existing.add(row.id);
@@ -97,7 +118,9 @@ export async function deleteOrphanedDealObjects(): Promise<void> {
   const uploadedBefore = Date.now() - GRACE_MS;
 
   for (const bucket of DEAL_BUCKETS) {
-    const dealFolders = (await list(admin, bucket, 'deal')).filter((entry) => entry.kind === 'folder');
+    const dealFolders = (await list(admin, bucket, 'deal')).filter(
+      (entry) => entry.kind === 'folder',
+    );
     const orphanedDealIds = await missingDealIds(
       admin,
       dealFolders.map((folder) => folder.path.slice('deal/'.length)),

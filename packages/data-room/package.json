@@ -26,12 +26,12 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:",
-    "@tanstack/react-query": "catalog:",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/policies": "workspace:*",
     "@odb/supabase": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "fflate": "0.8.2",
     "zod": "catalog:"
   },

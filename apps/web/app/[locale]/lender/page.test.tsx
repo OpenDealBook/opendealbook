@@ -75,12 +75,11 @@ vi.mock('@odb/lender-rooms/browser/purge-unfinished-uploads.tsx', () => ({
 }));
 vi.mock('../_components/phone-prompt', () => ({ PhonePrompt: () => null }));
 
+import { renderToStaticMarkup } from 'react-dom/server';
+
 import { PurgeUnfinishedUploads } from '@odb/lender-rooms/browser/purge-unfinished-uploads.tsx';
 
 import { PhonePrompt } from '../_components/phone-prompt';
-
-import { renderToStaticMarkup } from 'react-dom/server';
-
 import LenderRoomsPage from './page';
 
 const noSearch = { searchParams: Promise.resolve({}) };
@@ -90,7 +89,9 @@ async function pageText(q?: string) {
     searchParams: Promise.resolve(q === undefined ? {} : { q }),
   });
 
-  return renderToStaticMarkup(page).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  return renderToStaticMarkup(page)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ');
 }
 
 function find(
@@ -161,7 +162,9 @@ describe('the lender rooms page', () => {
     try {
       const page = await LenderRoomsPage(noSearch);
 
-      expect(find(page, (element) => element.type === PhonePrompt)).toHaveLength(1);
+      expect(
+        find(page, (element) => element.type === PhonePrompt),
+      ).toHaveLength(1);
       expect(
         find(page, (element) => element.type === PurgeUnfinishedUploads),
       ).toHaveLength(0);

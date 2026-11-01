@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   anonymizeClosedDeal,
   anonymizeCloseComp,
@@ -51,11 +52,13 @@ describe('roundPercentTo5', () => {
 
 describe('roundServiceMix', () => {
   it('rounds each share to the nearest 10 percent independently', () => {
-    expect(roundServiceMix({ tax: 44, bookkeeping: 31, advisory: 25 })).toEqual({
-      tax: 40,
-      bookkeeping: 30,
-      advisory: 30,
-    });
+    expect(roundServiceMix({ tax: 44, bookkeeping: 31, advisory: 25 })).toEqual(
+      {
+        tax: 40,
+        bookkeeping: 30,
+        advisory: 30,
+      },
+    );
   });
 });
 
@@ -103,16 +106,28 @@ describe('industryShortName', () => {
 describe('generatePseudonym', () => {
   it('formats as <state> <industry short name> <sequence>', () => {
     expect(
-      generatePseudonym({ state: 'CA', industryShortName: 'CPA Firm', sequence: 42 }),
+      generatePseudonym({
+        state: 'CA',
+        industryShortName: 'CPA Firm',
+        sequence: 42,
+      }),
     ).toBe('CA CPA Firm 42');
   });
 
   it('uses the supplied global sequence verbatim regardless of state or industry', () => {
     expect(
-      generatePseudonym({ state: 'TX', industryShortName: 'Payroll', sequence: 42 }),
+      generatePseudonym({
+        state: 'TX',
+        industryShortName: 'Payroll',
+        sequence: 42,
+      }),
     ).toBe('TX Payroll 42');
     expect(
-      generatePseudonym({ state: 'CA', industryShortName: 'CPA Firm', sequence: 42 }),
+      generatePseudonym({
+        state: 'CA',
+        industryShortName: 'CPA Firm',
+        sequence: 42,
+      }),
     ).toBe('CA CPA Firm 42');
   });
 });
@@ -151,10 +166,18 @@ describe('anonymizeClosedDeal', () => {
     expect(result.multPriceRevenue).toBeCloseTo(1_000_000 / 510_000, 10);
     expect(result.multPriceSde).toBeCloseTo(1_000_000 / 210_000, 10);
     expect(result.multPriceEbitda).toBeCloseTo(1_000_000 / 180_000, 10);
-    expect(result.structure).toEqual({ cashAtClose: 60, sellerNote: 25, earnout: 15 });
+    expect(result.structure).toEqual({
+      cashAtClose: 60,
+      sellerNote: 25,
+      earnout: 15,
+    });
     expect(result.employeeBand).toBe('5-9');
     expect(result.businessAgeBand).toBe('10-20');
-    expect(result.serviceMix).toEqual({ tax: 40, bookkeeping: 30, advisory: 30 });
+    expect(result.serviceMix).toEqual({
+      tax: 40,
+      bookkeeping: 30,
+      advisory: 30,
+    });
     expect(result.geography).toBe('31080');
     expect(result.state).toBe('CA');
     expect(result.industryShortName).toBe('CPA Firm');
@@ -174,7 +197,9 @@ describe('anonymizeClosedDeal', () => {
       serviceMix: { tax: 90, advisory: 10 },
       cbsa: null,
     };
-    expect(anonymizeClosedDeal(record, 7)).toEqual(anonymizeClosedDeal(record, 7));
+    expect(anonymizeClosedDeal(record, 7)).toEqual(
+      anonymizeClosedDeal(record, 7),
+    );
     expect(anonymizeClosedDeal(record, 7).geography).toBe('rural');
   });
 });
@@ -203,7 +228,9 @@ describe('poolFingerprint', () => {
   });
 
   it('differs when the identity differs', () => {
-    expect(poolFingerprint({ region: 'TX', naics: '541', quarter: '2025-Q4' })).not.toBe(
+    expect(
+      poolFingerprint({ region: 'TX', naics: '541', quarter: '2025-Q4' }),
+    ).not.toBe(
       poolFingerprint({ region: 'CA', naics: '541', quarter: '2025-Q4' }),
     );
   });
@@ -282,7 +309,12 @@ describe('anonymizeCloseComp', () => {
 describe('compPoolEligible', () => {
   it('excludes an account that has not opted in', () => {
     expect(
-      compPoolEligible({ optedIn: false, outcomeReason: null, closeDate: '2025-01-01', asOf: '2026-01-01' }),
+      compPoolEligible({
+        optedIn: false,
+        outcomeReason: null,
+        closeDate: '2025-01-01',
+        asOf: '2026-01-01',
+      }),
     ).toBe(false);
   });
 
@@ -307,7 +339,12 @@ describe('compPoolEligible', () => {
 
   it('admits an opted-in close with no hold reason', () => {
     expect(
-      compPoolEligible({ optedIn: true, outcomeReason: 'closed', closeDate: '2025-10-01', asOf: '2025-10-15' }),
+      compPoolEligible({
+        optedIn: true,
+        outcomeReason: 'closed',
+        closeDate: '2025-10-01',
+        asOf: '2025-10-15',
+      }),
     ).toBe(true);
   });
 });

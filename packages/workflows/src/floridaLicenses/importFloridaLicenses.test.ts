@@ -1,5 +1,8 @@
-import { ActivityFailure, CancelledFailure, RetryState } from '@temporalio/common';
-
+import {
+  ActivityFailure,
+  CancelledFailure,
+  RetryState,
+} from '@temporalio/common';
 import { describe, expect, it } from 'vitest';
 
 import { runFloridaLicenseImport } from './importFloridaLicenses';
@@ -23,7 +26,10 @@ function steps(loadFailure: Error | null) {
         }
         loaded.push(importId);
       },
-      failFloridaLicenseImport: async (failure: { importId: string; reason: string }) => {
+      failFloridaLicenseImport: async (failure: {
+        importId: string;
+        reason: string;
+      }) => {
         failed.push(failure);
       },
     },
@@ -63,6 +69,11 @@ describe('runFloridaLicenseImport', () => {
 
     await runFloridaLicenseImport(run.steps);
 
-    expect(run.failed).toEqual([{ importId: 'import-1', reason: 'GET https://www2.myfloridalicense.com answered 503' }]);
+    expect(run.failed).toEqual([
+      {
+        importId: 'import-1',
+        reason: 'GET https://www2.myfloridalicense.com answered 503',
+      },
+    ]);
   });
 });

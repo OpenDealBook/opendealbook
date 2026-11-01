@@ -19,11 +19,24 @@ export async function fakeLob() {
     let raw = '';
     request.on('data', (chunk) => (raw += chunk));
     request.on('end', () => {
-      received.push({ path: request.url!, headers: request.headers, body: JSON.parse(raw) });
-      const reply = request.url === '/v1/us_verifications' ? replies.verification : replies.letter;
+      received.push({
+        path: request.url!,
+        headers: request.headers,
+        body: JSON.parse(raw),
+      });
+      const reply =
+        request.url === '/v1/us_verifications'
+          ? replies.verification
+          : replies.letter;
       const html = typeof reply.body === 'string';
-      response.writeHead(reply.status, { 'content-type': html ? 'text/html' : 'application/json' });
-      response.end(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body));
+      response.writeHead(reply.status, {
+        'content-type': html ? 'text/html' : 'application/json',
+      });
+      response.end(
+        typeof reply.body === 'string'
+          ? reply.body
+          : JSON.stringify(reply.body),
+      );
     });
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -32,7 +45,8 @@ export async function fakeLob() {
     baseUrl: `http://127.0.0.1:${port}/v1`,
     received,
     replies,
-    lettersCreated: () => received.filter((call) => call.path === '/v1/letters'),
+    lettersCreated: () =>
+      received.filter((call) => call.path === '/v1/letters'),
     close: () => server.close(),
   };
 }

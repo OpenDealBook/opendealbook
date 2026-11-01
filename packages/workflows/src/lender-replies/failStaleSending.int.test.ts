@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Database } from '@odb/supabase';
 
 import '../../test-support/integration-harness';
-
 import { failStaleSendingOutreach } from './failStaleSending';
 
 const admin = createClient<Database>(
@@ -22,7 +21,10 @@ let ownerId: string;
 let teamId: string;
 let roomId: string;
 
-async function stage(status: 'sending' | 'sent', ageMinutes: number): Promise<string> {
+async function stage(
+  status: 'sending' | 'sent',
+  ageMinutes: number,
+): Promise<string> {
   const { data } = await admin
     .from('lender_room_outreach')
     .insert({

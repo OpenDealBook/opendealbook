@@ -85,7 +85,9 @@ afterEach(clearScreen);
 
 describe('links to the FAQ', () => {
   it('are on the room page', async () => {
-    expect(hrefs(await RoomPage({ room: ROOM, question: null }))).toContain(FAQ_PATH);
+    expect(hrefs(await RoomPage({ room: ROOM, question: null }))).toContain(
+      FAQ_PATH,
+    );
   });
 
   it('are on the requests page', () => {

@@ -95,9 +95,16 @@ describe('SellerRoomPeople', () => {
         <SellerRoomPeople
           dealId={'deal-1'}
           people={[
-            { id: 'm-1', name: 'Sam Seller', email: 'sam@seller.test', created_at: '' },
+            {
+              id: 'm-1',
+              name: 'Sam Seller',
+              email: 'sam@seller.test',
+              created_at: '',
+            },
           ]}
-          blockedReason={'Only deal managers can remove sellers. Ask Morgan Reyes.'}
+          blockedReason={
+            'Only deal managers can remove sellers. Ask Morgan Reyes.'
+          }
         />,
       );
     });

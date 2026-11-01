@@ -77,10 +77,7 @@ export function DeleteDealDialog(props: {
           </p>
         ) : null}
         <DialogFooter>
-          <Button
-            variant={'outline'}
-            onClick={() => props.onOpenChange(false)}
-          >
+          <Button variant={'outline'} onClick={() => props.onOpenChange(false)}>
             Cancel
           </Button>
           <Button
@@ -212,10 +209,9 @@ export function DealRowActions(props: {
                     setDealResolution({
                       deal_id: props.dealId,
                       resolution: 'lost',
-                      resolution_reason:
-                        lostReason as Parameters<
-                          typeof setDealResolution
-                        >[0]['resolution_reason'],
+                      resolution_reason: lostReason as Parameters<
+                        typeof setDealResolution
+                      >[0]['resolution_reason'],
                     }),
                   () => setLostOpen(false),
                 )

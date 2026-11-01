@@ -1,5 +1,5 @@
-import { DEFAULT_MAX_TOUCHES } from '@odb/outreach-app/schema';
 import { Refusal } from '@odb/next/refusal';
+import { DEFAULT_MAX_TOUCHES } from '@odb/outreach-app/schema';
 import type { TablesUpdate } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 

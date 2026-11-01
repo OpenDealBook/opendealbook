@@ -183,7 +183,7 @@ describe('CounselThread', () => {
     );
   });
 
-  it("names the one seller who cannot see it", async () => {
+  it('names the one seller who cannot see it', async () => {
     await act(async () => {
       root.render(
         <CounselThread

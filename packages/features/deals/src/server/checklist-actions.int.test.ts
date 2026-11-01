@@ -20,6 +20,8 @@ vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => holder.client,
 }));
 
+import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
+
 import {
   applyChecklistTemplate,
   linkChecklistDocument,
@@ -27,7 +29,6 @@ import {
   setChecklistItemDetails,
   setChecklistItemWaitingOn,
 } from './checklist-actions';
-import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
 import { createDealCore } from './deal-actions';
 
 type Action = (

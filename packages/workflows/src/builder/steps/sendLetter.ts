@@ -14,14 +14,17 @@ export const sendLetter = defineStep({
   inputSchema: z.object({}),
   outputSchema: z.object({ letterId: z.string(), status: z.string() }),
   async run({ context, config }) {
-    const template = await teamRow(config.templateId, 'That letter template is not on this team', (id) =>
-      getSupabaseServerAdminClient()
-        .from('letter_template')
-        .select('body')
-        .eq('id', id)
-        .eq('account_id', context.accountId)
-        .maybeSingle()
-        .throwOnError(),
+    const template = await teamRow(
+      config.templateId,
+      'That letter template is not on this team',
+      (id) =>
+        getSupabaseServerAdminClient()
+          .from('letter_template')
+          .select('body')
+          .eq('id', id)
+          .eq('account_id', context.accountId)
+          .maybeSingle()
+          .throwOnError(),
     );
 
     return mailLetter({

@@ -17,7 +17,8 @@ export function chunkMarkdown(
   options: ChunkOptions = {},
 ): string[] {
   const maxTokens = options.maxTokens ?? EMBEDDING_MAX_TOKENS;
-  const overlapChars = (options.overlapTokens ?? EMBEDDING_OVERLAP_TOKENS) * CHARS_PER_TOKEN;
+  const overlapChars =
+    (options.overlapTokens ?? EMBEDDING_OVERLAP_TOKENS) * CHARS_PER_TOKEN;
   const maxChars = maxTokens * CHARS_PER_TOKEN;
 
   const chunks: string[] = [];
@@ -63,7 +64,9 @@ function splitIntoSegments(markdown: string): string[] {
 
   segments.push(buffer.join('\n'));
 
-  return segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0);
+  return segments
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
 }
 
 function fitToWindow(segment: string, maxChars: number): string[] {

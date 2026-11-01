@@ -34,7 +34,7 @@ describe('SellerCounselComments', () => {
       />,
     );
 
-    expect(html).toContain("Seller&#x27;s counsel comments");
+    expect(html).toContain('Seller&#x27;s counsel comments');
     expect(html).toContain(
       'Owen Castillo, Walt&#x27;s counsel on Customer list?',
     );

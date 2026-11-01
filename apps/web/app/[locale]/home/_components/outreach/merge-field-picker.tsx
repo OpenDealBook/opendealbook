@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef } from 'react';
-
 import { flushSync } from 'react-dom';
 
 import { MERGE_FIELD_LABELS } from '@odb/outreach-app';
@@ -39,20 +38,31 @@ export function MergeFieldPicker({
     .filter((members) => members.length > 0);
 
   function field() {
-    return document.getElementById(fieldId) as HTMLInputElement | HTMLTextAreaElement;
+    return document.getElementById(fieldId) as
+      | HTMLInputElement
+      | HTMLTextAreaElement;
   }
 
   function insert(token: string) {
     const { selectionStart, selectionEnd } = field();
     const placed = `{{ ${token} }}`;
     caret.current = selectionStart! + placed.length;
-    flushSync(() => onChange(value.slice(0, selectionStart!) + placed + value.slice(selectionEnd!)));
+    flushSync(() =>
+      onChange(
+        value.slice(0, selectionStart!) + placed + value.slice(selectionEnd!),
+      ),
+    );
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type={'button'} size={'sm'} variant={'ghost'} className={'h-7 px-2 text-xs'}>
+        <Button
+          type={'button'}
+          size={'sm'}
+          variant={'ghost'}
+          className={'h-7 px-2 text-xs'}
+        >
           Insert field
         </Button>
       </DropdownMenuTrigger>

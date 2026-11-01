@@ -8,7 +8,10 @@ const otherDealId = '1e000000-0000-0000-0000-0000000000d2';
 describe('isOwnDealStoragePath', () => {
   it('accepts an object under the document deal', () => {
     expect(
-      isOwnDealStoragePath({ deal_id, storage_path: `deal/${deal_id}/key-cim.pdf` }),
+      isOwnDealStoragePath({
+        deal_id,
+        storage_path: `deal/${deal_id}/key-cim.pdf`,
+      }),
     ).toBe(true);
   });
 

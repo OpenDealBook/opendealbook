@@ -71,6 +71,8 @@ export function buildDealStatsContributorPackage(
     vendor: 'DealStats',
     format: 'contributor-v1',
     fields,
-    unverifiedFields: DEALSTATS_CONTRIBUTOR_FIELDS.filter((f) => !f.verified).map((f) => f.label),
+    unverifiedFields: DEALSTATS_CONTRIBUTOR_FIELDS.filter(
+      (f) => !f.verified,
+    ).map((f) => f.label),
   };
 }

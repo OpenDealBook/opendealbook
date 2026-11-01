@@ -92,7 +92,9 @@ async function openMenu(name: string) {
   await act(async () => {
     rowOf(name)
       .querySelector<HTMLButtonElement>('button[aria-label="More actions"]')!
-      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      );
   });
 }
 

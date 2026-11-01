@@ -1,12 +1,15 @@
-import { createReadStream } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import { FLORIDA_FILES, floridaLicenses } from './parse';
 
+import { createReadStream } from 'node:fs';
+
 async function parsed(file: (typeof FLORIDA_FILES)[number]) {
   const licenses = [];
-  for await (const license of floridaLicenses(file, createReadStream(new URL(`./fixtures/${file}`, import.meta.url)))) {
+  for await (const license of floridaLicenses(
+    file,
+    createReadStream(new URL(`./fixtures/${file}`, import.meta.url)),
+  )) {
     licenses.push(license);
   }
   return licenses;
@@ -31,7 +34,11 @@ describe('floridaLicenses', () => {
         license_type: 'CBC',
         status: 'Active',
         expires_on: '2028-08-31',
-        raw: expect.arrayContaining(['SAMPLE, AVERY', 'HARBOR FIXTURE DENTAL, LLC', 'A']),
+        raw: expect.arrayContaining([
+          'SAMPLE, AVERY',
+          'HARBOR FIXTURE DENTAL, LLC',
+          'A',
+        ]),
       },
       {
         file: 'CONSTRUCTIONLICENSE_1.csv',
@@ -54,7 +61,11 @@ describe('floridaLicenses', () => {
         normalized_names: ['harbor fixture mechanical'],
         license_type: 'QB',
       }),
-      expect.objectContaining({ licensee_name: 'HARBOR FIXTURE GLASS', expires_on: null, raw: expect.arrayContaining(['13/45/2028']) }),
+      expect.objectContaining({
+        licensee_name: 'HARBOR FIXTURE GLASS',
+        expires_on: null,
+        raw: expect.arrayContaining(['13/45/2028']),
+      }),
     ]);
   });
 
@@ -101,8 +112,15 @@ describe('floridaLicenses', () => {
         status: 'Active',
         expires_on: '2027-09-30',
       }),
-      expect.objectContaining({ license_number: 'TESTBK0011', expires_on: '1999-03-31' }),
-      expect.objectContaining({ license_number: 'TESTBK0012', expires_on: null, raw: expect.arrayContaining(['31-FOO-27']) }),
+      expect.objectContaining({
+        license_number: 'TESTBK0011',
+        expires_on: '1999-03-31',
+      }),
+      expect.objectContaining({
+        license_number: 'TESTBK0012',
+        expires_on: null,
+        raw: expect.arrayContaining(['31-FOO-27']),
+      }),
     ]);
   });
 });

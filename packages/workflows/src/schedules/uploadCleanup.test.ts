@@ -11,6 +11,8 @@ describe('ensureUploadCleanupSchedule', () => {
 
     await ensureUploadCleanupSchedule(client);
 
-    expect(schedules.get('unfinished-upload-cleanup')?.spec).toEqual({ calendars: [{ hour: 4 }] });
+    expect(schedules.get('unfinished-upload-cleanup')?.spec).toEqual({
+      calendars: [{ hour: 4 }],
+    });
   });
 });

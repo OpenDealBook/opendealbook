@@ -4,7 +4,8 @@ import { STAND_INS, SUPABASE_URL, serviceHeaders } from './fixtures/stack';
 import { connectTeamAi } from './fixtures/team-ai';
 import { teamIdOf } from './fixtures/workflows';
 
-const SUMMARY = 'One open UCC filing from a state records broker is worth a look.';
+const SUMMARY =
+  'One open UCC filing from a state records broker is worth a look.';
 
 async function serviceUpdate(table: string, query: string, values: object) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
@@ -14,7 +15,9 @@ async function serviceUpdate(table: string, query: string, values: object) {
   });
   const text = await response.text();
   expect(response.ok, text).toBe(true);
-  expect(JSON.parse(text), `one ${table} row matching ${query}`).toHaveLength(1);
+  expect(JSON.parse(text), `one ${table} row matching ${query}`).toHaveLength(
+    1,
+  );
 }
 
 test('a background search lists a Middesk lien as Beta state court and lien records', async ({
@@ -40,7 +43,9 @@ test('a background search lists a Middesk lien as Beta state court and lien reco
   });
 
   await page.goto(`/home/${teamSlug}/settings`);
-  await page.getByRole('combobox', { name: 'Broker', exact: true }).selectOption('middesk');
+  await page
+    .getByRole('combobox', { name: 'Broker', exact: true })
+    .selectOption('middesk');
   const brokerKey = page.getByLabel('Middesk API key');
   await brokerKey.fill('md-e2e-not-a-real-key');
   await page

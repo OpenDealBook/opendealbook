@@ -16,22 +16,30 @@ vi.mock('@odb/supabase/server', () => ({
 import { unsubscribe } from './actions';
 
 function answers(unsubscribed: boolean) {
-  rpc.mockReturnValue({ throwOnError: async () => ({ data: unsubscribed, error: null }) });
+  rpc.mockReturnValue({
+    throwOnError: async () => ({ data: unsubscribed, error: null }),
+  });
 }
 
 describe('unsubscribe', () => {
   beforeEach(() => rpc.mockReset());
 
-  it('opts the token out and shows the confirmation in the visitor\'s locale', async () => {
+  it("opts the token out and shows the confirmation in the visitor's locale", async () => {
     answers(true);
 
-    await expect(unsubscribe('live-token')).rejects.toThrow('redirect:/fr/unsubscribe?status=done');
-    expect(rpc).toHaveBeenCalledWith('unsubscribe_outreach', { p_token: 'live-token' });
+    await expect(unsubscribe('live-token')).rejects.toThrow(
+      'redirect:/fr/unsubscribe?status=done',
+    );
+    expect(rpc).toHaveBeenCalledWith('unsubscribe_outreach', {
+      p_token: 'live-token',
+    });
   });
 
   it('shows the invalid link message when the token matches nothing', async () => {
     answers(false);
 
-    await expect(unsubscribe('dead-token')).rejects.toThrow('redirect:/fr/unsubscribe?status=invalid');
+    await expect(unsubscribe('dead-token')).rejects.toThrow(
+      'redirect:/fr/unsubscribe?status=invalid',
+    );
   });
 });

@@ -7,9 +7,22 @@ import {
   test,
 } from './fixtures';
 import { addTeamMember } from './fixtures/calc';
-import { approvalGraph, seedWorkflow, teamIdOf, waitForRun } from './fixtures/workflows';
+import {
+  approvalGraph,
+  seedWorkflow,
+  teamIdOf,
+  waitForRun,
+} from './fixtures/workflows';
 
-async function setUp(page: import('@playwright/test').Page, auth: { signUp: (page: import('@playwright/test').Page, user?: ReturnType<typeof newCredentials>) => Promise<unknown> }) {
+async function setUp(
+  page: import('@playwright/test').Page,
+  auth: {
+    signUp: (
+      page: import('@playwright/test').Page,
+      user?: ReturnType<typeof newCredentials>,
+    ) => Promise<unknown>;
+  },
+) {
   const owner = newCredentials();
   await auth.signUp(page, owner);
   const stamp = Date.now();
@@ -31,7 +44,10 @@ test('a waiting approval is decided in the inbox and the run follows the approve
 }) => {
   test.setTimeout(150 * 1000);
 
-  const { stamp, accountId, ownerId, approvals, workflows } = await setUp(page, auth);
+  const { stamp, accountId, ownerId, approvals, workflows } = await setUp(
+    page,
+    auth,
+  );
   const name = `Needs approval ${stamp}`;
   const prompt = `OK to continue ${stamp}?`;
   const workflowId = await seedWorkflow({
@@ -43,13 +59,19 @@ test('a waiting approval is decided in the inbox and the run follows the approve
   });
 
   await page.goto(workflows);
-  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Run now' })
+    .click();
   const runId = await waitForRun(workflowId, 'awaiting_approval');
   const runPath = `${workflows}/${workflowId}/runs/${runId}`;
 
   await page.goto(runPath);
   await expect(page.getByText('Waiting for approval')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Decide in Approvals' })).toHaveAttribute('href', approvals);
+  await expect(
+    page.getByRole('link', { name: 'Decide in Approvals' }),
+  ).toHaveAttribute('href', approvals);
 
   await page.goto(approvals);
   const card = page.locator('li').filter({ hasText: prompt });
@@ -63,7 +85,9 @@ test('a waiting approval is decided in the inbox and the run follows the approve
   await expect(card).toHaveCount(0);
 
   await staleCard.getByRole('button', { name: 'Approve', exact: true }).click();
-  await expect(staleCard.getByRole('alert')).toHaveText('This was already decided. Refresh to see it.');
+  await expect(staleCard.getByRole('alert')).toHaveText(
+    'This was already decided. Refresh to see it.',
+  );
   await staleTab.close();
 
   await waitForRun(workflowId, 'succeeded');
@@ -102,7 +126,11 @@ test('team facts can be added, edited and deleted', async ({ page, auth }) => {
   await expect(page.getByText(edited, { exact: true })).toHaveCount(0);
 });
 
-test('the approvals page is for managers only and fits the viewport', async ({ page, browser, auth }) => {
+test('the approvals page is for managers only and fits the viewport', async ({
+  page,
+  browser,
+  auth,
+}) => {
   test.setTimeout(120 * 1000);
 
   const { teamSlug, approvals } = await setUp(page, auth);
@@ -110,9 +138,15 @@ test('the approvals page is for managers only and fits the viewport', async ({ p
   for (const width of [1440, 1024, 768]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(approvals);
-    await expect(page.getByRole('heading', { name: 'Waiting for a decision' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Waiting for a decision' }),
+    ).toBeVisible();
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
       `approvals at ${width}px`,
     ).toBeLessThanOrEqual(0);
   }
@@ -124,6 +158,8 @@ test('the approvals page is for managers only and fits the viewport', async ({ p
   await addTeamMember(teamSlug, await db.userIdByEmail(member.email), 'member');
   await completeInviteeOnboarding(memberPage, teamSlug, 'Mia Member');
   expect((await memberPage.goto(approvals))!.status()).toBe(404);
-  await expect(memberPage.getByRole('link', { name: 'Approvals', exact: true })).toHaveCount(0);
+  await expect(
+    memberPage.getByRole('link', { name: 'Approvals', exact: true }),
+  ).toHaveCount(0);
   await context.close();
 });

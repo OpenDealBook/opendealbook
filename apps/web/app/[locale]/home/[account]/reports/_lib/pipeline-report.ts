@@ -68,7 +68,9 @@ function dealsReaching(
   return [...reach.values()].filter((stages) => stages.has(key));
 }
 
-export function buildPipelineReport(input: PipelineReportInput): PipelineReport {
+export function buildPipelineReport(
+  input: PipelineReportInput,
+): PipelineReport {
   const groups = GROUP_ORDER.map((group) => ({
     group,
     count: facetValue(input.groupFacets, group),

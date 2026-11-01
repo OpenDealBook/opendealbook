@@ -5,9 +5,7 @@ import { ensureSchedule } from './ensureSchedule';
 
 const UPLOAD_CLEANUP_SCHEDULE_ID = 'unfinished-upload-cleanup';
 
-export function ensureUploadCleanupSchedule(
-  client: Client,
-): Promise<void> {
+export function ensureUploadCleanupSchedule(client: Client): Promise<void> {
   return ensureSchedule(client, {
     scheduleId: UPLOAD_CLEANUP_SCHEDULE_ID,
     spec: { calendars: [{ hour: 4 }] },

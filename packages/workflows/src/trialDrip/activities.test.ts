@@ -10,19 +10,15 @@ vi.mock('@odb/mailers', () => ({
 }));
 
 vi.mock('@odb/email-templates', () => ({
-  EMAIL_TEMPLATE_RENDERERS: new Proxy(
-    {},
-    { get: () => state.renderer },
-  ),
+  EMAIL_TEMPLATE_RENDERERS: new Proxy({}, { get: () => state.renderer }),
 }));
 
 vi.mock('@odb/supabase/admin', () => ({
   getSupabaseServerAdminClient: () => ({}),
 }));
 
-const { sendTrialDripEmail, DEFAULT_TRIAL_DRIP_FROM } = await import(
-  './activities'
-);
+const { sendTrialDripEmail, DEFAULT_TRIAL_DRIP_FROM } =
+  await import('./activities');
 
 afterEach(() => {
   state.sendEmail.mockReset();

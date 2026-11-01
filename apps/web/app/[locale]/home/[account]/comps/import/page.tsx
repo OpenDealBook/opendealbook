@@ -5,7 +5,9 @@ interface CompsImportPageProps {
   params: Promise<{ locale: string; account: string }>;
 }
 
-export default async function CompsImportPage({ params }: CompsImportPageProps) {
+export default async function CompsImportPage({
+  params,
+}: CompsImportPageProps) {
   const { account } = await params;
   const { team } = await loadTeamWorkspace(account);
 
@@ -15,8 +17,8 @@ export default async function CompsImportPage({ params }: CompsImportPageProps) 
         <h1 className={'text-2xl font-semibold'}>Import comps</h1>
         <p className={'text-muted-foreground text-sm'}>
           Upload a DealStats, BIZCOMPS, or PeerComps export. Rows land as
-          proprietary comps visible only to this account while its vendor license
-          is active.
+          proprietary comps visible only to this account while its vendor
+          license is active.
         </p>
       </div>
 

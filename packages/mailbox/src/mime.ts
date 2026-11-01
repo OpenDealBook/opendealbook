@@ -16,7 +16,9 @@ export function buildMimeMessage(
     `To: ${email.to}`,
     `Subject: ${singleLine(email.subject)}`,
     ...threadHeaders,
-    ...Object.entries(email.headers ?? {}).map(([name, value]) => `${name}: ${singleLine(value)}`),
+    ...Object.entries(email.headers ?? {}).map(
+      ([name, value]) => `${name}: ${singleLine(value)}`,
+    ),
     'MIME-Version: 1.0',
   ];
   if (email.replyTo) {
@@ -40,7 +42,9 @@ export function buildMimeMessage(
   }
 
   const isHtml = email.html !== undefined;
-  headers.push(`Content-Type: text/${isHtml ? 'html' : 'plain'}; charset="UTF-8"`);
+  headers.push(
+    `Content-Type: text/${isHtml ? 'html' : 'plain'}; charset="UTF-8"`,
+  );
   return `${headers.join('\r\n')}\r\n\r\n${isHtml ? email.html : email.text}`;
 }
 

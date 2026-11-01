@@ -8,7 +8,9 @@ import { isLoaded } from './snapshot';
 
 const SCREENING_LIST_SCHEDULE_ID = 'sanctions-import-csl';
 
-export async function ensureScreeningListSchedule(client: Client): Promise<void> {
+export async function ensureScreeningListSchedule(
+  client: Client,
+): Promise<void> {
   await ensureSchedule(client, {
     scheduleId: SCREENING_LIST_SCHEDULE_ID,
     spec: { calendars: [{ dayOfWeek: 'MONDAY', hour: 6 }] },

@@ -212,22 +212,27 @@ describe('adoptContractVersion', () => {
     const redlineId = await seedVersion(contractId, 2, 'seller');
     world.signedInClient = buyerCounsel.client;
 
-    expect(await adoptContractVersion({ contractVersionId: redlineId })).toEqual({
+    expect(
+      await adoptContractVersion({ contractVersionId: redlineId }),
+    ).toEqual({
       ok: false,
       refusal: 'Only the deal team can change the current contract version.',
     });
     expect(await currentVersionOf(contractId)).toBe(1);
   });
 
-  it.each([["seller's counsel", () => sellerCounsel]])('refuses %s', async (_, who) => {
-    const contractId = await newContract();
-    await seedVersion(contractId, 1, 'buyer', true);
-    const redlineId = await seedVersion(contractId, 2, 'seller');
-    world.signedInClient = who().client;
+  it.each([["seller's counsel", () => sellerCounsel]])(
+    'refuses %s',
+    async (_, who) => {
+      const contractId = await newContract();
+      await seedVersion(contractId, 1, 'buyer', true);
+      const redlineId = await seedVersion(contractId, 2, 'seller');
+      world.signedInClient = who().client;
 
-    await expect(
-      adoptContractVersion({ contractVersionId: redlineId }),
-    ).rejects.toThrow();
-    expect(await currentVersionOf(contractId)).toBe(1);
-  });
+      await expect(
+        adoptContractVersion({ contractVersionId: redlineId }),
+      ).rejects.toThrow();
+      expect(await currentVersionOf(contractId)).toBe(1);
+    },
+  );
 });

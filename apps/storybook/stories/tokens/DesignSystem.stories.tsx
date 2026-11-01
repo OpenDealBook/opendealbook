@@ -145,7 +145,13 @@ function SectionHeading({ children }: { children: string }) {
   );
 }
 
-function ColorScheme({ label, className }: { label: string; className: string }) {
+function ColorScheme({
+  label,
+  className,
+}: {
+  label: string;
+  className: string;
+}) {
   return (
     <div
       className={className}
@@ -199,9 +205,13 @@ function ColorScheme({ label, className }: { label: string; className: string })
                   background: 'var(--card)',
                 }}
               >
-                <div style={{ height: 48, background: `var(--${swatch.token})` }} />
+                <div
+                  style={{ height: 48, background: `var(--${swatch.token})` }}
+                />
                 <div style={{ padding: '6px 8px' }}>
-                  <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                  <code
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}
+                  >
                     --{swatch.token}
                   </code>
                   <div

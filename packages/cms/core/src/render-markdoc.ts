@@ -1,5 +1,6 @@
-import Markdoc, { type Node } from '@markdoc/markdoc';
 import { createElement, Fragment, type ReactNode } from 'react';
+
+import Markdoc, { type Node } from '@markdoc/markdoc';
 
 export type MarkdocBody = string | { node: Node };
 

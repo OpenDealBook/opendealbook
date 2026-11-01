@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url';
-
 import { uploadTemplateFixtures } from './upload-template-fixtures';
+
+import { fileURLToPath } from 'node:url';
 
 export async function main(): Promise<void> {
   await uploadTemplateFixtures();

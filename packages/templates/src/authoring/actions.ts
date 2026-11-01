@@ -24,7 +24,10 @@ import {
 import { draftsToRows, parseTemplateFields } from './parse-fields';
 
 const TEMPLATE_MAX_BYTES = 25 * 1024 * 1024;
-const UPLOAD_DENIED = { what: 'upload templates', needs: 'deals.manage' } as const;
+const UPLOAD_DENIED = {
+  what: 'upload templates',
+  needs: 'deals.manage',
+} as const;
 
 const fieldDraftSchema = z.object({
   key: z.string(),
@@ -92,9 +95,8 @@ export const parseTemplateDocx = refusableAction(
 
     await requireUploaded(client, path);
 
-    const docx = await createSupabaseTemplateStorage(client).downloadTemplate(
-      path,
-    );
+    const docx =
+      await createSupabaseTemplateStorage(client).downloadTemplate(path);
 
     if (!isWordPackage(docx)) {
       throw new Refusal('Templates must be Word .docx files');

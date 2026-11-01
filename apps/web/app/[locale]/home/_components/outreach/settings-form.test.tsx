@@ -6,8 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => ({ save: vi.fn(), refresh: vi.fn() }));
 
-vi.mock('@odb/outreach-app/server', () => ({ setOutreachSetting: server.save }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: server.refresh }) }));
+vi.mock('@odb/outreach-app/server', () => ({
+  setOutreachSetting: server.save,
+}));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: server.refresh }),
+}));
 
 import { SettingsForm } from './settings-form';
 
@@ -31,11 +35,16 @@ afterEach(() => {
 describe('the outreach settings form', () => {
   it('saves an empty max touches as 3', async () => {
     await act(async () => {
-      root.render(<SettingsForm accountId={'team-1'} dailyCap={25} maxTouches={5} />);
+      root.render(
+        <SettingsForm accountId={'team-1'} dailyCap={25} maxTouches={5} />,
+      );
     });
     const touches = container.querySelector<HTMLInputElement>('#max-touches')!;
     await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(touches, '');
+      Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value',
+      )!.set!.call(touches, '');
       touches.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
@@ -43,9 +52,17 @@ describe('the outreach settings form', () => {
     expect(touches.placeholder).toBe('3');
 
     await act(async () => {
-      container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      container
+        .querySelector('form')!
+        .dispatchEvent(
+          new Event('submit', { bubbles: true, cancelable: true }),
+        );
     });
 
-    expect(server.save).toHaveBeenCalledWith({ accountId: 'team-1', dailyCap: 25, maxTouches: 3 });
+    expect(server.save).toHaveBeenCalledWith({
+      accountId: 'team-1',
+      dailyCap: 25,
+      maxTouches: 3,
+    });
   });
 });

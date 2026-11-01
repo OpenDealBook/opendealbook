@@ -1,18 +1,36 @@
 import { ApplicationFailure } from '@temporalio/common';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { fakeBroker } from '../../../test-support/fake-broker';
-import { provisionAccount, type IntegrationAccount } from '../../../test-support/integration-harness';
-import { checkMiddesk, MIDDESK_GIVE_UP_AFTER, MIDDESK_POLL_INTERVAL } from './middesk';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../../test-support/integration-harness';
+import {
+  checkMiddesk,
+  MIDDESK_GIVE_UP_AFTER,
+  MIDDESK_POLL_INTERVAL,
+} from './middesk';
 
 const network = vi.hoisted(() => ({ trustedFakeUrl: '' }));
 
 vi.mock('../../builder/publicUrl', async (importOriginal) => {
-  const { publicAddressOf, ...rest } = await importOriginal<typeof import('../../builder/publicUrl')>();
+  const { publicAddressOf, ...rest } =
+    await importOriginal<typeof import('../../builder/publicUrl')>();
   return {
     ...rest,
     publicAddressOf: async (url: string) =>
-      url.startsWith(network.trustedFakeUrl) ? { address: '127.0.0.1', family: 4 } : publicAddressOf(url),
+      url.startsWith(network.trustedFakeUrl)
+        ? { address: '127.0.0.1', family: 4 }
+        : publicAddressOf(url),
   };
 });
 
@@ -44,14 +62,22 @@ beforeEach(() => broker.reset());
 async function seedFirm(storedBusinessId?: string) {
   const { data } = await team.admin
     .from('firm')
-    .insert({ account_id: team.accountId, name: FIRM.name, website: `${crypto.randomUUID()}.example` })
+    .insert({
+      account_id: team.accountId,
+      name: FIRM.name,
+      website: `${crypto.randomUUID()}.example`,
+    })
     .select('id')
     .single()
     .throwOnError();
   if (storedBusinessId) {
     await team.admin
       .from('middesk_business')
-      .insert({ account_id: team.accountId, firm_id: data.id, business_id: storedBusinessId })
+      .insert({
+        account_id: team.accountId,
+        firm_id: data.id,
+        business_id: storedBusinessId,
+      })
       .throwOnError();
   }
   return data.id as string;
@@ -91,11 +117,19 @@ function ordersOf(
 async function seedClaim(firmId: string, claimedAt: Date) {
   await team.admin
     .from('middesk_business')
-    .insert({ account_id: team.accountId, firm_id: firmId, business_id: null, claimed_at: claimedAt.toISOString() })
+    .insert({
+      account_id: team.accountId,
+      firm_id: firmId,
+      business_id: null,
+      claimed_at: claimedAt.toISOString(),
+    })
     .throwOnError();
 }
 
-function check(firmId: string, firm: Parameters<typeof checkMiddesk>[0]['firm'] = FIRM) {
+function check(
+  firmId: string,
+  firm: Parameters<typeof checkMiddesk>[0]['firm'] = FIRM,
+) {
   return checkMiddesk({
     credentials: { apiKey: 'mk-key-a', baseUrl },
     accountId: team.accountId,
@@ -107,7 +141,9 @@ function check(firmId: string, firm: Parameters<typeof checkMiddesk>[0]['firm'] 
 const posts = () => received.filter(({ route }) => route.startsWith('POST'));
 
 const DONE = '2026-10-30T12:00:00Z';
-const ALL_DONE = [VERIFY, 'litigations', 'liens', 'bankruptcies'].map((product) => ({ product, completed_at: DONE }));
+const ALL_DONE = [VERIFY, 'litigations', 'liens', 'bankruptcies'].map(
+  (product) => ({ product, completed_at: DONE }),
+);
 const UCC_LIEN = {
   object: 'lien',
   type: 'ucc',
@@ -160,17 +196,23 @@ describe('checkMiddesk', () => {
   it.each([
     [{ name: 'Rowan Fixture Plumbing', city: null, state: 'TX' }],
     [{ name: 'Rowan Fixture Plumbing', city: 'Houston', state: null }],
-  ])('does not check a firm without a city and state, calling nobody', async (firm) => {
-    const firmId = await seedFirm();
+  ])(
+    'does not check a firm without a city and state, calling nobody',
+    async (firm) => {
+      const firmId = await seedFirm();
 
-    expect(await check(firmId, firm)).toEqual({ status: 'not_checked' });
-    expect(received).toEqual([]);
-  });
+      expect(await check(firmId, firm)).toEqual({ status: 'not_checked' });
+      expect(received).toEqual([]);
+    },
+  );
 
   it('orders a Verify with business litigations and bankruptcies for a firm Middesk has never seen, remembers it, and waits', async () => {
     const firmId = await seedFirm();
     routes.set('GET /v1/businesses', list([]));
-    routes.set('POST /v1/businesses', { status: 200, body: { object: 'business', id: 'mdsk-new', status: 'pending' } });
+    routes.set('POST /v1/businesses', {
+      status: 200,
+      body: { object: 'business', id: 'mdsk-new', status: 'pending' },
+    });
     ordersOf('mdsk-new', [
       { product: VERIFY, completed_at: null },
       { product: 'litigations', completed_at: null },
@@ -184,12 +226,18 @@ describe('checkMiddesk', () => {
       {
         route: 'POST /v1/businesses',
         query: {},
-        headers: expect.objectContaining({ authorization: `Basic ${Buffer.from('mk-key-a:').toString('base64')}` }),
+        headers: expect.objectContaining({
+          authorization: `Basic ${Buffer.from('mk-key-a:').toString('base64')}`,
+        }),
         body: {
           name: 'Rowan Fixture Plumbing',
           external_id: firmId,
           addresses: [{ city: 'Houston', state: 'TX' }],
-          orders: [{ product: VERIFY }, { product: 'litigations' }, { product: 'bankruptcies' }],
+          orders: [
+            { product: VERIFY },
+            { product: 'litigations' },
+            { product: 'bankruptcies' },
+          ],
         },
       },
     ]);
@@ -198,7 +246,10 @@ describe('checkMiddesk', () => {
 
   it('adopts the business an earlier run created for this firm instead of paying for another', async () => {
     const firmId = await seedFirm();
-    routes.set('GET /v1/businesses', list([{ object: 'business', id: 'mdsk-orphan', external_id: firmId }]));
+    routes.set(
+      'GET /v1/businesses',
+      list([{ object: 'business', id: 'mdsk-orphan', external_id: firmId }]),
+    );
     ordersOf('mdsk-orphan', [
       { product: VERIFY, completed_at: null },
       { product: 'litigations', completed_at: null },
@@ -219,7 +270,9 @@ describe('checkMiddesk', () => {
     ]);
 
     expect(await check(firmId)).toEqual({ status: 'pending' });
-    expect(received.map(({ route }) => route)).toEqual(['GET /v1/businesses/mdsk-waiting/orders']);
+    expect(received.map(({ route }) => route)).toEqual([
+      'GET /v1/businesses/mdsk-waiting/orders',
+    ]);
   });
 
   it('orders the business lien search, and any legal search the business lacks, once Verify finishes', async () => {
@@ -228,18 +281,30 @@ describe('checkMiddesk', () => {
       { product: VERIFY, completed_at: DONE },
       { product: 'litigations', completed_at: null },
     ]);
-    routes.set('POST /v1/businesses/mdsk-verified/orders', { status: 200, body: { object: 'order', id: 'ord-new' } });
+    routes.set('POST /v1/businesses/mdsk-verified/orders', {
+      status: 200,
+      body: { object: 'order', id: 'ord-new' },
+    });
 
     expect(await check(firmId)).toEqual({ status: 'pending' });
     expect(posts().map(({ route, body }) => ({ route, body }))).toEqual([
-      { route: 'POST /v1/businesses/mdsk-verified/orders', body: { product: 'liens' } },
-      { route: 'POST /v1/businesses/mdsk-verified/orders', body: { product: 'bankruptcies' } },
+      {
+        route: 'POST /v1/businesses/mdsk-verified/orders',
+        body: { product: 'liens' },
+      },
+      {
+        route: 'POST /v1/businesses/mdsk-verified/orders',
+        body: { product: 'bankruptcies' },
+      },
     ]);
   });
 
   it('waits until liens, litigations and bankruptcies all finish', async () => {
     const firmId = await seedFirm('mdsk-partway');
-    ordersOf('mdsk-partway', [...ALL_DONE.slice(0, 3), { product: 'bankruptcies', completed_at: null }]);
+    ordersOf('mdsk-partway', [
+      ...ALL_DONE.slice(0, 3),
+      { product: 'bankruptcies', completed_at: null },
+    ]);
 
     expect(await check(firmId)).toEqual({ status: 'pending' });
     expect(posts()).toEqual([]);
@@ -248,9 +313,18 @@ describe('checkMiddesk', () => {
   it("reuses the firm's Middesk business, reading its liens, litigations and bankruptcies without a new order", async () => {
     const firmId = await seedFirm('mdsk-known');
     ordersOf('mdsk-known', ALL_DONE);
-    routes.set('GET /v1/businesses/mdsk-known/liens', list([UCC_LIEN, STATE_TAX_LIEN]));
-    routes.set('GET /v1/businesses/mdsk-known/litigations', list([LAWSUIT, SETTLED_LAWSUIT]));
-    routes.set('GET /v1/businesses/mdsk-known/bankruptcies', list([CHAPTER_11]));
+    routes.set(
+      'GET /v1/businesses/mdsk-known/liens',
+      list([UCC_LIEN, STATE_TAX_LIEN]),
+    );
+    routes.set(
+      'GET /v1/businesses/mdsk-known/litigations',
+      list([LAWSUIT, SETTLED_LAWSUIT]),
+    );
+    routes.set(
+      'GET /v1/businesses/mdsk-known/bankruptcies',
+      list([CHAPTER_11]),
+    );
 
     expect(await check(firmId)).toEqual({
       status: 'done',
@@ -313,8 +387,14 @@ describe('checkMiddesk', () => {
   it('reads every page of a Middesk list', async () => {
     const firmId = await seedFirm('mdsk-paged');
     ordersOf('mdsk-paged', ALL_DONE);
-    routes.set('GET /v1/businesses/mdsk-paged/liens?page=1', list([UCC_LIEN], true));
-    routes.set('GET /v1/businesses/mdsk-paged/liens?page=2', list([STATE_TAX_LIEN]));
+    routes.set(
+      'GET /v1/businesses/mdsk-paged/liens?page=1',
+      list([UCC_LIEN], true),
+    );
+    routes.set(
+      'GET /v1/businesses/mdsk-paged/liens?page=2',
+      list([STATE_TAX_LIEN]),
+    );
     routes.set('GET /v1/businesses/mdsk-paged/litigations', list([]));
     routes.set('GET /v1/businesses/mdsk-paged/bankruptcies', list([]));
 
@@ -344,7 +424,10 @@ describe('checkMiddesk', () => {
 
   it('retries when Middesk says to slow down', async () => {
     const firmId = await seedFirm('mdsk-busy');
-    routes.set('GET /v1/businesses/mdsk-busy/orders', { status: 429, body: { error: 'rate limited' } });
+    routes.set('GET /v1/businesses/mdsk-busy/orders', {
+      status: 429,
+      body: { error: 'rate limited' },
+    });
 
     const error = await check(firmId).catch((caught: unknown) => caught);
 
@@ -354,18 +437,29 @@ describe('checkMiddesk', () => {
 
   it('says the key was refused when Middesk rejects it', async () => {
     const firmId = await seedFirm('mdsk-refused');
-    routes.set('GET /v1/businesses/mdsk-refused/orders', { status: 401, body: { error: 'unauthorized' } });
+    routes.set('GET /v1/businesses/mdsk-refused/orders', {
+      status: 401,
+      body: { error: 'unauthorized' },
+    });
 
     expect(await check(firmId)).toEqual({ status: 'refused' });
   });
   it('creates one Middesk business when two runs check the same firm at once', async () => {
     const firmId = await seedFirm();
     routes.set('GET /v1/businesses', { ...list([]), delayMs: 200 });
-    routes.set('POST /v1/businesses', { status: 200, body: { object: 'business', id: 'mdsk-once', status: 'pending' } });
+    routes.set('POST /v1/businesses', {
+      status: 200,
+      body: { object: 'business', id: 'mdsk-once', status: 'pending' },
+    });
     ordersOf('mdsk-once', [{ product: VERIFY, completed_at: null }]);
 
-    expect(await Promise.all([check(firmId), check(firmId)])).toEqual([{ status: 'pending' }, { status: 'pending' }]);
-    expect(posts().filter(({ route }) => route === 'POST /v1/businesses')).toHaveLength(1);
+    expect(await Promise.all([check(firmId), check(firmId)])).toEqual([
+      { status: 'pending' },
+      { status: 'pending' },
+    ]);
+    expect(
+      posts().filter(({ route }) => route === 'POST /v1/businesses'),
+    ).toHaveLength(1);
     expect(await storedBusinessOf(firmId)).toBe('mdsk-once');
   });
 
@@ -381,7 +475,10 @@ describe('checkMiddesk', () => {
     const firmId = await seedFirm();
     await seedClaim(firmId, new Date(Date.now() - 3 * 60_000));
     routes.set('GET /v1/businesses', list([]));
-    routes.set('POST /v1/businesses', { status: 200, body: { object: 'business', id: 'mdsk-taken', status: 'pending' } });
+    routes.set('POST /v1/businesses', {
+      status: 200,
+      body: { object: 'business', id: 'mdsk-taken', status: 'pending' },
+    });
     ordersOf('mdsk-taken', [{ product: VERIFY, completed_at: null }]);
 
     expect(await check(firmId)).toEqual({ status: 'pending' });
@@ -402,10 +499,16 @@ describe('checkMiddesk', () => {
 
   it('still reads the records when only Verify was rejected', async () => {
     const firmId = await seedFirm('mdsk-verify-rejected');
-    ordersOf('mdsk-verify-rejected', [{ ...ALL_DONE[0]!, status: 'rejected' }, ...ALL_DONE.slice(1)]);
+    ordersOf('mdsk-verify-rejected', [
+      { ...ALL_DONE[0]!, status: 'rejected' },
+      ...ALL_DONE.slice(1),
+    ]);
     routes.set('GET /v1/businesses/mdsk-verify-rejected/liens', list([]));
     routes.set('GET /v1/businesses/mdsk-verify-rejected/litigations', list([]));
-    routes.set('GET /v1/businesses/mdsk-verify-rejected/bankruptcies', list([]));
+    routes.set(
+      'GET /v1/businesses/mdsk-verify-rejected/bankruptcies',
+      list([]),
+    );
 
     expect(await check(firmId)).toEqual({ status: 'done', records: [] });
   });

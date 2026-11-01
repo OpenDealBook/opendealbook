@@ -107,9 +107,14 @@ const contracts = [
 describe('ContractList', () => {
   it('lists each contract with its versions, which side wrote them, and their files', () => {
     const markup = renderToStaticMarkup(
-      <ContractList dealId={'d1'}
-            filesPath={'/counsel/d1/contracts/files'}
-            redlineUpload contracts={contracts} viewer={null} decide={null} />,
+      <ContractList
+        dealId={'d1'}
+        filesPath={'/counsel/d1/contracts/files'}
+        redlineUpload
+        contracts={contracts}
+        viewer={null}
+        decide={null}
+      />,
     );
 
     expect(markup).toContain('APA');
@@ -204,8 +209,8 @@ describe('ContractList', () => {
           item.querySelector('h4')?.textContent,
           item.querySelector('[data-slot="badge"]')?.textContent,
           item.querySelector('[data-extension-noted]')?.textContent ?? null,
-          [...item.querySelectorAll('[data-extension-actions] a')].map(
-            (link) => link.getAttribute('href'),
+          [...item.querySelectorAll('[data-extension-actions] a')].map((link) =>
+            link.getAttribute('href'),
           ),
           rows(item.innerHTML),
         ]),
@@ -259,9 +264,14 @@ describe('ContractList', () => {
   it('shows what each version changed from the one before', () => {
     const document = parse(
       renderToStaticMarkup(
-        <ContractList dealId={'d1'}
-            filesPath={'/counsel/d1/contracts/files'}
-            redlineUpload contracts={contracts} viewer={null} decide={null} />,
+        <ContractList
+          dealId={'d1'}
+          filesPath={'/counsel/d1/contracts/files'}
+          redlineUpload
+          contracts={contracts}
+          viewer={null}
+          decide={null}
+        />,
       ),
     );
 
@@ -276,9 +286,14 @@ describe('ContractList', () => {
   it('offers a redline upload on each contract', () => {
     const document = parse(
       renderToStaticMarkup(
-        <ContractList dealId={'d1'}
-            filesPath={'/counsel/d1/contracts/files'}
-            redlineUpload contracts={contracts} viewer={null} decide={null} />,
+        <ContractList
+          dealId={'d1'}
+          filesPath={'/counsel/d1/contracts/files'}
+          redlineUpload
+          contracts={contracts}
+          viewer={null}
+          decide={null}
+        />,
       ),
     );
 
@@ -291,9 +306,16 @@ describe('ContractList', () => {
 
   it('tells counsel what comes next and lets them message the deal team when nothing has been shared', () => {
     const document = new DOMParser().parseFromString(
-      renderToStaticMarkup(<ContractList dealId={'d1'}
-            filesPath={'/counsel/d1/contracts/files'}
-            redlineUpload contracts={[]} viewer={null} decide={null} />),
+      renderToStaticMarkup(
+        <ContractList
+          dealId={'d1'}
+          filesPath={'/counsel/d1/contracts/files'}
+          redlineUpload
+          contracts={[]}
+          viewer={null}
+          decide={null}
+        />,
+      ),
       'text/html',
     );
 
@@ -301,17 +323,22 @@ describe('ContractList', () => {
       "When the deal team shares the LOI or APA you'll get an email and can upload redlines here.",
     );
     expect(
-      document
-        .querySelector('a[href="/counsel/d1/messages"]')
-        ?.textContent,
+      document.querySelector('a[href="/counsel/d1/messages"]')?.textContent,
     ).toBe('Message the deal team');
   });
 
   it('keeps the plain empty note where no redlines are uploaded', () => {
     expect(
-      renderToStaticMarkup(<ContractList dealId={'d1'}
-            filesPath={'/seller/rooms/r1/contracts/files'}
-            redlineUpload={false} contracts={[]} viewer={null} decide={null} />),
+      renderToStaticMarkup(
+        <ContractList
+          dealId={'d1'}
+          filesPath={'/seller/rooms/r1/contracts/files'}
+          redlineUpload={false}
+          contracts={[]}
+          viewer={null}
+          decide={null}
+        />,
+      ),
     ).toContain('No contracts have been shared with you yet.');
   });
 
@@ -320,9 +347,14 @@ describe('ContractList', () => {
       [
         ...parse(
           renderToStaticMarkup(
-            <ContractList dealId={'d1'}
-            filesPath={'/counsel/d1/contracts/files'}
-            redlineUpload contracts={contracts} viewer={viewer} decide={null} />,
+            <ContractList
+              dealId={'d1'}
+              filesPath={'/counsel/d1/contracts/files'}
+              redlineUpload
+              contracts={contracts}
+              viewer={viewer}
+              decide={null}
+            />,
           ),
         ).querySelectorAll('[data-version-comments]'),
       ].map((section) => [
@@ -375,9 +407,14 @@ describe('ContractList', () => {
     const reviews = [
       ...parse(
         renderToStaticMarkup(
-          <ContractList dealId={'d1'}
+          <ContractList
+            dealId={'d1'}
             filesPath={'/counsel/d1/contracts/files'}
-            redlineUpload contracts={contracts} viewer={null} decide={null} />,
+            redlineUpload
+            contracts={contracts}
+            viewer={null}
+            decide={null}
+          />,
         ),
       ).querySelectorAll('[data-version-review]'),
     ].map((section) => ({
@@ -408,9 +445,14 @@ describe('ContractList', () => {
       [
         ...parse(
           renderToStaticMarkup(
-            <ContractList dealId={'d1'}
+            <ContractList
+              dealId={'d1'}
               filesPath={'/counsel/d1/contracts/files'}
-              redlineUpload contracts={contracts} viewer={null} decide={decide} />,
+              redlineUpload
+              contracts={contracts}
+              viewer={null}
+              decide={decide}
+            />,
           ),
         ).querySelectorAll('[data-version-review]'),
       ].map((section) =>
@@ -427,10 +469,14 @@ describe('ContractList', () => {
   it('points counsel asking for changes to the redline upload only where there is one', () => {
     const hint = (redlineUpload: boolean) =>
       renderToStaticMarkup(
-        <ContractList dealId={'d1'}
+        <ContractList
+          dealId={'d1'}
           filesPath={'/counsel/d1/contracts/files'}
-          redlineUpload={redlineUpload} contracts={contracts} viewer={null}
-          decide={async () => ({ ok: true })} />,
+          redlineUpload={redlineUpload}
+          contracts={contracts}
+          viewer={null}
+          decide={async () => ({ ok: true })}
+        />,
       ).includes('You can also upload a redline below.');
 
     expect(hint(true)).toBe(true);

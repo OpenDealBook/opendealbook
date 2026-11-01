@@ -27,8 +27,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "catalog:",
-    "@tanstack/react-query": "catalog:",
-    "@tanstack/react-table": "catalog:",
     "@odb/email-templates": "workspace:*",
     "@odb/mailers": "workspace:*",
     "@odb/next": "workspace:*",
@@ -36,6 +34,8 @@
     "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/ui": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-table": "catalog:",
     "react-hook-form": "catalog:",
     "zod": "catalog:"
   },

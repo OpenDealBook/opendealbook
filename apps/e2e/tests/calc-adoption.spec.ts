@@ -6,7 +6,13 @@ import {
   newCredentials,
   test,
 } from './fixtures';
-import { addTeamMember, calcRowAction, newDealCalc, saveCalc, setField } from './fixtures/calc';
+import {
+  addTeamMember,
+  calcRowAction,
+  newDealCalc,
+  saveCalc,
+  setField,
+} from './fixtures/calc';
 import { createDeal } from './fixtures/deal';
 
 test('a changed primary calc flags the adoption, the manager re-adopts, and an analyst is told who can', async ({
@@ -31,7 +37,9 @@ test('a changed primary calc flags the adoption, the manager re-adopts, and an a
   await expect(row.getByText('Primary')).toBeVisible();
   await calcRowAction(page, row, 'Adopt');
   await expect(page.getByText('No financials adopted yet')).toHaveCount(0);
-  await expect(page.getByText('Primary calc changed since adoption')).toHaveCount(0);
+  await expect(
+    page.getByText('Primary calc changed since adoption'),
+  ).toHaveCount(0);
 
   await page.goto(dealPath);
   await expect(page.getByText('Asking multiple (SDE)')).toBeVisible();
@@ -45,25 +53,43 @@ test('a changed primary calc flags the adoption, the manager re-adopts, and an a
   };
 
   await edit('Sales', '2600000');
-  await expect(page.getByText('Primary calc changed since adoption')).toBeVisible();
+  await expect(
+    page.getByText('Primary calc changed since adoption'),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Re-adopt' }).click();
-  await expect(page.getByText('Primary calc changed since adoption')).toHaveCount(0);
+  await expect(
+    page.getByText('Primary calc changed since adoption'),
+  ).toHaveCount(0);
 
   await edit('Working capital', '110000');
-  await expect(page.getByText('Primary calc changed since adoption')).toHaveCount(0);
+  await expect(
+    page.getByText('Primary calc changed since adoption'),
+  ).toHaveCount(0);
 
   await edit('Sales', '3000000');
-  await expect(page.getByText('Primary calc changed since adoption')).toBeVisible();
+  await expect(
+    page.getByText('Primary calc changed since adoption'),
+  ).toBeVisible();
 
   const analyst = newCredentials();
   const analystContext = await browser.newContext();
   const analystPage = await analystContext.newPage();
   await auth.signUp(analystPage, analyst);
-  await addTeamMember(teamSlug, await db.userIdByEmail(analyst.email), 'analyst');
+  await addTeamMember(
+    teamSlug,
+    await db.userIdByEmail(analyst.email),
+    'analyst',
+  );
   await completeInviteeOnboarding(analystPage, teamSlug, 'Alex Analyst');
   await analystPage.goto(financials);
-  await expect(analystPage.getByText('Primary calc changed since adoption')).toBeVisible();
-  await expect(analystPage.getByText(/^Only deal managers can re-adopt\. Ask /)).toBeVisible();
-  await expect(analystPage.getByRole('button', { name: 'Re-adopt' })).toBeDisabled();
+  await expect(
+    analystPage.getByText('Primary calc changed since adoption'),
+  ).toBeVisible();
+  await expect(
+    analystPage.getByText(/^Only deal managers can re-adopt\. Ask /),
+  ).toBeVisible();
+  await expect(
+    analystPage.getByRole('button', { name: 'Re-adopt' }),
+  ).toBeDisabled();
   await analystContext.close();
 });

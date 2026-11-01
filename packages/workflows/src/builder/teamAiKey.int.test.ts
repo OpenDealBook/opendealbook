@@ -1,7 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { provisionAccount, seedDeal, type IntegrationAccount } from '../../test-support/integration-harness';
-import { fakeAiProvider, openAiReply } from '../../test-support/fake-ai-provider';
+import {
+  fakeAiProvider,
+  openAiReply,
+} from '../../test-support/fake-ai-provider';
+import {
+  provisionAccount,
+  seedDeal,
+  type IntegrationAccount,
+} from '../../test-support/integration-harness';
 import { CapReached } from './caps';
 import { completeMetered, meterTeamAiCall, resolveTeamAi } from './teamAiKey';
 
@@ -10,7 +17,10 @@ let unconnected: IntegrationAccount;
 let dealId: string;
 
 beforeAll(async () => {
-  [team, unconnected] = await Promise.all([provisionAccount(), provisionAccount()]);
+  [team, unconnected] = await Promise.all([
+    provisionAccount(),
+    provisionAccount(),
+  ]);
   await team.user
     .rpc('save_llm_endpoint', {
       p_account_id: team.accountId,
@@ -29,7 +39,9 @@ beforeAll(async () => {
     .from('contact')
     .insert({ account_id: team.accountId, name: 'Priya Okafor' })
     .throwOnError();
-  dealId = await seedDeal(team.admin, team.accountId, team.userId, { description: 'Acme Plumbing' });
+  dealId = await seedDeal(team.admin, team.accountId, team.userId, {
+    description: 'Acme Plumbing',
+  });
 });
 
 afterAll(async () => {
@@ -64,7 +76,9 @@ describe('team AI key', () => {
   });
 
   it("resolves the team's embedding model", async () => {
-    expect(await resolveTeamAi(team.accountId, 'embedding')).toMatchObject({ model: 'team-embed' });
+    expect(await resolveTeamAi(team.accountId, 'embedding')).toMatchObject({
+      model: 'team-embed',
+    });
   });
 
   it('resolves nothing for a team without a provider', async () => {
@@ -72,7 +86,11 @@ describe('team AI key', () => {
   });
 
   it('resolves nothing for a model the team has not set', async () => {
-    await team.admin.from('llm_endpoint').update({ model: null }).eq('account_id', team.accountId).throwOnError();
+    await team.admin
+      .from('llm_endpoint')
+      .update({ model: null })
+      .eq('account_id', team.accountId)
+      .throwOnError();
 
     expect(await resolveTeamAi(team.accountId, 'embedding')).toBeNull();
   });
@@ -88,11 +106,16 @@ describe('team AI key', () => {
 
     expect(answer).toBe('done');
     expect(await calls()).toEqual([
-      { model: 'team-chat', deal_id: dealId, prompt_tokens: 9, completion_tokens: 3 },
+      {
+        model: 'team-chat',
+        deal_id: dealId,
+        prompt_tokens: 9,
+        completion_tokens: 3,
+      },
     ]);
   });
 
-  it("completes a metered call with the prompt unchanged, team people included", async () => {
+  it('completes a metered call with the prompt unchanged, team people included', async () => {
     const provider = await fakeAiProvider(openAiReply('An answer.'));
     await team.admin
       .from('llm_endpoint')

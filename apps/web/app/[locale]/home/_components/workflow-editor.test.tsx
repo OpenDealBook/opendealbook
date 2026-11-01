@@ -4,6 +4,10 @@ import { type ComponentProps, act } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import {
+  SCHEDULES_NOT_SYNCED,
+  SCHEDULES_SYNC_FAILED,
+} from '../[account]/workflows/workflow-refusals';
+import {
   alerts,
   buttonNames,
   clearScreen,
@@ -15,10 +19,6 @@ import {
   settle,
   show,
 } from './lender-test-kit';
-import {
-  SCHEDULES_NOT_SYNCED,
-  SCHEDULES_SYNC_FAILED,
-} from '../[account]/workflows/workflow-refusals';
 import { WorkflowEditor } from './workflow-editor';
 import type { EditorCanvasProps, NodeError } from './workflow-editor-canvas';
 
@@ -50,7 +50,9 @@ vi.mock('./workflow-editor-canvas', () => ({
       <div>
         {props.readOnly ? 'Canvas is read only' : 'Canvas is editable'}
         {props.nodeErrors.map((error) => (
-          <span key={error.message}>{`On ${error.nodeId}: ${error.message}`}</span>
+          <span
+            key={error.message}
+          >{`On ${error.nodeId}: ${error.message}`}</span>
         ))}
         <button onClick={props.onEdit}>Edit a node</button>
       </div>
@@ -69,15 +71,17 @@ const props: Props = {
   workflowPath: PATH,
   published: [{ id: 'v2' }, { id: 'v1' }],
   viewing: null,
-  version: { graph: { nodes: [], edges: [] }, layout: { direction: 'RIGHT', positions: {} } },
+  version: {
+    graph: { nodes: [], edges: [] },
+    layout: { direction: 'RIGHT', positions: {} },
+  },
   palette: [],
   canManage: true,
   schedulesSyncFailed: false,
-  ...(fakeActions(
-    'saveDraft',
-    'publishDraft',
-    'retryScheduleSync',
-  ) as Pick<Props, 'saveDraft' | 'publishDraft' | 'retryScheduleSync'>),
+  ...(fakeActions('saveDraft', 'publishDraft', 'retryScheduleSync') as Pick<
+    Props,
+    'saveDraft' | 'publishDraft' | 'retryScheduleSync'
+  >),
 };
 
 function wide(isWide: boolean) {
@@ -124,7 +128,10 @@ it('keeps Save draft disabled until the draft has unsaved edits', async () => {
 });
 
 it('saves the canvas draft and is clean again', async () => {
-  canvas.draft = { graph: { nodes: [{ id: 'n1' }], edges: [] }, layout: { direction: 'RIGHT' } };
+  canvas.draft = {
+    graph: { nodes: [{ id: 'n1' }], edges: [] },
+    layout: { direction: 'RIGHT' },
+  };
   await open();
   await press('Edit a node');
 
@@ -152,7 +159,10 @@ it('shows a save refusal and stays unsaved', async () => {
 });
 
 it('tidies the canvas and saves the new layout', async () => {
-  canvas.draft = { graph: { nodes: [], edges: [] }, layout: { direction: 'RIGHT', positions: { n1: { x: 0, y: 0 } } } };
+  canvas.draft = {
+    graph: { nodes: [], edges: [] },
+    layout: { direction: 'RIGHT', positions: { n1: { x: 0, y: 0 } } },
+  };
   await open();
 
   await press('Tidy');
@@ -170,8 +180,16 @@ it('tidies the canvas and saves the new layout', async () => {
 
 it('lists publish errors per node and does not publish', async () => {
   canvas.publishErrors = [
-    { nodeId: 'send', label: 'Send email', message: 'The to setting is not valid' },
-    { nodeId: 'send', label: 'Send email', message: 'Two arrows lead into this step' },
+    {
+      nodeId: 'send',
+      label: 'Send email',
+      message: 'The to setting is not valid',
+    },
+    {
+      nodeId: 'send',
+      label: 'Send email',
+      message: 'Two arrows lead into this step',
+    },
     { nodeId: null, label: null, message: 'Add a trigger' },
   ];
   await open();
@@ -263,7 +281,9 @@ it('asks before switching version with unsaved edits', async () => {
   await press('Edit a node');
 
   act(() =>
-    document.querySelector<HTMLAnchorElement>(`a[href="${PATH}/edit?version=v1"]`)!.click(),
+    document
+      .querySelector<HTMLAnchorElement>(`a[href="${PATH}/edit?version=v1"]`)!
+      .click(),
   );
 
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
@@ -290,10 +310,10 @@ it('shows a published version read-only with no draft actions', async () => {
 
   expect(pageText()).toContain('Canvas is read only');
   expect(pageText()).toContain('Version 1 is published and cannot change');
-  expect(buttonNames()).not.toEqual(
-    expect.arrayContaining(['Save draft']),
-  );
-  expect(buttonNames().filter((name) => ['Publish', 'Tidy'].includes(name))).toEqual([]);
+  expect(buttonNames()).not.toEqual(expect.arrayContaining(['Save draft']));
+  expect(
+    buttonNames().filter((name) => ['Publish', 'Tidy'].includes(name)),
+  ).toEqual([]);
 });
 
 it('is read-only without workflows.manage', async () => {
@@ -302,7 +322,9 @@ it('is read-only without workflows.manage', async () => {
   expect(pageText()).toContain('Canvas is read only');
   expect(pageText()).toContain('You can view this workflow but not edit it');
   expect(
-    buttonNames().filter((name) => ['Save draft', 'Publish', 'Tidy'].includes(name)),
+    buttonNames().filter((name) =>
+      ['Save draft', 'Publish', 'Tidy'].includes(name),
+    ),
   ).toEqual([]);
 });
 
@@ -313,7 +335,9 @@ it('is view only under the tablet breakpoint', async () => {
   expect(pageText()).toContain('Open on a larger screen to edit');
   expect(pageText()).toContain('Canvas is read only');
   expect(
-    buttonNames().filter((name) => ['Save draft', 'Publish', 'Tidy'].includes(name)),
+    buttonNames().filter((name) =>
+      ['Save draft', 'Publish', 'Tidy'].includes(name),
+    ),
   ).toEqual([]);
 });
 
@@ -321,14 +345,18 @@ it('shows the name as a heading with no rename field', async () => {
   await open();
 
   expect(document.querySelector('h1')?.textContent).toBe('New deal alert');
-  expect(document.querySelector('input[aria-label="Workflow name"]')).toBeNull();
+  expect(
+    document.querySelector('input[aria-label="Workflow name"]'),
+  ).toBeNull();
 });
 
 it('asks before leaving with unsaved edits', async () => {
   await open();
   await press('Edit a node');
 
-  act(() => document.querySelector<HTMLAnchorElement>(`a[href="${PATH}"]`)!.click());
+  act(() =>
+    document.querySelector<HTMLAnchorElement>(`a[href="${PATH}"]`)!.click(),
+  );
 
   expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
     'Leave without saving?',
@@ -337,7 +365,8 @@ it('asks before leaving with unsaved edits', async () => {
 
 function buttonOf(name: string): HTMLButtonElement {
   const found = [...document.querySelectorAll('button')].find(
-    (each) => (each.getAttribute('aria-label') ?? each.textContent?.trim()) === name,
+    (each) =>
+      (each.getAttribute('aria-label') ?? each.textContent?.trim()) === name,
   );
 
   if (!found) {
@@ -349,7 +378,9 @@ function buttonOf(name: string): HTMLButtonElement {
 
 function versionLinks() {
   return [
-    ...document.querySelectorAll<HTMLAnchorElement>('[aria-label="Versions"] a'),
+    ...document.querySelectorAll<HTMLAnchorElement>(
+      '[aria-label="Versions"] a',
+    ),
   ].map((link) => ({
     text: link.textContent,
     href: link.getAttribute('href'),

@@ -48,7 +48,9 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  act(() => root.render(<CounselInviteForm dealId={'deal-1'} blockedReason={null} />));
+  act(() =>
+    root.render(<CounselInviteForm dealId={'deal-1'} blockedReason={null} />),
+  );
 });
 
 afterEach(() => {
@@ -101,7 +103,9 @@ describe('CounselInviteForm', () => {
       root.render(
         <CounselInviteForm
           dealId={'deal-1'}
-          blockedReason={'Only deal managers can invite counsel. Ask Morgan Reyes.'}
+          blockedReason={
+            'Only deal managers can invite counsel. Ask Morgan Reyes.'
+          }
         />,
       ),
     );

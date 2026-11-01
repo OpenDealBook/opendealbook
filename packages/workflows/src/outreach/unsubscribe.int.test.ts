@@ -8,7 +8,11 @@ import {
 let account: IntegrationAccount;
 let other: IntegrationAccount;
 
-async function enroll(owner: IntegrationAccount, targetEmail: string, status: string) {
+async function enroll(
+  owner: IntegrationAccount,
+  targetEmail: string,
+  status: string,
+) {
   const { data: sequence } = await owner.admin
     .from('outreach_sequence')
     .insert({ account_id: owner.accountId, name: 'Cold touch' })
@@ -70,7 +74,9 @@ describe('unsubscribe_outreach (integration)', () => {
       .throwOnError();
 
     expect(data).toBe(true);
-    expect(await suppressions(account)).toEqual([{ email: 'owner@target.test', reason: 'opt_out' }]);
+    expect(await suppressions(account)).toEqual([
+      { email: 'owner@target.test', reason: 'opt_out' },
+    ]);
     expect(await statusOf(account, clicked.id)).toBe('suppressed');
     expect(await statusOf(account, held.id)).toBe('suppressed');
     expect(await statusOf(account, finished.id)).toBe('suppressed');
@@ -81,10 +87,16 @@ describe('unsubscribe_outreach (integration)', () => {
   it('records one opt-out when the link is clicked twice', async () => {
     const clicked = await enroll(account, 'twice@target.test', 'queued');
 
-    await account.admin.rpc('unsubscribe_outreach', { p_token: clicked.unsubscribe_token }).throwOnError();
-    await account.admin.rpc('unsubscribe_outreach', { p_token: clicked.unsubscribe_token }).throwOnError();
+    await account.admin
+      .rpc('unsubscribe_outreach', { p_token: clicked.unsubscribe_token })
+      .throwOnError();
+    await account.admin
+      .rpc('unsubscribe_outreach', { p_token: clicked.unsubscribe_token })
+      .throwOnError();
 
-    expect(await suppressions(account)).toEqual([{ email: 'twice@target.test', reason: 'opt_out' }]);
+    expect(await suppressions(account)).toEqual([
+      { email: 'twice@target.test', reason: 'opt_out' },
+    ]);
   });
 
   it('answers false for a token that matches no enrollment', async () => {

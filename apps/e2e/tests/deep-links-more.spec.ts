@@ -42,10 +42,16 @@ test('must close by on the team home goes to the lenders tab for a manager', asy
 
   const stamp = Date.now();
   const reason = `Seller retires ${stamp}`;
-  const mustCloseBy = new Date(Date.now() + 5 * 86_400_000).toISOString().slice(0, 10);
+  const mustCloseBy = new Date(Date.now() + 5 * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
   await auth.signUp(page);
   const teamSlug = await completeTeamOnboarding(page, `Close Team ${stamp}`);
-  const { dealId, dealPath } = await createDeal(page, teamSlug, `Close Deal ${stamp}`);
+  const { dealId, dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Close Deal ${stamp}`,
+  );
 
   await page.goto(`${dealPath}/lenders`);
   await page.getByLabel('Must close by').fill(mustCloseBy);
@@ -56,9 +62,13 @@ test('must close by on the team home goes to the lenders tab for a manager', asy
   ]);
 
   await page.goto(`/home/${teamSlug}`);
-  const managerLink = page.getByRole('link', { name: `Must close by: ${reason}` });
-  await expect(managerLink).toHaveAttribute('href', `${dealPath}/lenders#must-close-by-${dealId}`);
-
+  const managerLink = page.getByRole('link', {
+    name: `Must close by: ${reason}`,
+  });
+  await expect(managerLink).toHaveAttribute(
+    'href',
+    `${dealPath}/lenders#must-close-by-${dealId}`,
+  );
 });
 
 test('counsel messages, contract comments, review requests and invitations deep link to their item', async ({
@@ -72,12 +82,23 @@ test('counsel messages, contract comments, review requests and invitations deep 
   test.setTimeout(180 * 1000);
 
   const stamp = Date.now();
-  const counselPerson = { email: newCredentials().email, name: `Bea Counsel ${stamp}` };
+  const counselPerson = {
+    email: newCredentials().email,
+    name: `Bea Counsel ${stamp}`,
+  };
   const owner = newCredentials();
   await auth.signUp(page, owner);
   const teamSlug = await completeTeamOnboarding(page, `Link Team ${stamp}`);
-  const { dealId, dealPath } = await createDeal(page, teamSlug, `Link Deal ${stamp}`);
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  const { dealId, dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Link Deal ${stamp}`,
+  );
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
   const [versionId] = await contracts.seed({
     dealId,
     versions: [{ party: 'buyer', summary: `Draft ${stamp}`, shared: true }],
@@ -87,15 +108,22 @@ test('counsel messages, contract comments, review requests and invitations deep 
   await page.goto(`${dealPath}/parties`);
   await counsel.inviteBuyerCounsel(page, counselPerson);
   const counselSide = await freshPage(browser);
-  await counsel.signIn(counselSide.page, { email: counselPerson.email, dealId });
+  await counsel.signIn(counselSide.page, {
+    email: counselPerson.email,
+    dealId,
+  });
 
   const message = `Counsel question ${stamp}`;
   await counselSide.page.goto(`/counsel/${dealId}/messages`);
   await counselSide.page.getByLabel('Message').fill(message);
-  await counselSide.page.getByRole('button', { name: 'Send', exact: true }).click();
+  await counselSide.page
+    .getByRole('button', { name: 'Send', exact: true })
+    .click();
   await expect(counselSide.page.getByText(message)).toBeVisible();
   const messageLink = await noticeLink(ownerId, '%/parties#counsel-message-%');
-  expect(messageLink).toMatch(new RegExp(`${dealPath}/parties#counsel-message-[0-9a-f-]{36}$`));
+  expect(messageLink).toMatch(
+    new RegExp(`${dealPath}/parties#counsel-message-[0-9a-f-]{36}$`),
+  );
   await page.goto(messageLink);
   await expect(page.locator(`#${messageLink.split('#')[1]}`)).toBeVisible();
 
@@ -111,9 +139,10 @@ test('counsel messages, contract comments, review requests and invitations deep 
     to: owner.email,
     text: `${dealPath}/documents#contract-comment-`,
   });
-  const commentLink = /\/home\/[^"\s<>]*\/documents#contract-comment-[0-9a-f-]{36}/.exec(
-    commented.html + commented.text,
-  )![0];
+  const commentLink =
+    /\/home\/[^"\s<>]*\/documents#contract-comment-[0-9a-f-]{36}/.exec(
+      commented.html + commented.text,
+    )![0];
   await page.goto(commentLink);
   await expect(page.getByText(comment)).toBeVisible();
 
@@ -128,8 +157,12 @@ test('counsel messages, contract comments, review requests and invitations deep 
     text: `/counsel/${dealId}/contracts#contract-review-${versionId}`,
   });
   expect(requested.html + requested.text).not.toContain('/home/');
-  await counselSide.page.goto(`/counsel/${dealId}/contracts#contract-review-${versionId}`);
-  await expect(counselSide.page.locator(`#contract-review-${versionId}`)).toBeVisible();
+  await counselSide.page.goto(
+    `/counsel/${dealId}/contracts#contract-review-${versionId}`,
+  );
+  await expect(
+    counselSide.page.locator(`#contract-review-${versionId}`),
+  ).toBeVisible();
 
   const invited = newCredentials();
   const inviteeSide = await freshPage(browser);
@@ -140,7 +173,10 @@ test('counsel messages, contract comments, review requests and invitations deep 
     .filter({ has: page.getByRole('button', { name: 'Send invitations' }) });
   await form.getByPlaceholder('Email').fill(invited.email);
   await form.getByRole('button', { name: 'Send invitations' }).click();
-  const joinLink = await noticeLink(await db.userIdByEmail(invited.email), '%/join?token=%');
+  const joinLink = await noticeLink(
+    await db.userIdByEmail(invited.email),
+    '%/join?token=%',
+  );
   expect(joinLink).toMatch(/\/join\?token=[0-9a-f-]+$/);
 
   await counselSide.context.close();

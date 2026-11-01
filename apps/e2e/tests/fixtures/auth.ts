@@ -11,7 +11,9 @@ export interface TestUser {
 
 export function newCredentials(): TestUser {
   return {
-    email: faker.internet.email({ provider: 'opendealbook.test' }).toLowerCase(),
+    email: faker.internet
+      .email({ provider: 'opendealbook.test' })
+      .toLowerCase(),
     password: 'password-test-1234',
   };
 }

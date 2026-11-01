@@ -127,40 +127,38 @@ export async function fetchRoomActivity(
     { data: faqEntries },
     faqFileNames,
   ] = await Promise.all([
-      client
-        .from('lender_ask_message')
-        .select('id, ask_id, author_user_id, side, created_at')
-        .in('ask_id', [...asksById.keys()])
-        .throwOnError(),
-      client
-        .from('lender_ask_file')
-        .select('id, ask_id, dr_document_id, role, added_by, created_at')
-        .in('ask_id', [...asksById.keys()])
-        .order('created_at')
-        .throwOnError(),
-      client
-        .from('dr_document')
-        .select('id, name, folder_id, uploaded_by, created_at')
-        .in('folder_id', privateFolderIds)
-        .throwOnError(),
-      namesById(
-        client,
-        'dr_document',
-        rows.map((row) => row.dr_document_id),
-      ),
-      client
-        .from('lender_faq_entry')
-        .select('id, question, status')
-        .in('id', [
-          ...new Set(rows.flatMap((row) => row.faq_entry_id ?? [])),
-        ])
-        .throwOnError(),
-      namesById(
-        client,
-        'lender_faq_file',
-        rows.map((row) => row.faq_file_id),
-      ),
-    ]);
+    client
+      .from('lender_ask_message')
+      .select('id, ask_id, author_user_id, side, created_at')
+      .in('ask_id', [...asksById.keys()])
+      .throwOnError(),
+    client
+      .from('lender_ask_file')
+      .select('id, ask_id, dr_document_id, role, added_by, created_at')
+      .in('ask_id', [...asksById.keys()])
+      .order('created_at')
+      .throwOnError(),
+    client
+      .from('dr_document')
+      .select('id, name, folder_id, uploaded_by, created_at')
+      .in('folder_id', privateFolderIds)
+      .throwOnError(),
+    namesById(
+      client,
+      'dr_document',
+      rows.map((row) => row.dr_document_id),
+    ),
+    client
+      .from('lender_faq_entry')
+      .select('id, question, status')
+      .in('id', [...new Set(rows.flatMap((row) => row.faq_entry_id ?? []))])
+      .throwOnError(),
+    namesById(
+      client,
+      'lender_faq_file',
+      rows.map((row) => row.faq_file_id),
+    ),
+  ]);
 
   const faqEntriesById = new Map(faqEntries.map((entry) => [entry.id, entry]));
   const attachedIds = new Set(askFiles.map((file) => file.dr_document_id));
@@ -213,7 +211,8 @@ export async function fetchRoomActivity(
       folderId: row.dr_folder_id,
       folderName: foldersById.get(String(row.dr_folder_id))?.name ?? null,
       faqEntryId: row.faq_entry_id,
-      faqQuestion: faqEntriesById.get(String(row.faq_entry_id))?.question ?? null,
+      faqQuestion:
+        faqEntriesById.get(String(row.faq_entry_id))?.question ?? null,
       faqEntryRemoved:
         faqEntriesById.get(String(row.faq_entry_id))?.status === 'unpublished',
       faqFileId: row.faq_file_id,
@@ -389,8 +388,7 @@ async function peopleById(client: Client, roomId: string) {
       {
         email: person.email,
         name: person.name,
-        isRemoved:
-          removed.has(person.user_id) && !current.has(person.user_id),
+        isRemoved: removed.has(person.user_id) && !current.has(person.user_id),
       },
     ]),
   );

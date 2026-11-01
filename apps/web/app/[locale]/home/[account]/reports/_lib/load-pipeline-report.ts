@@ -49,7 +49,7 @@ export async function loadPipelineReport(
   for (const row of eventRows.data as unknown as StageEventRow[]) {
     const stage =
       row.event_type === 'deal.created'
-        ? row.payload.stage ?? 'sourcing'
+        ? (row.payload.stage ?? 'sourcing')
         : row.payload.stage!;
     const reached = reach.get(row.deal_id) ?? new Set<string>();
     reached.add(stage);

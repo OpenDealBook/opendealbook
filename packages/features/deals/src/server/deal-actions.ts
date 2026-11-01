@@ -2,7 +2,11 @@
 
 import { z } from 'zod';
 
-import { appendDealEvent, appendDealEvents, type DealEventInput } from '@odb/events';
+import {
+  appendDealEvent,
+  appendDealEvents,
+  type DealEventInput,
+} from '@odb/events';
 import { enhanceAction } from '@odb/next/actions';
 import { DEAL_DELETED_WORKFLOW_ID } from '@odb/notifications/relay';
 import {
@@ -115,7 +119,8 @@ export async function createDealCore(
 }
 
 export const createDeal = refusableAction(
-  async (data, user) => createDealCore(getSupabaseServerClient(), data, user.id),
+  async (data, user) =>
+    createDealCore(getSupabaseServerClient(), data, user.id),
   dealSchema,
 );
 
@@ -198,40 +203,37 @@ export const upsertDealBox = refusableAction(
   { what: 'edit the deal box', needs: 'deals.manage' },
 );
 
-export const addDealParticipant = refusableAction(
-  async (data) => {
-    const client = getSupabaseServerClient();
+export const addDealParticipant = refusableAction(async (data) => {
+  const client = getSupabaseServerClient();
 
-    const { data: allowed } = await client.rpc('has_deal_permission', {
-      deal_id: data.deal_id,
-      permission: 'participants.manage',
-    });
+  const { data: allowed } = await client.rpc('has_deal_permission', {
+    deal_id: data.deal_id,
+    permission: 'participants.manage',
+  });
 
-    if (!allowed) {
-      throw new Refusal('Only deal managers can add people to a deal.');
-    }
+  if (!allowed) {
+    throw new Refusal('Only deal managers can add people to a deal.');
+  }
 
-    const participantId = crypto.randomUUID();
+  const participantId = crypto.randomUUID();
 
-    await appendDealEvent(client, {
-      dealId: data.deal_id,
-      aggregateType: 'deal_participant',
-      aggregateId: participantId,
-      eventType: 'deal_participant.added',
-      payload: {
-        user_id: data.user_id,
-        party: data.party,
-        role: data.role ?? null,
-        scope: data.scope,
-        permission: data.permission,
-        expires_at: data.expires_at ?? null,
-      },
-    });
+  await appendDealEvent(client, {
+    dealId: data.deal_id,
+    aggregateType: 'deal_participant',
+    aggregateId: participantId,
+    eventType: 'deal_participant.added',
+    payload: {
+      user_id: data.user_id,
+      party: data.party,
+      role: data.role ?? null,
+      scope: data.scope,
+      permission: data.permission,
+      expires_at: data.expires_at ?? null,
+    },
+  });
 
-    return participantId;
-  },
-  dealParticipantSchema,
-);
+  return participantId;
+}, dealParticipantSchema);
 
 const checklistTimestampColumn = {
   requested: 'requested_at',
@@ -428,10 +430,17 @@ async function removeFiles(
   files: DeletedDeal['files'],
 ): Promise<Cleanup<DeletedDeal['files'][number]>> {
   const storage = getSupabaseServerAdminClient().storage;
-  const cleanup: Cleanup<DeletedDeal['files'][number]> = { left: [], errors: [] };
+  const cleanup: Cleanup<DeletedDeal['files'][number]> = {
+    left: [],
+    errors: [],
+  };
 
   for (const [bucket, inBucket] of Map.groupBy(files, (file) => file.bucket)) {
-    for (let start = 0; start < inBucket.length; start += STORAGE_REMOVE_LIMIT) {
+    for (
+      let start = 0;
+      start < inBucket.length;
+      start += STORAGE_REMOVE_LIMIT
+    ) {
       const batch = inBucket.slice(start, start + STORAGE_REMOVE_LIMIT);
       const removed = await storage
         .from(bucket)

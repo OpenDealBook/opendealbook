@@ -1,6 +1,10 @@
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-import { type EventLogName, startEventRun, type TriggeringEvent } from './client';
+import {
+  type EventLogName,
+  startEventRun,
+  type TriggeringEvent,
+} from './client';
 import {
   NODE_CONFIG_SCHEMAS,
   parseWorkflowGraph,
@@ -45,7 +49,9 @@ export async function fetchTriggerEvents(input: {
   }));
 }
 
-export async function loadEventRelayCursor(name: string): Promise<RelayCursor | null> {
+export async function loadEventRelayCursor(
+  name: string,
+): Promise<RelayCursor | null> {
   const { data } = await getSupabaseServerAdminClient()
     .from('relay_cursor')
     .select('last_xid::text, last_global_seq')
@@ -74,7 +80,9 @@ export async function startEventRelayCursorAtLatest(input: {
   name: string;
 }): Promise<RelayCursor> {
   const admin = getSupabaseServerAdminClient();
-  const { data: horizon } = await admin.rpc('trigger_event_horizon').throwOnError();
+  const { data: horizon } = await admin
+    .rpc('trigger_event_horizon')
+    .throwOnError();
 
   await admin
     .from('relay_cursor')
@@ -101,13 +109,18 @@ function passes(filter: Rule | undefined, payload: StepIo): boolean {
   }
 }
 
-export async function startWorkflowRunsForEvent(event: LoggedEvent): Promise<void> {
+export async function startWorkflowRunsForEvent(
+  event: LoggedEvent,
+): Promise<void> {
   const { data: workflows } = await getSupabaseServerAdminClient()
     .from('workflow')
     .select('id, workflow_version(id, schema_version, graph)')
     .eq('account_id', event.accountId)
     .not('workflow_version.published_at', 'is', null)
-    .order('published_at', { referencedTable: 'workflow_version', ascending: false })
+    .order('published_at', {
+      referencedTable: 'workflow_version',
+      ascending: false,
+    })
     .throwOnError();
 
   for (const workflow of workflows) {
@@ -123,7 +136,10 @@ export async function startWorkflowRunsForEvent(event: LoggedEvent): Promise<voi
         return false;
       }
       const config = NODE_CONFIG_SCHEMAS.event_trigger.parse(node.config);
-      return config.eventType === event.eventType && passes(config.filter, event.payload);
+      return (
+        config.eventType === event.eventType &&
+        passes(config.filter, event.payload)
+      );
     });
 
     for (const node of matching) {

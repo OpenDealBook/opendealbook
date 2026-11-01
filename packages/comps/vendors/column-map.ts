@@ -48,7 +48,9 @@ export function loadColumnMap(raw: unknown): ColumnMap {
   }
   for (const column of map.columns) {
     if (!isParserKind(column.parser)) {
-      throw new Error(`Column ${column.target_comp_column} has unknown parser ${column.parser}`);
+      throw new Error(
+        `Column ${column.target_comp_column} has unknown parser ${column.parser}`,
+      );
     }
   }
   return { vendor: map.vendor, version: map.version, columns: map.columns };
@@ -132,7 +134,11 @@ export function mapRow(
 ): Record<string, ParsedValue> {
   const mapped: Record<string, ParsedValue> = {};
   for (const column of map.columns) {
-    const value = parseField(column.parser, row[column.vendor_column] ?? '', column.enum_values);
+    const value = parseField(
+      column.parser,
+      row[column.vendor_column] ?? '',
+      column.enum_values,
+    );
     if (column.required && value === null) {
       throw new Error(`Required column ${column.vendor_column} is missing`);
     }

@@ -1,19 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import {
+  downloadedLicenses,
+  failFloridaLicenseImport,
+  startFloridaLicenseImport,
+} from './activities';
+import { loadFloridaLicenseSnapshot } from './load';
+import type { FloridaLicense } from './parse';
+import '../../test-support/integration-harness';
+
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-
-import '../../test-support/integration-harness';
-import { downloadedLicenses, failFloridaLicenseImport, startFloridaLicenseImport } from './activities';
-import { loadFloridaLicenseSnapshot } from './load';
-import type { FloridaLicense } from './parse';
-
-const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const admin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: { persistSession: false, autoRefreshToken: false },
+  },
+);
 
 const dbpr = {
   origin: '',
@@ -44,7 +52,10 @@ beforeAll(async () => {
       response.end('');
       return;
     }
-    const body = readFileSync(new URL(`./fixtures/${file}`, import.meta.url), 'utf8');
+    const body = readFileSync(
+      new URL(`./fixtures/${file}`, import.meta.url),
+      'utf8',
+    );
     if (dbpr.trickle) {
       const lines = body.split(/(?<=\n)/);
       response.on('close', () => {
@@ -87,7 +98,11 @@ beforeEach(() => {
 
 afterAll(async () => {
   dbpr.close();
-  await admin.from('florida_license_import').delete().in('id', imports).throwOnError();
+  await admin
+    .from('florida_license_import')
+    .delete()
+    .in('id', imports)
+    .throwOnError();
 });
 
 async function started() {
@@ -110,14 +125,19 @@ async function readImport(importId: string) {
 async function licensesOf(importId: string) {
   const { data } = await admin
     .from('florida_license')
-    .select('file, licensee_name, normalized_names, license_number, license_type, status, expires_on')
+    .select(
+      'file, licensee_name, normalized_names, license_number, license_type, status, expires_on',
+    )
     .eq('import_id', importId)
     .order('id')
     .throwOnError();
   return data;
 }
 
-function loadFloridaLicenses({ importId }: { importId: string }, origin: string) {
+function loadFloridaLicenses(
+  { importId }: { importId: string },
+  origin: string,
+) {
   return loadFloridaLicenseSnapshot({
     importId,
     licenses: downloadedLicenses({ origin }),
@@ -164,20 +184,65 @@ describe('loading the Florida license files', () => {
       '/sto/file_download/extracts/COSMETOLOGYLICENSE_1.csv',
       '/sto/file_download/extracts/REALESTATE2501LICENSE_1.csv',
     ]);
-    expect(await readImport(importId)).toEqual({ status: 'succeeded', license_count: 12, error: null });
+    expect(await readImport(importId)).toEqual({
+      status: 'succeeded',
+      license_count: 12,
+      error: null,
+    });
     expect(await licensesOf(importId)).toEqual([
-      expect.objectContaining({ licensee_name: 'HARBOR FIXTURE DENTAL, LLC', normalized_names: ['harbor fixture dental'], license_number: 'TESTCBC0001', status: 'Active', expires_on: '2028-08-31' }),
+      expect.objectContaining({
+        licensee_name: 'HARBOR FIXTURE DENTAL, LLC',
+        normalized_names: ['harbor fixture dental'],
+        license_number: 'TESTCBC0001',
+        status: 'Active',
+        expires_on: '2028-08-31',
+      }),
       expect.objectContaining({ licensee_name: "MARSH & O'NEIL BUILDERS INC" }),
-      expect.objectContaining({ licensee_name: 'HARBOUR HOLDINGS INC.', normalized_names: ['harbour holdings', 'harbor fixture air'], license_number: null }),
-      expect.objectContaining({ licensee_name: 'HARBOR FIXTURE MECHANICAL INC.' }),
-      expect.objectContaining({ licensee_name: 'HARBOR FIXTURE GLASS', expires_on: null }),
-      expect.objectContaining({ file: 'COSMETOLOGYLICENSE_1.csv', licensee_name: 'HARBOR FIXTURE SALON' }),
-      expect.objectContaining({ file: 'COSMETOLOGYLICENSE_1.csv', licensee_name: 'HARBOR FIXTURE NAILS', status: null }),
-      expect.objectContaining({ file: 'REALESTATE2501LICENSE_1.csv', licensee_name: 'EXAMPLE, PAT', normalized_names: ['example pat', 'harbor fixture realty'], status: 'Active', expires_on: '2027-09-30' }),
-      expect.objectContaining({ file: 'REALESTATE2501LICENSE_1.csv', licensee_name: 'SAMPLE, SAM', status: 'Inactive' }),
-      expect.objectContaining({ file: 'REALESTATE2501LICENSE_1.csv', license_number: 'TESTBK0010' }),
-      expect.objectContaining({ license_number: 'TESTBK0011', expires_on: '1999-03-31' }),
-      expect.objectContaining({ license_number: 'TESTBK0012', expires_on: null }),
+      expect.objectContaining({
+        licensee_name: 'HARBOUR HOLDINGS INC.',
+        normalized_names: ['harbour holdings', 'harbor fixture air'],
+        license_number: null,
+      }),
+      expect.objectContaining({
+        licensee_name: 'HARBOR FIXTURE MECHANICAL INC.',
+      }),
+      expect.objectContaining({
+        licensee_name: 'HARBOR FIXTURE GLASS',
+        expires_on: null,
+      }),
+      expect.objectContaining({
+        file: 'COSMETOLOGYLICENSE_1.csv',
+        licensee_name: 'HARBOR FIXTURE SALON',
+      }),
+      expect.objectContaining({
+        file: 'COSMETOLOGYLICENSE_1.csv',
+        licensee_name: 'HARBOR FIXTURE NAILS',
+        status: null,
+      }),
+      expect.objectContaining({
+        file: 'REALESTATE2501LICENSE_1.csv',
+        licensee_name: 'EXAMPLE, PAT',
+        normalized_names: ['example pat', 'harbor fixture realty'],
+        status: 'Active',
+        expires_on: '2027-09-30',
+      }),
+      expect.objectContaining({
+        file: 'REALESTATE2501LICENSE_1.csv',
+        licensee_name: 'SAMPLE, SAM',
+        status: 'Inactive',
+      }),
+      expect.objectContaining({
+        file: 'REALESTATE2501LICENSE_1.csv',
+        license_number: 'TESTBK0010',
+      }),
+      expect.objectContaining({
+        license_number: 'TESTBK0011',
+        expires_on: '1999-03-31',
+      }),
+      expect.objectContaining({
+        license_number: 'TESTBK0012',
+        expires_on: null,
+      }),
     ]);
   });
 
@@ -187,9 +252,15 @@ describe('loading the Florida license files', () => {
 
     await loadFloridaLicenses({ importId }, dbpr.origin);
 
-    expect((await licensesOf(importId)).map((license) => license.licensee_name)).not.toContain('HARBOR FIXTURE LEFTOVER');
+    expect(
+      (await licensesOf(importId)).map((license) => license.licensee_name),
+    ).not.toContain('HARBOR FIXTURE LEFTOVER');
     expect(await licensesOf(importId)).toHaveLength(12);
-    expect(await readImport(importId)).toEqual({ status: 'succeeded', license_count: 12, error: null });
+    expect(await readImport(importId)).toEqual({
+      status: 'succeeded',
+      license_count: 12,
+      error: null,
+    });
   });
 
   it('never reloads an import that already succeeded when its load is retried', async () => {
@@ -200,7 +271,11 @@ describe('loading the Florida license files', () => {
     await loadFloridaLicenses({ importId }, dbpr.origin);
 
     expect(await licensesOf(importId)).toHaveLength(12);
-    expect(await readImport(importId)).toEqual({ status: 'succeeded', license_count: 12, error: null });
+    expect(await readImport(importId)).toEqual({
+      status: 'succeeded',
+      license_count: 12,
+      error: null,
+    });
   });
 
   it('drops the licenses of older succeeded imports once a newer one succeeds, keeping their log and any running import', async () => {
@@ -223,7 +298,9 @@ describe('loading the Florida license files', () => {
     const empty = await started();
     dbpr.emptyFile = 'COSMETOLOGYLICENSE_1.csv';
 
-    await expect(loadFloridaLicenses({ importId: empty }, dbpr.origin)).rejects.toThrow(
+    await expect(
+      loadFloridaLicenses({ importId: empty }, dbpr.origin),
+    ).rejects.toThrow(
       'The Florida file COSMETOLOGYLICENSE_1.csv had no licenses',
     );
 
@@ -235,7 +312,10 @@ describe('loading the Florida license files', () => {
     dbpr.stalledFile = 'CONSTRUCTIONLICENSE_1.csv';
 
     const reading = (async () => {
-      for await (const license of downloadedLicenses({ origin: dbpr.origin, stallMs: 200 })) {
+      for await (const license of downloadedLicenses({
+        origin: dbpr.origin,
+        stallMs: 200,
+      })) {
         void license;
       }
     })();
@@ -247,7 +327,10 @@ describe('loading the Florida license files', () => {
     dbpr.trickle = true;
     const read: string[] = [];
 
-    for await (const license of downloadedLicenses({ origin: dbpr.origin, stallMs: 100 })) {
+    for await (const license of downloadedLicenses({
+      origin: dbpr.origin,
+      stallMs: 100,
+    })) {
       read.push(license.licensee_name);
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
@@ -268,7 +351,12 @@ describe('loading the Florida license files', () => {
     }
 
     await expect(
-      loadFloridaLicenseSnapshot({ importId, licenses: licenses(), signal: cancel.signal, heartbeat: () => {} }),
+      loadFloridaLicenseSnapshot({
+        importId,
+        licenses: licenses(),
+        signal: cancel.signal,
+        heartbeat: () => {},
+      }),
     ).rejects.toThrow('This operation was aborted');
     await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -293,7 +381,11 @@ describe('loading the Florida license files', () => {
     });
 
     expect(progress).toEqual([1000, 2000]);
-    expect(await readImport(importId)).toEqual({ status: 'succeeded', license_count: 2000, error: null });
+    expect(await readImport(importId)).toEqual({
+      status: 'succeeded',
+      license_count: 2000,
+      error: null,
+    });
   });
 
   it('fails the download when DBPR answers with an error', async () => {
@@ -305,7 +397,9 @@ describe('loading the Florida license files', () => {
       }
     })();
 
-    await expect(reading).rejects.toThrow(`GET ${dbpr.origin}/COSMETOLOGYLICENSE_1.csv answered 503`);
+    await expect(reading).rejects.toThrow(
+      `GET ${dbpr.origin}/COSMETOLOGYLICENSE_1.csv answered 503`,
+    );
   });
 
   it('closes the download when the reader stops early', async () => {
@@ -323,7 +417,11 @@ describe('loading the Florida license files', () => {
   it('drops the licenses left behind by failed imports once an import succeeds', async () => {
     const failed = await started();
     await partialRows(failed);
-    await admin.from('florida_license_import').update({ status: 'failed' }).eq('id', failed).throwOnError();
+    await admin
+      .from('florida_license_import')
+      .update({ status: 'failed' })
+      .eq('id', failed)
+      .throwOnError();
     const newer = await started();
 
     await loadFloridaLicenses({ importId: newer }, dbpr.origin);
@@ -335,9 +433,16 @@ describe('loading the Florida license files', () => {
     const importId = await started();
     await loadFloridaLicenses({ importId }, dbpr.origin);
 
-    await failFloridaLicenseImport({ importId, reason: 'late failure from an earlier attempt' });
+    await failFloridaLicenseImport({
+      importId,
+      reason: 'late failure from an earlier attempt',
+    });
 
-    expect(await readImport(importId)).toEqual({ status: 'succeeded', license_count: 12, error: null });
+    expect(await readImport(importId)).toEqual({
+      status: 'succeeded',
+      license_count: 12,
+      error: null,
+    });
     expect(await licensesOf(importId)).toHaveLength(12);
   });
 
@@ -345,7 +450,10 @@ describe('loading the Florida license files', () => {
     const importId = await started();
     await partialRows(importId);
 
-    await failFloridaLicenseImport({ importId, reason: 'GET https://www2.myfloridalicense.com answered 503' });
+    await failFloridaLicenseImport({
+      importId,
+      reason: 'GET https://www2.myfloridalicense.com answered 503',
+    });
 
     expect(await readImport(importId)).toEqual({
       status: 'failed',

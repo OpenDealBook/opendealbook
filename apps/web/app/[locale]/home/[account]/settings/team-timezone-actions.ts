@@ -11,7 +11,6 @@ import {
   syncTeamSchedules,
 } from '@odb/workflows/builder/schedule';
 
-
 const NEEDS_SETTINGS_MANAGE = 'Changing the time zone needs settings.manage';
 const CHECK_VIOLATION = '23514';
 

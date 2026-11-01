@@ -16,15 +16,20 @@ test('a manager changes the team time zone and a member sees it read-only', asyn
   test.setTimeout(120 * 1000);
 
   await auth.signUp(page);
-  const teamSlug = await completeTeamOnboarding(page, `Zone Team ${Date.now()}`);
+  const teamSlug = await completeTeamOnboarding(
+    page,
+    `Zone Team ${Date.now()}`,
+  );
   const settings = `/home/${teamSlug}/settings`;
 
   await page.goto(settings);
   const zone = page.getByLabel('Time zone', { exact: true });
   await expect(zone).toBeEnabled();
   await Promise.all([
-    page.waitForResponse((response) =>
-      response.request().postData()?.includes('"timezone":"Asia/Tokyo"') ?? false,
+    page.waitForResponse(
+      (response) =>
+        response.request().postData()?.includes('"timezone":"Asia/Tokyo"') ??
+        false,
     ),
     zone.selectOption('Asia/Tokyo'),
   ]);
@@ -32,7 +37,10 @@ test('a manager changes the team time zone and a member sees it read-only', asyn
   await expect(page.locator('p[role=alert]')).toHaveCount(0);
   await expect(async () => {
     await page.reload();
-    await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue('Asia/Tokyo', { timeout: 3000 });
+    await expect(page.getByLabel('Time zone', { exact: true })).toHaveValue(
+      'Asia/Tokyo',
+      { timeout: 3000 },
+    );
   }).toPass({ timeout: 30 * 1000 });
 
   const member = newCredentials();
@@ -42,7 +50,11 @@ test('a manager changes the team time zone and a member sees it read-only', asyn
   await addTeamMember(teamSlug, await db.userIdByEmail(member.email), 'member');
   await completeInviteeOnboarding(memberPage, teamSlug, 'Mia Member');
   await memberPage.goto(settings);
-  await expect(memberPage.getByLabel('Time zone', { exact: true })).toBeDisabled();
-  await expect(memberPage.getByLabel('Time zone', { exact: true })).toHaveValue('Asia/Tokyo');
+  await expect(
+    memberPage.getByLabel('Time zone', { exact: true }),
+  ).toBeDisabled();
+  await expect(memberPage.getByLabel('Time zone', { exact: true })).toHaveValue(
+    'Asia/Tokyo',
+  );
   await context.close();
 });

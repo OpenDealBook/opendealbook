@@ -1,13 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { WorkflowNotFoundError } from '@temporalio/client';
+
 import type { Database, Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-import { WorkflowNotFoundError } from '@temporalio/client';
-
 import { getTemporalClient, TASK_QUEUE } from '../client';
 import { isTeamLocked } from '../teamLock';
-import { type NodeTypeName, parseWorkflowGraph, type StepIo, TRIGGER_TYPES } from './graph';
+import {
+  type NodeTypeName,
+  parseWorkflowGraph,
+  type StepIo,
+  TRIGGER_TYPES,
+} from './graph';
 import {
   APPROVAL_DECIDED_SIGNAL,
   CAP_RAISED_SIGNAL,
@@ -35,9 +40,11 @@ const REFUSALS = {
   archived: 'This workflow is archived',
   not_published: 'Publish this workflow first',
   no_manual_trigger: 'Add a manual trigger to run this workflow',
-  search_not_permitted: 'Only deal managers can run a background search. Ask a deal manager.',
+  search_not_permitted:
+    'Only deal managers can run a background search. Ask a deal manager.',
   search_running: 'A background search is already running for this deal',
-  search_changed: 'This workflow was changed, so running it needs workflows.manage',
+  search_changed:
+    'This workflow was changed, so running it needs workflows.manage',
 };
 
 export class ManualRunRefused extends Error {
@@ -115,7 +122,10 @@ export async function startBackgroundSearchRun(input: {
   requestId: string;
 }): Promise<{ runId: string }> {
   const { data: canManage } = await input.client
-    .rpc('has_deal_permission', { deal_id: input.dealId, permission: 'deals.manage' })
+    .rpc('has_deal_permission', {
+      deal_id: input.dealId,
+      permission: 'deals.manage',
+    })
     .throwOnError();
 
   if (!canManage) {
@@ -150,7 +160,9 @@ export async function startBackgroundSearchRun(input: {
     graph: version.graph,
   });
 
-  if (graph.nodes.some((node) => !BACKGROUND_SEARCH_NODE_TYPES.has(node.type))) {
+  if (
+    graph.nodes.some((node) => !BACKGROUND_SEARCH_NODE_TYPES.has(node.type))
+  ) {
     await refuseWithoutWorkflowsManage(input.client, deal.account_id);
   }
 
@@ -251,8 +263,17 @@ export async function startWorkflowRun(input: {
   return { runId: run.id };
 }
 
-export type ScheduledRunRefusal = 'archived' | 'disabled' | 'superseded' | 'team_locked';
-export type EventRunRefusal = 'archived' | 'disabled' | 'superseded' | 'before_enabled' | 'search_running';
+export type ScheduledRunRefusal =
+  | 'archived'
+  | 'disabled'
+  | 'superseded'
+  | 'team_locked';
+export type EventRunRefusal =
+  | 'archived'
+  | 'disabled'
+  | 'superseded'
+  | 'before_enabled'
+  | 'search_running';
 
 async function workflowRefusal(input: {
   accountId: string;
@@ -262,7 +283,9 @@ async function workflowRefusal(input: {
   const admin = getSupabaseServerAdminClient();
   const { data: workflow } = await admin
     .from('workflow')
-    .select('enabled, archived_at, enabled_after_deal_seq, enabled_after_account_seq')
+    .select(
+      'enabled, archived_at, enabled_after_deal_seq, enabled_after_account_seq',
+    )
     .eq('account_id', input.accountId)
     .eq('id', input.workflowId)
     .single()
@@ -297,7 +320,9 @@ async function scheduledRunRefusal(input: {
   if (refused) {
     return refused;
   }
-  return (await isTeamLocked({ accountId: input.accountId })) ? 'team_locked' : null;
+  return (await isTeamLocked({ accountId: input.accountId }))
+    ? 'team_locked'
+    : null;
 }
 
 async function eventRunRefusal(input: {
@@ -325,7 +350,9 @@ export async function startScheduledRun(input: {
   triggerNodeId: string;
 }): Promise<{ runId: string } | { refused: ScheduledRunRefusal }> {
   const refused = await scheduledRunRefusal(input);
-  return refused ? { refused } : startWorkflowRun({ ...input, triggerKind: 'schedule' });
+  return refused
+    ? { refused }
+    : startWorkflowRun({ ...input, triggerKind: 'schedule' });
 }
 
 export type EventLogName = 'deal' | 'account';
@@ -338,7 +365,10 @@ export interface TriggeringEvent {
   payload: StepIo;
 }
 
-export function eventTriggerRef(nodeId: string, event: { log: EventLogName; globalSeq: number }): string {
+export function eventTriggerRef(
+  nodeId: string,
+  event: { log: EventLogName; globalSeq: number },
+): string {
   return `${nodeId}@${event.log}:${event.globalSeq}`;
 }
 
@@ -392,12 +422,16 @@ export async function signalApprovalDecided(input: {
   if (steps.length === 0) {
     throw new RunActionRefused('run_changed');
   }
-  await (await getTemporalClient()).workflow
+  await (
+    await getTemporalClient()
+  ).workflow
     .getHandle(workflowRunWorkflowId(input.runId))
     .signal(APPROVAL_DECIDED_SIGNAL, { stepRunId: input.stepRunId });
 }
 
-export async function resumeCappedRuns(input: { accountId: string }): Promise<void> {
+export async function resumeCappedRuns(input: {
+  accountId: string;
+}): Promise<void> {
   const { data: runs } = await getSupabaseServerAdminClient()
     .from('workflow_run')
     .select('id')
@@ -412,7 +446,8 @@ const RUN_ACTION_REFUSALS = {
   step_data_removed:
     'Step data was removed after 90 days. Run the workflow again instead.',
   run_changed: 'This run already changed. Refresh to see its status.',
-  run_never_started: 'This run never started. Fix the workflow, then run it again.',
+  run_never_started:
+    'This run never started. Fix the workflow, then run it again.',
 };
 
 export class RunActionRefused extends Error {
@@ -438,7 +473,10 @@ async function startRunner(
       args: [{ runId } satisfies RunPublishedWorkflowInput],
     });
   } catch (error) {
-    console.error(`Starting the runner for workflow run ${runId} failed`, error);
+    console.error(
+      `Starting the runner for workflow run ${runId} failed`,
+      error,
+    );
     if (!(await runnerStartedSince(workflowId, requestedAt))) {
       await undo();
       throw new RunActionRefused('runner_unreachable');
@@ -446,7 +484,10 @@ async function startRunner(
   }
 }
 
-async function runnerStartedSince(workflowId: string, since: Date): Promise<boolean> {
+async function runnerStartedSince(
+  workflowId: string,
+  since: Date,
+): Promise<boolean> {
   return (await getTemporalClient()).workflow
     .getHandle(workflowId)
     .describe()
@@ -457,7 +498,9 @@ async function runnerStartedSince(workflowId: string, since: Date): Promise<bool
 export function stepDataRemoved(
   steps: { status: Enums<'workflow_step_status'>; output: unknown }[],
 ): boolean {
-  return steps.some((step) => step.status === 'succeeded' && step.output === null);
+  return steps.some(
+    (step) => step.status === 'succeeded' && step.output === null,
+  );
 }
 
 export async function retryWorkflowRun(input: {
@@ -541,7 +584,9 @@ export async function cancelRuns(
     (temporal) => temporal.connection.close(),
     () => undefined,
   );
-  const stopped = runIds.filter((_, index) => stops[index]!.status === 'fulfilled');
+  const stopped = runIds.filter(
+    (_, index) => stops[index]!.status === 'fulfilled',
+  );
 
   const { data: cancelled } = await getSupabaseServerAdminClient()
     .from('workflow_run')
@@ -615,15 +660,23 @@ export async function cancelWaitingRuns(input: {
   return { cancelled: cancelled.length, unreached: unreached.length };
 }
 
-async function signalRuns(runs: { id: string }[], signal: string): Promise<void> {
+async function signalRuns(
+  runs: { id: string }[],
+  signal: string,
+): Promise<void> {
   const temporal = await getTemporalClient();
   const signals = await Promise.allSettled(
-    runs.map((run) => temporal.workflow.getHandle(workflowRunWorkflowId(run.id)).signal(signal)),
+    runs.map((run) =>
+      temporal.workflow.getHandle(workflowRunWorkflowId(run.id)).signal(signal),
+    ),
   );
 
   signals.forEach((outcome, index) => {
     if (outcome.status === 'rejected') {
-      console.error(`Signalling ${signal} to workflow run ${runs[index]!.id} failed`, outcome.reason);
+      console.error(
+        `Signalling ${signal} to workflow run ${runs[index]!.id} failed`,
+        outcome.reason,
+      );
     }
   });
 }

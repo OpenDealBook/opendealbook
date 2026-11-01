@@ -93,13 +93,15 @@ describe('startTeamTrialDrip', () => {
     world.startFails = true;
     const { startTeamTrialDrip } = await load();
 
-    await expect(startTeamTrialDrip(team, owner)).rejects.toThrow('Temporal down');
+    await expect(startTeamTrialDrip(team, owner)).rejects.toThrow(
+      'Temporal down',
+    );
     expect(world.updates).toEqual([]);
   });
 });
 
 describe('resumeTrialDrip', () => {
-  it("starts the drip for the team owner when it never started", async () => {
+  it('starts the drip for the team owner when it never started', async () => {
     const { resumeTrialDrip } = await load();
 
     await resumeTrialDrip('team-1');

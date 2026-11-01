@@ -18,8 +18,28 @@ async function workbookBase64(rows: string[][]): Promise<string> {
 }
 
 const DEALSTATS_XLSX_ROWS = [
-  ['Business Description', 'NAICS', 'Sale Date', 'Asking Price', 'MVIC Price', 'Net Sales', 'SDE', 'EBITDA', 'Company Location (state/country)'],
-  ['Bookkeeping firm', '541211', '3/15/2024', '$1,200,000', '$1,100,000', '$900,000', '$400,000', '$350,000', 'NV'],
+  [
+    'Business Description',
+    'NAICS',
+    'Sale Date',
+    'Asking Price',
+    'MVIC Price',
+    'Net Sales',
+    'SDE',
+    'EBITDA',
+    'Company Location (state/country)',
+  ],
+  [
+    'Bookkeeping firm',
+    '541211',
+    '3/15/2024',
+    '$1,200,000',
+    '$1,100,000',
+    '$900,000',
+    '$400,000',
+    '$350,000',
+    'NV',
+  ],
 ];
 
 const DEALSTATS_CSV = [
@@ -89,7 +109,11 @@ describe('importComps', () => {
       deps,
     );
 
-    expect(result).toEqual({ importId: 'imp-1', licenseId: 'lic-1', rowCount: 1 });
+    expect(result).toEqual({
+      importId: 'imp-1',
+      licenseId: 'lic-1',
+      rowCount: 1,
+    });
 
     const row = calls.upserts[0]![0]!;
     expect(row).toMatchObject({
@@ -243,7 +267,11 @@ describe('importComps', () => {
       deps,
     );
 
-    expect(result).toEqual({ importId: 'imp-1', licenseId: 'lic-1', rowCount: 1 });
+    expect(result).toEqual({
+      importId: 'imp-1',
+      licenseId: 'lic-1',
+      rowCount: 1,
+    });
 
     expect(calls.upserts[0]![0]).toMatchObject({
       account_id: 'acc-1',
@@ -263,7 +291,10 @@ describe('importComps', () => {
     });
 
     expect(calls.stored[0]!.body).toBe(content);
-    expect(calls.imports[0]).toMatchObject({ filename: 'export.xlsx', row_count: 1 });
+    expect(calls.imports[0]).toMatchObject({
+      filename: 'export.xlsx',
+      row_count: 1,
+    });
   });
 
   it('surfaces an empty xlsx file as a clear error rather than crashing', async () => {

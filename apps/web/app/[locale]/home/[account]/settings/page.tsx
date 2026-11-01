@@ -52,15 +52,17 @@ export default async function TeamSettingsPage({
         current={aiEndpoint}
         canManage={permissions.includes('settings.manage')}
       />
-      {(['email_lookup', 'letters', 'courts', 'court_records'] as const).map((kind) => (
-        <ProviderKeySetting
-          key={kind}
-          accountId={team.id}
-          kind={kind}
-          current={providerKeys.get(kind) ?? null}
-          canManage={permissions.includes('settings.manage')}
-        />
-      ))}
+      {(['email_lookup', 'letters', 'courts', 'court_records'] as const).map(
+        (kind) => (
+          <ProviderKeySetting
+            key={kind}
+            accountId={team.id}
+            kind={kind}
+            current={providerKeys.get(kind) ?? null}
+            canManage={permissions.includes('settings.manage')}
+          />
+        ),
+      )}
       <BackgroundSearchSetting
         accountId={team.id}
         current={nameSpelling}
@@ -133,5 +135,10 @@ async function loadProviderKeys(accountId: string) {
     .eq('account_id', accountId)
     .throwOnError();
 
-  return new Map(keys.map((key) => [key.kind, { actorId: key.actor_id, provider: key.provider }]));
+  return new Map(
+    keys.map((key) => [
+      key.kind,
+      { actorId: key.actor_id, provider: key.provider },
+    ]),
+  );
 }

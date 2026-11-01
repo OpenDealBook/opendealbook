@@ -22,7 +22,12 @@ export const registryLookup = defineStep({
         entityNumber: z.string(),
         name: z.string(),
         registeredAgent: nullableText,
-        mailingAddress: z.object({ line1: nullableText, city: nullableText, state: nullableText, postalCode: nullableText }),
+        mailingAddress: z.object({
+          line1: nullableText,
+          city: nullableText,
+          state: nullableText,
+          postalCode: nullableText,
+        }),
       }),
       officers: z.array(z.object({ name: z.string(), title: nullableText })),
       formationDate: nullableText,
@@ -31,14 +36,17 @@ export const registryLookup = defineStep({
     }),
   ]),
   async run({ context, config }) {
-    const firm = await teamRow(config.firmId, 'That firm is not on this team', (id) =>
-      getSupabaseServerAdminClient()
-        .from('firm')
-        .select('public_business_id')
-        .eq('id', id)
-        .eq('account_id', context.accountId)
-        .maybeSingle()
-        .throwOnError(),
+    const firm = await teamRow(
+      config.firmId,
+      'That firm is not on this team',
+      (id) =>
+        getSupabaseServerAdminClient()
+          .from('firm')
+          .select('public_business_id')
+          .eq('id', id)
+          .eq('account_id', context.accountId)
+          .maybeSingle()
+          .throwOnError(),
     );
     if (!firm.public_business_id) {
       return { found: false as const };

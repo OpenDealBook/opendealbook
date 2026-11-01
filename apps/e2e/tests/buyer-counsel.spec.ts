@@ -50,7 +50,11 @@ test("buyer's counsel journey: invite, sign in, data room, seller Q&A, messages,
   const { dealId } = await createDeal(page, teamSlug, dealDescription);
   const dealPath = `/home/${teamSlug}/deals/${dealId}`;
   const portal = `/counsel/${dealId}`;
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   await page.goto(`${dealPath}/lenders`);
   await page.getByRole('button', { name: 'Start the lender package' }).click();
@@ -75,13 +79,19 @@ test("buyer's counsel journey: invite, sign in, data room, seller Q&A, messages,
   await expect(
     counselPage.getByRole('heading', { name: dealDescription, level: 1 }),
   ).toBeVisible();
-  await expect(counselPage.getByText("Buyer's counsel", { exact: true })).toBeVisible();
-  await expect(counselPage.getByRole('link', { name: 'Data room' })).toBeVisible();
+  await expect(
+    counselPage.getByText("Buyer's counsel", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    counselPage.getByRole('link', { name: 'Data room' }),
+  ).toBeVisible();
   await expect(
     counselPage.getByRole('link', { name: 'Seller questions' }),
   ).toBeVisible();
   await counselPage.reload();
-  await expect(counselPage.getByRole('button', { name: 'Skip' })).toHaveCount(0);
+  await expect(counselPage.getByRole('button', { name: 'Skip' })).toHaveCount(
+    0,
+  );
 
   await counselPage.getByRole('link', { name: 'Data room' }).click();
   await counselPage.waitForURL(`${portal}/data-room`);
@@ -196,10 +206,12 @@ test("buyer's counsel journey: invite, sign in, data room, seller Q&A, messages,
 
   await page.goto(`${dealPath}/documents`);
   const teamLoi = card(page, 'LOI');
-  const redlineRow = teamLoi.getByRole('row').filter({ hasText: redlineSummary });
-  await expect(teamLoi.getByRole('row').filter({ hasText: draftSummary })).toContainText(
-    'Current',
-  );
+  const redlineRow = teamLoi
+    .getByRole('row')
+    .filter({ hasText: redlineSummary });
+  await expect(
+    teamLoi.getByRole('row').filter({ hasText: draftSummary }),
+  ).toContainText('Current');
   await redlineRow.getByRole('button', { name: 'Make current' }).click();
   await expect(redlineRow).toContainText('Current');
   await expect

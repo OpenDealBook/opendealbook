@@ -247,7 +247,10 @@ export function DealsFilters(props: {
             <Checkbox
               checked={range.includeUndisclosed}
               onCheckedChange={(checked) =>
-                setParam(range.undisclosedKey, checked === true ? '1' : undefined)
+                setParam(
+                  range.undisclosedKey,
+                  checked === true ? '1' : undefined,
+                )
               }
             />
             Include undisclosed
@@ -291,7 +294,11 @@ export function DealsFilters(props: {
     <>
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant={'outline'} size={'sm'} className={'self-start md:hidden'}>
+          <Button
+            variant={'outline'}
+            size={'sm'}
+            className={'self-start md:hidden'}
+          >
             Filters
           </Button>
         </SheetTrigger>
@@ -419,8 +426,16 @@ function buildChips(props: {
     props.filters.listingStatus,
     props.listingStatusOptions,
   );
-  csvChips(DEAL_PARAM.industry, props.filters.industryId, props.industryOptions);
-  csvChips(DEAL_PARAM.location, props.filters.locationId, props.locationOptions);
+  csvChips(
+    DEAL_PARAM.industry,
+    props.filters.industryId,
+    props.industryOptions,
+  );
+  csvChips(
+    DEAL_PARAM.location,
+    props.filters.locationId,
+    props.locationOptions,
+  );
 
   const rangeChip = (
     minKey: string,

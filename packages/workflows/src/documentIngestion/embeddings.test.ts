@@ -7,7 +7,11 @@ let provider: Awaited<ReturnType<typeof fakeAiProvider>>;
 
 async function serve(data: { index: number; embedding: number[] }[]) {
   provider = await fakeAiProvider({ status: 200, body: { data } });
-  return { baseUrl: provider.baseUrl, model: 'text-embedding-3-small', apiKey: 'sk-test' };
+  return {
+    baseUrl: provider.baseUrl,
+    model: 'text-embedding-3-small',
+    apiKey: 'sk-test',
+  };
 }
 
 beforeEach(() => {
@@ -43,7 +47,9 @@ describe('embedTexts', () => {
   });
 
   it('rejects when a model returns a vector whose dimension is not 1536', async () => {
-    const endpoint = await serve([{ index: 0, embedding: Array(1024).fill(0.1) }]);
+    const endpoint = await serve([
+      { index: 0, embedding: Array(1024).fill(0.1) },
+    ]);
 
     await expect(embedTexts(endpoint, ['first'])).rejects.toThrow(/1024/);
     await expect(embedTexts(endpoint, ['first'])).rejects.toThrow(/1536/);
@@ -54,7 +60,9 @@ describe('embedTexts', () => {
     delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
     delete process.env.ODB_STACK;
 
-    await expect(embedTexts(endpoint, ['first'])).rejects.toThrow('Use a public HTTPS base URL');
+    await expect(embedTexts(endpoint, ['first'])).rejects.toThrow(
+      'Use a public HTTPS base URL',
+    );
     expect(provider.received).toEqual([]);
   });
 });

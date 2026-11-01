@@ -14,7 +14,11 @@ function gmailUrl(path: string) {
 }
 const GRAPH_MESSAGES_URL = 'https://graph.microsoft.com/v1.0/me/messages';
 
-async function send(action: string, url: string, init: RequestInit): Promise<Response> {
+async function send(
+  action: string,
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
   const response = await fetch(url, init).catch((error: unknown) => {
     throw new MailboxNoResponse(action, error);
   });
@@ -119,7 +123,10 @@ export async function sendViaMicrosoft(
     conversationId: string;
   };
 
-  await send('Microsoft send', `${GRAPH_MESSAGES_URL}/${id}/send`, { method: 'POST', headers });
+  await send('Microsoft send', `${GRAPH_MESSAGES_URL}/${id}/send`, {
+    method: 'POST',
+    headers,
+  });
 
   return { providerMessageId: id, threadId: conversationId };
 }

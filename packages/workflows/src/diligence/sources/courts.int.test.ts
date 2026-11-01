@@ -1,25 +1,51 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
+import {
+  docketHit,
+  fakeCourtListener,
+  searchPage,
+} from '../../../test-support/fake-courtlistener';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../../test-support/integration-harness';
 import { CapReached } from '../../builder/caps';
-import { docketHit, fakeCourtListener, searchPage } from '../../../test-support/fake-courtlistener';
-import { provisionAccount, type IntegrationAccount } from '../../../test-support/integration-harness';
-import { CourtListenerLimit, courtListenerPacer, searchFederalCourts } from './courts';
+import {
+  CourtListenerLimit,
+  courtListenerPacer,
+  searchFederalCourts,
+} from './courts';
 
 const network = vi.hoisted(() => ({ trustedFakeUrl: '' }));
 
 vi.mock('../../builder/publicUrl', async (importOriginal) => {
-  const { publicAddressOf, ...rest } = await importOriginal<typeof import('../../builder/publicUrl')>();
+  const { publicAddressOf, ...rest } =
+    await importOriginal<typeof import('../../builder/publicUrl')>();
   return {
     ...rest,
     publicAddressOf: async (url: string) =>
-      url.startsWith(network.trustedFakeUrl) ? { address: '127.0.0.1', family: 4 } : publicAddressOf(url),
+      url.startsWith(network.trustedFakeUrl)
+        ? { address: '127.0.0.1', family: 4 }
+        : publicAddressOf(url),
   };
 });
 
 const VIRTUAL_MS_PER_REAL_MS = 20;
 const LOOPBACK_JITTER_MS = 500;
 const SPACED = 12_000 - LOOPBACK_JITTER_MS;
-const clock = { startedAt: 0, now: () => (performance.now() - clock.startedAt) * VIRTUAL_MS_PER_REAL_MS };
+const clock = {
+  startedAt: 0,
+  now: () => (performance.now() - clock.startedAt) * VIRTUAL_MS_PER_REAL_MS,
+};
 let teamA: IntegrationAccount;
 let teamB: IntegrationAccount;
 let courtListener: Awaited<ReturnType<typeof fakeCourtListener>>;
@@ -27,7 +53,10 @@ let pace: ReturnType<typeof courtListenerPacer>;
 
 function newWorker() {
   return courtListenerPacer({
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms / VIRTUAL_MS_PER_REAL_MS)),
+    sleep: (ms) =>
+      new Promise((resolve) =>
+        setTimeout(resolve, ms / VIRTUAL_MS_PER_REAL_MS),
+      ),
   });
 }
 
@@ -35,7 +64,11 @@ const ROWAN = { key: 'firm', name: 'Rowan Fixture Plumbing' };
 
 async function connectCourtListener(team: IntegrationAccount, token: string) {
   await team.user
-    .rpc('save_provider_credential', { p_account_id: team.accountId, p_kind: 'courts', p_api_key: token })
+    .rpc('save_provider_credential', {
+      p_account_id: team.accountId,
+      p_kind: 'courts',
+      p_api_key: token,
+    })
     .throwOnError();
   await team.admin
     .from('provider_credential')
@@ -47,7 +80,10 @@ async function connectCourtListener(team: IntegrationAccount, token: string) {
 
 beforeAll(async () => {
   [teamA, teamB] = await Promise.all([provisionAccount(), provisionAccount()]);
-  courtListener = await fakeCourtListener({ status: 200, body: searchPage([]) }, () => clock.now());
+  courtListener = await fakeCourtListener(
+    { status: 200, body: searchPage([]) },
+    () => clock.now(),
+  );
   network.trustedFakeUrl = courtListener.baseUrl;
 });
 
@@ -60,7 +96,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await teamA.admin.from('courtlistener_pace').delete().in('account_id', [teamA.accountId, teamB.accountId]).throwOnError();
+  await teamA.admin
+    .from('courtlistener_pace')
+    .delete()
+    .in('account_id', [teamA.accountId, teamB.accountId])
+    .throwOnError();
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-10-27T15:00:00Z'));
   clock.startedAt = performance.now();
@@ -73,11 +113,21 @@ beforeEach(async () => {
 
 afterEach(() => vi.useRealTimers());
 
-function search(subjects: { key: string; name: string }[], state: string | null, team = teamA) {
-  return searchFederalCourts({ accountId: team.accountId, subjects, state }, pace);
+function search(
+  subjects: { key: string; name: string }[],
+  state: string | null,
+  team = teamA,
+) {
+  return searchFederalCourts(
+    { accountId: team.accountId, subjects, state },
+    pace,
+  );
 }
 
-async function candidatesOf(subjects: { key: string; name: string }[], state: string | null) {
+async function candidatesOf(
+  subjects: { key: string; name: string }[],
+  state: string | null,
+) {
   const result = await search(subjects, state);
   if (!('candidates' in result)) {
     throw new Error(`expected candidates, got ${JSON.stringify(result)}`);
@@ -103,7 +153,8 @@ describe('searchFederalCourts', () => {
   it("searches federal dockets for each subject as a party with the team's token, filed or still open in the last ten years", async () => {
     await search([ROWAN, { key: 'owner:0', name: 'Dana Rowan' }], null);
 
-    const window = '(dateFiled:[2016-10-27 TO *] OR dateTerminated:[2016-10-27 TO *] OR (*:* -dateTerminated:[* TO *]))';
+    const window =
+      '(dateFiled:[2016-10-27 TO *] OR dateTerminated:[2016-10-27 TO *] OR (*:* -dateTerminated:[* TO *]))';
     expect(courtListener.received).toEqual([
       expect.objectContaining({
         path: '/api/rest/v4/search/',
@@ -121,13 +172,22 @@ describe('searchFederalCourts', () => {
   it('escapes double quotes in a subject name', async () => {
     await search([{ key: 'firm', name: 'Rowan "Ace" Plumbing' }], null);
 
-    expect(courtListener.received[0]!.query.q).toMatch(/^party:"Rowan \\"Ace\\" Plumbing" AND /);
+    expect(courtListener.received[0]!.query.q).toMatch(
+      /^party:"Rowan \\"Ace\\" Plumbing" AND /,
+    );
   });
 
   it('sends one request at a time, at least 12 seconds apart, for each team', async () => {
-    const subjects = [ROWAN, { key: 'owner:0', name: 'Dana Rowan' }, { key: 'owner:1', name: 'Lee Rowan' }];
+    const subjects = [
+      ROWAN,
+      { key: 'owner:0', name: 'Dana Rowan' },
+      { key: 'owner:1', name: 'Lee Rowan' },
+    ];
 
-    await Promise.all([search(subjects, null), search(subjects.slice(0, 1), null, teamB)]);
+    await Promise.all([
+      search(subjects, null),
+      search(subjects.slice(0, 1), null, teamB),
+    ]);
 
     const timesFor = (token: string) =>
       courtListener.received
@@ -150,47 +210,72 @@ describe('searchFederalCourts', () => {
     const [first, second] = [newWorker(), newWorker()];
 
     await Promise.all([
-      searchFederalCourts({ accountId: teamA.accountId, subjects: [ROWAN], state: null }, first),
-      searchFederalCourts({ accountId: teamA.accountId, subjects: [ROWAN], state: null }, second),
+      searchFederalCourts(
+        { accountId: teamA.accountId, subjects: [ROWAN], state: null },
+        first,
+      ),
+      searchFederalCourts(
+        { accountId: teamA.accountId, subjects: [ROWAN], state: null },
+        second,
+      ),
     ]);
 
-    const [firstAt, secondAt] = courtListener.received.map(({ at }) => at).sort((a, b) => a - b);
+    const [firstAt, secondAt] = courtListener.received
+      .map(({ at }) => at)
+      .sort((a, b) => a - b);
     expect(secondAt! - firstAt!).toBeGreaterThanOrEqual(SPACED);
   });
 
-  it("pauses every worker of the team for the hour after a 429, without calling CourtListener, while other teams carry on", async () => {
+  it('pauses every worker of the team for the hour after a 429, without calling CourtListener, while other teams carry on', async () => {
     courtListener.reply.status = 429;
     courtListener.reply.body = { detail: 'Request was throttled.' };
     await search([ROWAN], null).catch((error: unknown) => error);
     courtListener.reply.status = 200;
     courtListener.reply.body = searchPage([]);
 
-    const paused = await searchFederalCourts({ accountId: teamA.accountId, subjects: [ROWAN], state: null }, newWorker()).catch(
-      (error: unknown) => error,
-    );
+    const paused = await searchFederalCourts(
+      { accountId: teamA.accountId, subjects: [ROWAN], state: null },
+      newWorker(),
+    ).catch((error: unknown) => error);
 
     expect(paused).toBeInstanceOf(CourtListenerLimit);
-    expect(paused).toMatchObject({ message: 'Waiting for the CourtListener hourly limit' });
-    expect((paused as CapReached).resumeAt!.getTime()).toBeGreaterThan(Date.parse('2026-10-27T15:59:00Z'));
+    expect(paused).toMatchObject({
+      message: 'Waiting for the CourtListener hourly limit',
+    });
+    expect((paused as CapReached).resumeAt!.getTime()).toBeGreaterThan(
+      Date.parse('2026-10-27T15:59:00Z'),
+    );
     expect(courtListener.received).toHaveLength(1);
     expect(await search([ROWAN], null, teamB)).toEqual({ candidates: [] });
   });
 
   it("pauses instead of sleeping when the team's next slot is more than 10 minutes out, keeping the slot it claimed", async () => {
     await teamA.admin
-      .rpc('claim_courtlistener_slot', { p_account_id: teamA.accountId, p_spacing: '11 minutes' })
+      .rpc('claim_courtlistener_slot', {
+        p_account_id: teamA.accountId,
+        p_spacing: '11 minutes',
+      })
       .throwOnError();
 
     const first = await search([ROWAN], null).catch((error: unknown) => error);
-    const second = await searchFederalCourts({ accountId: teamA.accountId, subjects: [ROWAN], state: null }, newWorker()).catch(
-      (error: unknown) => error,
-    );
+    const second = await searchFederalCourts(
+      { accountId: teamA.accountId, subjects: [ROWAN], state: null },
+      newWorker(),
+    ).catch((error: unknown) => error);
 
     const elevenMinutesOn = Date.parse('2026-10-27T15:11:00Z');
     expect(first).toBeInstanceOf(CapReached);
-    expect(first).toMatchObject({ message: 'Waiting for a CourtListener slot' });
-    expect((first as CapReached).resumeAt!.getTime()).toBeCloseTo(elevenMinutesOn, -4);
-    expect((second as CapReached).resumeAt!.getTime()).toBeCloseTo(elevenMinutesOn + 12_000, -4);
+    expect(first).toMatchObject({
+      message: 'Waiting for a CourtListener slot',
+    });
+    expect((first as CapReached).resumeAt!.getTime()).toBeCloseTo(
+      elevenMinutesOn,
+      -4,
+    );
+    expect((second as CapReached).resumeAt!.getTime()).toBeCloseTo(
+      elevenMinutesOn + 12_000,
+      -4,
+    );
     expect(courtListener.received).toEqual([]);
   });
 
@@ -198,7 +283,9 @@ describe('searchFederalCourts', () => {
     const hit = docketHit({});
     courtListener.reply.body = searchPage([hit]);
 
-    expect(await candidatesOf([ROWAN, { key: 'owner:0', name: 'Dana Rowan' }], null)).toEqual([
+    expect(
+      await candidatesOf([ROWAN, { key: 'owner:0', name: 'Dana Rowan' }], null),
+    ).toEqual([
       {
         subjectKey: 'firm',
         source: 'courts',
@@ -212,7 +299,10 @@ describe('searchFederalCourts', () => {
         url: 'https://www.courtlistener.com/docket/61234567/rowan-fixture-plumbing-v-harbour-supply/',
         raw: hit,
       },
-      expect.objectContaining({ subjectKey: 'owner:0', docketNumber: '4:21-cv-00412' }),
+      expect.objectContaining({
+        subjectKey: 'owner:0',
+        docketNumber: '4:21-cv-00412',
+      }),
     ]);
   });
 
@@ -266,19 +356,30 @@ describe('searchFederalCourts', () => {
     const anywhere = await candidatesOf([ROWAN], null);
     const inNewMexico = await candidatesOf([ROWAN], 'NM');
 
-    expect(inTexas.map(({ docketNumber }) => docketNumber)).toEqual(['texas-district', 'texas-bankruptcy', 'fifth-circuit']);
+    expect(inTexas.map(({ docketNumber }) => docketNumber)).toEqual([
+      'texas-district',
+      'texas-bankruptcy',
+      'fifth-circuit',
+    ]);
     expect(anywhere).toHaveLength(6);
-    expect(inNewMexico.map(({ docketNumber }) => docketNumber)).toEqual(['fifth-circuit']);
+    expect(inNewMexico.map(({ docketNumber }) => docketNumber)).toEqual([
+      'fifth-circuit',
+    ]);
   });
 
-  it.each([401, 403])('skips, asking the team to reconnect, when CourtListener refuses the token with %i', async (status) => {
-    courtListener.reply.status = status;
-    courtListener.reply.body = { detail: 'Invalid token.' };
+  it.each([401, 403])(
+    'skips, asking the team to reconnect, when CourtListener refuses the token with %i',
+    async (status) => {
+      courtListener.reply.status = status;
+      courtListener.reply.body = { detail: 'Invalid token.' };
 
-    expect(await search([ROWAN, { key: 'owner:0', name: 'Dana Rowan' }], null)).toEqual({
-      skipped: 'The CourtListener token was refused; reconnect it',
-    });
-  });
+      expect(
+        await search([ROWAN, { key: 'owner:0', name: 'Dana Rowan' }], null),
+      ).toEqual({
+        skipped: 'The CourtListener token was refused; reconnect it',
+      });
+    },
+  );
 
   it('stops a search in flight when the run is cancelled', async () => {
     courtListener.reply.delayMs = 2_000;
@@ -287,7 +388,12 @@ describe('searchFederalCourts', () => {
     const started = performance.now();
 
     const failure = await searchFederalCourts(
-      { accountId: teamA.accountId, subjects: [ROWAN], state: null, signal: cancelled.signal },
+      {
+        accountId: teamA.accountId,
+        subjects: [ROWAN],
+        state: null,
+        signal: cancelled.signal,
+      },
       pace,
     ).catch((error: unknown) => error);
 
@@ -299,21 +405,32 @@ describe('searchFederalCourts', () => {
     [503, false],
     [500, false],
     [404, true],
-  ])('fails when CourtListener answers %i, at once: %s', async (status, failsAtOnce) => {
-    courtListener.reply.status = status;
-    courtListener.reply.body = { detail: 'nope' };
+  ])(
+    'fails when CourtListener answers %i, at once: %s',
+    async (status, failsAtOnce) => {
+      courtListener.reply.status = status;
+      courtListener.reply.body = { detail: 'nope' };
 
-    const failure = await search([ROWAN], null).catch((error: unknown) => error);
+      const failure = await search([ROWAN], null).catch(
+        (error: unknown) => error,
+      );
 
-    expect(failure).toMatchObject({ message: `CourtListener answered ${status}` });
-    expect((failure as { nonRetryable?: boolean }).nonRetryable === true).toBe(failsAtOnce);
-  });
+      expect(failure).toMatchObject({
+        message: `CourtListener answered ${status}`,
+      });
+      expect(
+        (failure as { nonRetryable?: boolean }).nonRetryable === true,
+      ).toBe(failsAtOnce);
+    },
+  );
 
   it('pauses for the CourtListener hourly limit when it answers 429', async () => {
     courtListener.reply.status = 429;
     courtListener.reply.body = { detail: 'Request was throttled.' };
 
-    const failure = await search([ROWAN], null).catch((error: unknown) => error);
+    const failure = await search([ROWAN], null).catch(
+      (error: unknown) => error,
+    );
 
     expect(failure).toBeInstanceOf(CourtListenerLimit);
     expect(failure).toMatchObject({
@@ -326,13 +443,21 @@ describe('searchFederalCourts', () => {
     [500, 'CourtListener answered 500', false],
     [404, 'CourtListener answered 404', true],
     [200, 'CourtListener answered with something that is not JSON', true],
-  ])('fails when CourtListener answers %i with a page that is not JSON', async (status, message, failsAtOnce) => {
-    courtListener.reply.status = status;
-    courtListener.reply.body = '<!DOCTYPE html><title>Server Error 500</title>';
+  ])(
+    'fails when CourtListener answers %i with a page that is not JSON',
+    async (status, message, failsAtOnce) => {
+      courtListener.reply.status = status;
+      courtListener.reply.body =
+        '<!DOCTYPE html><title>Server Error 500</title>';
 
-    const failure = await search([ROWAN], null).catch((error: unknown) => error);
+      const failure = await search([ROWAN], null).catch(
+        (error: unknown) => error,
+      );
 
-    expect(failure).toMatchObject({ message });
-    expect((failure as { nonRetryable?: boolean }).nonRetryable === true).toBe(failsAtOnce);
-  });
+      expect(failure).toMatchObject({ message });
+      expect(
+        (failure as { nonRetryable?: boolean }).nonRetryable === true,
+      ).toBe(failsAtOnce);
+    },
+  );
 });

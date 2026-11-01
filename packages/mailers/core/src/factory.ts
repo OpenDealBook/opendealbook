@@ -1,6 +1,6 @@
+import type { Mailer } from '@odb/mailer-types';
 import { getLogger } from '@odb/shared/logger';
 
-import type { Mailer } from '@odb/mailer-types';
 import { getMailerProvider, type MailerProvider } from './provider.ts';
 
 interface ProviderModule {

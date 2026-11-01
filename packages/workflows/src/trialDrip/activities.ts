@@ -10,7 +10,8 @@ import type { TrialDripDayKey } from './schedule';
 
 // Platform sender for trial nurture. Sourced from TRIAL_DRIP_FROM_EMAIL so the
 // address is configurable per environment, falling back to this constant.
-export const DEFAULT_TRIAL_DRIP_FROM = 'Open Deal Book <hello@opendealbook.app>';
+export const DEFAULT_TRIAL_DRIP_FROM =
+  'Open Deal Book <hello@opendealbook.app>';
 
 export interface SendTrialDripEmailInput {
   to: string;

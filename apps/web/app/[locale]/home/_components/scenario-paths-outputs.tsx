@@ -53,7 +53,9 @@ export function chartPoints(
         segments.push([]);
         return;
       }
-      segments.at(-1)!.push(`${(index * width) / (line.length - 1)},${y(value)}`);
+      segments
+        .at(-1)!
+        .push(`${(index * width) / (line.length - 1)},${y(value)}`);
     });
     return segments
       .filter((segment) => segment.length > 0)
@@ -64,7 +66,9 @@ export function chartPoints(
 export function PathsChart(props: { paths: Paths; metric: ChartMetric }) {
   const label = `${METRIC_LABELS[props.metric]} by path`;
   const lines = chartPoints(
-    PATHS.map((path) => props.paths[path.key].map((year) => year[props.metric])),
+    PATHS.map((path) =>
+      props.paths[path.key].map((year) => year[props.metric]),
+    ),
     CHART_WIDTH,
     CHART_HEIGHT,
   );
@@ -138,7 +142,10 @@ function ReadyPaths({ paths }: { paths: Paths }) {
         <div className={'flex gap-4 text-xs'}>
           {PATHS.map((path) => (
             <span key={path.key} className={'flex items-center gap-1'}>
-              <span className={'inline-block h-2 w-4'} style={{ background: path.color }} />
+              <span
+                className={'inline-block h-2 w-4'}
+                style={{ background: path.color }}
+              />
               {path.title}
             </span>
           ))}
@@ -154,7 +161,11 @@ function ReadyPaths({ paths }: { paths: Paths }) {
 function PathTable(props: { title: string; years: PathYear[] }) {
   return (
     <div>
-      <h4 className={'text-muted-foreground mb-1 text-xs font-semibold uppercase'}>{props.title}</h4>
+      <h4
+        className={'text-muted-foreground mb-1 text-xs font-semibold uppercase'}
+      >
+        {props.title}
+      </h4>
       <Table>
         <TableHeader>
           <TableRow>

@@ -27,7 +27,8 @@ export function generatePseudonym(parts: PseudonymParts): string {
 }
 
 export function roundMoney(value: number): number {
-  const band = value < 1_000_000 ? 10_000 : value < 5_000_000 ? 50_000 : 100_000;
+  const band =
+    value < 1_000_000 ? 10_000 : value < 5_000_000 ? 50_000 : 100_000;
   return Math.round(value / band) * band;
 }
 
@@ -35,7 +36,9 @@ export function roundPercentTo5(value: number): number {
   return Math.round(value / 5) * 5;
 }
 
-export function roundServiceMix(mix: Record<string, number>): Record<string, number> {
+export function roundServiceMix(
+  mix: Record<string, number>,
+): Record<string, number> {
   const rounded: Record<string, number> = {};
   for (const [service, share] of Object.entries(mix)) {
     rounded[service] = Math.round(share / 10) * 10;
@@ -77,7 +80,9 @@ export function poolFingerprint(parts: {
   naics: string | null;
   quarter: string;
 }): string {
-  const material = [parts.region ?? '', parts.naics ?? '', parts.quarter].join('|');
+  const material = [parts.region ?? '', parts.naics ?? '', parts.quarter].join(
+    '|',
+  );
   return createHash('sha256').update(material).digest('hex');
 }
 
@@ -111,15 +116,19 @@ export interface AnonymizedActivity {
   lossReason: string | null;
 }
 
-export function anonymizeDealActivity(record: DealActivityRecord): AnonymizedActivity {
+export function anonymizeDealActivity(
+  record: DealActivityRecord,
+): AnonymizedActivity {
   return {
     region: record.region,
     naics3: record.naics === null ? null : naics3(record.naics),
     industryShort: record.industryShort,
     createdQuarter: fiscalQuarter(record.createdAt),
     confidence: record.confidence,
-    askingPriceBanded: record.askingPrice === null ? null : roundMoney(record.askingPrice),
-    loiPriceBanded: record.loiPrice === null ? null : roundMoney(record.loiPrice),
+    askingPriceBanded:
+      record.askingPrice === null ? null : roundMoney(record.askingPrice),
+    loiPriceBanded:
+      record.loiPrice === null ? null : roundMoney(record.loiPrice),
     furthestStage: record.furthestStage,
     outcome: record.outcome,
     outcomeReason: record.outcomeReason,
@@ -150,7 +159,9 @@ export interface AnonymizedClosePool {
   outcome: string | null;
 }
 
-export function anonymizeCloseComp(record: ClosePoolRecord): AnonymizedClosePool {
+export function anonymizeCloseComp(
+  record: ClosePoolRecord,
+): AnonymizedClosePool {
   const salePriceBanded = roundMoney(record.salePrice);
   const sdeBanded = roundMoney(record.sde);
   return {
@@ -174,7 +185,8 @@ export interface CompPoolEligibilityInput {
 }
 
 function quartersBetween(from: string, to: string): number {
-  const fromMonths = Number(from.slice(0, 4)) * 12 + (Number(from.slice(5, 7)) - 1);
+  const fromMonths =
+    Number(from.slice(0, 4)) * 12 + (Number(from.slice(5, 7)) - 1);
   const toMonths = Number(to.slice(0, 4)) * 12 + (Number(to.slice(5, 7)) - 1);
   return (toMonths - fromMonths) / 3;
 }
@@ -224,7 +236,9 @@ export interface AnonymizedComp {
   geography: string;
 }
 
-function roundStructure(structure: Record<string, number>): Record<string, number> {
+function roundStructure(
+  structure: Record<string, number>,
+): Record<string, number> {
   const rounded: Record<string, number> = {};
   for (const [key, share] of Object.entries(structure)) {
     rounded[key] = roundPercentTo5(share);
@@ -243,7 +257,11 @@ export function anonymizeClosedDeal(
   const ebitda = roundMoney(record.ebitda);
 
   return {
-    pseudonym: generatePseudonym({ state: record.state, industryShortName: shortName, sequence }),
+    pseudonym: generatePseudonym({
+      state: record.state,
+      industryShortName: shortName,
+      sequence,
+    }),
     state: record.state,
     industryShortName: shortName,
     salePrice,

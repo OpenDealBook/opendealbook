@@ -8,10 +8,14 @@ interface ImportSteps {
   newId: () => string;
   startFloridaLicenseImport: (start: ImportRef) => Promise<void>;
   loadFloridaLicenses: (load: ImportRef) => Promise<void>;
-  failFloridaLicenseImport: (failure: ImportRef & { reason: string }) => Promise<void>;
+  failFloridaLicenseImport: (
+    failure: ImportRef & { reason: string },
+  ) => Promise<void>;
 }
 
-export async function runFloridaLicenseImport(steps: ImportSteps): Promise<void> {
+export async function runFloridaLicenseImport(
+  steps: ImportSteps,
+): Promise<void> {
   const importId = steps.newId();
   await steps.startFloridaLicenseImport({ importId });
   try {

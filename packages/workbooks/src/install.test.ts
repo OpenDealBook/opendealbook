@@ -99,7 +99,11 @@ describe('installWorkbook', () => {
 describe('listWorkbookTemplates', () => {
   it('returns platform and account templates for the create picker', async () => {
     const templates = [
-      { id: 'tmpl-1', name: 'Broker catch-up', workflow_type: 'broker_catch_up' },
+      {
+        id: 'tmpl-1',
+        name: 'Broker catch-up',
+        workflow_type: 'broker_catch_up',
+      },
     ];
     const or = vi.fn(async () => ({ data: templates, error: null }));
     const select = vi.fn(() => ({ or }));
@@ -120,6 +124,8 @@ describe('listWorkbookTemplates', () => {
       from: vi.fn(() => ({ select: () => ({ or }) })),
     } as unknown as SupabaseClient<Database>;
 
-    await expect(listWorkbookTemplates('acc-1', client)).rejects.toThrow('nope');
+    await expect(listWorkbookTemplates('acc-1', client)).rejects.toThrow(
+      'nope',
+    );
   });
 });

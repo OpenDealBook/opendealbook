@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
 import type { Client } from '@temporalio/client';
-
 import { afterAll, expect, it } from 'vitest';
 
 import '../../test-support/integration-harness';
@@ -36,7 +35,11 @@ async function loaded() {
 }
 
 afterAll(async () => {
-  await admin.from('screening_import').delete().in('id', imports).throwOnError();
+  await admin
+    .from('screening_import')
+    .delete()
+    .in('id', imports)
+    .throwOnError();
 });
 
 function nearNames(name: string): string[] {
@@ -46,8 +49,14 @@ function nearNames(name: string): string[] {
     `${name} GmbH`,
     `The ${name}`,
     name.split(' ').reverse().join(' '),
-    ...Array.from({ length: 10 }, (_, cut) => [name.slice(0, -(cut + 1)), name.slice(cut + 1)]).flat(),
-    ...Array.from({ length: name.length }, (_, at) => `${name.slice(0, at)}x${name.slice(at + 1)}`),
+    ...Array.from({ length: 10 }, (_, cut) => [
+      name.slice(0, -(cut + 1)),
+      name.slice(cut + 1),
+    ]).flat(),
+    ...Array.from(
+      { length: name.length },
+      (_, at) => `${name.slice(0, at)}x${name.slice(at + 1)}`,
+    ),
   ];
 }
 
@@ -73,7 +82,11 @@ async function namesOf(importId: string) {
 
 async function withoutNames(importId: string) {
   const { entryIds } = await namesOf(importId);
-  await admin.from('screening_name').delete().in('entry_id', entryIds).throwOnError();
+  await admin
+    .from('screening_name')
+    .delete()
+    .in('entry_id', entryIds)
+    .throwOnError();
 }
 
 function recordingClient() {
@@ -90,12 +103,18 @@ function recordingClient() {
   return { client, triggered };
 }
 
-const owner: ScreeningSubject = { key: 'owner', name: 'Vladimir Putin', kind: 'person' };
+const owner: ScreeningSubject = {
+  key: 'owner',
+  name: 'Vladimir Putin',
+  kind: 'person',
+};
 
 it('refuses to screen a list loaded before keys existed', async () => {
   await withoutNames(await loaded());
 
-  await expect(screenSubjects([owner])).rejects.toThrow('The sanctions list is not indexed yet');
+  await expect(screenSubjects([owner])).rejects.toThrow(
+    'The sanctions list is not indexed yet',
+  );
 });
 
 it('keys an import loaded before keys existed when the worker starts', async () => {
@@ -106,7 +125,9 @@ it('keys an import loaded before keys existed when the worker starts', async () 
 
   expect(triggered).toEqual([]);
   expect(await screenSubjects([owner])).toMatchObject({
-    candidates: [{ subjectKey: 'owner', matchedName: 'PUTIN, Vladimir', score: 1 }],
+    candidates: [
+      { subjectKey: 'owner', matchedName: 'PUTIN, Vladimir', score: 1 },
+    ],
   });
 });
 
@@ -141,7 +162,11 @@ it('screens every candidate when more than a page of entries match', async () =>
     .throwOnError();
   await admin
     .from('screening_import')
-    .update({ status: 'succeeded', as_of: '2026-10-26T11:15:00Z', entry_count: 1001 })
+    .update({
+      status: 'succeeded',
+      as_of: '2026-10-26T11:15:00Z',
+      entry_count: 1001,
+    })
     .eq('id', importId)
     .throwOnError();
   await ensureScreeningListLoaded(recordingClient().client);
@@ -153,9 +178,9 @@ it('screens every candidate when more than a page of entries match', async () =>
   expect(screened).toHaveProperty('candidates');
   expect(
     new Set(
-      (screened as Extract<typeof screened, { candidates: unknown }>).candidates.map(
-        (candidate) => candidate.sourceEntryId,
-      ),
+      (
+        screened as Extract<typeof screened, { candidates: unknown }>
+      ).candidates.map((candidate) => candidate.sourceEntryId),
     ).size,
   ).toBe(1001);
 });
@@ -163,7 +188,9 @@ it('screens every candidate when more than a page of entries match', async () =>
 it('screens the same candidates as comparing every list entry', async () => {
   const { entries } = parseCsl(fixture);
   const subjects: ScreeningSubject[] = [
-    ...entries.flatMap((entry) => [entry.name, ...entry.alt_names]).flatMap(nearNames),
+    ...entries
+      .flatMap((entry) => [entry.name, ...entry.alt_names])
+      .flatMap(nearNames),
     'Hollow Creek Construction',
     'Q',
     '',
@@ -171,14 +198,24 @@ it('screens the same candidates as comparing every list entry', async () => {
     { key: `p${i}`, name, kind: 'person' as const },
     { key: `b${i}`, name, kind: 'business' as const },
   ]);
-  const matching = subjects.filter((subject) => matchSubjects([subject], entries).length > 0);
+  const matching = subjects.filter(
+    (subject) => matchSubjects([subject], entries).length > 0,
+  );
   await loaded();
 
-  const screened = await Promise.all(matching.map((subject) => screenSubjects([subject])));
+  const screened = await Promise.all(
+    matching.map((subject) => screenSubjects([subject])),
+  );
 
-  expect(matchSubjects(matching, entries).some((candidate) => candidate.score < 0.86)).toBe(true);
+  expect(
+    matchSubjects(matching, entries).some(
+      (candidate) => candidate.score < 0.86,
+    ),
+  ).toBe(true);
   expect(screened).toEqual(
-    matching.map((subject) => ({ candidates: matchSubjects([subject], entries) })),
+    matching.map((subject) => ({
+      candidates: matchSubjects([subject], entries),
+    })),
   );
   expect(await screenSubjects(subjects)).toEqual({
     candidates: matchSubjects(subjects, entries),

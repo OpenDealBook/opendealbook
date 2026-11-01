@@ -51,7 +51,11 @@ test("seller's counsel journey: invited by the seller, filtered contracts, selle
   const teamSlug = await completeTeamOnboarding(page, teamName);
   const { dealId } = await createDeal(page, teamSlug, dealDescription);
   const portal = `/counsel/${dealId}`;
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   const [draftId, sharedId] = await contracts.seed({
     dealId,
@@ -82,7 +86,9 @@ test("seller's counsel journey: invited by the seller, filtered contracts, selle
   await expect(
     counselPage.getByText("Seller's counsel", { exact: true }),
   ).toBeVisible();
-  await expect(counselPage.getByRole('link', { name: 'Data room' })).toHaveCount(0);
+  await expect(
+    counselPage.getByRole('link', { name: 'Data room' }),
+  ).toHaveCount(0);
   await expect(
     counselPage.getByRole('link', { name: 'Seller questions' }),
   ).toHaveCount(0);

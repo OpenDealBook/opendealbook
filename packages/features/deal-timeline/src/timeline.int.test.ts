@@ -727,7 +727,10 @@ describe('setting the LOI signed date on the timeline', () => {
       await removeMilestone({ dealId, milestoneId: id });
     }
 
-    expect(await loiSigned('2026-10-05')).toEqual({ ok: true, value: undefined });
+    expect(await loiSigned('2026-10-05')).toEqual({
+      ok: true,
+      value: undefined,
+    });
 
     expect(await setUpOf()).toEqual(firstSetUp());
   });

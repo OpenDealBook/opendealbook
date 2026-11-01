@@ -4,8 +4,6 @@ import { type DragEvent, type ReactNode, useEffect, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { NewFolderDialog } from '@odb/lender-rooms/room-browser/new-folder-dialog.tsx';
-import { useFolderDrop } from '@odb/lender-rooms/room-browser/use-folder-drop.ts';
 import {
   LiveRegion,
   RefusalNote,
@@ -20,6 +18,8 @@ import {
   UploadList,
   useUploads,
 } from '@odb/lender-rooms/requests-ui/uploads.tsx';
+import { NewFolderDialog } from '@odb/lender-rooms/room-browser/new-folder-dialog.tsx';
+import { useFolderDrop } from '@odb/lender-rooms/room-browser/use-folder-drop.ts';
 import type { SpaceTarget } from '@odb/lender-rooms/uploads/targets.ts';
 import { Button } from '@odb/ui/button';
 

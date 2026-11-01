@@ -15,7 +15,8 @@ import {
 
 const refused = vi.hoisted(() => async () => ({
   ok: false as const,
-  refusal: "Read-only members can't change this deal's schedule. Ask a deal manager.",
+  refusal:
+    "Read-only members can't change this deal's schedule. Ask a deal manager.",
 }));
 
 const server = vi.hoisted(() => ({
@@ -112,7 +113,13 @@ describe('ScheduleStarter', () => {
 
 describe('ScheduleManager', () => {
   const weeks = [
-    { id: 'week-1', week_no: 1, theme: 'Financials', starts_on: null, status: null },
+    {
+      id: 'week-1',
+      week_no: 1,
+      theme: 'Financials',
+      starts_on: null,
+      status: null,
+    },
     { id: 'week-2', week_no: 2, theme: 'Legal', starts_on: null, status: null },
   ] as never;
 
@@ -120,7 +127,11 @@ describe('ScheduleManager', () => {
     'shows why %s was refused',
     async (label) => {
       show(
-        <ScheduleManager scheduleId={'sched-1'} status={'proposed'} weeks={weeks} />,
+        <ScheduleManager
+          scheduleId={'sched-1'}
+          status={'proposed'}
+          weeks={weeks}
+        />,
       );
 
       await press(label);

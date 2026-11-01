@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import type { ActionResult } from '@odb/lender-rooms/actions/refusal.ts';
 import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
 import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
-import type { CloseState } from '@odb/lender-rooms/rooms/closing.ts';
 import {
   closeLenderRoom,
   prepareLenderRoomClose,
@@ -16,6 +15,7 @@ import {
   setLenderRoomStatus,
   setLenderRoomWelcomeNote,
 } from '@odb/lender-rooms/rooms/actions.ts';
+import type { CloseState } from '@odb/lender-rooms/rooms/closing.ts';
 import type { Enums } from '@odb/supabase';
 import { Button } from '@odb/ui/button';
 import {

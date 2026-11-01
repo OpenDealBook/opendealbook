@@ -52,20 +52,19 @@ export async function emailLendersToNudge(
   }
 
   const managerIds = await dealManagerIds(admin, accountId);
-  const [{ data: team }, { data: personal }] =
-    await Promise.all([
-      admin
-        .from('accounts')
-        .select('slug')
-        .eq('id', accountId)
-        .single()
-        .throwOnError(),
-      admin
-        .from('accounts')
-        .select('id, timezone')
-        .in('id', managerIds)
-        .throwOnError(),
-    ]);
+  const [{ data: team }, { data: personal }] = await Promise.all([
+    admin
+      .from('accounts')
+      .select('slug')
+      .eq('id', accountId)
+      .single()
+      .throwOnError(),
+    admin
+      .from('accounts')
+      .select('id, timezone')
+      .in('id', managerIds)
+      .throwOnError(),
+  ]);
   const timezoneById = new Map(
     personal.map((account) => [account.id, account.timezone]),
   );

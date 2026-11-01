@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { unwrap } from '../actions/test-support/unwrap';
 import {
@@ -51,7 +59,10 @@ vi.mock('@odb/supabase/admin', async () => {
           }
 
           return (name: string, args: never) => {
-            if (session.recipientLookupIsDown && name === 'lender_faq_recipients') {
+            if (
+              session.recipientLookupIsDown &&
+              name === 'lender_faq_recipients'
+            ) {
               throw new Error('The recipient lookup is down');
             }
             return target.rpc(name as never, args);
@@ -221,7 +232,10 @@ describe('publishing a new FAQ entry', () => {
 });
 
 describe('changing an existing entry', () => {
-  async function setStatus(entryId: string, status: 'published' | 'unpublished') {
+  async function setStatus(
+    entryId: string,
+    status: 'published' | 'unpublished',
+  ) {
     session.client = owner.client;
     await unwrap(setFaqEntryStatus({ entryId, status }));
   }

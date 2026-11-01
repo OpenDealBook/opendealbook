@@ -1,5 +1,4 @@
 import type { Client, ScheduleOptions } from '@temporalio/client';
-
 import { describe, expect, it } from 'vitest';
 
 import { fakeScheduleClient, staleSchedule } from './fakeScheduleClient';
@@ -37,6 +36,8 @@ describe('ensureMilestoneOverdueSchedule', () => {
 
     await ensureMilestoneOverdueSchedule(client);
 
-    expect(schedules.get('milestone-overdue-notice')?.spec).toEqual({ calendars: [{ hour: 13 }] });
+    expect(schedules.get('milestone-overdue-notice')?.spec).toEqual({
+      calendars: [{ hour: 13 }],
+    });
   });
 });

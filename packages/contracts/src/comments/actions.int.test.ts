@@ -39,8 +39,12 @@ const {
   resolveContractComment,
 } = await import('./actions');
 
-const { COMMENT_TOO_LONG, INTERNAL_BUYER_ONLY, NOT_ALLOWED, REPLY_TO_TOP_LEVEL_ONLY } =
-  await import('../types');
+const {
+  COMMENT_TOO_LONG,
+  INTERNAL_BUYER_ONLY,
+  NOT_ALLOWED,
+  REPLY_TO_TOP_LEVEL_ONLY,
+} = await import('../types');
 
 const READ_ONLY = 'This team is read-only until billing is updated.';
 
@@ -638,12 +642,7 @@ describe('resolveContractComment', () => {
     ["buyer's counsel", () => buyerCounsel, () => seller, 'seller'],
     ["seller's counsel", () => sellerCounsel, () => owner, 'buyer'],
     ['a seller', () => seller, () => buyerCounsel, 'buyer'],
-    [
-      'a read-only team member',
-      () => teamMember,
-      () => owner,
-      'buyer',
-    ],
+    ['a read-only team member', () => teamMember, () => owner, 'buyer'],
   ] as const)(
     'refuses %s a comment from the other side or without the right',
     async (_, who, author, side) => {
@@ -706,12 +705,7 @@ describe('reopenContractComment', () => {
     ["buyer's counsel", () => buyerCounsel, () => seller, 'seller'],
     ["seller's counsel", () => sellerCounsel, () => owner, 'buyer'],
     ['a seller', () => seller, () => buyerCounsel, 'buyer'],
-    [
-      'a read-only team member',
-      () => teamMember,
-      () => owner,
-      'buyer',
-    ],
+    ['a read-only team member', () => teamMember, () => owner, 'buyer'],
   ] as const)(
     'refuses %s a comment from the other side or without the right',
     async (_, who, author, side) => {

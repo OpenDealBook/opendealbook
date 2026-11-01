@@ -63,7 +63,7 @@ export function TeamTimezoneSetting({
             </option>
           ))}
         </select>
-        {refusal ?? schedulesError ? (
+        {(refusal ?? schedulesError) ? (
           <p role={'alert'} className={'text-destructive text-sm'}>
             {refusal ?? schedulesError}
           </p>

@@ -532,20 +532,39 @@ describe('relay consumers when the deal is deleted after the batch was read (int
 describe('pool pseudonyms after a keyed deal is deleted (integration)', () => {
   it('numbers a new deal past every pseudonym still in use', async () => {
     const owner = await provisionAccount();
-    const deletedDeal = await seedDeal(owner.admin, owner.accountId, owner.userId, {
-      description: 'Keyed then deleted',
-    });
+    const deletedDeal = await seedDeal(
+      owner.admin,
+      owner.accountId,
+      owner.userId,
+      {
+        description: 'Keyed then deleted',
+      },
+    );
     await recordDealActivity({ dealId: deletedDeal, dealSeq: 1 });
-    const keptDeal = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Keyed and kept',
-    });
+    const keptDeal = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Keyed and kept',
+      },
+    );
     await recordDealActivity({ dealId: keptDeal, dealSeq: 1 });
-    await owner.admin.from('accounts').delete().eq('id', owner.accountId).throwOnError();
+    await owner.admin
+      .from('accounts')
+      .delete()
+      .eq('id', owner.accountId)
+      .throwOnError();
     await owner.cleanup();
 
-    const newDeal = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Keyed after a deletion',
-    });
+    const newDeal = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Keyed after a deletion',
+      },
+    );
     await recordDealActivity({ dealId: newDeal, dealSeq: 1 });
 
     const { data: keys } = await account.admin

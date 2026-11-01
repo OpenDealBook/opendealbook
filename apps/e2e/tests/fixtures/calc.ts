@@ -30,8 +30,13 @@ export async function newDealCalc(
   await page.getByRole('button', { name: 'New Deal' }).click();
   await page.waitForURL(CALC_URL);
   const id = CALC_URL.exec(new URL(page.url()).pathname)![1]!;
-  await expect(page.getByRole('main').getByText('Profit and loss')).toBeVisible();
-  for (const [label, value] of Object.entries({ ...DEAL_FIELDS, ...overrides })) {
+  await expect(
+    page.getByRole('main').getByText('Profit and loss'),
+  ).toBeVisible();
+  for (const [label, value] of Object.entries({
+    ...DEAL_FIELDS,
+    ...overrides,
+  })) {
     await setField(page, label, value);
   }
   await page.getByRole('button', { name: 'Add source' }).click();
@@ -53,7 +58,10 @@ export async function addTeamMember(
   userId: string,
   role: 'analyst' | 'admin' | 'member',
 ) {
-  const [team] = await rows<{ id: string }>('accounts', `slug=eq.${teamSlug}&select=id`);
+  const [team] = await rows<{ id: string }>(
+    'accounts',
+    `slug=eq.${teamSlug}&select=id`,
+  );
   await insert('accounts_memberships', {
     account_id: team!.id,
     user_id: userId,

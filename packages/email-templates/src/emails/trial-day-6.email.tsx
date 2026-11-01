@@ -15,7 +15,9 @@ export function TrialDaySixEmail({
   userName,
   upgradeLink,
 }: TrialDaySixEmailProps) {
-  const heading = userName ? `Keep your deals moving, ${userName}` : 'Keep your deals moving';
+  const heading = userName
+    ? `Keep your deals moving, ${userName}`
+    : 'Keep your deals moving';
 
   return (
     <EmailLayout

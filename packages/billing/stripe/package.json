@@ -20,9 +20,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@stripe/stripe-js": "catalog:",
     "@odb/billing": "workspace:*",
     "@odb/billing-gateway": "workspace:*",
+    "@stripe/stripe-js": "catalog:",
     "stripe": "catalog:",
     "zod": "catalog:"
   },

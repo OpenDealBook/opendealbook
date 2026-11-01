@@ -108,4 +108,10 @@ const MessageAction = ({
   </TooltipProvider>
 );
 
-export { Message, MessageAvatar, MessageContent, MessageActions, MessageAction };
+export {
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageActions,
+  MessageAction,
+};

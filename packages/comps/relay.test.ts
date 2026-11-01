@@ -23,9 +23,9 @@ describe('routeRelayEvent', () => {
   });
 
   it('routes any other deal-aggregate event to activity recording only', () => {
-    expect(routeRelayEvent(event({ eventType: 'deal.stage_changed' }))).toEqual([
-      'recordDealActivity',
-    ]);
+    expect(routeRelayEvent(event({ eventType: 'deal.stage_changed' }))).toEqual(
+      ['recordDealActivity'],
+    );
   });
 
   it('routes a won resolution to activity recording and the close pool', () => {
@@ -36,13 +36,17 @@ describe('routeRelayEvent', () => {
 
   it('does not route a lost resolution to the close pool', () => {
     expect(
-      routeRelayEvent(event({ eventType: 'deal.resolved', resolution: 'lost' })),
+      routeRelayEvent(
+        event({ eventType: 'deal.resolved', resolution: 'lost' }),
+      ),
     ).toEqual(['recordDealActivity']);
   });
 
   it('routes a non-deal aggregate to no consumer', () => {
     expect(
-      routeRelayEvent(event({ aggregateType: 'offer', eventType: 'offer.submitted' })),
+      routeRelayEvent(
+        event({ aggregateType: 'offer', eventType: 'offer.submitted' }),
+      ),
     ).toEqual([]);
   });
 });
@@ -62,7 +66,13 @@ describe('planRelayDispatch', () => {
 
   it('advances the cursor past events with no consumer without dispatching them', () => {
     const plan = planRelayDispatch(
-      [event({ globalSeq: 7, aggregateType: 'offer', eventType: 'offer.submitted' })],
+      [
+        event({
+          globalSeq: 7,
+          aggregateType: 'offer',
+          eventType: 'offer.submitted',
+        }),
+      ],
       5,
     );
     expect(plan.steps).toEqual([]);

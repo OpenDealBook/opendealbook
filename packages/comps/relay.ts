@@ -1,4 +1,7 @@
-export type CompConsumer = 'recordDealActivity' | 'detectDuplicates' | 'anonymizeClose';
+export type CompConsumer =
+  | 'recordDealActivity'
+  | 'detectDuplicates'
+  | 'anonymizeClose';
 
 export interface RelayEvent {
   globalSeq: number;
@@ -33,7 +36,10 @@ export function routeRelayEvent(event: RelayEvent): CompConsumer[] {
   return consumers;
 }
 
-export function planRelayDispatch(events: RelayEvent[], cursor: number): RelayPlan {
+export function planRelayDispatch(
+  events: RelayEvent[],
+  cursor: number,
+): RelayPlan {
   const ordered = [...events].sort((a, b) => a.globalSeq - b.globalSeq);
   const steps: RelayStep[] = [];
   let next = cursor;

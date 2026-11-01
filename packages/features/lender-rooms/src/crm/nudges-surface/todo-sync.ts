@@ -2,10 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@odb/supabase';
 
-import { createHash } from 'node:crypto';
-
 import { dealManagerIds } from '../../actions/deal-manager-ids';
 import { listLendersToNudge } from '../nudges/nudges';
+
+import { createHash } from 'node:crypto';
 
 // A retry after a crash between the two inserts must find the to-do it already
 // made, so its id is derived from the room, the teammate and the quiet spell.
@@ -38,11 +38,16 @@ async function recordWentQuiet(
     )
     .order('aggregate_seq')
     .throwOnError();
-  const latestByRoom = new Map(history.map((event) => [event.aggregate_id, event]));
+  const latestByRoom = new Map(
+    history.map((event) => [event.aggregate_id, event]),
+  );
 
   for (const room of dueRooms) {
     const latest = latestByRoom.get(room.roomId);
-    if ((latest?.payload as { due_since?: string } | undefined)?.due_since === room.dueSince) {
+    if (
+      (latest?.payload as { due_since?: string } | undefined)?.due_since ===
+      room.dueSince
+    ) {
       continue;
     }
     await admin
@@ -76,7 +81,10 @@ async function recordWentQuietForTeam(
       if (attempt === 1 && (error as { code?: string }).code === '40001') {
         continue;
       }
-      console.error(`Recording quiet lenders for team ${accountId} failed`, error);
+      console.error(
+        `Recording quiet lenders for team ${accountId} failed`,
+        error,
+      );
       return;
     }
   }
@@ -137,7 +145,9 @@ export async function syncNudgeTodos(
       .throwOnError();
   }
 
-  const linked = new Set(links.map((link) => `${link.room_id}/${link.user_id}`));
+  const linked = new Set(
+    links.map((link) => `${link.room_id}/${link.user_id}`),
+  );
 
   for (const userId of managerIds) {
     for (const room of dueRooms) {

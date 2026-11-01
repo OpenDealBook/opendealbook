@@ -115,7 +115,10 @@ async function superAdminUserIds(
   const perPage = 1000;
   const ids: string[] = [];
   for (let page = 1; ; page++) {
-    const { data, error } = await client.auth.admin.listUsers({ page, perPage });
+    const { data, error } = await client.auth.admin.listUsers({
+      page,
+      perPage,
+    });
     if (error) {
       throw error;
     }

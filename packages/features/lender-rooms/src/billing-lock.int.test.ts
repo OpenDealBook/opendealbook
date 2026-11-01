@@ -1,11 +1,18 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import { appendDealEvent } from '@odb/events';
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 import { unwrap } from './actions/test-support/unwrap';
 
@@ -138,7 +145,11 @@ beforeAll(async () => {
   packageFolderId = await newFolder('Lender package');
   await admin
     .from('lender_package')
-    .insert({ deal_id: dealId, account_id: teamId, master_folder_id: packageFolderId })
+    .insert({
+      deal_id: dealId,
+      account_id: teamId,
+      master_folder_id: packageFolderId,
+    })
     .throwOnError();
 
   documentId = crypto.randomUUID();
@@ -177,7 +188,11 @@ beforeAll(async () => {
 
   await admin
     .from('lender_room_member')
-    .insert({ room_id: roomId, user_id: lender.userId, email: `${lender.userId}@odb.test` })
+    .insert({
+      room_id: roomId,
+      user_id: lender.userId,
+      email: `${lender.userId}@odb.test`,
+    })
     .throwOnError();
 
   const form = await admin
@@ -218,7 +233,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin.from('accounts').delete().eq('id', teamId).throwOnError();
-  await admin.from('lender_brand').delete().eq('domain', BRAND_DOMAIN).throwOnError();
+  await admin
+    .from('lender_brand')
+    .delete()
+    .eq('domain', BRAND_DOMAIN)
+    .throwOnError();
   await admin
     .from('lender_upload')
     .delete()
@@ -236,7 +255,9 @@ describe('a locked team in its lender rooms', { timeout: 60_000 }, () => {
     session.user = owner.client;
 
     await expect(
-      unwrap(createFolder({ dealId, parentFolderId: packageFolderId, name: 'New' })),
+      unwrap(
+        createFolder({ dealId, parentFolderId: packageFolderId, name: 'New' }),
+      ),
     ).rejects.toThrow(READ_ONLY);
   });
 
@@ -244,16 +265,23 @@ describe('a locked team in its lender rooms', { timeout: 60_000 }, () => {
     session.user = owner.client;
 
     await expect(
-      unwrap(beginUpload({ roomId, folderId: roomFolderId, name: 'answer.pdf', size: 6 })),
+      unwrap(
+        beginUpload({
+          roomId,
+          folderId: roomFolderId,
+          name: 'answer.pdf',
+          size: 6,
+        }),
+      ),
     ).rejects.toThrow(READ_ONLY);
   });
 
   it('cannot remove a file from the lender package', async () => {
     session.user = owner.client;
 
-    await expect(unwrap(removePackageFile({ dealId, documentId }))).rejects.toThrow(
-      READ_ONLY,
-    );
+    await expect(
+      unwrap(removePackageFile({ dealId, documentId })),
+    ).rejects.toThrow(READ_ONLY);
   });
 
   it('cannot send a form for signature', async () => {
@@ -295,7 +323,12 @@ describe('a locked team in its lender rooms', { timeout: 60_000 }, () => {
     session.user = lender.client;
 
     const upload = await unwrap(
-      beginUpload({ roomId, folderId: roomFolderId, name: 'bank-form.pdf', size: 4 }),
+      beginUpload({
+        roomId,
+        folderId: roomFolderId,
+        name: 'bank-form.pdf',
+        size: 4,
+      }),
     );
 
     expect(upload.uploadId).toEqual(expect.any(String));

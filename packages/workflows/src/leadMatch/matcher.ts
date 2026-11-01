@@ -79,7 +79,9 @@ export function matchKey(record: AddressedName): string | null {
 }
 
 function bigrams(text: string): string[] {
-  return Array.from({ length: Math.max(text.length - 1, 0) }, (_, i) => text.slice(i, i + 2));
+  return Array.from({ length: Math.max(text.length - 1, 0) }, (_, i) =>
+    text.slice(i, i + 2),
+  );
 }
 
 export function nameSimilarity(a: string, b: string): number {
@@ -116,7 +118,13 @@ export function bestCandidate<Candidate extends { id: string; name: string }>(
 ): (Candidate & { score: number }) | null {
   return (
     candidates
-      .map((candidate) => ({ ...candidate, score: nameSimilarity(name, candidate.name) }))
-      .sort((higher, lower) => lower.score - higher.score || higher.id.localeCompare(lower.id))[0] ?? null
+      .map((candidate) => ({
+        ...candidate,
+        score: nameSimilarity(name, candidate.name),
+      }))
+      .sort(
+        (higher, lower) =>
+          lower.score - higher.score || higher.id.localeCompare(lower.id),
+      )[0] ?? null
   );
 }

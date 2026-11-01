@@ -46,7 +46,10 @@ export const recordFaqPageOpened = refusableAction(
 const faqEntrySchema = z.object({ roomId: z.uuid(), entryId: z.uuid() });
 
 function recordFaqEntryAction(
-  action: 'faq_entry_opened' | 'faq_suggestion_opened' | 'faq_suggestion_resolved',
+  action:
+    | 'faq_entry_opened'
+    | 'faq_suggestion_opened'
+    | 'faq_suggestion_resolved',
 ) {
   return refusableAction(
     async ({ roomId, entryId }) => {

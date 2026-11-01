@@ -13,7 +13,10 @@ import {
 } from '../lender-test-kit';
 import { UnknownSendActions } from './unknown-send-actions';
 
-vi.mock('next/navigation', async () => (await import('../lender-test-kit')).navigation);
+vi.mock(
+  'next/navigation',
+  async () => (await import('../lender-test-kit')).navigation,
+);
 vi.mock('@odb/outreach-app/server', async () =>
   (await import('../lender-test-kit')).fakeActions('resolveUnknownSend'),
 );
@@ -22,10 +25,7 @@ const ENROLLMENT = 'e0000000-0000-4000-8000-000000000001';
 
 function showRow(canResolve = true) {
   show(
-    <UnknownSendActions
-      enrollmentId={ENROLLMENT}
-      canResolve={canResolve}
-    />,
+    <UnknownSendActions enrollmentId={ENROLLMENT} canResolve={canResolve} />,
   );
 }
 
@@ -84,7 +84,9 @@ it('confirms before stopping the sequence for this person', async () => {
 
   await press('Stop');
 
-  expect(dialogText()).toContain('No more emails in this sequence go to this person.');
+  expect(dialogText()).toContain(
+    'No more emails in this sequence go to this person.',
+  );
   expect(fakeServer.calls).toEqual([]);
 
   await press('Stop sequence');
@@ -97,7 +99,8 @@ it('confirms before stopping the sequence for this person', async () => {
 });
 
 it('shows why the server refused', async () => {
-  fakeServer.refusal = 'Only deal managers can settle an unknown send. Ask a deal manager.';
+  fakeServer.refusal =
+    'Only deal managers can settle an unknown send. Ask a deal manager.';
   showRow();
 
   await press('Mark as sent');

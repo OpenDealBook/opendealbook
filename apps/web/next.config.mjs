@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url';
-
 import createNextIntlPlugin from 'next-intl/plugin';
+
+import { fileURLToPath } from 'node:url';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
@@ -35,7 +35,10 @@ const config = {
   output: 'standalone',
   outputFileTracingRoot: MONOREPO_ROOT,
   outputFileTracingIncludes: {
-    '/**': ['node_modules/@pyroscope/nodejs/**/*', 'node_modules/@datadog/pprof/**/*'],
+    '/**': [
+      'node_modules/@pyroscope/nodejs/**/*',
+      'node_modules/@datadog/pprof/**/*',
+    ],
     '/api/pdfjs/\\[\\.\\.\\.asset\\]': [
       '../../packages/features/lender-rooms/node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
       '../../packages/features/lender-rooms/node_modules/pdfjs-dist/wasm/*',
@@ -45,7 +48,12 @@ const config = {
     ],
   },
   transpilePackages: ODB_PACKAGES,
-  serverExternalPackages: ['pino', 'pino-pretty', '@pyroscope/nodejs', '@datadog/pprof'],
+  serverExternalPackages: [
+    'pino',
+    'pino-pretty',
+    '@pyroscope/nodejs',
+    '@datadog/pprof',
+  ],
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: '127.0.0.1' },

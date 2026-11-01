@@ -4,7 +4,9 @@ const uuid = (n: number) =>
   `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 
 const mocks = vi.hoisted(() => {
-  const appendDealEvent = vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]);
+  const appendDealEvent = vi.fn(async () => [
+    { deal_seq: 1, aggregate_seq: 1 },
+  ]);
   const appendDealEvents = vi.fn(async () => [
     { deal_seq: 1, aggregate_seq: 1 },
   ]);
@@ -131,7 +133,10 @@ beforeEach(() => {
 describe('createOffer', () => {
   it('drafts the offer and adds the first buyer version in one append', async () => {
     const result = await runCreateOffer(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', first_version: minimalVersion },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        first_version: minimalVersion,
+      },
       user,
     );
 
@@ -164,11 +169,18 @@ describe('createOffer', () => {
 
 describe('addOfferVersion', () => {
   it('adds a buyer version numbered after the latest with no counter', async () => {
-    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'submitted' });
+    mocks.setOffer({
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      status: 'submitted',
+    });
     mocks.setOfferVersion({ number: 2 });
 
     const result = await runAddOfferVersion(
-      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657', author_side: 'buyer', version: minimalVersion },
+      {
+        offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
+        author_side: 'buyer',
+        version: minimalVersion,
+      },
       user,
     );
 
@@ -193,11 +205,18 @@ describe('addOfferVersion', () => {
   });
 
   it('records a seller counter as a version plus offer.countered', async () => {
-    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'submitted' });
+    mocks.setOffer({
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      status: 'submitted',
+    });
     mocks.setOfferVersion({ number: 1 });
 
     await runAddOfferVersion(
-      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657', author_side: 'seller', version: minimalVersion },
+      {
+        offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
+        author_side: 'seller',
+        version: minimalVersion,
+      },
       user,
     );
 
@@ -226,7 +245,10 @@ describe('addOfferVersion', () => {
   });
 
   it('tells an analyst only deal managers can record a seller counter', async () => {
-    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'submitted' });
+    mocks.setOffer({
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      status: 'submitted',
+    });
     mocks.setOfferVersion({ number: 1 });
     mocks.appendDealEvents.mockRejectedValueOnce({
       code: '42501',
@@ -235,7 +257,11 @@ describe('addOfferVersion', () => {
     });
 
     const result = await runAddOfferVersion(
-      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657', author_side: 'seller', version: minimalVersion },
+      {
+        offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657',
+        author_side: 'seller',
+        version: minimalVersion,
+      },
       user,
     );
 
@@ -248,9 +274,15 @@ describe('addOfferVersion', () => {
 
 describe('submitOffer', () => {
   it('submits the offer and moves the deal to loi_submitted', async () => {
-    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'draft' });
+    mocks.setOffer({
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      status: 'draft',
+    });
 
-    await runSubmitOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user);
+    await runSubmitOffer(
+      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' },
+      user,
+    );
 
     const [, dealId, events] = mocks.appendDealEvents.mock.calls.at(
       -1,
@@ -274,10 +306,16 @@ describe('submitOffer', () => {
   });
 
   it('rejects submitting an already resolved offer', async () => {
-    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'withdrawn' });
+    mocks.setOffer({
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      status: 'withdrawn',
+    });
 
     await expect(
-      runSubmitOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user),
+      runSubmitOffer(
+        { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' },
+        user,
+      ),
     ).rejects.toThrow();
 
     expect(mocks.appendDealEvents).not.toHaveBeenCalled();
@@ -292,7 +330,10 @@ describe('acceptOffer', () => {
       current_version_id: 'd74f7ebe-a338-4ff2-8e42-61440941c519',
     });
 
-    await runAcceptOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user);
+    await runAcceptOffer(
+      { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' },
+      user,
+    );
 
     expect(mocks.appendDealEvents).not.toHaveBeenCalled();
 
@@ -318,7 +359,10 @@ describe('acceptOffer', () => {
     });
 
     await expect(
-      runAcceptOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user),
+      runAcceptOffer(
+        { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' },
+        user,
+      ),
     ).rejects.toThrow();
 
     expect(mocks.appendDealEvents).not.toHaveBeenCalled();
@@ -327,10 +371,16 @@ describe('acceptOffer', () => {
 
 describe('rejectOffer / withdrawOffer / expireOffer', () => {
   it('rejects withdrawing an already expired offer', async () => {
-    mocks.setOffer({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', status: 'expired' });
+    mocks.setOffer({
+      deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+      status: 'expired',
+    });
 
     await expect(
-      runWithdrawOffer({ offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' }, user),
+      runWithdrawOffer(
+        { offer_id: '8adf8c69-0b67-423c-8d9b-3074eaab1657' },
+        user,
+      ),
     ).rejects.toThrow();
 
     expect(mocks.appendDealEvent).not.toHaveBeenCalled();

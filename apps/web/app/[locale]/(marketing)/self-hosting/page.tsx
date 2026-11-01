@@ -2,12 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { Button } from '@odb/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@odb/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 
 import { StructuredData } from '~/components/structured-data';
 import appConfig from '~/config/app.config';
@@ -91,8 +86,8 @@ export default async function SelfHostingPage({
       <div className={'mt-16 flex flex-col items-center gap-4 text-center'}>
         <h2 className={'text-2xl font-bold'}>Talk through your setup</h2>
         <p className={'text-muted-foreground max-w-xl'}>
-          Tell us about your infrastructure and your model, and we will walk
-          you through running Open Deal Book in your own environment.
+          Tell us about your infrastructure and your model, and we will walk you
+          through running Open Deal Book in your own environment.
         </p>
         <div className={'flex flex-wrap items-center justify-center gap-3'}>
           <Button asChild>

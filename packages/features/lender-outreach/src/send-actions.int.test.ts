@@ -2,9 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
-
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
 const mailbox = vi.hoisted(() => ({
@@ -137,7 +136,10 @@ afterAll(deleteProvisionedPeople);
 
 describe('sendLenderOutreach', () => {
   it('refuses, and tells them to connect the team mailbox, when none is connected', async () => {
-    sendAs = vi.fn(async () => ({ providerMessageId: 'pm-1', threadId: 'th-1' }));
+    sendAs = vi.fn(async () => ({
+      providerMessageId: 'pm-1',
+      threadId: 'th-1',
+    }));
     mailbox.sendAs = sendAs as never;
 
     expect(await sendLenderOutreach(review(roomId))).toEqual({
@@ -197,7 +199,9 @@ describe('sendLenderOutreach', () => {
   });
 
   it('shows the last send on the draft', async () => {
-    const [{ sent_at }] = (await sentRows(roomId)) as unknown as [{ sent_at: string }];
+    const [{ sent_at }] = (await sentRows(roomId)) as unknown as [
+      { sent_at: string },
+    ];
     const [{ deal_id }] = (await admin
       .from('lender_room')
       .select('deal_id')
@@ -281,7 +285,10 @@ describe('sendLenderOutreach', () => {
 
     expect(
       await sendLenderOutreach({ ...review(roomId), confirmResend: true }),
-    ).toEqual({ ok: false, refusal: "Couldn't send from your mailbox. Try again." });
+    ).toEqual({
+      ok: false,
+      refusal: "Couldn't send from your mailbox. Try again.",
+    });
 
     const rows = await sentRows(roomId);
     expect(rows).toHaveLength(before.length + 1);
@@ -302,16 +309,24 @@ describe('sendLenderOutreach', () => {
       throw new Error('mailbox down');
     };
     await sendLenderOutreach(review(fresh.roomId));
-    mailbox.sendAs = async () => ({ providerMessageId: 'pm-f', threadId: 'th-f' });
+    mailbox.sendAs = async () => ({
+      providerMessageId: 'pm-f',
+      threadId: 'th-f',
+    });
 
-    await expect(sendLenderOutreach(review(fresh.roomId))).resolves.toMatchObject({
+    await expect(
+      sendLenderOutreach(review(fresh.roomId)),
+    ).resolves.toMatchObject({
       ok: true,
     });
   });
 
   it('sends to the lender the room is linked to, not whichever lender shares its domain', async () => {
     await connectMailbox(teamId);
-    sendAs = vi.fn(async () => ({ providerMessageId: 'pm-l', threadId: 'th-l' }));
+    sendAs = vi.fn(async () => ({
+      providerMessageId: 'pm-l',
+      threadId: 'th-l',
+    }));
     mailbox.sendAs = sendAs as never;
     const linkedDomain = `linked-${suffix}.test`;
     await seedLender(teamId, linkedDomain, 'Linked Bank', [
@@ -357,7 +372,10 @@ describe('a nudge', () => {
   it('never counts as the first outreach', async () => {
     const fresh = await roomOfNewTeam('send-nudged', 'nudged');
     await connectMailbox(fresh.teamId);
-    mailbox.sendAs = async () => ({ providerMessageId: 'pm-x', threadId: 'th-x' });
+    mailbox.sendAs = async () => ({
+      providerMessageId: 'pm-x',
+      threadId: 'th-x',
+    });
     await sendAndRecordOutreach(owner, {
       kind: 'nudge',
       accountId: fresh.teamId,
@@ -379,7 +397,9 @@ describe('a nudge', () => {
       ok: true,
       value: { drafts: [{ lastSentAt: null }] },
     });
-    await expect(sendLenderOutreach(review(fresh.roomId))).resolves.toMatchObject({
+    await expect(
+      sendLenderOutreach(review(fresh.roomId)),
+    ).resolves.toMatchObject({
       ok: true,
     });
   });
@@ -387,7 +407,10 @@ describe('a nudge', () => {
 
 describe('sendAndRecordOutreach', () => {
   it('sends one email and records one nudge row for each room it covers', async () => {
-    sendAs = vi.fn(async () => ({ providerMessageId: 'pm-n', threadId: 'th-n' }));
+    sendAs = vi.fn(async () => ({
+      providerMessageId: 'pm-n',
+      threadId: 'th-n',
+    }));
     mailbox.sendAs = sendAs as never;
     const { data: first } = await admin
       .from('lender_room')
@@ -408,7 +431,11 @@ describe('sendAndRecordOutreach', () => {
       sentBy: ownerId,
       roomIds: [roomId, secondRoom],
       connection,
-      email: { to: 'dana@first.test', subject: 'Checking in', body: 'Any news?' },
+      email: {
+        to: 'dana@first.test',
+        subject: 'Checking in',
+        body: 'Any news?',
+      },
     });
 
     expect(sendAs).toHaveBeenCalledTimes(1);

@@ -1,11 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
+import { Message, MessageAvatar, MessageContent } from '@odb/ui/chat-message';
 import { Conversation, ConversationContent } from '@odb/ui/conversation';
-import {
-  Message,
-  MessageAvatar,
-  MessageContent,
-} from '@odb/ui/chat-message';
 
 const meta: Meta<typeof Message> = {
   title: 'AI/ChatMessage',

@@ -28,7 +28,9 @@ export default async function WorkflowRunPage(props: {
   const [{ data: run }, { data: steps }] = await Promise.all([
     client
       .from('workflow_run')
-      .select('id, status, error, loop_items_processed, loop_items_total, workflow_version(schema_version, graph)')
+      .select(
+        'id, status, error, loop_items_processed, loop_items_total, workflow_version(schema_version, graph)',
+      )
       .eq('id', runId)
       .eq('workflow_id', id)
       .eq('account_id', team.id)
@@ -65,7 +67,9 @@ export default async function WorkflowRunPage(props: {
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <Link
         href={`/home/${account}/workflows/${id}`}
-        className={'text-muted-foreground text-sm underline-offset-4 hover:underline'}
+        className={
+          'text-muted-foreground text-sm underline-offset-4 hover:underline'
+        }
       >
         Back to workflow
       </Link>

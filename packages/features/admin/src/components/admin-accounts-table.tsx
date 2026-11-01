@@ -35,9 +35,9 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
+import { useAdminAccounts } from '../hooks/use-admin-accounts';
 import { nameMatchesConfirmation } from '../lib/confirm';
 import { deleteAccountAction } from '../lib/server/admin-actions';
-import { useAdminAccounts } from '../hooks/use-admin-accounts';
 
 type AccountRow = {
   id: string;

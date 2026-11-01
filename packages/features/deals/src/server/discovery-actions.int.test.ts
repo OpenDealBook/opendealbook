@@ -61,25 +61,27 @@ describe('saveDealDiscovery (integration)', () => {
     const dealId = await newDeal('Discovery capture deal');
     holder.client = account.user;
 
-    const saved = ((await (saveDealDiscovery as unknown as Action)(
-      {
-        deal_id: dealId,
-        counterparty_type: 'owner',
-        call_date: '2026-10-04',
-        years_in_operation: 12,
-        reason_for_selling: 'retirement',
-        what_matters_most: ['legacy', 'employees'],
-        most_sensitive_issue: 'Key client concentration',
-        owner_hours_per_week: 55,
-        owner_dependency: 'high',
-        documented_processes: false,
-        recurring_revenue_pct: 42.5,
-        revenue_trend: 'up',
-        open_to_seller_financing: 'unsure',
-        discovery_notes: 'Warm first call, owner wants to stay 6 months.',
-      },
-      actor,
-    )) as { value: Record<string, unknown> }).value;
+    const saved = (
+      (await (saveDealDiscovery as unknown as Action)(
+        {
+          deal_id: dealId,
+          counterparty_type: 'owner',
+          call_date: '2026-10-04',
+          years_in_operation: 12,
+          reason_for_selling: 'retirement',
+          what_matters_most: ['legacy', 'employees'],
+          most_sensitive_issue: 'Key client concentration',
+          owner_hours_per_week: 55,
+          owner_dependency: 'high',
+          documented_processes: false,
+          recurring_revenue_pct: 42.5,
+          revenue_trend: 'up',
+          open_to_seller_financing: 'unsure',
+          discovery_notes: 'Warm first call, owner wants to stay 6 months.',
+        },
+        actor,
+      )) as { value: Record<string, unknown> }
+    ).value;
 
     expect(saved).toMatchObject({
       deal_id: dealId,

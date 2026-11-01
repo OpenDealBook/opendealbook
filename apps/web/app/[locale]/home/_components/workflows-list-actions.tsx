@@ -91,7 +91,10 @@ export function WorkflowRowActions({
         </>
       )}
       {refusal ? (
-        <p role={'alert'} className={'text-destructive w-full text-right text-sm'}>
+        <p
+          role={'alert'}
+          className={'text-destructive w-full text-right text-sm'}
+        >
           {refusal}
         </p>
       ) : null}

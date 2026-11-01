@@ -1,6 +1,10 @@
 import type { Tables } from '@odb/supabase';
 
-import { buildFolderTree, type FolderNode, type FolderRow } from '../folders/tree';
+import {
+  buildFolderTree,
+  type FolderNode,
+  type FolderRow,
+} from '../folders/tree';
 
 export type DocumentRow = Tables<'dr_document'>;
 

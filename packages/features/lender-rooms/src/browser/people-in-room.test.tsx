@@ -75,9 +75,24 @@ it('says who has not signed in yet, but never about the viewer', () => {
   expect(
     shown(
       [
-        { user_id: 'ana', email: 'ana@firstharbor.test', name: 'Ana Ruiz', has_signed_in: false },
-        { user_id: 'bo', email: 'bo@firstharbor.test', name: null, has_signed_in: false },
-        { user_id: 'cy', email: 'cy@firstharbor.test', name: 'Cy Adams', has_signed_in: false },
+        {
+          user_id: 'ana',
+          email: 'ana@firstharbor.test',
+          name: 'Ana Ruiz',
+          has_signed_in: false,
+        },
+        {
+          user_id: 'bo',
+          email: 'bo@firstharbor.test',
+          name: null,
+          has_signed_in: false,
+        },
+        {
+          user_id: 'cy',
+          email: 'cy@firstharbor.test',
+          name: 'Cy Adams',
+          has_signed_in: false,
+        },
       ],
       'ana',
     ).people,

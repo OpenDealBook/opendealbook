@@ -11,7 +11,10 @@ import { detectDuplicates } from '../comps/detectDuplicates';
 import { recordDealActivity } from '../comps/recordDealActivity';
 
 let account: IntegrationAccount;
-const pseudonyms: { table: 'comp_pool' | 'activity_pool'; pseudonym: string }[] = [];
+const pseudonyms: {
+  table: 'comp_pool' | 'activity_pool';
+  pseudonym: string;
+}[] = [];
 
 beforeAll(async () => {
   account = await provisionAccount();
@@ -26,11 +29,16 @@ afterAll(async () => {
 
 describe('comp relay consumers replayed for the same event', () => {
   it('recordDealActivity leaves one activity_pool row for the deal', async () => {
-    const dealId = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Replay activity deal',
-      stage: 'integration',
-      asking_price: 700_000,
-    });
+    const dealId = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Replay activity deal',
+        stage: 'integration',
+        asking_price: 700_000,
+      },
+    );
 
     await recordDealActivity({ dealId, dealSeq: 1 });
     await recordDealActivity({ dealId, dealSeq: 1 });
@@ -53,19 +61,28 @@ describe('comp relay consumers replayed for the same event', () => {
     await account.admin
       .from('comp_pool_optin')
       .insert({ account_id: account.accountId, opted_in: true });
-    const dealId = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Replay close deal',
-      stage: 'integration',
-      asking_price: 1_200_000,
-      revenue_ttm: 800_000,
-      sde_ttm: 300_000,
-    });
+    const dealId = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Replay close deal',
+        stage: 'integration',
+        asking_price: 1_200_000,
+        revenue_ttm: 800_000,
+        sde_ttm: 300_000,
+      },
+    );
     await appendDealEvent(account.admin, {
       dealId,
       aggregateType: 'deal_milestone',
       aggregateId: crypto.randomUUID(),
       eventType: 'deal_milestone.set',
-      payload: { kind: 'closing', target_on: null, actual_on: new Date().toISOString().slice(0, 10) },
+      payload: {
+        kind: 'closing',
+        target_on: null,
+        actual_on: new Date().toISOString().slice(0, 10),
+      },
     });
 
     await anonymizeClose({ dealId, dealSeq: 1 });
@@ -91,10 +108,15 @@ describe('comp relay consumers replayed for the same event', () => {
       description: 'Replay original',
       source_url: sourceUrl,
     });
-    const copy = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Replay copy',
-      source_url: sourceUrl,
-    });
+    const copy = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Replay copy',
+        source_url: sourceUrl,
+      },
+    );
 
     await detectDuplicates({ dealId: copy });
     await detectDuplicates({ dealId: copy });
@@ -113,10 +135,15 @@ describe('comp relay consumers replayed for the same event', () => {
       description: 'Cleared original',
       source_url: sourceUrl,
     });
-    const copy = await seedDeal(account.admin, account.accountId, account.userId, {
-      description: 'Cleared copy',
-      source_url: sourceUrl,
-    });
+    const copy = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description: 'Cleared copy',
+        source_url: sourceUrl,
+      },
+    );
     await detectDuplicates({ dealId: copy });
     await appendDealEvent(account.admin, {
       dealId: copy,
@@ -138,10 +165,17 @@ describe('comp relay consumers replayed for the same event', () => {
 
   it('detectDuplicates keeps a dismissed description candidate dismissed', async () => {
     const description = `Replay bookkeeping ${crypto.randomUUID()}`;
-    await seedDeal(account.admin, account.accountId, account.userId, { description });
-    const second = await seedDeal(account.admin, account.accountId, account.userId, {
+    await seedDeal(account.admin, account.accountId, account.userId, {
       description,
     });
+    const second = await seedDeal(
+      account.admin,
+      account.accountId,
+      account.userId,
+      {
+        description,
+      },
+    );
     await detectDuplicates({ dealId: second });
     await account.admin
       .from('duplicate_candidate')

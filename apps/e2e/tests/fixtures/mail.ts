@@ -101,9 +101,13 @@ export async function waitForMessageContaining({
     .poll(
       async () => {
         const query = new URLSearchParams({ query: `to:"${to}"` });
-        const { messages } = await mailpit<MailpitSearch>(`/api/v1/search?${query}`);
+        const { messages } = await mailpit<MailpitSearch>(
+          `/api/v1/search?${query}`,
+        );
         for (const summary of messages) {
-          const message = await mailpit<MailpitMessage>(`/api/v1/message/${summary.ID}`);
+          const message = await mailpit<MailpitMessage>(
+            `/api/v1/message/${summary.ID}`,
+          );
           if (message.HTML.includes(text) || message.Text.includes(text)) {
             found = {
               id: message.ID,

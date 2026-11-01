@@ -20,7 +20,15 @@ import {
   waitForRun,
 } from './fixtures/workflows';
 
-async function setUpTeam(page: Page, auth: { signUp: (page: Page, user?: ReturnType<typeof newCredentials>) => Promise<unknown> }) {
+async function setUpTeam(
+  page: Page,
+  auth: {
+    signUp: (
+      page: Page,
+      user?: ReturnType<typeof newCredentials>,
+    ) => Promise<unknown>;
+  },
+) {
   const owner = newCredentials();
   await auth.signUp(page, owner);
   const stamp = Date.now();
@@ -43,31 +51,46 @@ test('a manager runs a published workflow, archives it and brings it back', asyn
 
   const { stamp, accountId, ownerId, listPath } = await setUpTeam(page, auth);
   const name = `Weekly review ${stamp}`;
-  const workflowId = await seedWorkflow({ accountId, name, publishedBy: ownerId });
+  const workflowId = await seedWorkflow({
+    accountId,
+    name,
+    publishedBy: ownerId,
+  });
 
   await page.goto(listPath);
-  await expect(page.getByRole('link', { name: 'Workflows', exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Workflows', exact: true }).first(),
+  ).toBeVisible();
   const row = page.getByRole('row').filter({ hasText: name });
   await expect(row.getByText('Disabled')).toBeVisible();
   await expect(row.getByText(/^Published /)).toBeVisible();
   await expect(row.getByText('Never run')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'New workflow' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'New workflow' }),
+  ).toBeVisible();
 
   await row.getByRole('button', { name: 'Run now' }).click();
   const runId = await waitForRun(workflowId, 'succeeded');
 
   await page.goto(`${listPath}/${workflowId}`);
-  await expect(page.getByRole('heading', { name: name, level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: name, level: 1 }),
+  ).toBeVisible();
   await expect(page.getByText('Version 1').first()).toBeVisible();
   await page.getByRole('button', { name: 'Cancel waiting runs' }).click();
-  await page.getByRole('dialog', { name: 'Cancel waiting runs' }).getByRole('button', { name: 'Cancel older runs' }).click();
+  await page
+    .getByRole('dialog', { name: 'Cancel waiting runs' })
+    .getByRole('button', { name: 'Cancel older runs' })
+    .click();
   await expect(page.getByText('Cancelled 0 runs')).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByRole('link', { name: /\d/ }).first().click();
   await expect(page).toHaveURL(new RegExp(`/runs/${runId}$`));
   await expect(page.getByText('notify', { exact: true })).toBeVisible();
   await expect(page.getByText('Succeeded')).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Retry from failed step' })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Retry from failed step' }),
+  ).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Cancel run' })).toHaveCount(0);
 
   await page.goto(listPath);
@@ -92,17 +115,34 @@ test('enabling an unpublished workflow is refused', async ({ page, auth }) => {
   const row = page.getByRole('row').filter({ hasText: name });
   await expect(row.getByText('Not published')).toBeVisible();
   await row.getByRole('button', { name: 'Enable' }).click();
-  await expect(row.getByRole('alert')).toHaveText('Publish this workflow first');
+  await expect(row.getByRole('alert')).toHaveText(
+    'Publish this workflow first',
+  );
 });
 
-test('a non-manager sees no workflow controls', async ({ page, browser, auth }) => {
+test('a non-manager sees no workflow controls', async ({
+  page,
+  browser,
+  auth,
+}) => {
   test.setTimeout(150 * 1000);
 
-  const { stamp, teamSlug, accountId, ownerId, listPath } = await setUpTeam(page, auth);
+  const { stamp, teamSlug, accountId, ownerId, listPath } = await setUpTeam(
+    page,
+    auth,
+  );
   const name = `Visible only ${stamp}`;
-  const workflowId = await seedWorkflow({ accountId, name, publishedBy: ownerId });
+  const workflowId = await seedWorkflow({
+    accountId,
+    name,
+    publishedBy: ownerId,
+  });
   await page.goto(listPath);
-  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Run now' })
+    .click();
   const runId = await waitForRun(workflowId, 'succeeded');
 
   const member = newCredentials();
@@ -113,17 +153,27 @@ test('a non-manager sees no workflow controls', async ({ page, browser, auth }) 
   await completeInviteeOnboarding(memberPage, teamSlug, 'Mia Member');
 
   await memberPage.goto(listPath);
-  await expect(memberPage.getByRole('row').filter({ hasText: name })).toBeVisible();
+  await expect(
+    memberPage.getByRole('row').filter({ hasText: name }),
+  ).toBeVisible();
   for (const control of ['Run now', 'Enable', 'Disable', 'Archive']) {
-    await expect(memberPage.getByRole('button', { name: control, exact: true })).toHaveCount(0);
+    await expect(
+      memberPage.getByRole('button', { name: control, exact: true }),
+    ).toHaveCount(0);
   }
 
   await memberPage.goto(`${listPath}/${workflowId}/runs/${runId}`);
   await expect(memberPage.getByText('Succeeded').first()).toBeVisible();
-  await expect(memberPage.getByRole('button', { name: 'Cancel run' })).toHaveCount(0);
-  await expect(memberPage.getByRole('button', { name: 'Retry from failed step' })).toHaveCount(0);
+  await expect(
+    memberPage.getByRole('button', { name: 'Cancel run' }),
+  ).toHaveCount(0);
+  await expect(
+    memberPage.getByRole('button', { name: 'Retry from failed step' }),
+  ).toHaveCount(0);
   await memberPage.goto(`${listPath}/${workflowId}`);
-  await expect(memberPage.getByRole('button', { name: 'Cancel waiting runs' })).toHaveCount(0);
+  await expect(
+    memberPage.getByRole('button', { name: 'Cancel waiting runs' }),
+  ).toHaveCount(0);
   await context.close();
 });
 
@@ -133,7 +183,10 @@ test('a failed run shows its error and retry, tells the manager and sends an ema
 }) => {
   test.setTimeout(150 * 1000);
 
-  const { stamp, owner, accountId, ownerId, listPath } = await setUpTeam(page, auth);
+  const { stamp, owner, accountId, ownerId, listPath } = await setUpTeam(
+    page,
+    auth,
+  );
   const name = `Broken reminder ${stamp}`;
   const workflowId = await seedWorkflow({
     accountId,
@@ -143,7 +196,11 @@ test('a failed run shows its error and retry, tells the manager and sends an ema
   });
 
   await page.goto(listPath);
-  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Run now' })
+    .click();
   const runId = await waitForRun(workflowId, 'failed');
   const runPath = `${listPath}/${workflowId}/runs/${runId}`;
 
@@ -151,7 +208,9 @@ test('a failed run shows its error and retry, tells the manager and sends an ema
   await expect(page.getByText('Send reminder', { exact: true })).toBeVisible();
   await expect(page.getByText('Failed').first()).toBeVisible();
   await expect(page.locator('p.text-destructive').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retry from failed step' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Retry from failed step' }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Cancel run' })).toHaveCount(0);
 
   await expect
@@ -168,10 +227,15 @@ test('a failed run shows its error and retry, tells the manager and sends an ema
     .toBe(runPath);
   await page.goto(`/home/${runPath.split('/')[2]}`);
   await page.locator('button:has(svg.lucide-bell)').click();
-  await page.getByRole('link', { name: `${name} failed at Send reminder` }).click();
+  await page
+    .getByRole('link', { name: `${name} failed at Send reminder` })
+    .click();
   await expect(page).toHaveURL(new RegExp(`/runs/${runId}$`));
 
-  await waitForMessageContaining({ to: owner.email, text: `${name} failed at Send reminder` });
+  await waitForMessageContaining({
+    to: owner.email,
+    text: `${name} failed at Send reminder`,
+  });
 });
 
 test('bad workflow links are not found', async ({ page, browser, auth }) => {
@@ -198,34 +262,58 @@ test('bad workflow links are not found', async ({ page, browser, auth }) => {
   expect(await status(`${base}/not-a-uuid`)).toBe(404);
   expect(await status(`${base}/${workflowId}/runs/not-a-uuid`)).toBe(404);
   expect(await status(`${base}/${foreignId}`)).toBe(404);
-  expect(await status(`${base}/${workflowId}/runs/00000000-0000-4000-8000-000000000000`)).toBe(404);
+  expect(
+    await status(
+      `${base}/${workflowId}/runs/00000000-0000-4000-8000-000000000000`,
+    ),
+  ).toBe(404);
   await context.close();
 });
 
-test('the workflow pages fit the viewport at three widths', async ({ page, auth }) => {
+test('the workflow pages fit the viewport at three widths', async ({
+  page,
+  auth,
+}) => {
   test.setTimeout(150 * 1000);
 
   const { stamp, accountId, ownerId, listPath } = await setUpTeam(page, auth);
   const name = `Layout ${stamp}`;
-  const workflowId = await seedWorkflow({ accountId, name, publishedBy: ownerId });
+  const workflowId = await seedWorkflow({
+    accountId,
+    name,
+    publishedBy: ownerId,
+  });
   await page.goto(listPath);
-  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Run now' })
+    .click();
   const runId = await waitForRun(workflowId, 'succeeded');
 
   for (const width of [1440, 1024, 768]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of [listPath, `${listPath}/${workflowId}`, `${listPath}/${workflowId}/runs/${runId}`]) {
+    for (const path of [
+      listPath,
+      `${listPath}/${workflowId}`,
+      `${listPath}/${workflowId}/runs/${runId}`,
+    ]) {
       await page.goto(path);
       await expect(page.locator('main').last()).toBeVisible();
       const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
       );
       expect(overflow, `${path} at ${width}px`).toBeLessThanOrEqual(0);
     }
   }
 });
 
-test('a workflow whose graph is invalid fails as a whole with the reason', async ({ page, auth }) => {
+test('a workflow whose graph is invalid fails as a whole with the reason', async ({
+  page,
+  auth,
+}) => {
   test.setTimeout(120 * 1000);
 
   const { stamp, accountId, ownerId, listPath } = await setUpTeam(page, auth);
@@ -238,7 +326,11 @@ test('a workflow whose graph is invalid fails as a whole with the reason', async
   });
 
   await page.goto(listPath);
-  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Run now' })
+    .click();
   await waitForRun(workflowId, 'failed');
 
   await expect
@@ -255,10 +347,16 @@ test('a workflow whose graph is invalid fails as a whole with the reason', async
     .toBe(1);
 });
 
-test('a loop workflow labels each item and creates a to-do per item', async ({ page, auth }) => {
+test('a loop workflow labels each item and creates a to-do per item', async ({
+  page,
+  auth,
+}) => {
   test.setTimeout(150 * 1000);
 
-  const { stamp, accountId, ownerId, teamSlug, listPath } = await setUpTeam(page, auth);
+  const { stamp, accountId, ownerId, teamSlug, listPath } = await setUpTeam(
+    page,
+    auth,
+  );
   const name = `Loop todos ${stamp}`;
   const workflowId = await seedWorkflow({
     accountId,
@@ -269,7 +367,11 @@ test('a loop workflow labels each item and creates a to-do per item', async ({ p
   });
 
   await page.goto(listPath);
-  await page.getByRole('row').filter({ hasText: name }).getByRole('button', { name: 'Run now' }).click();
+  await page
+    .getByRole('row')
+    .filter({ hasText: name })
+    .getByRole('button', { name: 'Run now' })
+    .click();
   const runId = await waitForRun(workflowId, 'succeeded');
 
   await page.goto(`${listPath}/${workflowId}/runs/${runId}`);
@@ -279,6 +381,8 @@ test('a loop workflow labels each item and creates a to-do per item', async ({ p
 
   await page.goto(`/home/${teamSlug}/todos`);
   for (const item of ['a', 'b', 'c']) {
-    await expect(page.getByText(`Check ${item}`, { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(`Check ${item}`, { exact: true }),
+    ).toBeVisible();
   }
 });

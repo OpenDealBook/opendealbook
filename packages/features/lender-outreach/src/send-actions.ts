@@ -67,8 +67,9 @@ export const sendLenderOutreach = refusableAction(
       .eq('id', room.lender_id!)
       .single()
       .throwOnError();
-    const to = lender.lender_contact.find((contact) => contact.is_primary)!
-      .email!;
+    const to = lender.lender_contact.find(
+      (contact) => contact.is_primary,
+    )!.email!;
 
     try {
       await sendAndRecordOutreach(client, {

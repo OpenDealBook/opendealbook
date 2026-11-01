@@ -18,7 +18,11 @@ describe('ensureOutreachDispatchSchedule', () => {
 
   it('keeps an operator-unpaused schedule running while applying the current spec', async () => {
     const { client, schedules } = fakeScheduleClient([
-      { ...staleSchedule, scheduleId: 'outreach-dispatch', state: { paused: false } },
+      {
+        ...staleSchedule,
+        scheduleId: 'outreach-dispatch',
+        state: { paused: false },
+      },
     ]);
 
     await ensureOutreachDispatchSchedule(client);

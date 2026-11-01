@@ -26,10 +26,10 @@
   },
   "dependencies": {
     "@hookform/resolvers": "catalog:",
-    "@tanstack/react-query": "catalog:",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/ui": "workspace:*",
+    "@tanstack/react-query": "catalog:",
     "react-hook-form": "catalog:",
     "zod": "catalog:"
   },

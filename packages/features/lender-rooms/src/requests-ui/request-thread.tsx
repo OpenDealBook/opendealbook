@@ -19,8 +19,6 @@ import {
   replyToAskAsLender,
   withdrawAsk,
 } from '../asks/lender-actions';
-import { fileUrl } from '../room-browser/file-access';
-import { FilePreviewDialog } from '../room-browser/file-preview-dialog';
 import {
   changeReturnRoute,
   closeFormAsLender,
@@ -29,6 +27,8 @@ import {
   replyToFormAsLender,
   withdrawForm,
 } from '../forms/lender-actions';
+import { fileUrl } from '../room-browser/file-access';
+import { FilePreviewDialog } from '../room-browser/file-preview-dialog';
 import { AttemptDialog, AttemptForm } from './attempt-dialog';
 import { LocalTime } from './local-time';
 import { MessageWithAttachments } from './message-with-attachments';

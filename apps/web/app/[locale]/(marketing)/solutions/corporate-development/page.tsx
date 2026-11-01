@@ -2,12 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { Button } from '@odb/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@odb/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 
 import { StructuredData } from '~/components/structured-data';
 import appConfig from '~/config/app.config';
@@ -79,9 +74,9 @@ export default async function CorporateDevelopmentPage({
           A repeatable acquisition pipeline for corporate development
         </h1>
         <p className={'text-muted-foreground max-w-2xl'}>
-          Your team runs a strategy, not one-off deals. Open Deal Book keeps
-          the whole pipeline, diligence, underwriting, and offers in one
-          record, so each acquisition runs the same reliable way.
+          Your team runs a strategy, not one-off deals. Open Deal Book keeps the
+          whole pipeline, diligence, underwriting, and offers in one record, so
+          each acquisition runs the same reliable way.
         </p>
       </div>
 

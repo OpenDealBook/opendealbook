@@ -14,7 +14,9 @@ afterEach(() => {
 
 describe('isPublicHttpsUrl', () => {
   it('accepts an https URL whose host resolves only to public addresses', async () => {
-    expect(await isPublicHttpsUrl('https://llm.example.com:8443/v1', PUBLIC)).toBe(true);
+    expect(
+      await isPublicHttpsUrl('https://llm.example.com:8443/v1', PUBLIC),
+    ).toBe(true);
   });
 
   it.each([
@@ -45,9 +47,12 @@ describe('isPublicHttpsUrl', () => {
     'fe80::1',
     '::ffff:127.0.0.1',
   ])('refuses a host that resolves to %s', async (address) => {
-    expect(await isPublicHttpsUrl('https://llm.example.com/v1', resolvingTo('93.184.216.34', address))).toBe(
-      false,
-    );
+    expect(
+      await isPublicHttpsUrl(
+        'https://llm.example.com/v1',
+        resolvingTo('93.184.216.34', address),
+      ),
+    ).toBe(false);
   });
 
   it('refuses a literal private address without needing DNS', async () => {
@@ -59,28 +64,38 @@ describe('isPublicHttpsUrl', () => {
     ['ENOTFOUND', false],
     ['EAI_AGAIN', true],
     ['ETIMEOUT', true],
-  ])('reports a host DNS cannot find (%s) as an address it could not find', async (code, retryable) => {
-    const failing = async () => {
-      throw Object.assign(new Error(`getaddrinfo ${code} models.example.com`), { code });
-    };
+  ])(
+    'reports a host DNS cannot find (%s) as an address it could not find',
+    async (code, retryable) => {
+      const failing = async () => {
+        throw Object.assign(
+          new Error(`getaddrinfo ${code} models.example.com`),
+          { code },
+        );
+      };
 
-    const failure = await isPublicHttpsUrl('https://models.example.com/v1', failing).catch(
-      (error: unknown) => error,
-    );
+      const failure = await isPublicHttpsUrl(
+        'https://models.example.com/v1',
+        failing,
+      ).catch((error: unknown) => error);
 
-    expect(failure).toBeInstanceOf(AddressNotFound);
-    expect(failure).toMatchObject({
-      message: "We couldn't find that address. Check the base URL.",
-      retryable,
-    });
-  });
+      expect(failure).toBeInstanceOf(AddressNotFound);
+      expect(failure).toMatchObject({
+        message: "We couldn't find that address. Check the base URL.",
+        retryable,
+      });
+    },
+  );
 
   it('gives up on a lookup that never answers after 10 seconds, as a retryable address it could not find', async () => {
     vi.useFakeTimers();
     const silent = () => new Promise<{ address: string }[]>(() => {});
     let settled = false;
 
-    const failure = isPublicHttpsUrl('https://models.example.com/v1', silent).catch((error: unknown) => {
+    const failure = isPublicHttpsUrl(
+      'https://models.example.com/v1',
+      silent,
+    ).catch((error: unknown) => {
       settled = true;
       return error;
     });

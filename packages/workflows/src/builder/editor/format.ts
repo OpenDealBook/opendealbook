@@ -46,7 +46,9 @@ function withoutCleared(value: unknown): unknown {
   }
   if (typeof value === 'object' && value !== null) {
     return Object.fromEntries(
-      Object.entries(value).flatMap(([key, item]) => (item === undefined ? [] : [[key, withoutCleared(item)]])),
+      Object.entries(value).flatMap(([key, item]) =>
+        item === undefined ? [] : [[key, withoutCleared(item)]],
+      ),
     );
   }
   return value;
@@ -64,7 +66,10 @@ export function toEditorData(graph: WorkflowGraph, layout: EditorLayout) {
       data: {
         type: node.type,
         icon: NODE_TYPE_DISPLAY[node.type].icon,
-        properties: { ...node.config, ...(node.label !== undefined && { label: node.label }) },
+        properties: {
+          ...node.config,
+          ...(node.label !== undefined && { label: node.label }),
+        },
       },
     })),
     edges: graph.edges.map((edge) => ({
@@ -72,18 +77,31 @@ export function toEditorData(graph: WorkflowGraph, layout: EditorLayout) {
       source: edge.sourceNodeId,
       target: edge.targetNodeId,
       type: 'labelEdge',
-      ...(edge.sourceHandle !== undefined && { sourceHandle: edge.sourceHandle }),
+      ...(edge.sourceHandle !== undefined && {
+        sourceHandle: edge.sourceHandle,
+      }),
     })),
   } satisfies EditorData;
 }
 
-export function fromEditorData(data: EditorData): { graph: WorkflowGraph; layout: EditorLayout } {
+export function fromEditorData(data: EditorData): {
+  graph: WorkflowGraph;
+  layout: EditorLayout;
+} {
   return {
     graph: workflowGraphSchema.parse({
       nodes: data.nodes.map(({ id, data: { type, properties } }) => {
-        const { label, description: _description, errors: _errors, customErrors: _customErrors, ...settings } = properties;
+        const {
+          label,
+          description: _description,
+          errors: _errors,
+          customErrors: _customErrors,
+          ...settings
+        } = properties;
         const config = Object.fromEntries(
-          Object.entries(settings).flatMap(([key, value]) => (value == null ? [] : [[key, withoutCleared(value)]])),
+          Object.entries(settings).flatMap(([key, value]) =>
+            value == null ? [] : [[key, withoutCleared(value)]],
+          ),
         );
         return { id, type, config, ...(label !== undefined && { label }) };
       }),
@@ -96,7 +114,11 @@ export function fromEditorData(data: EditorData): { graph: WorkflowGraph; layout
     }),
     layout: {
       direction: data.layoutDirection,
-      positions: Object.fromEntries(data.nodes.flatMap((node) => (node.position ? [[node.id, node.position]] : []))),
+      positions: Object.fromEntries(
+        data.nodes.flatMap((node) =>
+          node.position ? [[node.id, node.position]] : [],
+        ),
+      ),
     },
   };
 }

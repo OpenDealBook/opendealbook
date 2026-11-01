@@ -27,16 +27,24 @@ export const enrollSequence = defineStep({
         .eq('firm_id', config.firmId)
         .eq('sequence_id', config.sequenceId);
     const liveEnrollment = async () =>
-      (await enrollments().in('status', LIVE_STATUSES).maybeSingle().throwOnError()).data;
+      (
+        await enrollments()
+          .in('status', LIVE_STATUSES)
+          .maybeSingle()
+          .throwOnError()
+      ).data;
 
-    const sequence = await teamRow(config.sequenceId, 'That sequence is not on this team', (id) =>
-      admin
-        .from('outreach_sequence')
-        .select('enabled')
-        .eq('id', id)
-        .eq('account_id', context.accountId)
-        .maybeSingle()
-        .throwOnError(),
+    const sequence = await teamRow(
+      config.sequenceId,
+      'That sequence is not on this team',
+      (id) =>
+        admin
+          .from('outreach_sequence')
+          .select('enabled')
+          .eq('id', id)
+          .eq('account_id', context.accountId)
+          .maybeSingle()
+          .throwOnError(),
     );
     if (!sequence.enabled) {
       throw ApplicationFailure.nonRetryable('This sequence is turned off');
@@ -72,7 +80,9 @@ export const enrollSequence = defineStep({
       .maybeSingle()
       .throwOnError();
     if (latest?.firm_verdict_approval?.firm_verdict_revocation.length) {
-      throw ApplicationFailure.nonRetryable("This firm's approval was revoked.");
+      throw ApplicationFailure.nonRetryable(
+        "This firm's approval was revoked.",
+      );
     }
 
     const { data: approved } = await admin
@@ -80,7 +90,9 @@ export const enrollSequence = defineStep({
       .throwOnError();
 
     const { count: earlierAttempts } = await enrollments().throwOnError();
-    const enrollmentId = uuidFromKey(`workflow_step:${context.idempotencyKey}:${earlierAttempts}`);
+    const enrollmentId = uuidFromKey(
+      `workflow_step:${context.idempotencyKey}:${earlierAttempts}`,
+    );
     const { error } = await admin.from('outreach_enrollment').insert({
       id: enrollmentId,
       account_id: context.accountId,

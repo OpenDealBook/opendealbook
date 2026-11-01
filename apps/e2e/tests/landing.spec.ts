@@ -63,10 +63,7 @@ test('/home shows the team picker to a member of two teams with no last-used tea
   const first = `Beta Picker ${stamp}`;
   const second = `Gamma Picker ${stamp}`;
   await auth.signUp(page);
-  const onboarded = await completeTeamOnboarding(
-    page,
-    `Alpha Picker ${stamp}`,
-  );
+  const onboarded = await completeTeamOnboarding(page, `Alpha Picker ${stamp}`);
   const firstSlug = await createTeam(page, first);
   const secondSlug = await createTeam(page, second);
   await deleteTeam(page, onboarded);
@@ -85,10 +82,9 @@ test('/home shows the team picker to a member of two teams with no last-used tea
     'href',
     `/home/${secondSlug}`,
   );
-  await expect(page.getByRole('link', { name: 'Create a team' })).toHaveAttribute(
-    'href',
-    '/home/create-team',
-  );
+  await expect(
+    page.getByRole('link', { name: 'Create a team' }),
+  ).toHaveAttribute('href', '/home/create-team');
 });
 
 test('/home sends an onboarded user with no teams to create a team', async ({

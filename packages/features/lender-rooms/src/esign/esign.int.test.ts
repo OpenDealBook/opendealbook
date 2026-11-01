@@ -1170,9 +1170,21 @@ describe('Documenso reporting a lender form as declined, expired or gone', () =>
 
 describe('Documenso reporting the outcome of a lender form signature', () => {
   it.each([
-    ['completed', 'completed', 'A form for Bank A was signed on Lender asks deal'],
-    ['rejected', 'declined', 'A form signature for Bank A was declined on Lender asks deal'],
-    ['expired', 'expired', 'A form signature for Bank A expired on Lender asks deal'],
+    [
+      'completed',
+      'completed',
+      'A form for Bank A was signed on Lender asks deal',
+    ],
+    [
+      'rejected',
+      'declined',
+      'A form signature for Bank A was declined on Lender asks deal',
+    ],
+    [
+      'expired',
+      'expired',
+      'A form signature for Bank A expired on Lender asks deal',
+    ],
   ] as const)(
     'rings our bell once per member when it is %s, linking to the form',
     async (state, status, body) => {

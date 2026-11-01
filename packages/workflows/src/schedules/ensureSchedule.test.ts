@@ -1,5 +1,4 @@
 import type { ScheduleOptions } from '@temporalio/client';
-
 import { describe, expect, it } from 'vitest';
 
 import { ensureSchedule } from './ensureSchedule';
@@ -8,13 +7,23 @@ import { fakeScheduleClient } from './fakeScheduleClient';
 const hourly: ScheduleOptions = {
   scheduleId: 'sync',
   spec: { intervals: [{ every: '1h' }] },
-  action: { type: 'startWorkflow', workflowType: 'syncV2', taskQueue: 'q', args: [] },
+  action: {
+    type: 'startWorkflow',
+    workflowType: 'syncV2',
+    taskQueue: 'q',
+    args: [],
+  },
 };
 
 const daily: ScheduleOptions = {
   scheduleId: 'sync',
   spec: { calendars: [{ hour: 4 }] },
-  action: { type: 'startWorkflow', workflowType: 'syncV1', taskQueue: 'q', args: [] },
+  action: {
+    type: 'startWorkflow',
+    workflowType: 'syncV1',
+    taskQueue: 'q',
+    args: [],
+  },
 };
 
 describe('ensureSchedule', () => {

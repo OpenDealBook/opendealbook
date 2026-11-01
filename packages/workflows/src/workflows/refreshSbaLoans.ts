@@ -4,11 +4,10 @@ import { SBA_LOAN_TO_PRICE_DEFAULT } from '@odb/comps/workflow';
 
 import type * as activities from '../activities';
 
-const { discoverSbaResources, loadDealBoxNaicsUnion, refreshSbaProgram } = proxyActivities<
-  typeof activities
->({
-  startToCloseTimeout: '30 minutes',
-});
+const { discoverSbaResources, loadDealBoxNaicsUnion, refreshSbaProgram } =
+  proxyActivities<typeof activities>({
+    startToCloseTimeout: '30 minutes',
+  });
 
 export interface RefreshSbaLoansInput {
   loanToPriceRatio?: number;
@@ -26,7 +25,12 @@ export async function refreshSbaLoans(
   const naicsCodes = await loadDealBoxNaicsUnion();
   const { sevenA, fiveOhFour } = await discoverSbaResources();
 
-  const sevenAResult = await refreshSbaProgram({ program: '7a', urls: sevenA, naicsCodes, ratio });
+  const sevenAResult = await refreshSbaProgram({
+    program: '7a',
+    urls: sevenA,
+    naicsCodes,
+    ratio,
+  });
   const fiveOhFourResult = await refreshSbaProgram({
     program: '504',
     urls: fiveOhFour,
@@ -34,5 +38,8 @@ export async function refreshSbaLoans(
     ratio,
   });
 
-  return { sevenA: sevenAResult.upserted, fiveOhFour: fiveOhFourResult.upserted };
+  return {
+    sevenA: sevenAResult.upserted,
+    fiveOhFour: fiveOhFourResult.upserted,
+  };
 }

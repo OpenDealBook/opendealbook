@@ -1,6 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import {
   admin,
@@ -48,8 +56,18 @@ async function review() {
 
 async function sharedRecords() {
   const [{ data: loan }, { data: business }] = await Promise.all([
-    admin.from('ppp_loan').select('business_id, borrower_name').eq('loan_number', loanNumber).single().throwOnError(),
-    admin.from('public_business').select('name, ein, match_key').eq('id', businessId).single().throwOnError(),
+    admin
+      .from('ppp_loan')
+      .select('business_id, borrower_name')
+      .eq('loan_number', loanNumber)
+      .single()
+      .throwOnError(),
+    admin
+      .from('public_business')
+      .select('name, ein, match_key')
+      .eq('id', businessId)
+      .single()
+      .throwOnError(),
   ]);
   return { loan, business };
 }
@@ -62,7 +80,11 @@ beforeAll(async () => {
   outsiderTeamId = await provisionTeam(outsider, 'Elsewhere Capital');
   await admin
     .from('accounts_memberships')
-    .insert({ account_id: teamId, user_id: member.userId, account_role: 'member' })
+    .insert({
+      account_id: teamId,
+      user_id: member.userId,
+      account_role: 'member',
+    })
     .throwOnError();
 
   const { data: business } = await admin
@@ -74,11 +96,19 @@ beforeAll(async () => {
   businessId = business.id;
   await admin
     .from('ppp_loan')
-    .insert({ loan_number: loanNumber, borrower_name: 'Acme Plumbing and Heating' })
+    .insert({
+      loan_number: loanNumber,
+      borrower_name: 'Acme Plumbing and Heating',
+    })
     .throwOnError();
   const { data: created } = await admin
     .from('business_match_review')
-    .insert({ account_id: teamId, business_id: businessId, ppp_loan_number: loanNumber, score: 0.7 })
+    .insert({
+      account_id: teamId,
+      business_id: businessId,
+      ppp_loan_number: loanNumber,
+      score: 0.7,
+    })
     .select('id')
     .single()
     .throwOnError();
@@ -94,8 +124,16 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await admin.from('ppp_loan').delete().eq('loan_number', loanNumber).throwOnError();
-  await admin.from('public_business').delete().eq('id', businessId).throwOnError();
+  await admin
+    .from('ppp_loan')
+    .delete()
+    .eq('loan_number', loanNumber)
+    .throwOnError();
+  await admin
+    .from('public_business')
+    .delete()
+    .eq('id', businessId)
+    .throwOnError();
   await cleanUp([teamId, outsiderTeamId]);
 });
 
@@ -104,9 +142,15 @@ describe('decideMatchReview', () => {
     const before = await sharedRecords();
     as(owner);
 
-    expect(await decideMatchReview({ reviewId, accept: true })).toEqual({ ok: true, value: undefined });
+    expect(await decideMatchReview({ reviewId, accept: true })).toEqual({
+      ok: true,
+      value: undefined,
+    });
 
-    expect(await review()).toEqual({ status: 'accepted', reviewed_by: owner.userId });
+    expect(await review()).toEqual({
+      status: 'accepted',
+      reviewed_by: owner.userId,
+    });
     expect(await sharedRecords()).toEqual(before);
   });
 
@@ -115,7 +159,10 @@ describe('decideMatchReview', () => {
 
     await decideMatchReview({ reviewId, accept: false });
 
-    expect(await review()).toEqual({ status: 'rejected', reviewed_by: owner.userId });
+    expect(await review()).toEqual({
+      status: 'rejected',
+      reviewed_by: owner.userId,
+    });
   });
 
   it('refuses a team member without deals.manage', async () => {
@@ -128,10 +175,12 @@ describe('decideMatchReview', () => {
     expect(await review()).toEqual({ status: 'pending', reviewed_by: null });
   });
 
-  it("refuses a deal manager of another team", async () => {
+  it('refuses a deal manager of another team', async () => {
     as(outsider);
 
-    expect((await decideMatchReview({ reviewId, accept: true })).ok).toBe(false);
+    expect((await decideMatchReview({ reviewId, accept: true })).ok).toBe(
+      false,
+    );
     expect(await review()).toEqual({ status: 'pending', reviewed_by: null });
   });
 
@@ -139,7 +188,10 @@ describe('decideMatchReview', () => {
     as(owner);
 
     await withLockedTeam(teamId, async () => {
-      expect(await decideMatchReview({ reviewId, accept: true })).toEqual({ ok: false, refusal: TEAM_READ_ONLY });
+      expect(await decideMatchReview({ reviewId, accept: true })).toEqual({
+        ok: false,
+        refusal: TEAM_READ_ONLY,
+      });
     });
     expect(await review()).toEqual({ status: 'pending', reviewed_by: null });
   });

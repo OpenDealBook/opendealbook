@@ -44,7 +44,9 @@ describe('ScenarioPathsOutputs', () => {
     expect(row(worst, 'SDE')).toMatch(/\$52,800/);
     expect(row(worst, 'Net cash flow')).toMatch(/\$386/);
     expect(row(worst, 'DSCR').match(/<td/g)).toHaveLength(10);
-    expect(row(section(html, 'Great'), 'SDE')).toMatch(/\$108,000.*\$113,400.*\$119,070/);
+    expect(row(section(html, 'Great'), 'SDE')).toMatch(
+      /\$108,000.*\$113,400.*\$119,070/,
+    );
     expect(row(section(html, 'Good'), 'SDE')).toMatch(/\$100,000/);
   });
 
@@ -75,17 +77,29 @@ describe('ScenarioPathsOutputs', () => {
 
 describe('chartPoints', () => {
   it('scales every series into the same box, lowest value at the bottom', () => {
-    expect(chartPoints([[0, 50], [100, 0]], 200, 100)).toEqual([
-      ['0,100 200,50'],
-      ['0,0 200,100'],
-    ]);
+    expect(
+      chartPoints(
+        [
+          [0, 50],
+          [100, 0],
+        ],
+        200,
+        100,
+      ),
+    ).toEqual([['0,100 200,50'], ['0,0 200,100']]);
   });
 
   it('draws flat series along the middle when every value is equal', () => {
-    expect(chartPoints([[5, 5], [5, 5]], 200, 100)).toEqual([
-      ['0,50 200,50'],
-      ['0,50 200,50'],
-    ]);
+    expect(
+      chartPoints(
+        [
+          [5, 5],
+          [5, 5],
+        ],
+        200,
+        100,
+      ),
+    ).toEqual([['0,50 200,50'], ['0,50 200,50']]);
   });
 
   it('leaves a gap where a year has no value instead of drawing zero', () => {

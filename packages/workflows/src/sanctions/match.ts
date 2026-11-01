@@ -74,7 +74,9 @@ function withoutLegalForms(words: string[]): string[] {
 }
 
 function words(name: string): string[] {
-  return normalizeName(name.normalize('NFKD').replace(/\p{M}/gu, '')).split(' ');
+  return normalizeName(name.normalize('NFKD').replace(/\p{M}/gu, '')).split(
+    ' ',
+  );
 }
 
 function businessName(name: string): string {
@@ -94,13 +96,19 @@ function bigramCounts(text: string): Map<string, number> {
   return counts;
 }
 
-export function screeningKey(name: string, kind: ScreeningSubject['kind']): string {
+export function screeningKey(
+  name: string,
+  kind: ScreeningSubject['kind'],
+): string {
   return sortedWords(kind === 'business' ? businessName(name) : name);
 }
 
 export function screeningPairs(key: string): string[] {
   return [...bigramCounts(key)].flatMap(([pair, count]) =>
-    Array.from({ length: count }, (_, occurrence) => `${pair}${occurrence + 1}`),
+    Array.from(
+      { length: count },
+      (_, occurrence) => `${pair}${occurrence + 1}`,
+    ),
   );
 }
 
@@ -108,11 +116,18 @@ export function screeningNames(
   entry: Pick<ScreenedEntry, 'name' | 'alt_names' | 'entry_type'>,
 ): { variant: ScreeningSubject['kind']; key: string; pairs: string[] }[] {
   return (['person', 'business'] as const)
-    .filter((kind) => entry.entry_type === null || entry.entry_type === SCREENED_TYPE[kind])
+    .filter(
+      (kind) =>
+        entry.entry_type === null || entry.entry_type === SCREENED_TYPE[kind],
+    )
     .flatMap((variant) =>
-      [...new Set([entry.name, ...entry.alt_names].map((name) => screeningKey(name, variant)))].map(
-        (key) => ({ variant, key, pairs: screeningPairs(key) }),
-      ),
+      [
+        ...new Set(
+          [entry.name, ...entry.alt_names].map((name) =>
+            screeningKey(name, variant),
+          ),
+        ),
+      ].map((key) => ({ variant, key, pairs: screeningPairs(key) })),
     );
 }
 
@@ -162,32 +177,32 @@ export function matchSubjects(
           entry.entry_type === SCREENED_TYPE[subject.kind],
       )
       .flatMap((entry) => {
-      const [best] = [entry.name, ...entry.alt_names]
-        .map((name) => ({
-          name,
-          score: screeningScore(comparable(subject.name), comparable(name)),
-        }))
-        .sort((higher, lower) => lower.score - higher.score);
-      if (best!.score < SCREENING_THRESHOLD) {
-        return [];
-      }
-      return [
-        {
-          subjectKey: subject.key,
-          source: 'sanctions' as const,
-          listName: entry.list_name,
-          sourceEntryId: entry.source_entry_id,
-          entryName: entry.name,
-          matchedName: best!.name,
-          score: best!.score,
-          programs: entry.programs,
-          url: entry.source_url,
-          entryType: entry.entry_type,
-          countries: entry.countries,
-          altNames: entry.alt_names,
-          raw: entry.raw,
-        },
-      ];
-    });
+        const [best] = [entry.name, ...entry.alt_names]
+          .map((name) => ({
+            name,
+            score: screeningScore(comparable(subject.name), comparable(name)),
+          }))
+          .sort((higher, lower) => lower.score - higher.score);
+        if (best!.score < SCREENING_THRESHOLD) {
+          return [];
+        }
+        return [
+          {
+            subjectKey: subject.key,
+            source: 'sanctions' as const,
+            listName: entry.list_name,
+            sourceEntryId: entry.source_entry_id,
+            entryName: entry.name,
+            matchedName: best!.name,
+            score: best!.score,
+            programs: entry.programs,
+            url: entry.source_url,
+            entryType: entry.entry_type,
+            countries: entry.countries,
+            altNames: entry.alt_names,
+            raw: entry.raw,
+          },
+        ];
+      });
   });
 }

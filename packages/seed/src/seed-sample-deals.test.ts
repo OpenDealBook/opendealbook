@@ -50,10 +50,12 @@ import {
 const seededDocument = {
   deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
   document_id: '5f675954-8b8a-402f-856d-555c3b0635f5',
-  storage_path: 'deal/6221ddef-b8e9-484f-8bb8-0967d8e16a30/x-trailing-12-month-pl.pdf',
+  storage_path:
+    'deal/6221ddef-b8e9-484f-8bb8-0967d8e16a30/x-trailing-12-month-pl.pdf',
   removed_paths: [] as string[],
 };
-const oldFile = 'deal/9b1f7c0e-2a4d-4c3b-8e5f-6a7b8c9d0e1f/y-trailing-12-month-pl.pdf';
+const oldFile =
+  'deal/9b1f7c0e-2a4d-4c3b-8e5f-6a7b8c9d0e1f/y-trailing-12-month-pl.pdf';
 const team = { accountId: 'team-1', userId: 'user-1' };
 
 beforeEach(() => {
@@ -73,7 +75,11 @@ describe('seedSampleDealsOnce', () => {
     expect(world.seedCalls).toEqual([
       {
         name: 'seed_sample_deals',
-        args: { p_account_id: 'team-1', p_user_id: 'user-1', p_only_once: true },
+        args: {
+          p_account_id: 'team-1',
+          p_user_id: 'user-1',
+          p_only_once: true,
+        },
       },
     ]);
     expect(world.uploads).toEqual([seededDocument.storage_path]);
@@ -114,7 +120,11 @@ describe('seedSampleDeals', () => {
     expect(world.seedCalls).toEqual([
       {
         name: 'seed_sample_deals',
-        args: { p_account_id: 'team-1', p_user_id: 'user-1', p_only_once: false },
+        args: {
+          p_account_id: 'team-1',
+          p_user_id: 'user-1',
+          p_only_once: false,
+        },
       },
     ]);
   });

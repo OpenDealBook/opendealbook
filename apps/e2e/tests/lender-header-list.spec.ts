@@ -21,16 +21,25 @@ test('a lender sees the buyer team and loan ask in the room header and the list'
   const stamp = Date.now();
   const teamName = `Header Team ${stamp}`;
   const businessName = `Header Deal ${stamp}`;
-  const lenderPerson = { email: newCredentials().email, name: `Lena Lender ${stamp}` };
+  const lenderPerson = {
+    email: newCredentials().email,
+    name: `Lena Lender ${stamp}`,
+  };
   const roomName = `Harbor Lending ${stamp}`;
 
   await auth.signUp(page, team);
   const teamSlug = await completeTeamOnboarding(page, teamName);
   const { dealId, dealPath } = await createDeal(page, teamSlug, businessName);
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   await page.goto(`${dealPath}/lenders`);
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await page.getByLabel('Must close by').fill('2027-03-31');
   await page.getByLabel('Why that date').fill(`Seller retires ${stamp}`);
   await Promise.all([
@@ -53,13 +62,17 @@ test('a lender sees the buyer team and loan ask in the room header and the list'
     });
   }).toPass({ timeout: 60 * 1000 });
 
-  await page.getByRole('button', { name: 'Create the first lender room' }).click();
+  await page
+    .getByRole('button', { name: 'Create the first lender room' })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Create a lender room' });
   await dialog.getByLabel('Lender name').fill(roomName);
   await dialog.getByRole('button', { name: 'Create room' }).click();
   await page.waitForURL(/\/lenders\/[0-9a-f-]{36}\?tab=people$/);
   const roomId = new URL(page.url()).pathname.split('/').pop()!;
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await lenderFlow.invite(page, lenderPerson);
   await expect(page.getByRole('tab', { name: 'People (1)' })).toBeVisible();
   expect(
@@ -71,11 +84,13 @@ test('a lender sees the buyer team and loan ask in the room header and the list'
   await lenderFlow.signIn(lenderPage, { email: lenderPerson.email, roomId });
 
   await expect(lenderPage.getByText(teamName).first()).toBeVisible();
+  await expect(lenderPage.getByText('$2,000,000').first()).toBeVisible();
   await expect(
-    lenderPage.getByText('$2,000,000').first(),
+    lenderPage.getByText('plus $300,000 seller note').first(),
   ).toBeVisible();
-  await expect(lenderPage.getByText('plus $300,000 seller note').first()).toBeVisible();
-  await expect(lenderPage.getByText(/Mar 31, 2027|March 31, 2027/).first()).toBeVisible();
+  await expect(
+    lenderPage.getByText(/Mar 31, 2027|March 31, 2027/).first(),
+  ).toBeVisible();
 
   await lenderPage.goto('/lender');
   const listed = lenderPage.getByRole('link').filter({ hasText: businessName });

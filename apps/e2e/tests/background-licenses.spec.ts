@@ -21,7 +21,12 @@ test('a background search on a Texas firm lists its state license without a sour
     teamSlug,
     reply: {
       ratings: [
-        { n: 1, severity: 'green', tied: true, reason: 'An active trade license' },
+        {
+          n: 1,
+          severity: 'green',
+          tied: true,
+          reason: 'An active trade license',
+        },
       ],
     },
   });

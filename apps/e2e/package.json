@@ -9,9 +9,9 @@
   },
   "devDependencies": {
     "@faker-js/faker": "catalog:",
-    "@playwright/test": "catalog:",
     "@odb/templates": "workspace:*",
     "@odb/tsconfig": "workspace:*",
+    "@playwright/test": "catalog:",
     "@types/node": "catalog:"
   }
 }

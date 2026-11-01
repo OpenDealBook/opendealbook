@@ -1,10 +1,23 @@
 import { ApplicationFailure } from '@temporalio/common';
 
-import { MailboxNoResponse, MailboxRequestFailed, sendAs, type MailboxConnection } from '@odb/mailbox';
-import { dealBoxMergeFields, renderTemplate, type MergeContext } from '@odb/outreach';
+import {
+  MailboxNoResponse,
+  MailboxRequestFailed,
+  sendAs,
+  type MailboxConnection,
+} from '@odb/mailbox';
+import {
+  dealBoxMergeFields,
+  renderTemplate,
+  type MergeContext,
+} from '@odb/outreach';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-import { LetterCapReached, LetterSetupMissing, sendLetter } from '../letters/sendLetter';
+import {
+  LetterCapReached,
+  LetterSetupMissing,
+  sendLetter,
+} from '../letters/sendLetter';
 import { outreachSender } from '../outreachSender';
 import { isTeamLocked } from '../teamLock';
 
@@ -14,9 +27,20 @@ const UNIQUE_VIOLATION = '23505';
 
 const DAY_MS = 86_400_000;
 
-const DELIVERED_LETTER_STATUSES = ['created', 'mailed', 'in_transit', 'delivered', 'returned'] as const;
+const DELIVERED_LETTER_STATUSES = [
+  'created',
+  'mailed',
+  'in_transit',
+  'delivered',
+  'returned',
+] as const;
 
-type OutreachMessageStatus = 'sending' | 'sent' | 'failed' | 'unknown' | 'retried';
+type OutreachMessageStatus =
+  | 'sending'
+  | 'sent'
+  | 'failed'
+  | 'unknown'
+  | 'retried';
 
 interface OutreachSettingRow {
   daily_cap: number;
@@ -135,7 +159,9 @@ export async function dispatchAccountOutreach(
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl) {
-    console.error('[workflows] outreach dispatch refused: NEXT_PUBLIC_SITE_URL is not set');
+    console.error(
+      '[workflows] outreach dispatch refused: NEXT_PUBLIC_SITE_URL is not set',
+    );
     return { sent: 0 };
   }
   const unsubscribePath = (enrollment: OutreachEnrollmentRow) =>
@@ -155,28 +181,40 @@ export async function dispatchAccountOutreach(
   ).length;
 
   const suppression = await loadSuppression(client, input.accountId);
-  const blocksEmail = new Set(suppression.map((row) => row.email.toLowerCase()));
+  const blocksEmail = new Set(
+    suppression.map((row) => row.email.toLowerCase()),
+  );
   const blocksLetters = new Set(
-    suppression.filter((row) => row.reason !== 'bounce').map((row) => row.email.toLowerCase()),
+    suppression
+      .filter((row) => row.reason !== 'bounce')
+      .map((row) => row.email.toLowerCase()),
   );
 
   const touches = new Map<string, number>();
   const addTouch = (email: string) =>
-    touches.set(email.toLowerCase(), (touches.get(email.toLowerCase()) ?? 0) + 1);
+    touches.set(
+      email.toLowerCase(),
+      (touches.get(email.toLowerCase()) ?? 0) + 1,
+    );
   messages
     .filter(
       (message) =>
         message.status === 'sent' ||
-        (message.status === 'unknown' && message.outreach_enrollment.status === 'failed'),
+        (message.status === 'unknown' &&
+          message.outreach_enrollment.status === 'failed'),
     )
     .forEach((message) => addTouch(message.to_email));
   letterTargets.forEach(addTouch);
   const atTouchLimit = (enrollment: OutreachEnrollmentRow) =>
-    (touches.get(enrollment.target_email.toLowerCase()) ?? 0) >= setting.max_touches;
+    (touches.get(enrollment.target_email.toLowerCase()) ?? 0) >=
+    setting.max_touches;
 
   const firstEmails = new Map<string, FirstEmail>();
   for (const message of messages
-    .filter((message) => message.status === 'sent' && message.provider_thread_id !== null)
+    .filter(
+      (message) =>
+        message.status === 'sent' && message.provider_thread_id !== null,
+    )
     .sort((left, right) => right.step_id - left.step_id)) {
     firstEmails.set(message.enrollment_id, {
       subject: message.subject,
@@ -186,14 +224,23 @@ export async function dispatchAccountOutreach(
 
   const steps = await loadSequenceSteps(client, input.accountId);
   const stepOf = (enrollment: OutreachEnrollmentRow) =>
-    steps.get(enrollment.sequence_id)?.find((step) => step.ordinal === enrollment.current_step);
+    steps
+      .get(enrollment.sequence_id)
+      ?.find((step) => step.ordinal === enrollment.current_step);
   const due = await loadDueEnrollments(client, input.accountId, now);
-  const finished = due.filter((enrollment) => stepOf(enrollment) === undefined || atTouchLimit(enrollment));
+  const finished = due.filter(
+    (enrollment) =>
+      stepOf(enrollment) === undefined || atTouchLimit(enrollment),
+  );
   for (const enrollment of finished) {
     await finishSequence(client, enrollment);
   }
   const dueOn = (channel: OutreachStepRow['channel']) =>
-    due.filter((enrollment) => !finished.includes(enrollment) && stepOf(enrollment)!.channel === channel);
+    due.filter(
+      (enrollment) =>
+        !finished.includes(enrollment) &&
+        stepOf(enrollment)!.channel === channel,
+    );
 
   const lettersDue = dueOn('letter');
   for (const enrollment of lettersDue.filter((enrollment) =>
@@ -231,10 +278,19 @@ export async function dispatchAccountOutreach(
       continue;
     }
     if (enrollment.firm_id === null) {
-      await failEnrollment(client, enrollment, 'This enrollment has no firm to mail');
+      await failEnrollment(
+        client,
+        enrollment,
+        'This enrollment has no firm to mail',
+      );
       continue;
     }
-    const context = await loadMergeContext(client, enrollment, criteria, sender);
+    const context = await loadMergeContext(
+      client,
+      enrollment,
+      criteria,
+      sender,
+    );
     try {
       await sendLetter({
         accountId: input.accountId,
@@ -245,7 +301,10 @@ export async function dispatchAccountOutreach(
         stepOrdinal: enrollment.current_step,
       });
     } catch (error) {
-      if (error instanceof LetterCapReached || error instanceof LetterSetupMissing) {
+      if (
+        error instanceof LetterCapReached ||
+        error instanceof LetterSetupMissing
+      ) {
         await noteError(client, letterEligible.slice(index), error.message);
         break;
       }
@@ -317,9 +376,21 @@ async function deliverOutreach(args: {
   oneClickUrl: string;
   context: MergeContext;
 }): Promise<boolean> {
-  const { client, accountId, connection, enrollment, step, steps, firstEmail, footer, context } = args;
+  const {
+    client,
+    accountId,
+    connection,
+    enrollment,
+    step,
+    steps,
+    firstEmail,
+    footer,
+    context,
+  } = args;
 
-  const subject = firstEmail ? `Re: ${firstEmail.subject}` : renderTemplate(step.subject!, context);
+  const subject = firstEmail
+    ? `Re: ${firstEmail.subject}`
+    : renderTemplate(step.subject!, context);
   const body = renderTemplate(step.body, context);
 
   const { error: recordError } = await client.from('outreach_message').insert({
@@ -361,15 +432,25 @@ async function deliverOutreach(args: {
   } catch (error) {
     const { message } = error as Error;
     if (error instanceof MailboxNoResponse) {
-      await markMessage(client, enrollment, { status: 'unknown', error: message });
-      await noteError(client, [enrollment], 'Send result unknown; check the mailbox');
+      await markMessage(client, enrollment, {
+        status: 'unknown',
+        error: message,
+      });
+      await noteError(
+        client,
+        [enrollment],
+        'Send result unknown; check the mailbox',
+      );
     } else if (
       error instanceof MailboxRequestFailed &&
       error.status >= 400 &&
       error.status < 500 &&
       error.status !== 429
     ) {
-      await markMessage(client, enrollment, { status: 'failed', error: message });
+      await markMessage(client, enrollment, {
+        status: 'failed',
+        error: message,
+      });
       await failEnrollment(client, enrollment, message);
     } else {
       await client
@@ -440,7 +521,9 @@ async function recordTouch(
         ? { status: 'sent', sent_count: enrollment.sent_count + 1, error: null }
         : {
             current_step: next.ordinal,
-            next_send_at: new Date(Date.now() + next.delay_days * DAY_MS).toISOString(),
+            next_send_at: new Date(
+              Date.now() + next.delay_days * DAY_MS,
+            ).toISOString(),
             sent_count: enrollment.sent_count + 1,
             error: null,
           },
@@ -480,7 +563,10 @@ async function noteError(
   await client
     .from('outreach_enrollment')
     .update({ error: message })
-    .in('id', enrollments.map((enrollment) => enrollment.id))
+    .in(
+      'id',
+      enrollments.map((enrollment) => enrollment.id),
+    )
     .throwOnError();
 }
 
@@ -524,7 +610,12 @@ async function markMessage(
   client: OutreachClient,
   enrollment: OutreachEnrollmentRow,
   outcome:
-    | { status: 'sent'; provider_message_id: string; provider_thread_id: string; sent_at: string }
+    | {
+        status: 'sent';
+        provider_message_id: string;
+        provider_thread_id: string;
+        sent_at: string;
+      }
     | { status: 'failed' | 'unknown'; error: string },
 ): Promise<void> {
   await client
@@ -544,7 +635,8 @@ async function loadMergeContext(
 ): Promise<MergeContext> {
   const recipient = await loadContact(client, enrollment.contact_id);
   const firm = await loadFirm(client, enrollment.firm_id);
-  const industries = criteria.industries?.join(', ') ?? criteria.naics?.join(', ');
+  const industries =
+    criteria.industries?.join(', ') ?? criteria.naics?.join(', ');
   const revenueRange =
     criteria.min_revenue !== undefined
       ? `$${criteria.min_revenue.toLocaleString('en-US')}`
@@ -642,7 +734,9 @@ async function loadActiveConnection(
 ): Promise<MailboxConnection | null> {
   const { data, error } = await client
     .from('mailbox_connection')
-    .select('provider, nango_connection_id, provider_config_key, email_address, status')
+    .select(
+      'provider, nango_connection_id, provider_config_key, email_address, status',
+    )
     .eq('account_id', accountId)
     .maybeSingle();
 
@@ -683,7 +777,9 @@ async function loadDueEnrollments(
 ): Promise<OutreachEnrollmentRow[]> {
   const { data, error } = await client
     .from('outreach_enrollment')
-    .select('id, sequence_id, firm_id, contact_id, target_email, current_step, sent_count, unsubscribe_token')
+    .select(
+      'id, sequence_id, firm_id, contact_id, target_email, current_step, sent_count, unsubscribe_token',
+    )
     .eq('account_id', accountId)
     .eq('status', 'queued')
     .lte('next_send_at', now);

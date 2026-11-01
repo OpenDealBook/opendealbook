@@ -21,8 +21,10 @@ const seeded: {
 };
 
 export function recordingNovu() {
-  const sent: { workflowId: string; data: Parameters<NovuClient['trigger']>[1] }[] =
-    [];
+  const sent: {
+    workflowId: string;
+    data: Parameters<NovuClient['trigger']>[1];
+  }[] = [];
   const novu: NovuClient = {
     trigger: async (workflowId, data) => {
       sent.push({ workflowId, data });
@@ -89,20 +91,22 @@ export async function seedReview(options: {
   const seller = await createUser('seller');
   await admin
     .from('deal_counsel')
-    .insert([
-      ...(options.buyerCounsel === false
-        ? []
-        : [{ ...buyerCounsel, side: 'buyer' as const }]),
-      ...(options.sellerCounsel === false
-        ? []
-        : [{ ...sellerCounsel, side: 'seller' as const }]),
-    ].map((counsel) => ({
-      account_id: teamId,
-      deal_id: dealId,
-      side: counsel.side,
-      user_id: counsel.userId,
-      email: counsel.email,
-    })))
+    .insert(
+      [
+        ...(options.buyerCounsel === false
+          ? []
+          : [{ ...buyerCounsel, side: 'buyer' as const }]),
+        ...(options.sellerCounsel === false
+          ? []
+          : [{ ...sellerCounsel, side: 'seller' as const }]),
+      ].map((counsel) => ({
+        account_id: teamId,
+        deal_id: dealId,
+        side: counsel.side,
+        user_id: counsel.userId,
+        email: counsel.email,
+      })),
+    )
     .throwOnError();
 
   const { data: folder } = await admin
@@ -113,13 +117,22 @@ export async function seedReview(options: {
     .throwOnError();
   const { data: room } = await admin
     .from('seller_room')
-    .insert({ account_id: teamId, deal_id: dealId, uploads_folder_id: folder.id })
+    .insert({
+      account_id: teamId,
+      deal_id: dealId,
+      uploads_folder_id: folder.id,
+    })
     .select('id')
     .single()
     .throwOnError();
   await admin
     .from('seller_room_member')
-    .insert({ room_id: room.id, user_id: seller.userId, email: seller.email, name: 'Sam Vendor' })
+    .insert({
+      room_id: room.id,
+      user_id: seller.userId,
+      email: seller.email,
+      name: 'Sam Vendor',
+    })
     .throwOnError();
 
   const contractId = crypto.randomUUID();
@@ -233,7 +246,8 @@ export async function seedReview(options: {
           contract_version_id: versionId,
           side,
           decision: 'approved',
-          decided_by: side === 'buyer' ? buyerCounsel.userId : sellerCounsel.userId,
+          decided_by:
+            side === 'buyer' ? buyerCounsel.userId : sellerCounsel.userId,
           without_counsel: false,
           decided_at: decidedAt,
         })

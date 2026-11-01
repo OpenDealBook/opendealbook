@@ -39,17 +39,15 @@ const versions = [sdeNew, dealMid, sdeOld];
 
 describe('versionName', () => {
   it('uses the name a person gave the calc', () => {
-    expect(
-      shown({ ...sdeOld, name: 'Normalized 2025 SDE' }),
-    ).toBe('Normalized 2025 SDE');
+    expect(shown({ ...sdeOld, name: 'Normalized 2025 SDE' })).toBe(
+      'Normalized 2025 SDE',
+    );
   });
 
   it('numbers unnamed versions per type, oldest first, with the last saved time', () => {
     expect(shown(sdeOld)).toBe('SDE v1, saved Oct 20 3:14 PM');
     expect(shown(sdeNew)).toBe('SDE v2, saved Oct 20 3:14 PM');
-    expect(shown(dealMid)).toBe(
-      'Deal v1, saved Oct 20 3:14 PM',
-    );
+    expect(shown(dealMid)).toBe('Deal v1, saved Oct 20 3:14 PM');
   });
 
   it('treats a blank name as unnamed', () => {

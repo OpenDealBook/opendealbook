@@ -13,7 +13,10 @@ const world = vi.hoisted(() => ({
 }));
 
 vi.mock('@odb/workflows/builder/schedule', () => ({
-  syncWorkflowSchedules: async (input: { accountId: string; workflowId: string }) => {
+  syncWorkflowSchedules: async (input: {
+    accountId: string;
+    workflowId: string;
+  }) => {
     if (world.syncFails) {
       throw new Error('scheduler unreachable');
     }
@@ -197,30 +200,60 @@ describe('setWorkflowArchived', () => {
 
 describe('schedule sync', () => {
   it.each([
-    ['enabling', () => setWorkflowEnabled({ workflowId: WORKFLOW_ID, enabled: true }), { enabled: true, archived_at: null }],
-    ['disabling', () => setWorkflowEnabled({ workflowId: WORKFLOW_ID, enabled: false }), { enabled: false, archived_at: null }],
-    ['archiving', () => setWorkflowArchived({ workflowId: WORKFLOW_ID, archived: true }), { enabled: false, archived_at: expect.any(String) }],
-    ['unarchiving', () => setWorkflowArchived({ workflowId: WORKFLOW_ID, archived: false }), { enabled: false, archived_at: null }],
-  ])('syncs the team workflow schedules after %s it', async (_change, act, saved) => {
-    await act();
+    [
+      'enabling',
+      () => setWorkflowEnabled({ workflowId: WORKFLOW_ID, enabled: true }),
+      { enabled: true, archived_at: null },
+    ],
+    [
+      'disabling',
+      () => setWorkflowEnabled({ workflowId: WORKFLOW_ID, enabled: false }),
+      { enabled: false, archived_at: null },
+    ],
+    [
+      'archiving',
+      () => setWorkflowArchived({ workflowId: WORKFLOW_ID, archived: true }),
+      { enabled: false, archived_at: expect.any(String) },
+    ],
+    [
+      'unarchiving',
+      () => setWorkflowArchived({ workflowId: WORKFLOW_ID, archived: false }),
+      { enabled: false, archived_at: null },
+    ],
+  ])(
+    'syncs the team workflow schedules after %s it',
+    async (_change, act, saved) => {
+      await act();
 
-    expect(world.synced).toEqual([
-      { accountId: 'team-1', workflowId: WORKFLOW_ID, workflow: saved },
-    ]);
-  });
+      expect(world.synced).toEqual([
+        { accountId: 'team-1', workflowId: WORKFLOW_ID, workflow: saved },
+      ]);
+    },
+  );
 
   it.each([
-    ['enabling', () => setWorkflowEnabled({ workflowId: WORKFLOW_ID, enabled: true }), { enabled: true, archived_at: null }],
-    ['archiving', () => setWorkflowArchived({ workflowId: WORKFLOW_ID, archived: true }), { enabled: false, archived_at: expect.any(String) }],
-  ])('keeps the change and asks to retry when schedules cannot be updated after %s', async (_change, act, saved) => {
-    world.syncFails = true;
+    [
+      'enabling',
+      () => setWorkflowEnabled({ workflowId: WORKFLOW_ID, enabled: true }),
+      { enabled: true, archived_at: null },
+    ],
+    [
+      'archiving',
+      () => setWorkflowArchived({ workflowId: WORKFLOW_ID, archived: true }),
+      { enabled: false, archived_at: expect.any(String) },
+    ],
+  ])(
+    'keeps the change and asks to retry when schedules cannot be updated after %s',
+    async (_change, act, saved) => {
+      world.syncFails = true;
 
-    expect(await act()).toEqual({
-      ok: false,
-      refusal: "Saved, but schedules couldn't be updated; try again",
-    });
-    expect(world.workflow).toEqual(saved);
-  });
+      expect(await act()).toEqual({
+        ok: false,
+        refusal: "Saved, but schedules couldn't be updated; try again",
+      });
+      expect(world.workflow).toEqual(saved);
+    },
+  );
 
   it('syncs nothing when the change is refused', async () => {
     world.published = false;
@@ -256,7 +289,9 @@ describe('runWorkflowNow', () => {
       new ManualRunRefused(reason),
     );
 
-    expect(await runWorkflowNow({ workflowId: WORKFLOW_ID, requestId: REQUEST_ID })).toEqual({
+    expect(
+      await runWorkflowNow({ workflowId: WORKFLOW_ID, requestId: REQUEST_ID }),
+    ).toEqual({
       ok: false,
       refusal: message,
     });
@@ -265,8 +300,8 @@ describe('runWorkflowNow', () => {
   it('fails loudly on an error that is not a refusal', async () => {
     world.startManualWorkflowRun.mockRejectedValue(new Error('temporal down'));
 
-    await expect(runWorkflowNow({ workflowId: WORKFLOW_ID, requestId: REQUEST_ID })).rejects.toThrow(
-      'temporal down',
-    );
+    await expect(
+      runWorkflowNow({ workflowId: WORKFLOW_ID, requestId: REQUEST_ID }),
+    ).rejects.toThrow('temporal down');
   });
 });

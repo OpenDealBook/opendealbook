@@ -102,9 +102,8 @@ describe('contract review reminder email', () => {
         },
       ),
     );
-    const email = (
-      (await response.json()) as { outputs: { subject: string } }
-    ).outputs;
+    const email = ((await response.json()) as { outputs: { subject: string } })
+      .outputs;
 
     expect(email.subject).toBe(
       'Your sign-off on LOI extension version 1 for Project Falcon is waiting',

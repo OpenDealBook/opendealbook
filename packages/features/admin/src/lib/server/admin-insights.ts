@@ -1,8 +1,8 @@
 'use server';
 
-import { enhanceAction } from '@odb/next/actions';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { enhanceAction } from '@odb/next/actions';
 import type { Database } from '@odb/supabase';
 import {
   getSupabaseServerAdminClient,

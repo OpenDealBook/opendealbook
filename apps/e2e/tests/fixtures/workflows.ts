@@ -3,16 +3,36 @@ import { expect } from '@playwright/test';
 import { insert, rows } from './db';
 
 type Graph = {
-  nodes: { id: string; type: string; label?: string; config: Record<string, unknown> }[];
-  edges: { id: string; sourceNodeId: string; targetNodeId: string; sourceHandle?: string }[];
+  nodes: {
+    id: string;
+    type: string;
+    label?: string;
+    config: Record<string, unknown>;
+  }[];
+  edges: {
+    id: string;
+    sourceNodeId: string;
+    targetNodeId: string;
+    sourceHandle?: string;
+  }[];
 };
 
 const trigger = { id: 'start', type: 'manual_trigger', config: {} };
 
 export function notifyGraph(message: string, label?: string): Graph {
   return {
-    nodes: [trigger, { id: 'notify', type: 'notify_team', ...(label ? { label } : {}), config: { message } }],
-    edges: [{ id: 'start-notify', sourceNodeId: 'start', targetNodeId: 'notify' }],
+    nodes: [
+      trigger,
+      {
+        id: 'notify',
+        type: 'notify_team',
+        ...(label ? { label } : {}),
+        config: { message },
+      },
+    ],
+    edges: [
+      { id: 'start-notify', sourceNodeId: 'start', targetNodeId: 'notify' },
+    ],
   };
 }
 
@@ -20,7 +40,10 @@ export const FAILING_MESSAGE = '{{steps.start.missing}}';
 export const INVALID_GRAPH_MESSAGE = '{{steps.nope.x}}';
 
 export async function teamIdOf(teamSlug: string): Promise<string> {
-  const [team] = await rows<{ id: string }>('accounts', `slug=eq.${teamSlug}&select=id`);
+  const [team] = await rows<{ id: string }>(
+    'accounts',
+    `slug=eq.${teamSlug}&select=id`,
+  );
   return team!.id;
 }
 
@@ -86,14 +109,32 @@ export function loopTodoGraph(items: string[]): Graph {
         id: 'todo',
         type: 'create_todo',
         label: 'Make to-do',
-        config: { title: 'Check {{steps.loop.item}}', assignees: { kind: 'deal_managers' } },
+        config: {
+          title: 'Check {{steps.loop.item}}',
+          assignees: { kind: 'deal_managers' },
+        },
       },
-      { id: 'notify', type: 'notify_team', label: 'All done', config: { message: 'Every item is checked' } },
+      {
+        id: 'notify',
+        type: 'notify_team',
+        label: 'All done',
+        config: { message: 'Every item is checked' },
+      },
     ],
     edges: [
       { id: 'start-loop', sourceNodeId: 'start', targetNodeId: 'loop' },
-      { id: 'loop-todo', sourceNodeId: 'loop', targetNodeId: 'todo', sourceHandle: 'each' },
-      { id: 'loop-notify', sourceNodeId: 'loop', targetNodeId: 'notify', sourceHandle: 'done' },
+      {
+        id: 'loop-todo',
+        sourceNodeId: 'loop',
+        targetNodeId: 'todo',
+        sourceHandle: 'each',
+      },
+      {
+        id: 'loop-notify',
+        sourceNodeId: 'loop',
+        targetNodeId: 'notify',
+        sourceHandle: 'done',
+      },
     ],
   };
 }
@@ -102,14 +143,39 @@ export function approvalGraph(prompt: string): Graph {
   return {
     nodes: [
       trigger,
-      { id: 'ask', type: 'approval', label: 'Ask the team', config: { prompt } },
-      { id: 'yes', type: 'notify_team', label: 'Approved path', config: { message: 'Approved by the team' } },
-      { id: 'no', type: 'notify_team', label: 'Rejected path', config: { message: 'Rejected by the team' } },
+      {
+        id: 'ask',
+        type: 'approval',
+        label: 'Ask the team',
+        config: { prompt },
+      },
+      {
+        id: 'yes',
+        type: 'notify_team',
+        label: 'Approved path',
+        config: { message: 'Approved by the team' },
+      },
+      {
+        id: 'no',
+        type: 'notify_team',
+        label: 'Rejected path',
+        config: { message: 'Rejected by the team' },
+      },
     ],
     edges: [
       { id: 'start-ask', sourceNodeId: 'start', targetNodeId: 'ask' },
-      { id: 'ask-yes', sourceNodeId: 'ask', targetNodeId: 'yes', sourceHandle: 'approved' },
-      { id: 'ask-no', sourceNodeId: 'ask', targetNodeId: 'no', sourceHandle: 'rejected' },
+      {
+        id: 'ask-yes',
+        sourceNodeId: 'ask',
+        targetNodeId: 'yes',
+        sourceHandle: 'approved',
+      },
+      {
+        id: 'ask-no',
+        sourceNodeId: 'ask',
+        targetNodeId: 'no',
+        sourceHandle: 'rejected',
+      },
     ],
   };
 }

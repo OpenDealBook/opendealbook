@@ -2,6 +2,7 @@
 
 import { z } from 'zod';
 
+import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
 import { appendDealEvent } from '@odb/events';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
@@ -9,7 +10,6 @@ import {
   checklistImportanceSchema,
   checklistWaitingOnSchema,
 } from '../schema/enums';
-import { applyChecklistTemplateTo } from '@odb/deal-timeline/checklist-template.ts';
 import { Refusal, refusableAction } from './refusal';
 
 const applyChecklistTemplateSchema = z.object({

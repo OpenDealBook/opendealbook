@@ -2,7 +2,10 @@ import { normalizeName } from '../leadMatch/matcher';
 
 const MIN_NAME_PART_LETTERS = 3;
 
-export function nameTerms(names: string[], minPartLetters = MIN_NAME_PART_LETTERS): string[] {
+export function nameTerms(
+  names: string[],
+  minPartLetters = MIN_NAME_PART_LETTERS,
+): string[] {
   const terms = names.flatMap((name) => [
     name,
     ...name
@@ -15,25 +18,44 @@ export function nameTerms(names: string[], minPartLetters = MIN_NAME_PART_LETTER
 }
 
 function comparable(word: string): string {
-  return normalizeName(word.normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘`]/g, "'"));
+  return normalizeName(
+    word
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[’‘`]/g, "'"),
+  );
 }
 
 function wordsOf(text: string) {
   return [...text.matchAll(/[\p{L}\p{M}\p{N}'’‘`.]+|&/gu)]
-    .map((match) => ({ start: match.index, end: match.index + match[0].length, word: comparable(match[0]) }))
+    .map((match) => ({
+      start: match.index,
+      end: match.index + match[0].length,
+      word: comparable(match[0]),
+    }))
     .filter((token) => token.word !== '');
 }
 
-export function maskTerms(text: string, terms: { term: string; mask: string }[]): string {
+export function maskTerms(
+  text: string,
+  terms: { term: string; mask: string }[],
+): string {
   const patterns = terms
-    .map(({ term, mask }) => ({ words: wordsOf(term).map((token) => token.word), mask }))
+    .map(({ term, mask }) => ({
+      words: wordsOf(term).map((token) => token.word),
+      mask,
+    }))
     .filter((pattern) => pattern.words.length > 0)
     .sort((a, b) => b.words.length - a.words.length);
   const tokens = wordsOf(text);
   let masked = '';
   let cursor = 0;
   for (let index = 0; index < tokens.length; ) {
-    const hit = patterns.find((pattern) => pattern.words.every((word, offset) => tokens[index + offset]?.word === word));
+    const hit = patterns.find((pattern) =>
+      pattern.words.every(
+        (word, offset) => tokens[index + offset]?.word === word,
+      ),
+    );
     if (!hit) {
       index += 1;
       continue;

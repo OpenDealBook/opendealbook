@@ -85,8 +85,15 @@ export async function matchImportedRecords({
 
   let after: string | null = null;
   for (;;) {
-    const firstPage = db.from(shape.table).select(columns).eq('import_id', importId).order(shape.key).limit(BATCH_SIZE);
-    const { data: page } = await (after === null ? firstPage : firstPage.gt(shape.key, after)).throwOnError();
+    const firstPage = db
+      .from(shape.table)
+      .select(columns)
+      .eq('import_id', importId)
+      .order(shape.key)
+      .limit(BATCH_SIZE);
+    const { data: page } = await (
+      after === null ? firstPage : firstPage.gt(shape.key, after)
+    ).throwOnError();
     const records = page as unknown as SourceRecord[];
 
     for (const record of records) {
@@ -99,7 +106,11 @@ export async function matchImportedRecords({
   }
 }
 
-async function matchRecord(db: SupabaseClient, shape: SourceShape, record: SourceRecord) {
+async function matchRecord(
+  db: SupabaseClient,
+  shape: SourceShape,
+  record: SourceRecord,
+) {
   const einPatch = record.ein ? { ein: record.ein } : {};
   if (record.ein) {
     const { data: held } = await db
@@ -117,7 +128,15 @@ async function matchRecord(db: SupabaseClient, shape: SourceShape, record: Sourc
   const key = matchKey(record);
   if (!key) {
     if (record.ein) {
-      await link(db, shape, record, await findOrCreateBusinessId(db, 'ein', record.ein, { name: record.name, ...einPatch }));
+      await link(
+        db,
+        shape,
+        record,
+        await findOrCreateBusinessId(db, 'ein', record.ein, {
+          name: record.name,
+          ...einPatch,
+        }),
+      );
     }
     return;
   }
@@ -127,30 +146,54 @@ async function matchRecord(db: SupabaseClient, shape: SourceShape, record: Sourc
     .select('id, name, ein')
     .like('match_key', `${matchBlock(record)}%`)
     .throwOnError();
-  const best = bestCandidate<{ id: string; name: string; ein: string | null }>(record.name, candidates);
+  const best = bestCandidate<{ id: string; name: string; ein: string | null }>(
+    record.name,
+    candidates,
+  );
   const outcome = best ? matchOutcome(best.score) : 'drop';
 
-  const reason = outcome === 'review' ? 'weak_match' : outcome === 'link' && record.ein && best!.ein ? 'ein_conflict' : null;
+  const reason =
+    outcome === 'review'
+      ? 'weak_match'
+      : outcome === 'link' && record.ein && best!.ein
+        ? 'ein_conflict'
+        : null;
 
   if (reason && (await queueReviews(db, shape, record, best!, reason)) > 0) {
     return;
   }
   if (outcome === 'link' && !reason) {
     if (record.ein) {
-      await db.from('public_business').update(einPatch).eq('id', best!.id).throwOnError();
+      await db
+        .from('public_business')
+        .update(einPatch)
+        .eq('id', best!.id)
+        .throwOnError();
     }
     await link(db, shape, record, best!.id);
     return;
   }
   if (reason === 'ein_conflict') {
-    await link(db, shape, record, await findOrCreateBusinessId(db, 'ein', record.ein!, { name: record.name, ...einPatch }));
+    await link(
+      db,
+      shape,
+      record,
+      await findOrCreateBusinessId(db, 'ein', record.ein!, {
+        name: record.name,
+        ...einPatch,
+      }),
+    );
     return;
   }
   await link(
     db,
     shape,
     record,
-    await findOrCreateBusinessId(db, 'match_key', key, { name: record.name, match_key: key, ...einPatch }),
+    await findOrCreateBusinessId(db, 'match_key', key, {
+      name: record.name,
+      match_key: key,
+      ...einPatch,
+    }),
   );
 }
 
@@ -164,12 +207,26 @@ async function findOrCreateBusinessId(
     .from('public_business')
     .upsert(newBusiness, { onConflict: column, ignoreDuplicates: true })
     .throwOnError();
-  const { data } = await db.from('public_business').select('id').eq(column, value).single().throwOnError();
+  const { data } = await db
+    .from('public_business')
+    .select('id')
+    .eq(column, value)
+    .single()
+    .throwOnError();
   return data.id;
 }
 
-async function link(db: SupabaseClient, shape: SourceShape, record: SourceRecord, businessId: string) {
-  await db.from(shape.table).update({ business_id: businessId }).eq(shape.key, record.key).throwOnError();
+async function link(
+  db: SupabaseClient,
+  shape: SourceShape,
+  record: SourceRecord,
+  businessId: string,
+) {
+  await db
+    .from(shape.table)
+    .update({ business_id: businessId })
+    .eq(shape.key, record.key)
+    .throwOnError();
 }
 
 async function queueReviews(
@@ -183,9 +240,16 @@ async function queueReviews(
   const { data: firms } = await db
     .from('firm')
     .select('account_id')
-    .or([`public_business_id.eq.${candidate.id}`, ...(eins.length ? [`ein.in.(${eins.join(',')})`] : [])].join(','))
+    .or(
+      [
+        `public_business_id.eq.${candidate.id}`,
+        ...(eins.length ? [`ein.in.(${eins.join(',')})`] : []),
+      ].join(','),
+    )
     .throwOnError();
-  const teams = [...new Set(firms.map((firm: { account_id: string }) => firm.account_id))];
+  const teams = [
+    ...new Set(firms.map((firm: { account_id: string }) => firm.account_id)),
+  ];
 
   await db
     .from('business_match_review')
@@ -198,7 +262,8 @@ async function queueReviews(
         reason,
       })),
       {
-        onConflict: 'account_id,business_id,ppp_loan_number,sba_loan_id,form_5500_ack_id,registry_entity_id',
+        onConflict:
+          'account_id,business_id,ppp_loan_number,sba_loan_id,form_5500_ack_id,registry_entity_id',
         ignoreDuplicates: true,
       },
     )

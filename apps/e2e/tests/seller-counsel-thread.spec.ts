@@ -25,27 +25,52 @@ test('the seller and their counsel share a private thread with attachments that 
   test.setTimeout(180 * 1000);
 
   const stamp = Date.now();
-  const sellerPerson = { email: newCredentials().email, name: `Sal Seller ${stamp}` };
-  const sellerCounsel = { email: newCredentials().email, name: `Cora Counsel ${stamp}` };
-  const buyerCounsel = { email: newCredentials().email, name: `Bea Buyer ${stamp}` };
+  const sellerPerson = {
+    email: newCredentials().email,
+    name: `Sal Seller ${stamp}`,
+  };
+  const sellerCounsel = {
+    email: newCredentials().email,
+    name: `Cora Counsel ${stamp}`,
+  };
+  const buyerCounsel = {
+    email: newCredentials().email,
+    name: `Bea Buyer ${stamp}`,
+  };
 
   await auth.signUp(page);
   const teamSlug = await completeTeamOnboarding(page, `Thread Team ${stamp}`);
-  const { dealId, dealPath } = await createDeal(page, teamSlug, `Thread Deal ${stamp}`);
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  const { dealId, dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Thread Deal ${stamp}`,
+  );
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   await page.goto(`${dealPath}/parties`);
   await sellerFlow.invite(page, sellerPerson);
   const sellerSide = await freshPage(browser);
-  const roomId = await sellerFlow.signIn(sellerSide.page, { email: sellerPerson.email });
+  const roomId = await sellerFlow.signIn(sellerSide.page, {
+    email: sellerPerson.email,
+  });
   await counsel.inviteSellerCounsel(sellerSide.page, sellerCounsel);
   const counselSide = await freshPage(browser);
-  await counsel.signIn(counselSide.page, { email: sellerCounsel.email, dealId });
+  await counsel.signIn(counselSide.page, {
+    email: sellerCounsel.email,
+    dealId,
+  });
 
   await page.goto(`${dealPath}/parties`);
   await counsel.inviteBuyerCounsel(page, buyerCounsel);
   const buyerCounselSide = await freshPage(browser);
-  await counsel.signIn(buyerCounselSide.page, { email: buyerCounsel.email, dealId });
+  await counsel.signIn(buyerCounselSide.page, {
+    email: buyerCounsel.email,
+    dealId,
+  });
 
   const threadPath = `/seller/rooms/${roomId}/counsel`;
   const clientPath = `/counsel/${dealId}/client`;
@@ -66,7 +91,9 @@ test('the seller and their counsel share a private thread with attachments that 
   });
   await sellerSide.page.getByRole('button', { name: 'Send' }).click();
   await expect(sellerSide.page.getByText(body)).toBeVisible();
-  await expect(sellerSide.page.getByRole('link', { name: 'P&L.xlsx' })).toBeVisible();
+  await expect(
+    sellerSide.page.getByRole('link', { name: 'P&L.xlsx' }),
+  ).toBeVisible();
 
   const arrivedLive = await expect(counselSide.page.getByText(body))
     .toBeVisible()
@@ -78,12 +105,17 @@ test('the seller and their counsel share a private thread with attachments that 
     await counselSide.page.reload();
     await expect(counselSide.page.getByText(body)).toBeVisible();
   }
-  expect(arrivedLive, 'the message reached the open counsel page without a reload').toBe(true);
+  expect(
+    arrivedLive,
+    'the message reached the open counsel page without a reload',
+  ).toBe(true);
   const emailed = await waitForMessageContaining({
     to: sellerCounsel.email,
     text: `/counsel/${dealId}/client#seller-counsel-message-`,
   });
-  expect(emailed.html + emailed.text).toMatch(/#seller-counsel-message-[0-9a-f-]{36}/);
+  expect(emailed.html + emailed.text).toMatch(
+    /#seller-counsel-message-[0-9a-f-]{36}/,
+  );
   const [download] = await Promise.all([
     counselSide.page.waitForEvent('download'),
     counselSide.page.getByRole('link', { name: 'P&L.xlsx' }).click(),
@@ -96,8 +128,12 @@ test('the seller and their counsel share a private thread with attachments that 
     buffer: Buffer.from('hello'),
   });
   await counselSide.page.getByRole('button', { name: 'Send' }).click();
-  await expect(counselSide.page.getByRole('link', { name: 'only-a-file.txt' })).toBeVisible();
-  await expect(sellerSide.page.getByRole('link', { name: 'only-a-file.txt' })).toBeVisible();
+  await expect(
+    counselSide.page.getByRole('link', { name: 'only-a-file.txt' }),
+  ).toBeVisible();
+  await expect(
+    sellerSide.page.getByRole('link', { name: 'only-a-file.txt' }),
+  ).toBeVisible();
 
   await sellerSide.page.getByLabel('Attach files').setInputFiles(
     Array.from({ length: 21 }, (_, index) => ({
@@ -107,11 +143,15 @@ test('the seller and their counsel share a private thread with attachments that 
     })),
   );
   await sellerSide.page.getByRole('button', { name: 'Send' }).click();
-  await expect(sellerSide.page.getByText('Attach at most 20 files to one message.')).toBeVisible();
+  await expect(
+    sellerSide.page.getByText('Attach at most 20 files to one message.'),
+  ).toBeVisible();
   await sellerSide.page.getByLabel('Attach files').setInputFiles([]);
   await sellerSide.page.getByLabel('Message').fill('x'.repeat(10_001));
   await sellerSide.page.getByRole('button', { name: 'Send' }).click();
-  await expect(sellerSide.page.getByText('A message can be at most 10,000 characters.')).toBeVisible();
+  await expect(
+    sellerSide.page.getByText('A message can be at most 10,000 characters.'),
+  ).toBeVisible();
 
   for (const [outsider, path] of [
     [page, threadPath],

@@ -49,7 +49,10 @@ function textOrNotSet(value: string | number | null): string {
   return value === null ? 'Not set' : String(value);
 }
 
-const FLAG_LABELS: { key: 'non_compete' | 'non_solicit' | 'key_person'; label: string }[] = [
+const FLAG_LABELS: {
+  key: 'non_compete' | 'non_solicit' | 'key_person';
+  label: string;
+}[] = [
   { key: 'key_person', label: 'Key person' },
   { key: 'non_compete', label: 'Non-compete' },
   { key: 'non_solicit', label: 'Non-solicit' },

@@ -21,7 +21,10 @@ function unzip(zip: Buffer): { name: string; data: Buffer }[] {
     const localOffset = zip.readUInt32LE(cursor + 42);
     const name = zip.toString('utf8', cursor + 46, cursor + 46 + nameLength);
     const dataStart =
-      localOffset + 30 + zip.readUInt16LE(localOffset + 26) + zip.readUInt16LE(localOffset + 28);
+      localOffset +
+      30 +
+      zip.readUInt16LE(localOffset + 26) +
+      zip.readUInt16LE(localOffset + 28);
     const raw = zip.subarray(dataStart, dataStart + compressedSize);
 
     if (!name.endsWith('/')) {
@@ -109,7 +112,10 @@ export function templateDocument(paragraphs: string[]): Buffer {
             data: Buffer.from(
               file.data
                 .toString('utf8')
-                .replace(/<w:body>[\s\S]*?(<w:sectPr[\s\S]*<\/w:sectPr>)?<\/w:body>/, `<w:body>${body}$1</w:body>`),
+                .replace(
+                  /<w:body>[\s\S]*?(<w:sectPr[\s\S]*<\/w:sectPr>)?<\/w:body>/,
+                  `<w:body>${body}$1</w:body>`,
+                ),
             ),
           }
         : file,

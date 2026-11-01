@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { fakeAiProvider } from '../../test-support/fake-ai-provider';
 import {
   completeEmbeddingJob,
   createEmbeddingJob,
@@ -8,7 +9,6 @@ import {
   failEmbeddingJob,
   markEmbeddingJobRunning,
 } from '../activities';
-import { fakeAiProvider } from '../../test-support/fake-ai-provider';
 import { EMBEDDING_DIMENSIONS } from './embeddings';
 
 const state = vi.hoisted(() => ({ client: null as unknown }));
@@ -40,10 +40,16 @@ function makeClient(config: FakeConfig) {
         select: () => builder,
         eq: () => builder,
         limit: () => builder,
-        single: async () => ({ data: config.rows?.[table] ?? null, error: null }),
+        single: async () => ({
+          data: config.rows?.[table] ?? null,
+          error: null,
+        }),
         insert(rows: unknown) {
           capture.inserts[table] = rows;
-          const result = { data: config.insertReturn?.[table] ?? null, error: null };
+          const result = {
+            data: config.insertReturn?.[table] ?? null,
+            error: null,
+          };
           return {
             select: () => ({ single: async () => result }),
             then: (resolve: (value: { error: null }) => unknown) =>
@@ -72,7 +78,10 @@ const chunkScope = {
 
 let provider: Awaited<ReturnType<typeof fakeAiProvider>> | undefined;
 
-async function serveEmbeddings(team: FakeTeam, dimension: number): Promise<void> {
+async function serveEmbeddings(
+  team: FakeTeam,
+  dimension: number,
+): Promise<void> {
   provider = await fakeAiProvider({
     status: 200,
     body: { data: [{ index: 0, embedding: Array(dimension).fill(0.1) }] },
@@ -172,7 +181,9 @@ function settled(data: unknown) {
 function makeTeamClient(team: FakeTeam) {
   return {
     from: (table: string) => ({
-      select: () => ({ eq: () => ({ maybeSingle: () => settled(team.endpoint) }) }),
+      select: () => ({
+        eq: () => ({ maybeSingle: () => settled(team.endpoint) }),
+      }),
       insert: async (rows: Array<Record<string, unknown>>) => {
         team.chunks = rows;
         return { error: null };
@@ -230,7 +241,10 @@ describe('embedDocumentChunks', () => {
       {
         path: '/v1/embeddings',
         headers: { authorization: 'Bearer sk-vault' },
-        body: { model: 'text-embedding-3-small', input: ['# Only\n\nOne short chunk from Priya Okafor.'] },
+        body: {
+          model: 'text-embedding-3-small',
+          input: ['# Only\n\nOne short chunk from Priya Okafor.'],
+        },
       },
     ]);
     expect(team.chunks).toHaveLength(1);
@@ -241,7 +255,9 @@ describe('embedDocumentChunks', () => {
       chunk_index: 0,
       content: markdown,
     });
-    expect(JSON.parse(team.chunks![0]!.embedding as string)).toHaveLength(EMBEDDING_DIMENSIONS);
+    expect(JSON.parse(team.chunks![0]!.embedding as string)).toHaveLength(
+      EMBEDDING_DIMENSIONS,
+    );
   });
 
   it('counts one AI call per document against the cap, logged to the deal without token counts', async () => {
@@ -259,7 +275,12 @@ describe('embedDocumentChunks', () => {
       }),
     ]);
     expect(team.usage).toEqual([
-      { table: 'ai_call_log', id: 'call-1', prompt_tokens: null, completion_tokens: null },
+      {
+        table: 'ai_call_log',
+        id: 'call-1',
+        prompt_tokens: null,
+        completion_tokens: null,
+      },
     ]);
   });
 
@@ -274,24 +295,38 @@ describe('embedDocumentChunks', () => {
   });
 
   it.each([
-    ['no key', (team: FakeTeam) => (team.apiKey = null), 'Connect an AI provider first'],
+    [
+      'no key',
+      (team: FakeTeam) => (team.apiKey = null),
+      'Connect an AI provider first',
+    ],
     [
       'no embedding model',
       (team: FakeTeam) => (team.endpoint!.model = null),
       'Add an embedding model to your AI provider',
     ],
-  ])('skips with no provider call or chunks when the team has %s, recording why on the job', async (_case, unset, reason) => {
-    const team = connectedTeam();
-    unset(team);
-    await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
+  ])(
+    'skips with no provider call or chunks when the team has %s, recording why on the job',
+    async (_case, unset, reason) => {
+      const team = connectedTeam();
+      unset(team);
+      await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-    const result = await embedDocumentChunks({ ...chunkScope, markdown });
+      const result = await embedDocumentChunks({ ...chunkScope, markdown });
 
-    expect(result).toEqual({ skippedReason: reason });
-    expect(provider!.received).toEqual([]);
-    expect(team.chunks).toBeUndefined();
-    expect(team.usage).toEqual([{ table: 'embedding_job', id: 'job1', status: 'skipped', skipped_reason: reason }]);
-  });
+      expect(result).toEqual({ skippedReason: reason });
+      expect(provider!.received).toEqual([]);
+      expect(team.chunks).toBeUndefined();
+      expect(team.usage).toEqual([
+        {
+          table: 'embedding_job',
+          id: 'job1',
+          status: 'skipped',
+          skipped_reason: reason,
+        },
+      ]);
+    },
+  );
 
   it.each([
     [
@@ -304,16 +339,28 @@ describe('embedDocumentChunks', () => {
       (team: FakeTeam) => (team.endpoint!.provider = 'anthropic'),
       'Anthropic has no embeddings API; leave Embedding model empty',
     ],
-  ])('skips %s, writing nothing and recording why on the job', async (_case, arrange, reason) => {
-    const team = connectedTeam();
-    arrange(team);
-    await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
+  ])(
+    'skips %s, writing nothing and recording why on the job',
+    async (_case, arrange, reason) => {
+      const team = connectedTeam();
+      arrange(team);
+      await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-    expect(await embedDocumentChunks({ ...chunkScope, markdown })).toEqual({ skippedReason: reason });
-    expect(provider!.received).toEqual([]);
-    expect(team.chunks).toBeUndefined();
-    expect(team.usage).toEqual([{ table: 'embedding_job', id: 'job1', status: 'skipped', skipped_reason: reason }]);
-  });
+      expect(await embedDocumentChunks({ ...chunkScope, markdown })).toEqual({
+        skippedReason: reason,
+      });
+      expect(provider!.received).toEqual([]);
+      expect(team.chunks).toBeUndefined();
+      expect(team.usage).toEqual([
+        {
+          table: 'embedding_job',
+          id: 'job1',
+          status: 'skipped',
+          skipped_reason: reason,
+        },
+      ]);
+    },
+  );
 });
 
 function makeExtractClient() {

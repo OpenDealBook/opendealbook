@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import type { z } from 'zod';
+
 import { Button } from '@odb/ui/button';
 import {
   Dialog,
@@ -19,14 +21,12 @@ import {
   SelectValue,
 } from '@odb/ui/select';
 
-import type { z } from 'zod';
-
+import { ROLE_LABELS } from '../../role-labels';
 import {
   INVITABLE_ROLES,
   invitableRoleSchema,
 } from '../../schema/invite-members.schema';
 import { updateMemberRoleAction } from '../../server/members-actions';
-import { ROLE_LABELS } from '../../role-labels';
 
 type InvitableRole = z.infer<typeof invitableRoleSchema>;
 

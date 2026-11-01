@@ -12,7 +12,13 @@ describe('ensureSbaRefreshSchedule', () => {
     await ensureSbaRefreshSchedule(client);
 
     expect(schedules.get('sba-loans-refresh')?.spec).toEqual({
-      calendars: [{ month: ['FEBRUARY', 'MAY', 'AUGUST', 'NOVEMBER'], dayOfMonth: 1, hour: 6 }],
+      calendars: [
+        {
+          month: ['FEBRUARY', 'MAY', 'AUGUST', 'NOVEMBER'],
+          dayOfMonth: 1,
+          hour: 6,
+        },
+      ],
     });
   });
 });

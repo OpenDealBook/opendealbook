@@ -21,7 +21,8 @@ export function computeGuaranteeFee(
   schedule: SbaFeeSchedule,
 ): number | null {
   const tier = schedule.tiers.find(
-    (candidate) => candidate.max_loan == null || loanAmount <= candidate.max_loan,
+    (candidate) =>
+      candidate.max_loan == null || loanAmount <= candidate.max_loan,
   );
   if (tier === undefined) {
     return null;

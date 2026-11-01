@@ -1,9 +1,9 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { uploadTemplateFixtures } from './upload-template-fixtures';
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 type Upload = {
   bucket: string;
@@ -74,7 +74,9 @@ describe('uploadTemplateFixtures', () => {
 
     await uploadTemplateFixtures();
 
-    const loi = uploads.find((upload) => upload.path === 'acct-1/tmpl-loi/v1.docx');
+    const loi = uploads.find(
+      (upload) => upload.path === 'acct-1/tmpl-loi/v1.docx',
+    );
     expect(loi?.bucket).toBe('templates');
     expect(loi?.options).toEqual({
       contentType: DOCX_CONTENT_TYPE,
@@ -82,7 +84,9 @@ describe('uploadTemplateFixtures', () => {
     });
     expect(loi?.bytes).toEqual(fixtureBytes('loi-standard.docx'));
 
-    const apa = uploads.find((upload) => upload.path === 'acct-2/tmpl-apa/v3.docx');
+    const apa = uploads.find(
+      (upload) => upload.path === 'acct-2/tmpl-apa/v3.docx',
+    );
     expect(apa?.bytes).toEqual(fixtureBytes('apa-short.docx'));
   });
 

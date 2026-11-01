@@ -10,12 +10,18 @@ export function providerKey(
   accountId: string,
   kind: 'email_lookup',
 ): Promise<(ProviderKey & { actorId: string }) | null>;
-export function providerKey(accountId: string, kind: 'letters' | 'courts'): Promise<ProviderKey | null>;
+export function providerKey(
+  accountId: string,
+  kind: 'letters' | 'courts',
+): Promise<ProviderKey | null>;
 export function providerKey(
   accountId: string,
   kind: 'court_records',
 ): Promise<(ProviderKey & { provider: 'baselayer' | 'middesk' }) | null>;
-export async function providerKey(accountId: string, kind: 'email_lookup' | 'letters' | 'courts' | 'court_records') {
+export async function providerKey(
+  accountId: string,
+  kind: 'email_lookup' | 'letters' | 'courts' | 'court_records',
+) {
   const { data } = await getSupabaseServerAdminClient()
     .rpc('provider_key', { p_account_id: accountId, p_kind: kind })
     .maybeSingle()
@@ -23,6 +29,10 @@ export async function providerKey(accountId: string, kind: 'email_lookup' | 'let
   if (!data) {
     return null;
   }
-  const key = { apiKey: data.api_key, provider: data.provider, baseUrl: data.base_url };
+  const key = {
+    apiKey: data.api_key,
+    provider: data.provider,
+    baseUrl: data.base_url,
+  };
   return kind === 'email_lookup' ? { ...key, actorId: data.actor_id! } : key;
 }

@@ -142,9 +142,7 @@ describe('threeYearProjection debt service', () => {
       sources,
       dscrOptions: {},
       basis: MONTHS_FROM_CLOSE,
-    }).map(
-      (year) => year.debt_service_by_source,
-    );
+    }).map((year) => year.debt_service_by_source);
   const note = (standby_months?: number): FundingSource => ({
     type: 'seller_financing',
     amount: 200_000,
@@ -382,7 +380,9 @@ describe('dscrSensitivity', () => {
       taxRate: 0.2564,
     });
 
-    expect(band.map((point) => point.scale)).toEqual([-0.5, -0.25, 0, 0.25, 0.5]);
+    expect(band.map((point) => point.scale)).toEqual([
+      -0.5, -0.25, 0, 0.25, 0.5,
+    ]);
 
     const base = band.find((point) => point.scale === 0)!;
     expect(round2(base.dscr!)).toBe(1.43);
@@ -460,12 +460,16 @@ describe('threeYearProjection on fiscal years', () => {
 
   it('refuses a fiscal year without a close date or fiscal year end', () => {
     expect(
-      yearBasisSchema.safeParse({ kind: 'fiscal_year', fiscal_year_end_month: 12 })
-        .success,
+      yearBasisSchema.safeParse({
+        kind: 'fiscal_year',
+        fiscal_year_end_month: 12,
+      }).success,
     ).toBe(false);
     expect(
-      yearBasisSchema.safeParse({ kind: 'fiscal_year', close_date: '2026-03-15' })
-        .success,
+      yearBasisSchema.safeParse({
+        kind: 'fiscal_year',
+        close_date: '2026-03-15',
+      }).success,
     ).toBe(false);
   });
 });

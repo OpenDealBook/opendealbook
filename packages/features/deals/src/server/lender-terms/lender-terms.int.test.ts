@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
-
 import { TEAM_READ_ONLY } from '@odb/next';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 import {
   type IntegrationAccount,

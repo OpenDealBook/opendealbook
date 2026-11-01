@@ -53,7 +53,8 @@ export async function trialDrip(input: TrialDripInput): Promise<void> {
       dayKey: send.dayKey,
       productName: input.productName,
       userName: input.userName,
-      link: send.dayKey === 'trial-day-6' ? input.upgradeLink : input.actionLink,
+      link:
+        send.dayKey === 'trial-day-6' ? input.upgradeLink : input.actionLink,
     });
   }
 }

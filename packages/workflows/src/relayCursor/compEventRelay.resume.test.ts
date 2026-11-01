@@ -28,7 +28,9 @@ const temporal = vi.hoisted(() => {
   }
   const retrying =
     (maximumAttempts: number) =>
-    <T extends Record<string, (input: never) => Promise<unknown>>>(activities: T) =>
+    <T extends Record<string, (input: never) => Promise<unknown>>>(
+      activities: T,
+    ) =>
       Object.fromEntries(
         Object.entries(activities).map(([name, activity]) => [
           name,
@@ -52,25 +54,28 @@ vi.mock('@temporalio/workflow', () => ({
   ActivityFailure: temporal.ActivityFailure,
   proxyActivities: (options: { retry?: { maximumAttempts?: number } }) =>
     temporal.retrying(options.retry?.maximumAttempts ?? 100)({
-    loadRelayCursor: async (name: string) => savedCursors.get(name) ?? null,
-    saveRelayCursor: async (input: { name: string; lastGlobalSeq: number }) => {
-      savedCursors.set(input.name, input.lastGlobalSeq);
-    },
-    fetchDealEventsSince: async (input: { afterGlobalSeq: number }) =>
-      events.filter((event) => event.globalSeq > input.afterGlobalSeq),
-    recordDealActivity: async (input: { dealSeq: number }) => {
-      attempts.set(input.dealSeq, (attempts.get(input.dealSeq) ?? 0) + 1);
-      if (failing.has(input.dealSeq)) {
-        throw new Error(`Cannot record deal seq ${input.dealSeq}`);
-      }
-      recorded.push(input.dealSeq);
-    },
-    detectDuplicates: async () => {},
-    anonymizeClose: async () => {},
-    recordRelayFailedEvent: async (input: unknown) => {
-      setAside.push(input);
-    },
-  }),
+      loadRelayCursor: async (name: string) => savedCursors.get(name) ?? null,
+      saveRelayCursor: async (input: {
+        name: string;
+        lastGlobalSeq: number;
+      }) => {
+        savedCursors.set(input.name, input.lastGlobalSeq);
+      },
+      fetchDealEventsSince: async (input: { afterGlobalSeq: number }) =>
+        events.filter((event) => event.globalSeq > input.afterGlobalSeq),
+      recordDealActivity: async (input: { dealSeq: number }) => {
+        attempts.set(input.dealSeq, (attempts.get(input.dealSeq) ?? 0) + 1);
+        if (failing.has(input.dealSeq)) {
+          throw new Error(`Cannot record deal seq ${input.dealSeq}`);
+        }
+        recorded.push(input.dealSeq);
+      },
+      detectDuplicates: async () => {},
+      anonymizeClose: async () => {},
+      recordRelayFailedEvent: async (input: unknown) => {
+        setAside.push(input);
+      },
+    }),
   sleep: async () => {},
   continueAsNew: async () => {
     throw new ContinuedAsNew();

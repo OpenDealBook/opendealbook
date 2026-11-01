@@ -1,18 +1,25 @@
-import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { z } from 'zod';
+
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { parseCsl } from './csl';
 import { SCREENED_ENTRY, screeningNames } from './match';
 
 const BATCH_SIZE = 1000;
 
-const NAMED_ENTRY = SCREENED_ENTRY.pick({ name: true, alt_names: true, entry_type: true }).extend({
+const NAMED_ENTRY = SCREENED_ENTRY.pick({
+  name: true,
+  alt_names: true,
+  entry_type: true,
+}).extend({
   id: z.number(),
 });
 
 const NAMED_COLUMNS = 'id, name, alt_names, entry_type';
 
-async function storeNames(entries: z.infer<typeof NAMED_ENTRY>[]): Promise<void> {
+async function storeNames(
+  entries: z.infer<typeof NAMED_ENTRY>[],
+): Promise<void> {
   await getSupabaseServerAdminClient()
     .from('screening_name')
     .upsert(

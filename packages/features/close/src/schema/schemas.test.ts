@@ -12,14 +12,18 @@ const id = '33333333-3333-4333-8333-333333333333';
 describe('clientTransitionSchema', () => {
   it('accepts a plan with account, deal and client name', () => {
     expect(
-      clientTransitionSchema.safeParse({ account_id, deal_id, client_name: 'Acme LLC' })
-        .success,
+      clientTransitionSchema.safeParse({
+        account_id,
+        deal_id,
+        client_name: 'Acme LLC',
+      }).success,
     ).toBe(true);
   });
 
   it('rejects a blank client name', () => {
     expect(
-      clientTransitionSchema.safeParse({ account_id, deal_id, client_name: '' }).success,
+      clientTransitionSchema.safeParse({ account_id, deal_id, client_name: '' })
+        .success,
     ).toBe(false);
   });
 });

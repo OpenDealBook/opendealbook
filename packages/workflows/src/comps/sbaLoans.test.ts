@@ -1,10 +1,14 @@
-import { readFileSync } from 'node:fs';
-
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { sbaUpsertKey } from '@odb/comps';
 
-import { discoverSbaResources, loadDealBoxNaicsUnion, refreshSbaProgram } from './sbaLoans';
+import {
+  discoverSbaResources,
+  loadDealBoxNaicsUnion,
+  refreshSbaProgram,
+} from './sbaLoans';
+
+import { readFileSync } from 'node:fs';
 
 const state = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -12,7 +16,10 @@ vi.mock('@odb/supabase/admin', () => ({
   getSupabaseServerAdminClient: () => state.client,
 }));
 
-function makeClient(seed: { deal_box?: unknown[]; comp_insert?: Record<string, unknown> }) {
+function makeClient(seed: {
+  deal_box?: unknown[];
+  comp_insert?: Record<string, unknown>;
+}) {
   const capture = {
     upserts: {} as Record<string, { rows: unknown; onConflict?: string }>,
     inserts: {} as Record<string, unknown>,
@@ -24,18 +31,30 @@ function makeClient(seed: { deal_box?: unknown[]; comp_insert?: Record<string, u
         select() {
           const result = { data: seed.deal_box ?? [], error: null };
           return {
-            single: async () => ({ data: seed.comp_insert ?? null, error: null }),
-            then: (resolve: (value: typeof result) => unknown) => resolve(result),
+            single: async () => ({
+              data: seed.comp_insert ?? null,
+              error: null,
+            }),
+            then: (resolve: (value: typeof result) => unknown) =>
+              resolve(result),
           };
         },
         upsert(rows: unknown, options?: { onConflict?: string }) {
           capture.upserts[table] = { rows, onConflict: options?.onConflict };
-          return { then: (resolve: (value: { error: null }) => unknown) => resolve({ error: null }) };
+          return {
+            then: (resolve: (value: { error: null }) => unknown) =>
+              resolve({ error: null }),
+          };
         },
         insert(row: unknown) {
           capture.inserts[table] = row;
           return {
-            select: () => ({ single: async () => ({ data: seed.comp_insert ?? null, error: null }) }),
+            select: () => ({
+              single: async () => ({
+                data: seed.comp_insert ?? null,
+                error: null,
+              }),
+            }),
           };
         },
       };
@@ -47,7 +66,10 @@ function makeClient(seed: { deal_box?: unknown[]; comp_insert?: Record<string, u
 }
 
 function stubFetch(handler: (url: string) => unknown): void {
-  vi.stubGlobal('fetch', vi.fn(async (url: string) => handler(url)));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => handler(url)),
+  );
 }
 
 afterEach(() => {
@@ -56,14 +78,21 @@ afterEach(() => {
 
 describe('discoverSbaResources', () => {
   it('splits the CSV links on the SBA dataset page into 7(a) and 504', async () => {
-    const page = readFileSync(new URL('../leadImports/fixtures/sba-dataset-page.html', import.meta.url), 'utf8');
+    const page = readFileSync(
+      new URL('../leadImports/fixtures/sba-dataset-page.html', import.meta.url),
+      'utf8',
+    );
     stubFetch(() => ({ ok: true, text: async () => page }));
 
     const result = await discoverSbaResources();
 
     expect(result).toEqual({
-      sevenA: ['https://data.sba.gov/sites/default/files/uploaded_resources/FOIA_7a_FY2020_Present_asof_260630.csv'],
-      fiveOhFour: ['https://data.sba.gov/sites/default/files/uploaded_resources/FOIA_504_FY2010_Present_asof_260630.csv'],
+      sevenA: [
+        'https://data.sba.gov/sites/default/files/uploaded_resources/FOIA_7a_FY2020_Present_asof_260630.csv',
+      ],
+      fiveOhFour: [
+        'https://data.sba.gov/sites/default/files/uploaded_resources/FOIA_504_FY2010_Present_asof_260630.csv',
+      ],
     });
   });
 });
@@ -79,7 +108,10 @@ describe('loadDealBoxNaicsUnion', () => {
     });
     state.client = client;
 
-    expect((await loadDealBoxNaicsUnion()).sort()).toEqual(['541211', '541219']);
+    expect((await loadDealBoxNaicsUnion()).sort()).toEqual([
+      '541211',
+      '541219',
+    ]);
   });
 });
 

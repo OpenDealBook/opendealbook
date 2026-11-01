@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { getSupabaseBrowserClient } from '@odb/supabase/client';
 import type {
   FieldSource,
   FieldType,
@@ -16,7 +17,6 @@ import {
   saveTemplate,
 } from '@odb/templates/server';
 import { TEMPLATES_BUCKET } from '@odb/templates/storage';
-import { getSupabaseBrowserClient } from '@odb/supabase/client';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';

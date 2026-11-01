@@ -27,11 +27,11 @@
     "@novu/framework": "2.13.0",
     "@novu/node": "catalog:",
     "@odb/email-templates": "workspace:*",
-    "@supabase/supabase-js": "catalog:",
-    "@tanstack/react-query": "catalog:",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/ui": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "lucide-react": "catalog:",
     "zod": "catalog:"
   },

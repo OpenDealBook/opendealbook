@@ -51,7 +51,9 @@ describe('SharedTimeline', () => {
       />,
     );
 
-    expect(html).toMatch(/Effective date<\/td><td[^>]*>Same as closing<\/td><td[^>]*>Not set</);
+    expect(html).toMatch(
+      /Effective date<\/td><td[^>]*>Same as closing<\/td><td[^>]*>Not set</,
+    );
   });
 
   it('shows an effective date with no target as not set when closing is not shown', () => {

@@ -1,6 +1,6 @@
-import { fileURLToPath } from 'node:url';
-
 import { defineConfig } from 'vitest/config';
+
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   resolve: {
@@ -14,7 +14,9 @@ export default defineConfig({
       '@odb/supabase/admin': fileURLToPath(
         new URL('../supabase/src/admin.ts', import.meta.url),
       ),
-      '@odb/comps': fileURLToPath(new URL('../comps/index.ts', import.meta.url)),
+      '@odb/comps': fileURLToPath(
+        new URL('../comps/index.ts', import.meta.url),
+      ),
       '@odb/outreach': fileURLToPath(
         new URL('../outreach/src/index.ts', import.meta.url),
       ),

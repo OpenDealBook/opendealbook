@@ -11,5 +11,7 @@ export async function unsubscribe(token: string): Promise<never> {
     .rpc('unsubscribe_outreach', { p_token: token })
     .throwOnError();
 
-  redirect(`/${await getLocale()}/unsubscribe?status=${unsubscribed ? 'done' : 'invalid'}`);
+  redirect(
+    `/${await getLocale()}/unsubscribe?status=${unsubscribed ? 'done' : 'invalid'}`,
+  );
 }

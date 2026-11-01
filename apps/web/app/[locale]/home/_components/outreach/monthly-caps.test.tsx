@@ -132,9 +132,7 @@ describe('the monthly caps setting', () => {
 
     await save();
 
-    expect(alertText()).toBe(
-      'Changing caps needs deals.manage',
-    );
+    expect(alertText()).toBe('Changing caps needs deals.manage');
     expect(button('Try again')).toBeUndefined();
   });
 

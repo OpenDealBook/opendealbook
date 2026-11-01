@@ -48,10 +48,10 @@ function button(name: string) {
 
 function typeName(value: string) {
   const input = document.querySelector<HTMLInputElement>('#api-key-name')!;
-  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-    input,
-    value,
-  );
+  Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )!.set!.call(input, value);
   act(() => input.dispatchEvent(new Event('input', { bubbles: true })));
 }
 
@@ -83,9 +83,9 @@ describe('the API keys manager', () => {
 
     const alert = document.querySelector('[role=alert]')!;
     expect(alert.textContent).toContain(refusal.revoke);
-    expect(
-      button('Revoke').closest('[data-slot=card]')!.textContent,
-    ).toContain('Reporting');
+    expect(button('Revoke').closest('[data-slot=card]')!.textContent).toContain(
+      'Reporting',
+    );
     expect(button('Revoke').closest('[data-slot=card]')!.contains(alert)).toBe(
       true,
     );

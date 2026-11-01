@@ -44,14 +44,19 @@ vi.mock('@odb/supabase/server', () => ({
             if (!world.canManageDeals || !world.hasSettingRow) {
               return resolved({ data: [], error: null });
             }
-            world.events.push(`update ${table} ${described(patch)} where ${column}=${value}`);
+            world.events.push(
+              `update ${table} ${described(patch)} where ${column}=${value}`,
+            );
             return resolved({ data: [{ account_id: value }], error: null });
           },
         }),
       }),
       insert: (row: Record<string, unknown>) => {
         if (!world.canManageDeals) {
-          return resolved({ data: null, error: { code: '42501', message: 'row-level security' } });
+          return resolved({
+            data: null,
+            error: { code: '42501', message: 'row-level security' },
+          });
         }
         world.events.push(`insert ${table} ${described(row)}`);
         return resolved({ data: null, error: null });
@@ -60,7 +65,8 @@ vi.mock('@odb/supabase/server', () => ({
   }),
 }));
 
-const { saveLetterReturnAddressAction } = await import('./letter-return-address-actions');
+const { saveLetterReturnAddressAction } =
+  await import('./letter-return-address-actions');
 
 const SAVED_COLUMNS =
   'letter_return_name=Harbor Acquisitions letter_return_address_line1=9 Elm St letter_return_city=Austin letter_return_state=TX letter_return_postal_code=78702';
@@ -73,10 +79,15 @@ beforeEach(() => {
 
 describe('saving the letter return address', () => {
   it("saves the team's return address", async () => {
-    const result = await saveLetterReturnAddressAction({ accountId: TEAM_ID, ...ADDRESS });
+    const result = await saveLetterReturnAddressAction({
+      accountId: TEAM_ID,
+      ...ADDRESS,
+    });
 
     expect(result).toEqual({ ok: true, value: undefined });
-    expect(world.events).toEqual([`update outreach_setting ${SAVED_COLUMNS} where account_id=${TEAM_ID}`]);
+    expect(world.events).toEqual([
+      `update outreach_setting ${SAVED_COLUMNS} where account_id=${TEAM_ID}`,
+    ]);
   });
 
   it("creates a team's outreach settings with the page defaults and the address", async () => {
@@ -92,9 +103,15 @@ describe('saving the letter return address', () => {
   it('refuses members who cannot manage deals', async () => {
     world.canManageDeals = false;
 
-    const result = await saveLetterReturnAddressAction({ accountId: TEAM_ID, ...ADDRESS });
+    const result = await saveLetterReturnAddressAction({
+      accountId: TEAM_ID,
+      ...ADDRESS,
+    });
 
-    expect(result).toEqual({ ok: false, refusal: 'Changing the return address needs deals.manage' });
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Changing the return address needs deals.manage',
+    });
     expect(world.events).toEqual([]);
   });
 });

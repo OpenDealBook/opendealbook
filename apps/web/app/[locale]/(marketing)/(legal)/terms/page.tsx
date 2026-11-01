@@ -19,8 +19,8 @@ export default async function TermsPage({
     <section className={'mx-auto w-full max-w-3xl px-6 py-16'}>
       <h1 className={'text-4xl font-bold'}>Terms of Service</h1>
       <p className={'text-muted-foreground mt-4'}>
-        These terms govern your use of Open Deal Book. By accessing the service you
-        agree to the terms set out here.
+        These terms govern your use of Open Deal Book. By accessing the service
+        you agree to the terms set out here.
       </p>
 
       <div className={'mt-8 flex flex-col gap-6'}>

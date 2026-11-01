@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { z } from 'zod';
 
 import { dealPath, teamItemPath } from '@odb/notifications/relay';
@@ -17,7 +18,10 @@ type SignatureOutcome = 'completed' | 'declined' | 'expired';
 
 type TeamNotice = { accountId: string; eventKey: string } & (
   | {
-      eventType: 'lender_ask.opened' | 'lender_ask.replied' | 'lender_form.uploaded';
+      eventType:
+        | 'lender_ask.opened'
+        | 'lender_ask.replied'
+        | 'lender_form.uploaded';
       payload: { roomId: string; askId: string; kind: 'ask' | 'form' };
     }
   | {
@@ -242,11 +246,8 @@ export function notifyRoomMembers(
       .eq('room_id', target.roomId)
       .throwOnError();
 
-    await trigger(
-      admin,
-      eventType,
-      target.payload,
-      [...new Set(members.map((member) => member.user_id))],
-    );
+    await trigger(admin, eventType, target.payload, [
+      ...new Set(members.map((member) => member.user_id)),
+    ]);
   });
 }

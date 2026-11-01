@@ -33,16 +33,19 @@
         }
       }
     },
-    "nameOverride": {"type": "string"},
-    "fullnameOverride": {"type": "string"},
+    "nameOverride": { "type": "string" },
+    "fullnameOverride": { "type": "string" },
     "image": {
       "type": "object",
       "required": ["repository", "tag"],
       "additionalProperties": false,
       "properties": {
-        "repository": {"type": "string", "minLength": 1},
-        "tag": {"type": "string", "minLength": 1},
-        "pullPolicy": {"type": "string", "enum": ["Always", "IfNotPresent", "Never"]}
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "IfNotPresent", "Never"]
+        }
       }
     },
     "workerImage": {
@@ -51,16 +54,16 @@
       "required": ["repository", "tag"],
       "additionalProperties": false,
       "properties": {
-        "repository": {"type": "string", "minLength": 1},
-        "tag": {"type": "string", "minLength": 1}
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string", "minLength": 1 }
       }
     },
     "serviceAccount": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "create": {"type": "boolean"},
-        "name": {"type": "string"}
+        "create": { "type": "boolean" },
+        "name": { "type": "string" }
       }
     },
     "ingress": {
@@ -68,17 +71,26 @@
       "additionalProperties": false,
       "description": "Optional, ingress-agnostic exposure for the web Service. enabled:false renders nothing (bring your own). type selects a classic Ingress or a Gateway API HTTPRoute.",
       "properties": {
-        "enabled": {"type": "boolean"},
-        "type": {"type": "string", "enum": ["ingress", "gateway"]},
-        "host": {"type": "string"},
-        "className": {"type": "string", "description": "Ingress only. Empty selects the cluster default IngressClass; no controller is hardcoded."},
-        "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "enabled": { "type": "boolean" },
+        "type": { "type": "string", "enum": ["ingress", "gateway"] },
+        "host": { "type": "string" },
+        "className": {
+          "type": "string",
+          "description": "Ingress only. Empty selects the cluster default IngressClass; no controller is hardcoded."
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
         "tls": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "secretName": {"type": "string"},
-            "clusterIssuer": {"type": "string", "description": "Emitted as the cert-manager.io/cluster-issuer annotation."}
+            "secretName": { "type": "string" },
+            "clusterIssuer": {
+              "type": "string",
+              "description": "Emitted as the cert-manager.io/cluster-issuer annotation."
+            }
           }
         },
         "parentRefs": {
@@ -89,25 +101,25 @@
             "additionalProperties": false,
             "required": ["name"],
             "properties": {
-              "name": {"type": "string"},
-              "namespace": {"type": "string"},
-              "sectionName": {"type": "string"}
+              "name": { "type": "string" },
+              "namespace": { "type": "string" },
+              "sectionName": { "type": "string" }
             }
           }
         }
       }
     },
-    "secretName": {"type": "string"},
-    "serviceAccountName": {"type": "string"},
-    "env": {"type": "object", "additionalProperties": {"type": "string"}},
+    "secretName": { "type": "string" },
+    "serviceAccountName": { "type": "string" },
+    "env": { "type": "object", "additionalProperties": { "type": "string" } },
     "web": {
       "type": "object",
       "required": ["replicaCount"],
       "additionalProperties": true,
       "properties": {
-        "replicaCount": {"type": "integer", "minimum": 1},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
-        "probePath": {"type": "string"}
+        "replicaCount": { "type": "integer", "minimum": 1 },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "probePath": { "type": "string" }
       }
     },
     "workers": {
@@ -115,7 +127,7 @@
       "required": ["replicaCount"],
       "additionalProperties": true,
       "properties": {
-        "replicaCount": {"type": "integer", "minimum": 1}
+        "replicaCount": { "type": "integer", "minimum": 1 }
       }
     },
     "service": {
@@ -123,10 +135,13 @@
       "additionalProperties": true,
       "description": "The web Service: the stable backend any ingress/gateway points at.",
       "properties": {
-        "type": {"type": "string"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
-        "annotations": {"type": "object", "additionalProperties": {"type": "string"}},
-        "name": {"type": "string"}
+        "type": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "name": { "type": "string" }
       }
     }
   }

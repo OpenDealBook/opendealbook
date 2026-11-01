@@ -55,11 +55,7 @@ export async function SellerRoomSection({ dealId }: { dealId: string }) {
     data: { user },
   } = await client.auth.getUser();
   const closing = room
-    ? await closeState(
-        admin,
-        { kind: 'seller', roomId: room.id },
-        user!.id,
-      )
+    ? await closeState(admin, { kind: 'seller', roomId: room.id }, user!.id)
     : null;
   const { data: comments } = room
     ? await client

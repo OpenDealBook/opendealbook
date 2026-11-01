@@ -1,5 +1,8 @@
 import { getMailer } from '@odb/mailers';
-import { createNovuClient, triggerNotification } from '@odb/notifications/server';
+import {
+  createNovuClient,
+  triggerNotification,
+} from '@odb/notifications/server';
 import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { runVerification } from '@odb/verification';
@@ -161,7 +164,11 @@ export async function loadBrokerContacts(input: {
     throw error;
   }
 
-  return data.map((row) => ({ id: row.id, name: row.name!, email: row.email! }));
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name!,
+    email: row.email!,
+  }));
 }
 
 export interface ExcludedBroker {
@@ -443,7 +450,10 @@ export interface EmbedDocumentChunksInput {
   markdown: string;
 }
 
-async function skipEmbedding(jobId: string, reason: string): Promise<{ skippedReason: string }> {
+async function skipEmbedding(
+  jobId: string,
+  reason: string,
+): Promise<{ skippedReason: string }> {
   await getSupabaseServerAdminClient()
     .from('embedding_job')
     .update({ status: 'skipped', skipped_reason: reason })
@@ -459,7 +469,10 @@ export async function embedDocumentChunks(
 
   if (!ai) {
     const hasKey = (await resolveTeamAi(input.accountId, 'chat')) !== null;
-    return skipEmbedding(input.jobId, hasKey ? ADD_EMBEDDING_MODEL : CONNECT_AI_PROVIDER);
+    return skipEmbedding(
+      input.jobId,
+      hasKey ? ADD_EMBEDDING_MODEL : CONNECT_AI_PROVIDER,
+    );
   }
 
   if (ai.provider === 'anthropic') {
@@ -517,7 +530,11 @@ export async function completeEmbeddingJob(
 
   const { error } = await client
     .from('embedding_job')
-    .update({ status: 'done', chunk_count: input.chunkCount, model: input.model })
+    .update({
+      status: 'done',
+      chunk_count: input.chunkCount,
+      model: input.model,
+    })
     .eq('id', input.jobId);
 
   if (error) {

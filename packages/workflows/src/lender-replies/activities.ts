@@ -55,7 +55,9 @@ export async function syncLenderReplies(): Promise<void> {
     );
 
     const threads = new Map<string, TrackedThread>();
-    for (const send of sends.filter(({ room_id }) => openRoomIds.has(room_id))) {
+    for (const send of sends.filter(({ room_id }) =>
+      openRoomIds.has(room_id),
+    )) {
       const threadId = send.provider_thread_id!;
       const tracked = threads.get(threadId);
       if (!tracked || tracked.lastSentAt < send.sent_at) {

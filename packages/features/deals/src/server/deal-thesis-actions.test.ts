@@ -5,7 +5,10 @@ const mocks = vi.hoisted(() => {
 
   function dataFor(table: string): unknown {
     if (table === 'deal') {
-      return { id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', account_id: 'account-1' };
+      return {
+        id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        account_id: 'account-1',
+      };
     }
 
     return { id: `${table}-1` };

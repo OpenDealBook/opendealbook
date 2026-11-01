@@ -27,13 +27,13 @@
   },
   "dependencies": {
     "@harbour-enterprises/superdoc": "catalog:",
-    "@supabase/supabase-js": "catalog:",
     "@odb/lender-rooms": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/seller-rooms": "workspace:*",
     "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/workflows": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

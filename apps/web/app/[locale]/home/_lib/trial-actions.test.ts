@@ -6,7 +6,8 @@ const membership = vi.hoisted(() => ({
   error: null as Error | null,
 }));
 
-const NOT_LOADED = "Example deals couldn't be loaded. Reload them from Settings.";
+const NOT_LOADED =
+  "Example deals couldn't be loaded. Reload them from Settings.";
 
 vi.mock('@odb/seed', () => ({
   seedSampleDeals,

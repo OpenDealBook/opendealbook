@@ -1,6 +1,6 @@
-import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 
+import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from 'next/font/google';
 
 import { AnalyticsProvider } from '~/components/analytics-provider';

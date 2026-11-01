@@ -160,9 +160,7 @@ function tierOffers(tier: PricingTier) {
 export function pricingOfferSchema() {
   const offers = pricingTiers.flatMap(tierOffers);
   const billedPrices = pricingTiers.flatMap((tier) =>
-    tier.price.kind === 'billed'
-      ? [tier.price.monthly, tier.price.yearly]
-      : [],
+    tier.price.kind === 'billed' ? [tier.price.monthly, tier.price.yearly] : [],
   );
 
   return {

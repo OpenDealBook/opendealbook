@@ -65,7 +65,9 @@ describe('recording a contract signed outside the platform', () => {
   });
 
   it('records a contract the deal does not have yet', async () => {
-    show(<RecordSignedContract dealId={'deal-1'} type={'apa'} contractId={null} />);
+    show(
+      <RecordSignedContract dealId={'deal-1'} type={'apa'} contractId={null} />,
+    );
 
     await fillIn();
     await submit('Signed copy');

@@ -21,9 +21,17 @@ function ensureHourly(
 }
 
 export function ensureContractReviewTodoSyncSchedule(client: Client) {
-  return ensureHourly(client, 'contract-review-todo-sync', 'syncContractReviewTodosHourly');
+  return ensureHourly(
+    client,
+    'contract-review-todo-sync',
+    'syncContractReviewTodosHourly',
+  );
 }
 
 export function ensureContractReviewReminderEmailSchedule(client: Client) {
-  return ensureHourly(client, 'contract-review-daily-reminder', 'emailContractReviewRemindersHourly');
+  return ensureHourly(
+    client,
+    'contract-review-daily-reminder',
+    'emailContractReviewRemindersHourly',
+  );
 }

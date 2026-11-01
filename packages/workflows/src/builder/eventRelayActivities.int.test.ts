@@ -42,7 +42,11 @@ function graphOn(trigger: NodeConfig<'event_trigger'>): WorkflowGraph {
   return {
     nodes: [
       { id: 'when', type: 'event_trigger', config: trigger },
-      { id: 'tell', type: 'notify_team', config: { message: 'Something happened' } },
+      {
+        id: 'tell',
+        type: 'notify_team',
+        config: { message: 'Something happened' },
+      },
     ],
     edges: [{ id: 'when-tell', sourceNodeId: 'when', targetNodeId: 'tell' }],
   };
@@ -51,14 +55,20 @@ function graphOn(trigger: NodeConfig<'event_trigger'>): WorkflowGraph {
 async function newWorkflow(): Promise<string> {
   const { data } = await owner.admin
     .from('workflow')
-    .insert({ account_id: owner.accountId, name: `Events ${crypto.randomUUID()}` })
+    .insert({
+      account_id: owner.accountId,
+      name: `Events ${crypto.randomUUID()}`,
+    })
     .select('id')
     .single()
     .throwOnError();
   return data.id;
 }
 
-async function publish(workflowId: string, graph: WorkflowGraph): Promise<string> {
+async function publish(
+  workflowId: string,
+  graph: WorkflowGraph,
+): Promise<string> {
   const { data } = await owner.admin
     .from('workflow_version')
     .insert({
@@ -76,7 +86,11 @@ async function publish(workflowId: string, graph: WorkflowGraph): Promise<string
 }
 
 async function setEnabled(workflowId: string, enabled: boolean): Promise<void> {
-  await owner.admin.from('workflow').update({ enabled }).eq('id', workflowId).throwOnError();
+  await owner.admin
+    .from('workflow')
+    .update({ enabled })
+    .eq('id', workflowId)
+    .throwOnError();
 }
 
 async function enabledWorkflowOn(
@@ -89,7 +103,9 @@ async function enabledWorkflowOn(
 }
 
 async function horizon(): Promise<RelayCursor> {
-  const { data } = await owner.admin.rpc('trigger_event_horizon').throwOnError();
+  const { data } = await owner.admin
+    .rpc('trigger_event_horizon')
+    .throwOnError();
   return { xid: data, seq: 0 };
 }
 
@@ -99,9 +115,9 @@ async function settled(
   count: number,
 ): Promise<LoggedEvent[]> {
   return vi.waitFor(async () => {
-    const events = (await fetchTriggerEvents({ log, after, limit: 1000 })).filter(
-      (event) => event.accountId === owner.accountId,
-    );
+    const events = (
+      await fetchTriggerEvents({ log, after, limit: 1000 })
+    ).filter((event) => event.accountId === owner.accountId);
     expect(events.length).toBeGreaterThanOrEqual(count);
     return events;
   });
@@ -125,7 +141,9 @@ async function runsOf(workflowId: string) {
 
 describe('starting workflow runs for an event', () => {
   it('starts one event run per matching trigger, however often the event is relayed', async () => {
-    const { workflowId, versionId } = await enabledWorkflowOn({ eventType: 'deal.created' });
+    const { workflowId, versionId } = await enabledWorkflowOn({
+      eventType: 'deal.created',
+    });
     const event = await dealCreated('Corner bakery');
 
     await startWorkflowRunsForEvent(event);
@@ -172,26 +190,38 @@ describe('starting workflow runs for an event', () => {
   });
 
   it('starts the run of a team locked for billing, so it can pause like any run', async () => {
-    const { workflowId } = await enabledWorkflowOn({ eventType: 'deal.created' });
+    const { workflowId } = await enabledWorkflowOn({
+      eventType: 'deal.created',
+    });
     const event = await dealCreated('Quarry lane print shop');
     const { data: config } = await owner.admin
       .from('config')
       .select('enable_team_account_billing')
       .single()
       .throwOnError();
-    await owner.admin.rpc('set_team_account_billing', { enabled: true }).throwOnError();
+    await owner.admin
+      .rpc('set_team_account_billing', { enabled: true })
+      .throwOnError();
     await owner.admin
       .from('accounts')
-      .update({ trial_ends_at: new Date(Date.now() - 86_400_000).toISOString() })
+      .update({
+        trial_ends_at: new Date(Date.now() - 86_400_000).toISOString(),
+      })
       .eq('id', owner.accountId)
       .throwOnError();
 
     try {
       await startWorkflowRunsForEvent(event);
     } finally {
-      await owner.admin.from('accounts').update({ trial_ends_at: null }).eq('id', owner.accountId).throwOnError();
       await owner.admin
-        .rpc('set_team_account_billing', { enabled: config.enable_team_account_billing })
+        .from('accounts')
+        .update({ trial_ends_at: null })
+        .eq('id', owner.accountId)
+        .throwOnError();
+      await owner.admin
+        .rpc('set_team_account_billing', {
+          enabled: config.enable_team_account_billing,
+        })
         .throwOnError();
     }
 
@@ -200,7 +230,9 @@ describe('starting workflow runs for an event', () => {
 
   it('passes over a workflow never published, still starting the others', async () => {
     await newWorkflow();
-    const { workflowId } = await enabledWorkflowOn({ eventType: 'deal.created' });
+    const { workflowId } = await enabledWorkflowOn({
+      eventType: 'deal.created',
+    });
     const event = await dealCreated('Orchard row cidery');
 
     await startWorkflowRunsForEvent(event);
@@ -221,7 +253,9 @@ describe('starting workflow runs for an event', () => {
   });
 
   it('follows only the latest published version of a workflow', async () => {
-    const { workflowId } = await enabledWorkflowOn({ eventType: 'deal.created' });
+    const { workflowId } = await enabledWorkflowOn({
+      eventType: 'deal.created',
+    });
     await publish(workflowId, graphOn({ eventType: 'offer.accepted' }));
     const event = await dealCreated('Ridge roofing');
 
@@ -242,7 +276,9 @@ describe('starting workflow runs for an event', () => {
   });
 
   it('starts nothing for an event from before the workflow was switched off and on again', async () => {
-    const { workflowId } = await enabledWorkflowOn({ eventType: 'deal.created' });
+    const { workflowId } = await enabledWorkflowOn({
+      eventType: 'deal.created',
+    });
     await setEnabled(workflowId, false);
     const event = await dealCreated('Pine street florist');
     await setEnabled(workflowId, true);
@@ -276,7 +312,10 @@ describe('fetching trigger events', () => {
 
     const ours = await settled('deal', before, 2);
 
-    expect(ours.map((event) => event.eventType)).toEqual(['deal.created', 'deal.loi_signed']);
+    expect(ours.map((event) => event.eventType)).toEqual([
+      'deal.created',
+      'deal.loi_signed',
+    ]);
     expect(ours[1]).toMatchObject({
       log: 'deal',
       dealId,
@@ -295,13 +334,23 @@ describe('fetching trigger events', () => {
       .throwOnError();
     const { data: verdict } = await owner.admin
       .from('firm_verdict')
-      .insert({ account_id: owner.accountId, firm_id: firm.id, fit: true, reasons: ['In the box'], model: 'm' })
+      .insert({
+        account_id: owner.accountId,
+        firm_id: firm.id,
+        fit: true,
+        reasons: ['In the box'],
+        model: 'm',
+      })
       .select('id')
       .single()
       .throwOnError();
     await owner.admin
       .from('firm_verdict_approval')
-      .insert({ verdict_id: verdict.id, account_id: owner.accountId, approved_by: owner.userId })
+      .insert({
+        verdict_id: verdict.id,
+        account_id: owner.accountId,
+        approved_by: owner.userId,
+      })
       .throwOnError();
 
     expect(await settled('account', before, 1)).toEqual([
@@ -311,7 +360,11 @@ describe('fetching trigger events', () => {
         globalSeq: expect.any(Number),
         accountId: owner.accountId,
         eventType: 'firm.approved',
-        payload: { firm_id: firm.id, verdict_id: verdict.id, approved_by: owner.userId },
+        payload: {
+          firm_id: firm.id,
+          verdict_id: verdict.id,
+          approved_by: owner.userId,
+        },
       },
     ]);
   });
@@ -353,7 +406,10 @@ describe('starting the event relay at the latest event', () => {
   const started = `int-event-relay-${crypto.randomUUID()}`;
 
   afterAll(async () => {
-    await owner.admin.from('relay_cursor').delete().in('name', [fresh, started]);
+    await owner.admin
+      .from('relay_cursor')
+      .delete()
+      .in('name', [fresh, started]);
   });
 
   it('saves and returns the settled horizon with no events relayed yet', async () => {
@@ -369,6 +425,9 @@ describe('starting the event relay at the latest event', () => {
   it('keeps a position already saved', async () => {
     await saveEventRelayCursor({ name: started, cursor: { xid: '5', seq: 7 } });
 
-    expect(await startEventRelayCursorAtLatest({ name: started })).toEqual({ xid: '5', seq: 7 });
+    expect(await startEventRelayCursorAtLatest({ name: started })).toEqual({
+      xid: '5',
+      seq: 7,
+    });
   });
 });

@@ -27,7 +27,9 @@ export const decideMatchReview = refusableAction(
       throw error;
     }
     if (!decided) {
-      throw new Refusal('Only deal managers can review matches. Ask a deal manager.');
+      throw new Refusal(
+        'Only deal managers can review matches. Ask a deal manager.',
+      );
     }
   },
   z.object({ reviewId: z.uuid(), accept: z.boolean() }),

@@ -20,14 +20,25 @@ test('a counsel redline gets a PDF and can be sent for signature', async ({
   test.setTimeout(180 * 1000);
 
   const stamp = Date.now();
-  const counselPerson = { email: newCredentials().email, name: `Bea Counsel ${stamp}` };
+  const counselPerson = {
+    email: newCredentials().email,
+    name: `Bea Counsel ${stamp}`,
+  };
   const signer = { name: `Sig Signer ${stamp}`, email: newCredentials().email };
   const summary = `Counsel markup ${stamp}`;
 
   await auth.signUp(page);
   const teamSlug = await completeTeamOnboarding(page, `Redline Team ${stamp}`);
-  const { dealId, dealPath } = await createDeal(page, teamSlug, `Redline Deal ${stamp}`);
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  const { dealId, dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Redline Deal ${stamp}`,
+  );
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
   await contracts.seed({
     dealId,
     versions: [{ party: 'buyer', summary: `Draft ${stamp}`, shared: true }],
@@ -44,11 +55,17 @@ test('a counsel redline gets a PDF and can be sent for signature', async ({
   await counselLoi.getByLabel('Redline (.docx)').setInputFiles(REDLINE_DOCX);
   await counselLoi.getByLabel('What changed (optional)').fill(summary);
   await counselLoi.getByRole('button', { name: 'Upload redline' }).click();
-  await expect(counselLoi.getByRole('row').filter({ hasText: summary })).toBeVisible();
+  await expect(
+    counselLoi.getByRole('row').filter({ hasText: summary }),
+  ).toBeVisible();
 
   await page.goto(`${dealPath}/documents`);
-  const redlineRow = card(page, 'LOI').getByRole('row').filter({ hasText: summary });
-  await expect(redlineRow.getByRole('link', { name: 'PDF' })).toBeVisible({ timeout: 60 * 1000 });
+  const redlineRow = card(page, 'LOI')
+    .getByRole('row')
+    .filter({ hasText: summary });
+  await expect(redlineRow.getByRole('link', { name: 'PDF' })).toBeVisible({
+    timeout: 60 * 1000,
+  });
 
   const section = card(page, 'LOI')
     .locator('[data-version-review]')
@@ -67,7 +84,10 @@ test('a counsel redline gets a PDF and can be sent for signature', async ({
           await db.rows<{ signing_status: string | null }>(
             'contract_version',
             `version=eq.2&signing_status=not.is.null&select=signing_status&contract_id=in.(${(
-              await db.rows<{ id: string }>('contract', `deal_id=eq.${dealId}&select=id`)
+              await db.rows<{ id: string }>(
+                'contract',
+                `deal_id=eq.${dealId}&select=id`,
+              )
             )
               .map((row) => row.id)
               .join(',')})`,

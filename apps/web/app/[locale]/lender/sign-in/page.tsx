@@ -1,3 +1,4 @@
+import { safeNextPath } from '@odb/lender-rooms/members/entry-rules.ts';
 import {
   Card,
   CardContent,
@@ -5,8 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@odb/ui/card';
-
-import { safeNextPath } from '@odb/lender-rooms/members/entry-rules.ts';
 
 import { LenderSignInForm } from './sign-in-form';
 
@@ -23,8 +22,8 @@ export default async function LenderSignInPage({
         <CardHeader>
           <CardTitle>Sign in to your lender room</CardTitle>
           <CardDescription>
-            Enter the email address you were invited with and we will send you
-            a sign-in link.
+            Enter the email address you were invited with and we will send you a
+            sign-in link.
           </CardDescription>
         </CardHeader>
         <CardContent>

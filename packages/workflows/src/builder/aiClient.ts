@@ -1,12 +1,16 @@
+import { ApplicationFailure } from '@temporalio/common';
+
+import { AI_PROVIDER_TIMEOUT_MS } from './nodeKinds';
+import {
+  AddressNotFound,
+  publicAddressOf,
+  type VettedAddress,
+} from './publicUrl';
+
 import { lookup } from 'node:dns/promises';
 import http from 'node:http';
 import https from 'node:https';
 import { isIP, type LookupFunction } from 'node:net';
-
-import { ApplicationFailure } from '@temporalio/common';
-
-import { AI_PROVIDER_TIMEOUT_MS } from './nodeKinds';
-import { AddressNotFound, publicAddressOf, type VettedAddress } from './publicUrl';
 
 const ANTHROPIC_MAX_TOKENS = 4096;
 
@@ -29,16 +33,22 @@ interface Connection {
   signal?: AbortSignal;
 }
 
-const TEAM_AI: Connection = { connectTo: teamAiAddressOf, timeoutMs: AI_PROVIDER_TIMEOUT_MS };
+const TEAM_AI: Connection = {
+  connectTo: teamAiAddressOf,
+  timeoutMs: AI_PROVIDER_TIMEOUT_MS,
+};
 
 async function anyAddressOf(url: string): Promise<VettedAddress> {
   const host = new URL(url).hostname.replace(/^\[|\]$/g, '');
-  const { address, family } = isIP(host) ? { address: host, family: isIP(host) } : await lookup(host);
+  const { address, family } = isIP(host)
+    ? { address: host, family: isIP(host) }
+    : await lookup(host);
   return { address, family: family as 4 | 6 };
 }
 
 export function privateAiUrlsAllowed(): boolean {
-  const devStack = process.env.ODB_STACK === 'local' || process.env.ODB_STACK === 'e2e';
+  const devStack =
+    process.env.ODB_STACK === 'local' || process.env.ODB_STACK === 'e2e';
   return devStack && process.env.ODB_ALLOW_PRIVATE_AI_URL === '1';
 }
 
@@ -47,7 +57,9 @@ export function teamAiAddressOf(url: string): Promise<VettedAddress | null> {
 }
 
 export function aiJson(text: string): unknown {
-  return JSON.parse(text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/, '$1'));
+  return JSON.parse(
+    text.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/, '$1'),
+  );
 }
 
 export interface AiRequest {
@@ -59,10 +71,16 @@ export interface AiRequest {
 
 function pinnedLookup({ address, family }: VettedAddress): LookupFunction {
   return (_hostname, options, callback) =>
-    options.all ? callback(null, [{ address, family }]) : callback(null, address, family);
+    options.all
+      ? callback(null, [{ address, family }])
+      : callback(null, address, family);
 }
 
-type PinnedConnection = { connectTo?: Connection['connectTo']; timeoutMs: number; signal?: AbortSignal };
+type PinnedConnection = {
+  connectTo?: Connection['connectTo'];
+  timeoutMs: number;
+  signal?: AbortSignal;
+};
 
 export function pinnedPost(
   url: string,
@@ -95,7 +113,9 @@ async function pinnedRequest(
   connection: PinnedConnection,
 ): Promise<{ status: number; text: string }> {
   const { origin, pathname } = new URL(url);
-  const target = await (connection.connectTo ?? publicAddressOf)(`${origin}${pathname}`).catch((error: unknown) => {
+  const target = await (connection.connectTo ?? publicAddressOf)(
+    `${origin}${pathname}`,
+  ).catch((error: unknown) => {
     if (error instanceof AddressNotFound && !error.retryable) {
       throw ApplicationFailure.nonRetryable(error.message);
     }
@@ -120,7 +140,9 @@ async function pinnedRequest(
         let text = '';
         incoming.setEncoding('utf8');
         incoming.on('data', (chunk: string) => (text += chunk));
-        incoming.on('end', () => resolve({ status: incoming.statusCode!, text }));
+        incoming.on('end', () =>
+          resolve({ status: incoming.statusCode!, text }),
+        );
         incoming.on('error', reject);
       },
     );
@@ -135,17 +157,24 @@ export async function postToAiProvider(
   body: unknown,
   overrides: Partial<Connection> = {},
 ): Promise<unknown> {
-  const response = await pinnedPost(url, headers, body, { ...TEAM_AI, ...overrides });
+  const response = await pinnedPost(url, headers, body, {
+    ...TEAM_AI,
+    ...overrides,
+  });
   if (response.status >= 500) {
     throw new Error(`The AI provider answered ${response.status}`);
   }
   if (response.status >= 300) {
-    throw ApplicationFailure.nonRetryable(`The AI provider answered ${response.status}`);
+    throw ApplicationFailure.nonRetryable(
+      `The AI provider answered ${response.status}`,
+    );
   }
   try {
     return JSON.parse(response.text);
   } catch {
-    throw ApplicationFailure.nonRetryable('The AI provider answered with something that is not JSON');
+    throw ApplicationFailure.nonRetryable(
+      'The AI provider answered with something that is not JSON',
+    );
   }
 }
 
@@ -161,7 +190,13 @@ export async function completeWithTeamAi(
     const reply = (await postToAiProvider(
       `${endpoint.baseUrl}/messages`,
       { 'x-api-key': endpoint.apiKey, 'anthropic-version': '2023-06-01' },
-      { model: endpoint.model, max_tokens: maxTokens ?? ANTHROPIC_MAX_TOKENS, system, temperature, messages },
+      {
+        model: endpoint.model,
+        max_tokens: maxTokens ?? ANTHROPIC_MAX_TOKENS,
+        system,
+        temperature,
+        messages,
+      },
       overrides,
     )) as {
       content: { text: string }[];
@@ -179,7 +214,9 @@ export async function completeWithTeamAi(
     { authorization: `Bearer ${endpoint.apiKey}` },
     {
       model: endpoint.model,
-      messages: system ? [{ role: 'system', content: system }, ...messages] : messages,
+      messages: system
+        ? [{ role: 'system', content: system }, ...messages]
+        : messages,
       temperature,
       max_tokens: maxTokens,
       response_format: json ? { type: 'json_object' } : undefined,

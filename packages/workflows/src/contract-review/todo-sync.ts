@@ -10,7 +10,9 @@ import { listPendingReviews, type PendingReview } from './pending';
 type Stage = 'share' | 'waiting';
 
 function stageOf(review: PendingReview): Stage {
-  return review.side === 'seller' && !review.shownToSeller ? 'share' : 'waiting';
+  return review.side === 'seller' && !review.shownToSeller
+    ? 'share'
+    : 'waiting';
 }
 
 function titleOf(review: PendingReview, timeZone: string): string {
@@ -18,7 +20,9 @@ function titleOf(review: PendingReview, timeZone: string): string {
     return `Share version ${review.version} with the seller side`;
   }
   const waitingOn =
-    review.counsel.length > 0 ? `${review.side}'s counsel` : `the ${review.side}`;
+    review.counsel.length > 0
+      ? `${review.side}'s counsel`
+      : `the ${review.side}`;
 
   return `Waiting on ${waitingOn} since ${shortDate(review.requestedAt, timeZone)}`;
 }
@@ -78,7 +82,9 @@ export async function syncContractReviewTodos(
   const linked = new Set(
     links
       .filter((link) => !stale.includes(link))
-      .map((link) => `${link.contract_version_id}/${link.side}/${link.user_id}`),
+      .map(
+        (link) => `${link.contract_version_id}/${link.side}/${link.user_id}`,
+      ),
   );
   const timezoneOf = await timezonesOf(admin, managerIds);
 

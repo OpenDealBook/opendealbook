@@ -9,7 +9,13 @@ import type { ActionResult } from '@odb/next/refusal';
 import type { Tables } from '@odb/supabase';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@odb/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -67,7 +73,9 @@ export function WorkflowDetail(props: {
   schedulesSyncFailed: boolean;
   cancelWaitingRuns: CancelWaitingRuns;
   renameWorkflow: RenameWorkflow;
-  retryScheduleSync: ComponentProps<typeof SchedulesSyncBanner>['retryScheduleSync'];
+  retryScheduleSync: ComponentProps<
+    typeof SchedulesSyncBanner
+  >['retryScheduleSync'];
 }) {
   const [renaming, setRenaming] = useState(false);
   const published = props.versions.filter(
@@ -159,7 +167,9 @@ export function WorkflowDetail(props: {
                       <TableCell>
                         <Link
                           href={`${props.workflowPath}/runs/${run.id}`}
-                          className={'font-medium underline-offset-4 hover:underline'}
+                          className={
+                            'font-medium underline-offset-4 hover:underline'
+                          }
                         >
                           {workflowTime.format(new Date(run.started_at))}
                         </Link>

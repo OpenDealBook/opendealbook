@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@odb/next/actions', () => ({
-  enhanceAction: (fn: (data: unknown, user: { id: string }) => unknown) =>
-    (data: unknown) => fn(data, { id: 'user-1' }),
+  enhanceAction:
+    (fn: (data: unknown, user: { id: string }) => unknown) => (data: unknown) =>
+      fn(data, { id: 'user-1' }),
 }));
 
 vi.mock('@odb/supabase/server', () => ({

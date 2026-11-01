@@ -29,7 +29,9 @@ function textOrNotSet(value: string | number | null): string {
 }
 
 function dateOrNotSet(value: string | null): string {
-  return value === null ? 'Not set' : new Date(value).toLocaleDateString('en-US');
+  return value === null
+    ? 'Not set'
+    : new Date(value).toLocaleDateString('en-US');
 }
 
 function multipleOrNotSet(value: number | null): string {
@@ -69,7 +71,10 @@ interface Expectations {
 
 function deriveExpectations(
   pool: { n: number | null; median_sde_multiple: number | null }[],
-  activity: { median_asking_price: number | null; median_loi_price: number | null }[],
+  activity: {
+    median_asking_price: number | null;
+    median_loi_price: number | null;
+  }[],
 ): Expectations {
   const multiples = pool
     .map((row) => row.median_sde_multiple)
@@ -93,7 +98,10 @@ function deriveExpectations(
   };
 }
 
-export async function CompsSection(props: { dealId: string; accountId: string }) {
+export async function CompsSection(props: {
+  dealId: string;
+  accountId: string;
+}) {
   const client = getSupabaseServerClient();
 
   const profileResult = await client
@@ -123,7 +131,9 @@ export async function CompsSection(props: { dealId: string; accountId: string })
 
   let benchmarkQuery = client
     .from('benchmark')
-    .select('id, metric, low, median, high, source_citation, as_of, naics_code, industry')
+    .select(
+      'id, metric, low, median, high, source_citation, as_of, naics_code, industry',
+    )
     .order('as_of', { ascending: false, nullsFirst: false })
     .limit(BENCHMARK_LIMIT);
 
@@ -133,18 +143,23 @@ export async function CompsSection(props: { dealId: string; accountId: string })
     benchmarkQuery = benchmarkQuery.ilike('industry', industryName);
   }
 
-  const [externalResult, internalResult, benchmarkResult, poolResult, activityResult] =
-    await Promise.all([
-      externalQuery,
-      internalQuery,
-      benchmarkQuery,
-      client
-        .from('comp_pool_public')
-        .select('n, median_sde_multiple, median_sale_price'),
-      client
-        .from('activity_pool_public')
-        .select('n, median_asking_price, median_loi_price'),
-    ]);
+  const [
+    externalResult,
+    internalResult,
+    benchmarkResult,
+    poolResult,
+    activityResult,
+  ] = await Promise.all([
+    externalQuery,
+    internalQuery,
+    benchmarkQuery,
+    client
+      .from('comp_pool_public')
+      .select('n, median_sde_multiple, median_sale_price'),
+    client
+      .from('activity_pool_public')
+      .select('n, median_asking_price, median_loi_price'),
+  ]);
 
   const external = externalResult.data ?? [];
   const internal = internalResult.data ?? [];
@@ -195,7 +210,9 @@ export async function CompsSection(props: { dealId: string; accountId: string })
         <div className={'flex flex-col gap-2'}>
           <h4 className={'text-sm font-medium'}>Relevant comps</h4>
           {comps.length === 0 ? (
-            <p className={'text-muted-foreground text-sm'}>No comparable transactions yet</p>
+            <p className={'text-muted-foreground text-sm'}>
+              No comparable transactions yet
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -231,7 +248,9 @@ export async function CompsSection(props: { dealId: string; accountId: string })
         <div className={'flex flex-col gap-2'}>
           <h4 className={'text-sm font-medium'}>Benchmarks</h4>
           {benchmarks.length === 0 ? (
-            <p className={'text-muted-foreground text-sm'}>No benchmarks for this vertical</p>
+            <p className={'text-muted-foreground text-sm'}>
+              No benchmarks for this vertical
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -251,7 +270,9 @@ export async function CompsSection(props: { dealId: string; accountId: string })
                     <TableCell>{multipleOrNotSet(benchmark.low)}</TableCell>
                     <TableCell>{multipleOrNotSet(benchmark.median)}</TableCell>
                     <TableCell>{multipleOrNotSet(benchmark.high)}</TableCell>
-                    <TableCell>{textOrNotSet(benchmark.source_citation)}</TableCell>
+                    <TableCell>
+                      {textOrNotSet(benchmark.source_citation)}
+                    </TableCell>
                     <TableCell>{dateOrNotSet(benchmark.as_of)}</TableCell>
                   </TableRow>
                 ))}
@@ -263,7 +284,9 @@ export async function CompsSection(props: { dealId: string; accountId: string })
         <div className={'flex flex-col gap-2'}>
           <h4 className={'text-sm font-medium'}>What to expect</h4>
           {!poolReady ? (
-            <p className={'text-muted-foreground text-sm'}>Not enough data yet</p>
+            <p className={'text-muted-foreground text-sm'}>
+              Not enough data yet
+            </p>
           ) : (
             <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-3'}>
               <div className={'flex flex-col gap-0.5'}>
@@ -287,7 +310,9 @@ export async function CompsSection(props: { dealId: string; accountId: string })
                 </dd>
               </div>
               <div className={'flex flex-col gap-0.5'}>
-                <dt className={'text-muted-foreground text-xs uppercase'}>Pool size</dt>
+                <dt className={'text-muted-foreground text-xs uppercase'}>
+                  Pool size
+                </dt>
                 <dd className={'text-sm'}>{bandCount(expectations.count)}</dd>
               </div>
             </dl>

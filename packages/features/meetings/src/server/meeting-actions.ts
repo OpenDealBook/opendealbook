@@ -10,13 +10,13 @@ import {
   meetingActionItemSchema,
 } from '../schema/meeting-action-item.schema';
 import {
-  scheduleMeetingSchema,
-  updateMeetingSchema,
-} from '../schema/meeting.schema';
-import {
   meetingSeriesSchema,
   updateMeetingSeriesSchema,
 } from '../schema/meeting-series.schema';
+import {
+  scheduleMeetingSchema,
+  updateMeetingSchema,
+} from '../schema/meeting.schema';
 
 export const createMeetingSeries = enhanceAction(
   async (data) => {

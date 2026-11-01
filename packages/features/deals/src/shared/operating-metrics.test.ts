@@ -176,10 +176,11 @@ describe('computeOperatingSummary', () => {
   });
 
   it('is a null variance when the baseline figure is null', () => {
-    const summary = computeOperatingSummary(
-      [period('2026-01-01')],
-      { adopted_revenue: null, adopted_sde: null, adopted_ebitda: null },
-    );
+    const summary = computeOperatingSummary([period('2026-01-01')], {
+      adopted_revenue: null,
+      adopted_sde: null,
+      adopted_ebitda: null,
+    });
 
     expect(summary.variance.revenue.absolute_delta).toBeNull();
     expect(summary.variance.revenue.percent_delta).toBeNull();

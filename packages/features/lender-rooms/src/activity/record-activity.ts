@@ -1,5 +1,4 @@
 import 'server-only';
-
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database, Json } from '@odb/supabase';
@@ -20,7 +19,9 @@ interface RecordActivityInput {
   payload?: Json;
 }
 
-export async function recordActivity(input: RecordActivityInput): Promise<void> {
+export async function recordActivity(
+  input: RecordActivityInput,
+): Promise<void> {
   const side = await callerSide(input.client, input.roomId);
   // Lenders have no write path, and no document or storage read outside this
   // gate, so a verified member's write and the file reads use the service role.

@@ -161,7 +161,7 @@ describe('room status and lifecycle', () => {
 
     expect(button('Close room').disabled).toBe(true);
     expect(pageText()).toContain(
-      "Tick \"Tell First Bank the room is closing\" in this deal's to-dos, or send an update to someone in this room, to close it.",
+      'Tick "Tell First Bank the room is closing" in this deal\'s to-dos, or send an update to someone in this room, to close it.',
     );
   });
 

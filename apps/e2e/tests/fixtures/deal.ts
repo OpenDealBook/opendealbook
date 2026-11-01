@@ -6,7 +6,9 @@ export async function createDeal(
   businessName: string,
 ): Promise<{ dealId: string; dealPath: string }> {
   await page.goto(`/home/${teamSlug}/deals/new`);
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await page.getByLabel('Business name').fill(businessName);
   await page.locator('#industry').click();
   await page.getByRole('option').first().click();
@@ -24,7 +26,9 @@ export async function uploadToDataRoom(
   files: { name: string; mimeType: string; buffer: Buffer }[],
 ) {
   await page.goto(`${dealPath}/documents`);
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await page.getByRole('button', { name: 'Upload' }).first().click();
   await page.locator('input[type=file]').setInputFiles(files);
   await page

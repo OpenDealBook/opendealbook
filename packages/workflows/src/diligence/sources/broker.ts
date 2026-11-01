@@ -18,7 +18,13 @@ export interface BrokerFirm {
 
 export interface BrokerRecord {
   source: 'baselayer' | 'middesk';
-  kind: 'ucc' | 'tax_lien' | 'judgment_lien' | 'unknown' | 'litigation' | 'bankruptcy';
+  kind:
+    | 'ucc'
+    | 'tax_lien'
+    | 'judgment_lien'
+    | 'unknown'
+    | 'litigation'
+    | 'bankruptcy';
   title: string;
   reference: string;
   jurisdiction: string | null;
@@ -37,13 +43,27 @@ export class BrokerRefused extends Error {}
 
 export async function brokerJson(
   broker: string,
-  request: { url: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal },
+  request: {
+    url: string;
+    headers: Record<string, string>;
+    body?: unknown;
+    signal?: AbortSignal;
+  },
 ): Promise<unknown> {
-  const connection = { connectTo: teamAiAddressOf, timeoutMs: BROKER_TIMEOUT_MS, signal: request.signal };
+  const connection = {
+    connectTo: teamAiAddressOf,
+    timeoutMs: BROKER_TIMEOUT_MS,
+    signal: request.signal,
+  };
   const response =
     request.body === undefined
       ? await pinnedGet(request.url, request.headers, connection)
-      : await pinnedPost(request.url, request.headers, request.body, connection);
+      : await pinnedPost(
+          request.url,
+          request.headers,
+          request.body,
+          connection,
+        );
   if (response.status === 401 || response.status === 403) {
     throw new BrokerRefused(`${broker} refused the key`);
   }
@@ -51,11 +71,15 @@ export async function brokerJson(
     throw new Error(`${broker} answered ${response.status}`);
   }
   if (response.status >= 300) {
-    throw ApplicationFailure.nonRetryable(`${broker} answered ${response.status}`);
+    throw ApplicationFailure.nonRetryable(
+      `${broker} answered ${response.status}`,
+    );
   }
   const body = parsedJson(response.text);
   if (body === undefined) {
-    throw ApplicationFailure.nonRetryable(`${broker} answered with something that is not JSON`);
+    throw ApplicationFailure.nonRetryable(
+      `${broker} answered with something that is not JSON`,
+    );
   }
   return body;
 }

@@ -50,9 +50,7 @@ export function sdeFromPl(pl: ProfitAndLoss): number {
 }
 
 export function ebitda(pl: ProfitAndLoss): number {
-  return (
-    netIncome(pl) + pl.depreciation_amortization + pl.interest + pl.taxes
-  );
+  return netIncome(pl) + pl.depreciation_amortization + pl.interest + pl.taxes;
 }
 
 export function amortizeMonthlyPayment(
@@ -74,7 +72,9 @@ export function financedPrincipal(
   closingCosts: ClosingCosts,
   financedFees = 0,
 ): number {
-  const financedClosing = closingCosts.include ? closingCosts.amount_financed : 0;
+  const financedClosing = closingCosts.include
+    ? closingCosts.amount_financed
+    : 0;
   return baseLoan + financedClosing + financedFees;
 }
 
@@ -100,8 +100,7 @@ export const yearBasisSchema = z.discriminatedUnion('kind', [
 
 export type YearBasis = z.infer<typeof yearBasisSchema>;
 
-const REVENUE_LOSS_RANGE =
-  'Revenue lost at close must be between 0% and 100%.';
+const REVENUE_LOSS_RANGE = 'Revenue lost at close must be between 0% and 100%.';
 
 export const pathDriversSchema = z.object({
   revenue_loss: z
@@ -139,7 +138,9 @@ function paymentWindow(basis: YearBasis, year: number): PaymentWindow {
   const yearOneMonths =
     basis.kind === 'months_from_close'
       ? 12
-      : (basis.fiscal_year_end_month - Number(basis.close_date.slice(5, 7)) + 12) %
+      : (basis.fiscal_year_end_month -
+          Number(basis.close_date.slice(5, 7)) +
+          12) %
         12;
   if (year === 1) {
     return { after: 0, through: yearOneMonths };

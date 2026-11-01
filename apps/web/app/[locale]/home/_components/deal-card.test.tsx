@@ -116,7 +116,13 @@ describe('DealCard', () => {
 
   it('names a custom milestone by its label', async () => {
     await render(
-      deal({ nextMilestone: { kind: 'custom', label: 'Site visit', targetOn: '2026-11-02' } }),
+      deal({
+        nextMilestone: {
+          kind: 'custom',
+          label: 'Site visit',
+          targetOn: '2026-11-02',
+        },
+      }),
       'Morgan Reyes',
     );
 
@@ -124,7 +130,11 @@ describe('DealCard', () => {
   });
 
   it('lets the team owner delete an archived deal by typing its business name', async () => {
-    await render(deal({ archivedAt: '2026-10-01T00:00:00Z' }), 'Morgan Reyes', true);
+    await render(
+      deal({ archivedAt: '2026-10-01T00:00:00Z' }),
+      'Morgan Reyes',
+      true,
+    );
 
     const trigger = [...container.querySelectorAll('button')].find(
       (candidate) => candidate.textContent === 'Actions',
@@ -134,9 +144,9 @@ describe('DealCard', () => {
         new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
       );
     });
-    const remove = [...document.body.querySelectorAll('[role="menuitem"]')].find(
-      (item) => item.textContent === 'Delete',
-    ) as HTMLElement;
+    const remove = [
+      ...document.body.querySelectorAll('[role="menuitem"]'),
+    ].find((item) => item.textContent === 'Delete') as HTMLElement;
     act(() => remove.click());
 
     expect(document.body.textContent).toContain(`Type ${NAME} to confirm.`);

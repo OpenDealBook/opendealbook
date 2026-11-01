@@ -115,7 +115,9 @@ export async function listPendingReviews(
         requestedAt: request.requested_at,
         side,
         counsel: counsel
-          .filter((row) => row.deal_id === contract.deal_id && row.side === side)
+          .filter(
+            (row) => row.deal_id === contract.deal_id && row.side === side,
+          )
           .map((row) => ({ userId: row.user_id, email: row.email })),
       });
     }

@@ -139,11 +139,7 @@ describe('SellerCounselInvite', () => {
   it('offers no invite or resend once the room is read-only, leaving the reason to the page banner', () => {
     act(() =>
       root.render(
-        <SellerCounselInvite
-          dealId={'deal-1'}
-          counsel={[owen]}
-          readOnly
-        />,
+        <SellerCounselInvite dealId={'deal-1'} counsel={[owen]} readOnly />,
       ),
     );
 

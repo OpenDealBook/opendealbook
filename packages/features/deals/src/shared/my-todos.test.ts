@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { fetchMyTodos } from './queries';
 
-const deal = { id: '00000000-0000-4000-8000-0000000000d1', firm: { name: 'Acme' } };
+const deal = {
+  id: '00000000-0000-4000-8000-0000000000d1',
+  firm: { name: 'Acme' },
+};
 
 function clientReturning(rows: Record<string, unknown[]>) {
   return {

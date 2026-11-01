@@ -1,12 +1,13 @@
-import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 
+import type { Meta, StoryObj } from '@storybook/react-vite';
+
+import { Button } from '@odb/ui/button';
 import {
   PromptInput,
   PromptInputActions,
   PromptInputTextarea,
 } from '@odb/ui/prompt-input';
-import { Button } from '@odb/ui/button';
 
 const meta: Meta<typeof PromptInput> = {
   title: 'AI/PromptInput',

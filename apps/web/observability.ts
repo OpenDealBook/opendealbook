@@ -1,8 +1,11 @@
-import { NodeSDK, logs, metrics } from '@opentelemetry/sdk-node';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-proto';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-proto';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
-import { init as initPyroscope, start as startPyroscope } from '@pyroscope/nodejs';
+import { NodeSDK, logs, metrics } from '@opentelemetry/sdk-node';
+import {
+  init as initPyroscope,
+  start as startPyroscope,
+} from '@pyroscope/nodejs';
 
 export function setupOtel() {
   if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) return;
@@ -15,7 +18,9 @@ export function setupOtel() {
         exporter: new OTLPMetricExporter(),
       }),
     ],
-    logRecordProcessors: [new logs.BatchLogRecordProcessor(new OTLPLogExporter())],
+    logRecordProcessors: [
+      new logs.BatchLogRecordProcessor(new OTLPLogExporter()),
+    ],
   }).start();
 }
 

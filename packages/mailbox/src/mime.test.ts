@@ -29,11 +29,15 @@ describe('buildMimeMessage', () => {
       to: 'lead@target.com',
       subject: 's',
       text: 'body',
-      headers: { 'List-Unsubscribe': '<https://app.odb.test/unsubscribe?token=abc>' },
+      headers: {
+        'List-Unsubscribe': '<https://app.odb.test/unsubscribe?token=abc>',
+      },
     });
 
     const [headerBlock] = raw.split('\r\n\r\n');
-    expect(headerBlock).toContain('List-Unsubscribe: <https://app.odb.test/unsubscribe?token=abc>');
+    expect(headerBlock).toContain(
+      'List-Unsubscribe: <https://app.odb.test/unsubscribe?token=abc>',
+    );
   });
 
   it('strips CR and LF from the subject and every header value', () => {
@@ -41,17 +45,21 @@ describe('buildMimeMessage', () => {
       to: 'lead@target.com',
       subject: 'Hello\r\nBcc: victim@evil.test',
       text: 'body',
-      headers: { 'List-Unsubscribe': '<https://app.odb.test/u>\r\nX-Injected: yes' },
+      headers: {
+        'List-Unsubscribe': '<https://app.odb.test/u>\r\nX-Injected: yes',
+      },
     });
 
     const [headerBlock] = raw.split('\r\n\r\n');
     expect(headerBlock).toContain('Subject: HelloBcc: victim@evil.test');
-    expect(headerBlock).toContain('List-Unsubscribe: <https://app.odb.test/u>X-Injected: yes');
+    expect(headerBlock).toContain(
+      'List-Unsubscribe: <https://app.odb.test/u>X-Injected: yes',
+    );
     expect(headerBlock).not.toMatch(/^Bcc:/m);
     expect(headerBlock).not.toMatch(/^X-Injected:/m);
   });
 
-    it('uses text/plain for a text-only email', () => {
+  it('uses text/plain for a text-only email', () => {
     const raw = buildMimeMessage(connection, {
       to: 'lead@target.com',
       subject: 's',
@@ -85,7 +93,9 @@ describe('buildMimeMessage', () => {
     expect(raw).toContain('multipart/alternative; boundary=');
     expect(raw).toContain('Content-Type: text/plain; charset="UTF-8"');
     expect(raw).toContain('Content-Type: text/html; charset="UTF-8"');
-    expect(raw.indexOf('plain body')).toBeLessThan(raw.indexOf('<p>rich body</p>'));
+    expect(raw.indexOf('plain body')).toBeLessThan(
+      raw.indexOf('<p>rich body</p>'),
+    );
   });
 
   it('adds Reply-To only when provided', () => {

@@ -89,7 +89,9 @@ const STATE_BY_COURT = new Map(
 );
 
 const BANKRUPTCY_COURTS = new Set(
-  Object.values(DISTRICTS_BY_STATE).flatMap((districts) => districts.map((district) => `${district}b`)),
+  Object.values(DISTRICTS_BY_STATE).flatMap((districts) =>
+    districts.map((district) => `${district}b`),
+  ),
 );
 
 const docket = z
@@ -150,19 +152,30 @@ function inFirmState(hit: Docket, state: string | null): boolean {
 }
 
 function partyQuery(name: string): string {
-  const since = yearsBefore(new Date(), LOOK_BACK_YEARS).toISOString().slice(0, 10);
+  const since = yearsBefore(new Date(), LOOK_BACK_YEARS)
+    .toISOString()
+    .slice(0, 10);
   return `party:"${name.replaceAll('"', '\\"')}" AND (dateFiled:[${since} TO *] OR dateTerminated:[${since} TO *] OR (*:* -dateTerminated:[* TO *]))`;
 }
 
-export function courtListenerPacer({ sleep }: { sleep: (ms: number) => Promise<void> }) {
+export function courtListenerPacer({
+  sleep,
+}: {
+  sleep: (ms: number) => Promise<void>;
+}) {
   return async (accountId: string) => {
     const { data: claim } = await getSupabaseServerAdminClient()
-      .rpc('claim_courtlistener_slot', { p_account_id: accountId, p_spacing: `${REQUEST_SPACING_MS} milliseconds` })
+      .rpc('claim_courtlistener_slot', {
+        p_account_id: accountId,
+        p_spacing: `${REQUEST_SPACING_MS} milliseconds`,
+      })
       .single()
       .throwOnError();
     if (claim.wait_ms > LONGEST_SLEEP_MS) {
       const resumeAt = new Date(Date.now() + claim.wait_ms);
-      throw claim.held ? new CourtListenerLimit(resumeAt) : new CapReached('Waiting for a CourtListener slot', resumeAt);
+      throw claim.held
+        ? new CourtListenerLimit(resumeAt)
+        : new CapReached('Waiting for a CourtListener slot', resumeAt);
     }
     await sleep(claim.wait_ms);
   };
@@ -190,7 +203,10 @@ async function searchParty(
   }
   if (response.status === 429) {
     await getSupabaseServerAdminClient()
-      .rpc('hold_courtlistener_slots', { p_account_id: accountId, p_for: `${HOURLY_LIMIT_RESETS_MS} milliseconds` })
+      .rpc('hold_courtlistener_slots', {
+        p_account_id: accountId,
+        p_for: `${HOURLY_LIMIT_RESETS_MS} milliseconds`,
+      })
       .throwOnError();
     throw new CourtListenerLimit();
   }
@@ -198,11 +214,15 @@ async function searchParty(
     throw new Error(`CourtListener answered ${response.status}`);
   }
   if (response.status >= 300) {
-    throw ApplicationFailure.nonRetryable(`CourtListener answered ${response.status}`);
+    throw ApplicationFailure.nonRetryable(
+      `CourtListener answered ${response.status}`,
+    );
   }
   const body = parsedJson(response.text);
   if (body === undefined) {
-    throw ApplicationFailure.nonRetryable('CourtListener answered with something that is not JSON');
+    throw ApplicationFailure.nonRetryable(
+      'CourtListener answered with something that is not JSON',
+    );
   }
   return searchPage.parse(body).results;
 }
@@ -213,17 +233,30 @@ export async function searchFederalCourts(
     subjects,
     state,
     signal,
-  }: { accountId: string; subjects: CourtSubject[]; state: string | null; signal?: AbortSignal },
+  }: {
+    accountId: string;
+    subjects: CourtSubject[];
+    state: string | null;
+    signal?: AbortSignal;
+  },
   pace = teamPacer,
 ): Promise<{ skipped: string } | { candidates: CourtCandidate[] }> {
   const credentials = await providerKey(accountId, 'courts');
   if (!credentials) {
-    return { skipped: 'Connect a CourtListener token to search federal courts' };
+    return {
+      skipped: 'Connect a CourtListener token to search federal courts',
+    };
   }
   const candidates: CourtCandidate[] = [];
   for (const subject of subjects) {
     await pace(accountId);
-    const hits = await searchParty(accountId, credentials.baseUrl, credentials.apiKey, subject.name, signal);
+    const hits = await searchParty(
+      accountId,
+      credentials.baseUrl,
+      credentials.apiKey,
+      subject.name,
+      signal,
+    );
     if (hits === 'refused') {
       return { skipped: 'The CourtListener token was refused; reconnect it' };
     }

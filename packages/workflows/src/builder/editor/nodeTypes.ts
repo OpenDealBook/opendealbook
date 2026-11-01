@@ -1,27 +1,111 @@
 import type { NodeTypeName, WorkflowGraph } from '../graph';
 
 export const NODE_TYPE_DISPLAY = {
-  manual_trigger: { label: 'Run now', icon: 'Play', description: 'Start when someone presses Run now' },
-  schedule_trigger: { label: 'Schedule', icon: 'CalendarBlank', description: 'Start on a repeating schedule' },
-  event_trigger: { label: 'App event', icon: 'Lightning', description: 'Start when something happens in the app' },
-  notify_team: { label: 'Notify team', icon: 'Bell', description: 'Send the deal managers a notice' },
-  create_todo: { label: 'Create to-do', icon: 'ListChecks', description: 'Add a to-do for the team' },
-  ask_ai: { label: "Ask the team's AI", icon: 'Sparkle', description: "Send a prompt to the team's AI" },
-  decision_model: { label: 'Decision model', icon: 'Scales', description: 'Check a firm against the decision model' },
-  approval: { label: 'Approval', icon: 'SealCheck', description: 'Wait for a person to approve or reject' },
-  wait: { label: 'Wait', icon: 'Hourglass', description: 'Pause for a while or until a date' },
-  branch: { label: 'Branch', icon: 'ArrowsSplit', description: 'Go one way or the other on a rule' },
-  merge: { label: 'Merge', icon: 'ArrowsMerge', description: 'Wait for both paths and combine them' },
-  loop: { label: 'Loop', icon: 'Repeat', description: 'Run the steps after it once per item' },
-  pull_leads: { label: 'Pull leads', icon: 'DownloadSimple', description: 'Add matching businesses from public records' },
-  registry_lookup: { label: 'Registry lookup', icon: 'Buildings', description: "Look up a firm's state registry record" },
-  email_lookup: { label: 'Find emails', icon: 'At', description: "Find email addresses for a firm's owners" },
-  prepare_firm: { label: 'Prepare firm', icon: 'IdentificationCard', description: 'Write the owner mailing address and a firm profile' },
-  enroll_sequence: { label: 'Start sequence', icon: 'Envelope', description: 'Enroll a firm in an outreach sequence' },
-  send_letter: { label: 'Send letter', icon: 'Mailbox', description: 'Mail a letter to a firm owner' },
-  diligence_search: { label: 'Background search', icon: 'MagnifyingGlass', description: "Search courts, sanctions lists and news for a deal's business and people" },
-  diligence_report: { label: 'Background report', icon: 'FileText', description: 'Rate the background search findings and write a report' },
-} as const satisfies Record<NodeTypeName, { label: string; icon: string; description: string }>;
+  manual_trigger: {
+    label: 'Run now',
+    icon: 'Play',
+    description: 'Start when someone presses Run now',
+  },
+  schedule_trigger: {
+    label: 'Schedule',
+    icon: 'CalendarBlank',
+    description: 'Start on a repeating schedule',
+  },
+  event_trigger: {
+    label: 'App event',
+    icon: 'Lightning',
+    description: 'Start when something happens in the app',
+  },
+  notify_team: {
+    label: 'Notify team',
+    icon: 'Bell',
+    description: 'Send the deal managers a notice',
+  },
+  create_todo: {
+    label: 'Create to-do',
+    icon: 'ListChecks',
+    description: 'Add a to-do for the team',
+  },
+  ask_ai: {
+    label: "Ask the team's AI",
+    icon: 'Sparkle',
+    description: "Send a prompt to the team's AI",
+  },
+  decision_model: {
+    label: 'Decision model',
+    icon: 'Scales',
+    description: 'Check a firm against the decision model',
+  },
+  approval: {
+    label: 'Approval',
+    icon: 'SealCheck',
+    description: 'Wait for a person to approve or reject',
+  },
+  wait: {
+    label: 'Wait',
+    icon: 'Hourglass',
+    description: 'Pause for a while or until a date',
+  },
+  branch: {
+    label: 'Branch',
+    icon: 'ArrowsSplit',
+    description: 'Go one way or the other on a rule',
+  },
+  merge: {
+    label: 'Merge',
+    icon: 'ArrowsMerge',
+    description: 'Wait for both paths and combine them',
+  },
+  loop: {
+    label: 'Loop',
+    icon: 'Repeat',
+    description: 'Run the steps after it once per item',
+  },
+  pull_leads: {
+    label: 'Pull leads',
+    icon: 'DownloadSimple',
+    description: 'Add matching businesses from public records',
+  },
+  registry_lookup: {
+    label: 'Registry lookup',
+    icon: 'Buildings',
+    description: "Look up a firm's state registry record",
+  },
+  email_lookup: {
+    label: 'Find emails',
+    icon: 'At',
+    description: "Find email addresses for a firm's owners",
+  },
+  prepare_firm: {
+    label: 'Prepare firm',
+    icon: 'IdentificationCard',
+    description: 'Write the owner mailing address and a firm profile',
+  },
+  enroll_sequence: {
+    label: 'Start sequence',
+    icon: 'Envelope',
+    description: 'Enroll a firm in an outreach sequence',
+  },
+  send_letter: {
+    label: 'Send letter',
+    icon: 'Mailbox',
+    description: 'Mail a letter to a firm owner',
+  },
+  diligence_search: {
+    label: 'Background search',
+    icon: 'MagnifyingGlass',
+    description:
+      "Search courts, sanctions lists and news for a deal's business and people",
+  },
+  diligence_report: {
+    label: 'Background report',
+    icon: 'FileText',
+    description: 'Rate the background search findings and write a report',
+  },
+} as const satisfies Record<
+  NodeTypeName,
+  { label: string; icon: string; description: string }
+>;
 
 export type NodeIcon = (typeof NODE_TYPE_DISPLAY)[NodeTypeName]['icon'];
 

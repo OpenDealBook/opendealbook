@@ -10,7 +10,7 @@ function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
+        <CardTitle className="text-muted-foreground text-sm font-medium">
           {label}
         </CardTitle>
       </CardHeader>

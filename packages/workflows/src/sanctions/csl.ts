@@ -73,9 +73,10 @@ export function parseCsl(json: string): {
         addresses,
         countries: [
           ...new Set(
-            [result.country, ...addresses.map((address) => address.country)].filter(
-              (country): country is string => Boolean(country),
-            ),
+            [
+              result.country,
+              ...addresses.map((address) => address.country),
+            ].filter((country): country is string => Boolean(country)),
           ),
         ],
         source_url: result.source_list_url,

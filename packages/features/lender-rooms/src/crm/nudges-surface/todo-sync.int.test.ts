@@ -3,12 +3,9 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
-import {
-  admin,
-  removeEverythingSeeded,
-} from '../../asks/integration-harness';
-import { syncNudgeTodos } from './todo-sync';
+import { admin, removeEverythingSeeded } from '../../asks/integration-harness';
 import { DB_URL, seedQuietTeam } from './test-support';
+import { syncNudgeTodos } from './todo-sync';
 
 const DAY = 86_400_000;
 
@@ -24,13 +21,18 @@ async function todosOf(userId: string, dealId: string) {
   return data;
 }
 
-async function hearFromLender(roomId: string, accountId: string, daysAgo: number) {
+async function hearFromLender(
+  roomId: string,
+  accountId: string,
+  daysAgo: number,
+) {
   const db = new pg.Client({ connectionString: DB_URL });
   await db.connect();
   try {
-    await db.query('delete from public.lender_room_email_reply where room_id = $1', [
-      roomId,
-    ]);
+    await db.query(
+      'delete from public.lender_room_email_reply where room_id = $1',
+      [roomId],
+    );
     await db.query(
       `insert into public.lender_room_email_reply (room_id, account_id, received_at, provider_message_id)
        values ($1, $2, now() - make_interval(days => $3), gen_random_uuid()::text)`,
@@ -111,7 +113,11 @@ describe('syncNudgeTodos (integration)', () => {
     await syncNudgeTodos(admin, teamId);
 
     expect(await todosOf(owner.userId, dealId)).toEqual([
-      { id: expect.any(String), title: 'Nudge Quiet Bank, quiet 30 days', done: false },
+      {
+        id: expect.any(String),
+        title: 'Nudge Quiet Bank, quiet 30 days',
+        done: false,
+      },
     ]);
     expect(await todosOf(colleague.userId, dealId)).toEqual([]);
   });
@@ -143,7 +149,11 @@ describe('syncNudgeTodos (integration)', () => {
     await syncNudgeTodos(admin, teamId);
     const again = await todosOf(owner.userId, dealId);
     expect(again).toEqual([
-      { id: expect.any(String), title: 'Nudge Quiet Bank, quiet 9 days', done: false },
+      {
+        id: expect.any(String),
+        title: 'Nudge Quiet Bank, quiet 9 days',
+        done: false,
+      },
     ]);
     expect(again[0]!.id).not.toBe(first!.id);
   });
@@ -184,7 +194,11 @@ describe('syncNudgeTodos (integration)', () => {
     await syncNudgeTodos(admin, teamId);
 
     expect(await todosOf(owner.userId, dealId)).toEqual([
-      { id: expect.any(String), title: 'Nudge Quiet Bank, quiet 9 days', done: false },
+      {
+        id: expect.any(String),
+        title: 'Nudge Quiet Bank, quiet 9 days',
+        done: false,
+      },
     ]);
   });
 
@@ -227,7 +241,11 @@ describe('syncNudgeTodos (integration)', () => {
         deal_id: dealId,
         account_id: teamId,
         aggregate_id: roomId,
-        payload: { lender_name: 'Quiet Bank', due_since: expect.any(String), days_silent: 30 },
+        payload: {
+          lender_name: 'Quiet Bank',
+          due_since: expect.any(String),
+          days_silent: 30,
+        },
       },
     ]);
 
@@ -238,7 +256,11 @@ describe('syncNudgeTodos (integration)', () => {
     await hearFromLender(roomId, teamId, 9);
     await syncNudgeTodos(admin, teamId);
     const spells = await wentQuiet();
-    expect(spells.map((event) => (event.payload as { days_silent: number }).days_silent)).toEqual([30, 9]);
+    expect(
+      spells.map(
+        (event) => (event.payload as { days_silent: number }).days_silent,
+      ),
+    ).toEqual([30, 9]);
     expect((spells[1]!.payload as { due_since: string }).due_since).not.toBe(
       (spells[0]!.payload as { due_since: string }).due_since,
     );
@@ -266,7 +288,9 @@ describe('syncNudgeTodos (integration)', () => {
   it('retries a room once when recording that it went quiet hits a conflict', async () => {
     const { teamId, roomId } = await seedQuietTeam(30);
 
-    await whileRecordingRoomFails(roomId, 1, () => syncNudgeTodos(admin, teamId));
+    await whileRecordingRoomFails(roomId, 1, () =>
+      syncNudgeTodos(admin, teamId),
+    );
 
     expect(await wentQuietCount(roomId)).toBe(1);
   });
@@ -275,7 +299,9 @@ describe('syncNudgeTodos (integration)', () => {
     const { owner, teamId, dealId, roomId } = await seedQuietTeam(30);
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await whileRecordingRoomFails(roomId, 2, () => syncNudgeTodos(admin, teamId));
+    await whileRecordingRoomFails(roomId, 2, () =>
+      syncNudgeTodos(admin, teamId),
+    );
 
     expect(await wentQuietCount(roomId)).toBe(0);
     expect(logged).toHaveBeenCalledWith(

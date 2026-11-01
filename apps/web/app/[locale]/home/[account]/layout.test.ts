@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/headers', () => ({
-  headers: async () => new Headers({ 'x-request-path': '/fr/home/acme/members?tab=open' }),
+  headers: async () =>
+    new Headers({ 'x-request-path': '/fr/home/acme/members?tab=open' }),
 }));
 
 vi.mock('next/navigation', () => ({

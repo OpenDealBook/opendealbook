@@ -1,5 +1,6 @@
-import type { EditorLayout } from '@odb/workflows/builder/editor';
 import ELK from 'elkjs/lib/elk.bundled.js';
+
+import type { EditorLayout } from '@odb/workflows/builder/editor';
 
 const elk = new ELK();
 

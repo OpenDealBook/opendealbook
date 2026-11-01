@@ -1,9 +1,9 @@
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
-
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import { createNovuClient } from './client';
+
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 
 const silentNovu = createServer(() => {});
 

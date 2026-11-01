@@ -93,9 +93,9 @@ export default async function CustomersPage({
           Built for teams that grow by acquisition
         </h1>
         <p className={'text-muted-foreground max-w-2xl'}>
-          If buying companies is part of how you grow, Open Deal Book is the
-          one place your team runs each deal, from the first target to the
-          signed contract.
+          If buying companies is part of how you grow, Open Deal Book is the one
+          place your team runs each deal, from the first target to the signed
+          contract.
         </p>
       </div>
 

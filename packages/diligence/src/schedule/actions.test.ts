@@ -104,11 +104,7 @@ vi.mock('@odb/events', () => ({
   },
 }));
 
-import {
-  assignItemToWeek,
-  sellerWeekView,
-  slipUnreceived,
-} from './actions';
+import { assignItemToWeek, sellerWeekView, slipUnreceived } from './actions';
 
 const ITEM_ID = '5f675954-8b8a-402f-856d-555c3b0635f5';
 const WEEK_7 = '2b9e4c1a-7d3f-4e8a-9b6c-1f2e3d4c5b6a';

@@ -831,9 +831,7 @@ export function RoomBrowser({
             ) : null}
             {folders.length + entries.length === 0 ? (
               <EmptyState message={emptyMessage}>
-                {location.place === 'own' &&
-                !isAcrossRoom &&
-                !readOnly ? (
+                {location.place === 'own' && !isAcrossRoom && !readOnly ? (
                   <Button
                     variant={'outline'}
                     size={'sm'}

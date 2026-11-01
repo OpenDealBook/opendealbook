@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import type { ActionResult } from '@odb/next/refusal';
-import type { PaletteItem } from '@odb/workflows/builder/editor';
 import { Button } from '@odb/ui/button';
+import type { PaletteItem } from '@odb/workflows/builder/editor';
 
 import { SCHEDULES_NOT_SYNCED } from '../[account]/workflows/workflow-refusals';
 import { UnsavedChangesGuard } from './calc-shared';
@@ -47,9 +47,9 @@ function useTabletOrWider(): boolean {
 type WorkflowInput = { workflowId: string };
 
 function errorsByNode(errors: NodeError[]) {
-  const groups = new Map<string | null, { label: string; messages: string[] }>(
-    [[null, { label: 'Workflow', messages: [] }]],
-  );
+  const groups = new Map<string | null, { label: string; messages: string[] }>([
+    [null, { label: 'Workflow', messages: [] }],
+  ]);
 
   for (const error of errors) {
     const group = groups.get(error.nodeId) ?? {
@@ -73,9 +73,7 @@ export function WorkflowEditor(props: {
   palette: PaletteItem[];
   canManage: boolean;
   schedulesSyncFailed: boolean;
-  saveDraft: (
-    input: WorkflowInput & Draft,
-  ) => Promise<ActionResult<unknown>>;
+  saveDraft: (input: WorkflowInput & Draft) => Promise<ActionResult<unknown>>;
   publishDraft: (input: WorkflowInput) => Promise<ActionResult<unknown>>;
   retryScheduleSync: (input: WorkflowInput) => Promise<ActionResult<unknown>>;
 }) {
@@ -90,11 +88,14 @@ export function WorkflowEditor(props: {
 
   const target = { workflowId: props.workflowId };
   const versionNumber = (id: string) =>
-    props.published.length - props.published.findIndex((each) => each.id === id);
+    props.published.length -
+    props.published.findIndex((each) => each.id === id);
   const versionName = (id: string | null) =>
     id === null ? 'Draft' : `Version ${versionNumber(id)}`;
   const versionPath = (id: string | null) =>
-    id === null ? `${props.workflowPath}/edit` : `${props.workflowPath}/edit?version=${id}`;
+    id === null
+      ? `${props.workflowPath}/edit`
+      : `${props.workflowPath}/edit?version=${id}`;
   const editable = props.canManage && props.viewing === null && wide;
 
   async function accepted(action: Promise<ActionResult<unknown>>) {
@@ -193,7 +194,7 @@ export function WorkflowEditor(props: {
                 href={versionPath(id)}
                 aria-current={id === props.viewing ? 'page' : undefined}
                 className={
-                  'hover:bg-accent aria-[current=page]:font-medium rounded-sm px-2 py-1 text-sm'
+                  'hover:bg-accent rounded-sm px-2 py-1 text-sm aria-[current=page]:font-medium'
                 }
               >
                 {versionName(id)}
@@ -206,7 +207,12 @@ export function WorkflowEditor(props: {
         ) : null}
         {editable ? (
           <div className={'ml-auto flex items-center gap-2'}>
-            <Button variant={'outline'} size={'sm'} disabled={pending} onClick={tidy}>
+            <Button
+              variant={'outline'}
+              size={'sm'}
+              disabled={pending}
+              onClick={tidy}
+            >
               Tidy
             </Button>
             <Button
@@ -244,7 +250,9 @@ export function WorkflowEditor(props: {
       {publishErrors.length > 0 ? (
         <ul
           aria-label={'Publish errors'}
-          className={'border-destructive/40 flex flex-col gap-1 border-b px-4 py-2 text-sm'}
+          className={
+            'border-destructive/40 flex flex-col gap-1 border-b px-4 py-2 text-sm'
+          }
         >
           {errorsByNode(publishErrors).map(([nodeId, group]) => (
             <li key={nodeId ?? ''}>

@@ -5,8 +5,18 @@ import { STARTER_SCENARIO_PATHS } from '@odb/calculators';
 import { parseDealCalcDefaults } from './deal-calc-defaults';
 
 const savedPaths = {
-  worst: { revenue_loss: 0.2, growth: -0.02, margin_change: -0.03, rate_shift: 0.03 },
-  great: { revenue_loss: 0, growth: 0.08, margin_change: 0.01, rate_shift: -0.02 },
+  worst: {
+    revenue_loss: 0.2,
+    growth: -0.02,
+    margin_change: -0.03,
+    rate_shift: 0.03,
+  },
+  great: {
+    revenue_loss: 0,
+    growth: 0.08,
+    margin_change: 0.01,
+    rate_shift: -0.02,
+  },
 };
 
 describe('parseDealCalcDefaults', () => {

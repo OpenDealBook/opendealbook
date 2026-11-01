@@ -1,12 +1,16 @@
-import { fileURLToPath } from 'node:url';
-
 import { configDefaults, defineConfig } from 'vitest/config';
+
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   resolve: {
     alias: {
-      '@odb/comps/workflow': fileURLToPath(new URL('../comps/index.workflow.ts', import.meta.url)),
-      '@odb/comps': fileURLToPath(new URL('../comps/index.ts', import.meta.url)),
+      '@odb/comps/workflow': fileURLToPath(
+        new URL('../comps/index.workflow.ts', import.meta.url),
+      ),
+      '@odb/comps': fileURLToPath(
+        new URL('../comps/index.ts', import.meta.url),
+      ),
       papaparse: fileURLToPath(
         new URL(
           '../../node_modules/.pnpm/papaparse@5.5.3/node_modules/papaparse/papaparse.js',

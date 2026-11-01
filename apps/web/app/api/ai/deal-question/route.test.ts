@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const world = vi.hoisted(() => ({
   lockedAccounts: new Set<string>(),
   mayWork: true,
-  answerDealQuestion: vi.fn(async (): Promise<unknown> => ({ answer: 'Revenue grew 12%' })),
+  answerDealQuestion: vi.fn(
+    async (): Promise<unknown> => ({ answer: 'Revenue grew 12%' }),
+  ),
 }));
 
 function query(data: unknown) {
@@ -105,7 +107,9 @@ describe('POST /api/ai/deal-question', () => {
     const response = await ask();
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: 'Only the deal team can ask about this deal.' });
+    expect(await response.json()).toEqual({
+      error: 'Only the deal team can ask about this deal.',
+    });
     expect(world.answerDealQuestion).not.toHaveBeenCalled();
   });
 
@@ -122,12 +126,15 @@ describe('POST /api/ai/deal-question', () => {
   it.each([
     [new TeamAiNotConnected(), 409, 'Connect an AI provider first'],
     [new CapReached(), 429, 'The monthly AI limit is reached'],
-  ])('tells the asker why the team cannot answer: %s', async (refusal, status, error) => {
-    world.answerDealQuestion.mockRejectedValueOnce(refusal);
+  ])(
+    'tells the asker why the team cannot answer: %s',
+    async (refusal, status, error) => {
+      world.answerDealQuestion.mockRejectedValueOnce(refusal);
 
-    const response = await ask();
+      const response = await ask();
 
-    expect(response.status).toBe(status);
-    expect(await response.json()).toEqual({ error });
-  });
+      expect(response.status).toBe(status);
+      expect(await response.json()).toEqual({ error });
+    },
+  );
 });

@@ -78,10 +78,12 @@ describe('createOffer + submit (integration)', () => {
   it('projects offer and offer_version rows and advances the deal to loi_submitted', async () => {
     const dealId = await newDeal('Submit flow deal');
 
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(1_200_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(1_200_000) },
+        actor,
+      )) as { value: string }
+    ).value;
 
     const { data: offer } = await account.admin
       .from('offer')
@@ -89,7 +91,11 @@ describe('createOffer + submit (integration)', () => {
       .eq('id', offerId)
       .single();
 
-    expect(offer).toMatchObject({ id: offerId, deal_id: dealId, status: 'draft' });
+    expect(offer).toMatchObject({
+      id: offerId,
+      deal_id: dealId,
+      status: 'draft',
+    });
     expect(offer?.current_version_id).not.toBeNull();
 
     const { data: versions } = await account.admin
@@ -130,10 +136,12 @@ describe('acceptOffer (integration)', () => {
   it('records the offer as accepted without advancing the stage or creating a contract', async () => {
     const dealId = await newDeal('Accept flow deal');
 
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(900_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(900_000) },
+        actor,
+      )) as { value: string }
+    ).value;
 
     await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
     await (acceptOffer as unknown as Action)({ offer_id: offerId }, actor);
@@ -167,10 +175,12 @@ describe('acceptOffer (integration)', () => {
 describe('new offer after a previous one (integration)', () => {
   async function dealWithOffer(description: string) {
     const dealId = await newDeal(description);
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(500_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(500_000) },
+        actor,
+      )) as { value: string }
+    ).value;
     return { dealId, offerId };
   }
 
@@ -188,7 +198,9 @@ describe('new offer after a previous one (integration)', () => {
   ])(
     'starts a fresh draft offer when the previous one was %s and keeps the old one',
     async (deadStatus, resolve) => {
-      const { dealId, offerId } = await dealWithOffer(`Dead ${deadStatus} deal`);
+      const { dealId, offerId } = await dealWithOffer(
+        `Dead ${deadStatus} deal`,
+      );
       await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
       await (resolve as unknown as Action)({ offer_id: offerId }, actor);
 
@@ -238,7 +250,11 @@ describe('new offer after a previous one (integration)', () => {
           {
             offer_id: offerId,
             author_side: 'seller',
-            version: { ...firstVersion(520_000), number: 2, author_side: 'seller' },
+            version: {
+              ...firstVersion(520_000),
+              number: 2,
+              author_side: 'seller',
+            },
           },
           actor,
         );
@@ -289,10 +305,12 @@ describe('terminal offer guard (integration)', () => {
   it('rejects a transition on an already accepted offer', async () => {
     const dealId = await newDeal('Terminal offer deal');
 
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(750_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(750_000) },
+        actor,
+      )) as { value: string }
+    ).value;
 
     await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
     await (acceptOffer as unknown as Action)({ offer_id: offerId }, actor);
@@ -305,10 +323,12 @@ describe('terminal offer guard (integration)', () => {
 
 describe('fetchDealOffers (integration)', () => {
   async function draftOffer(dealId: string, price: number) {
-    return ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(price) },
-      actor,
-    )) as { value: string }).value;
+    return (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(price) },
+        actor,
+      )) as { value: string }
+    ).value;
   }
 
   async function reject(offerId: string) {
@@ -316,7 +336,9 @@ describe('fetchDealOffers (integration)', () => {
     await (rejectOffer as unknown as Action)({ offer_id: offerId }, actor);
   }
 
-  function summary(entry: Awaited<ReturnType<typeof fetchDealOffers>>['history'][number]) {
+  function summary(
+    entry: Awaited<ReturnType<typeof fetchDealOffers>>['history'][number],
+  ) {
     return {
       id: entry.offer.id,
       status: entry.offer.status,
@@ -352,8 +374,18 @@ describe('fetchDealOffers (integration)', () => {
       currentPrice: 500_000,
     });
     expect(offers.history.map(summary)).toEqual([
-      { id: second, status: 'rejected', prices: [450_000], currentPrice: 450_000 },
-      { id: first, status: 'rejected', prices: [400_000], currentPrice: 400_000 },
+      {
+        id: second,
+        status: 'rejected',
+        prices: [450_000],
+        currentPrice: 450_000,
+      },
+      {
+        id: first,
+        status: 'rejected',
+        prices: [400_000],
+        currentPrice: 400_000,
+      },
     ]);
   });
 
@@ -377,47 +409,53 @@ describe('addOfferVersion on a closed offer (integration)', () => {
     ['rejected', rejectOffer],
     ['withdrawn', withdrawOffer],
     ['expired', expireOffer],
-  ])(
-    'refuses a new version once the offer is %s',
-    async (status, close) => {
-      const dealId = await newDeal(`Closed ${status} offer deal`);
-      const offerId = ((await (createOffer as unknown as Action)(
+  ])('refuses a new version once the offer is %s', async (status, close) => {
+    const dealId = await newDeal(`Closed ${status} offer deal`);
+    const offerId = (
+      (await (createOffer as unknown as Action)(
         { deal_id: dealId, first_version: firstVersion(600_000) },
         actor,
-      )) as { value: string }).value;
-      await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
-      await (close as unknown as Action)({ offer_id: offerId }, actor);
+      )) as { value: string }
+    ).value;
+    await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
+    await (close as unknown as Action)({ offer_id: offerId }, actor);
 
-      await expect(
-        (addOfferVersion as unknown as Action)(
-          {
-            offer_id: offerId,
+    await expect(
+      (addOfferVersion as unknown as Action)(
+        {
+          offer_id: offerId,
+          author_side: 'seller',
+          version: {
+            ...firstVersion(650_000),
+            number: 2,
             author_side: 'seller',
-            version: { ...firstVersion(650_000), number: 2, author_side: 'seller' },
           },
-          actor,
-        ),
-      ).rejects.toThrow('Offer is already resolved');
+        },
+        actor,
+      ),
+    ).rejects.toThrow('Offer is already resolved');
 
-      const { data: offer } = await account.admin
-        .from('offer')
-        .select('status')
-        .eq('id', offerId)
-        .single();
-      const { data: versions } = await account.admin
-        .from('offer_version')
-        .select('number')
-        .eq('offer_id', offerId);
+    const { data: offer } = await account.admin
+      .from('offer')
+      .select('status')
+      .eq('id', offerId)
+      .single();
+    const { data: versions } = await account.admin
+      .from('offer_version')
+      .select('number')
+      .eq('offer_id', offerId);
 
-      expect(offer?.status).toBe(status);
-      expect(versions).toEqual([{ number: 1 }]);
-    },
-  );
+    expect(offer?.status).toBe(status);
+    expect(versions).toEqual([{ number: 1 }]);
+  });
 });
 
 describe('deal stage after an offer closes (integration)', () => {
   async function moveStage(dealId: string, stage: string) {
-    await (updateDealStage as unknown as Action)({ deal_id: dealId, stage }, actor);
+    await (updateDealStage as unknown as Action)(
+      { deal_id: dealId, stage },
+      actor,
+    );
   }
 
   async function stageOf(dealId: string) {
@@ -432,10 +470,12 @@ describe('deal stage after an offer closes (integration)', () => {
   async function dealWithSubmittedOffer(description: string) {
     const dealId = await newDeal(description);
     await moveStage(dealId, 'nda_signed');
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(700_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(700_000) },
+        actor,
+      )) as { value: string }
+    ).value;
     await (submitOffer as unknown as Action)({ offer_id: offerId }, actor);
     return { dealId, offerId };
   }
@@ -447,7 +487,8 @@ describe('deal stage after an offer closes (integration)', () => {
   ])(
     'returns the deal to its stage before the submit once the offer is %s',
     async (_status, close) => {
-      const { dealId, offerId } = await dealWithSubmittedOffer('Stage restore deal');
+      const { dealId, offerId } =
+        await dealWithSubmittedOffer('Stage restore deal');
       expect(await stageOf(dealId)).toBe('loi_submitted');
 
       await (close as unknown as Action)({ offer_id: offerId }, actor);
@@ -468,10 +509,12 @@ describe('deal stage after an offer closes (integration)', () => {
   it('leaves the stage alone when a never-submitted draft is withdrawn', async () => {
     const dealId = await newDeal('Draft only deal');
     await moveStage(dealId, 'nda_signed');
-    const offerId = ((await (createOffer as unknown as Action)(
-      { deal_id: dealId, first_version: firstVersion(700_000) },
-      actor,
-    )) as { value: string }).value;
+    const offerId = (
+      (await (createOffer as unknown as Action)(
+        { deal_id: dealId, first_version: firstVersion(700_000) },
+        actor,
+      )) as { value: string }
+    ).value;
 
     await (withdrawOffer as unknown as Action)({ offer_id: offerId }, actor);
 

@@ -92,7 +92,9 @@ export async function recordSellerUpload(
         account_id: space.account_id,
         user_id: userId,
         side:
-          uploader.kind === 'team' ? ('internal' as const) : ('seller' as const),
+          uploader.kind === 'team'
+            ? ('internal' as const)
+            : ('seller' as const),
         action: 'document_uploaded' as const,
         dr_document_id: documentId,
       })),

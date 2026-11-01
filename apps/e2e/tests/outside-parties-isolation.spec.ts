@@ -71,7 +71,11 @@ test("outside parties are refused each other's pages and files", async ({
   const dealPath = `/home/${teamSlug}/deals/${dealId}`;
   const lendersPath = `${dealPath}/lenders`;
   const portal = `/counsel/${dealId}`;
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   await page.goto(lendersPath);
   await page.getByRole('button', { name: 'Start the lender package' }).click();
@@ -89,13 +93,21 @@ test("outside parties are refused each other's pages and files", async ({
   );
   const packageId = packageDocument!.id;
 
-  const roomA = await createRoomByName(page, 'Create the first lender room', roomAName);
+  const roomA = await createRoomByName(
+    page,
+    'Create the first lender room',
+    roomAName,
+  );
   await lender.invite(page, lenderA);
-  await expect(page.getByText(`${lenderA.name} (${lenderA.email})`)).toBeVisible();
+  await expect(
+    page.getByText(`${lenderA.name} (${lenderA.email})`),
+  ).toBeVisible();
   await page.goto(lendersPath);
   const roomB = await createRoomByName(page, 'Create lender room', roomBName);
   await lender.invite(page, lenderB);
-  await expect(page.getByText(`${lenderB.name} (${lenderB.email})`)).toBeVisible();
+  await expect(
+    page.getByText(`${lenderB.name} (${lenderB.email})`),
+  ).toBeVisible();
 
   const [draftId, sharedId] = await contracts.seed({
     dealId,
@@ -106,16 +118,21 @@ test("outside parties are refused each other's pages and files", async ({
   });
 
   const lenderBSide = await freshPage(browser);
-  await lender.signIn(lenderBSide.page, { email: lenderB.email, roomId: roomB });
+  await lender.signIn(lenderBSide.page, {
+    email: lenderB.email,
+    roomId: roomB,
+  });
   await lenderBSide.page
     .getByRole('navigation', { name: 'Folders' })
     .getByRole('button', { name: 'Your files' })
     .click();
-  await lenderBSide.page.getByLabel('Add files', { exact: true }).setInputFiles({
-    name: lenderBFile,
-    mimeType: 'text/plain',
-    buffer: Buffer.from(`Bayside terms ${stamp}`),
-  });
+  await lenderBSide.page
+    .getByLabel('Add files', { exact: true })
+    .setInputFiles({
+      name: lenderBFile,
+      mimeType: 'text/plain',
+      buffer: Buffer.from(`Bayside terms ${stamp}`),
+    });
   await expect(
     lenderBSide.page.getByRole('button', { name: lenderBFile, exact: true }),
   ).toBeVisible({ timeout: 30 * 1000 });
@@ -158,7 +175,10 @@ test("outside parties are refused each other's pages and files", async ({
   });
 
   const lenderASide = await freshPage(browser);
-  await lender.signIn(lenderASide.page, { email: lenderA.email, roomId: roomA });
+  await lender.signIn(lenderASide.page, {
+    email: lenderA.email,
+    roomId: roomA,
+  });
 
   const lenderFile = (roomId: string, documentId: string) =>
     `/lender/${roomId}/files/${documentId}?disposition=download`;
@@ -174,8 +194,12 @@ test("outside parties are refused each other's pages and files", async ({
   await expect(lenderAPage.getByText(lenderB.name)).toHaveCount(0);
   expect((await lenderAPage.goto(`/lender/${roomB}`))!.status()).toBe(404);
   expect(await status(lenderAPage, lenderFile(roomA, packageId))).toBe(307);
-  expect(await status(lenderAPage, lenderFile(roomB, lenderBDocument))).toBe(404);
-  expect(await status(lenderAPage, lenderFile(roomA, lenderBDocument))).toBe(404);
+  expect(await status(lenderAPage, lenderFile(roomB, lenderBDocument))).toBe(
+    404,
+  );
+  expect(await status(lenderAPage, lenderFile(roomA, lenderBDocument))).toBe(
+    404,
+  );
 
   const sellerPage = sellerSide.page;
   await sellerPage.goto(sellerRoom);
@@ -188,17 +212,25 @@ test("outside parties are refused each other's pages and files", async ({
   expect(await status(sellerPage, lenderFile(roomA, packageId))).toBe(404);
 
   const sellerCounselPage = sellerCounselSide.page;
-  expect((await sellerCounselPage.goto(`${portal}/data-room`))!.status()).toBe(404);
-  expect((await sellerCounselPage.goto(`${portal}/questions`))!.status()).toBe(404);
+  expect((await sellerCounselPage.goto(`${portal}/data-room`))!.status()).toBe(
+    404,
+  );
+  expect((await sellerCounselPage.goto(`${portal}/questions`))!.status()).toBe(
+    404,
+  );
   expect(await status(sellerCounselPage, dataRoomFile(packageId))).toBe(404);
   expect(await status(sellerCounselPage, contractFile(sharedId!))).toBe(200);
   expect(await status(sellerCounselPage, contractFile(draftId!))).toBe(404);
 
   const buyerCounselPage = buyerCounselSide.page;
   expect((await buyerCounselPage.goto(sellerRoom))!.status()).toBe(404);
-  expect(await status(buyerCounselPage, sellerRoomFile(sellerDocument))).toBe(404);
+  expect(await status(buyerCounselPage, sellerRoomFile(sellerDocument))).toBe(
+    404,
+  );
   expect(await status(buyerCounselPage, dataRoomFile(packageId))).toBe(307);
-  expect(await status(buyerCounselPage, dataRoomFile(lenderBDocument))).toBe(404);
+  expect(await status(buyerCounselPage, dataRoomFile(lenderBDocument))).toBe(
+    404,
+  );
   expect(await status(buyerCounselPage, contractFile(draftId!))).toBe(200);
 
   for (const side of [

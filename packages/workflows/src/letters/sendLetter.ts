@@ -29,7 +29,11 @@ export class LetterSetupMissing extends ApplicationFailure {
 const lobVerification = z.object({
   deliverability: z.string(),
   primary_line: z.string(),
-  components: z.object({ city: z.string(), state: z.string(), zip_code: z.string() }),
+  components: z.object({
+    city: z.string(),
+    state: z.string(),
+    zip_code: z.string(),
+  }),
 });
 
 const lobLetter = z.object({ id: z.string() });
@@ -37,7 +41,11 @@ const lobLetter = z.object({ id: z.string() });
 const lobRefusal = z.object({ error: z.object({ message: z.string() }) });
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function letterHtml(text: string): string {
@@ -64,7 +72,9 @@ async function lob(
   }
   const parsed = parsedJson(response.text);
   if (response.status < 300 && parsed === undefined) {
-    throw ApplicationFailure.nonRetryable('Lob answered with something that is not JSON');
+    throw ApplicationFailure.nonRetryable(
+      'Lob answered with something that is not JSON',
+    );
   }
   return { status: response.status, body: parsed };
 }
@@ -87,7 +97,9 @@ export async function sendLetter(letter: {
     .maybeSingle()
     .throwOnError();
   if (recorded?.status === 'failed') {
-    throw ApplicationFailure.nonRetryable(`Lob refused the letter: ${recorded.error}`);
+    throw ApplicationFailure.nonRetryable(
+      `Lob refused the letter: ${recorded.error}`,
+    );
   }
   if (recorded !== null && recorded.status !== 'queued') {
     return { letterId: recorded.id, status: recorded.status };
@@ -116,14 +128,19 @@ export async function sendLetter(letter: {
     throw new LetterSetupMissing('Set a letter return address first');
   }
 
-  const firm = await teamRow(letter.firmId, 'That firm is not on this team', (id) =>
-    getSupabaseServerAdminClient()
-      .from('firm')
-      .select('name, industry, city, state, website, owner_mailing_address_line1, owner_mailing_city, owner_mailing_state, owner_mailing_postal_code')
-      .eq('id', id)
-      .eq('account_id', letter.accountId)
-      .maybeSingle()
-      .throwOnError(),
+  const firm = await teamRow(
+    letter.firmId,
+    'That firm is not on this team',
+    (id) =>
+      getSupabaseServerAdminClient()
+        .from('firm')
+        .select(
+          'name, industry, city, state, website, owner_mailing_address_line1, owner_mailing_city, owner_mailing_state, owner_mailing_postal_code',
+        )
+        .eq('id', id)
+        .eq('account_id', letter.accountId)
+        .maybeSingle()
+        .throwOnError(),
   );
   if (
     !firm.owner_mailing_address_line1 ||
@@ -144,14 +161,18 @@ export async function sendLetter(letter: {
     throw new LetterSetupMissing('Check your Lob key');
   }
   if (checked.status === 422) {
-    throw ApplicationFailure.nonRetryable("The mailing address can't be delivered");
+    throw ApplicationFailure.nonRetryable(
+      "The mailing address can't be delivered",
+    );
   }
   if (checked.status >= 300) {
     throw ApplicationFailure.nonRetryable(`Lob answered ${checked.status}`);
   }
   const verification = lobVerification.parse(checked.body);
   if (verification.deliverability === 'undeliverable') {
-    throw ApplicationFailure.nonRetryable("The mailing address can't be delivered");
+    throw ApplicationFailure.nonRetryable(
+      "The mailing address can't be delivered",
+    );
   }
   const address = {
     address_line1: verification.primary_line,
@@ -174,7 +195,10 @@ export async function sendLetter(letter: {
       })
       .select('id')
       .single();
-    if (error?.code === CHECK_VIOLATION && error.message === 'monthly letter cap reached') {
+    if (
+      error?.code === CHECK_VIOLATION &&
+      error.message === 'monthly letter cap reached'
+    ) {
       throw new LetterCapReached();
     }
     if (error) {
@@ -221,7 +245,9 @@ export async function sendLetter(letter: {
 
   if (created.status >= 300) {
     const refusal = lobRefusal.safeParse(created.body);
-    const reason = refusal.success ? refusal.data.error.message : `Lob answered ${created.status}`;
+    const reason = refusal.success
+      ? refusal.data.error.message
+      : `Lob answered ${created.status}`;
     await admin
       .from('outreach_letter')
       .update({ status: 'failed', error: reason })
@@ -232,7 +258,10 @@ export async function sendLetter(letter: {
 
   await admin
     .from('outreach_letter')
-    .update({ status: 'created', provider_letter_id: lobLetter.parse(created.body).id })
+    .update({
+      status: 'created',
+      provider_letter_id: lobLetter.parse(created.body).id,
+    })
     .eq('id', letterId)
     .throwOnError();
   return { letterId, status: 'created' };

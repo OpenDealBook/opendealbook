@@ -4,7 +4,11 @@ import { z } from 'zod';
 
 import { defineStep } from './step';
 
-const context = { accountId: 'team-1', runId: 'run-1', idempotencyKey: 'run-1:send:0' };
+const context = {
+  accountId: 'team-1',
+  runId: 'run-1',
+  idempotencyKey: 'run-1:send:0',
+};
 
 function failingStep(runOnce: boolean) {
   return defineStep({

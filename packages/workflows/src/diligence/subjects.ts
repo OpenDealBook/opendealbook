@@ -92,7 +92,12 @@ async function publicRecords(businessId: string) {
       .order('fetched_at', newestFirst)
       .throwOnError(),
   ]);
-  const mailingAddress = firstMailingAddress({ registries, ppp, sba, form5500 });
+  const mailingAddress = firstMailingAddress({
+    registries,
+    ppp,
+    sba,
+    form5500,
+  });
   return {
     state: mailingAddress?.state ?? null,
     city: mailingAddress?.city ?? null,

@@ -19,11 +19,20 @@ export async function fakeAiProvider(reply: {
     let raw = '';
     request.on('data', (chunk) => (raw += chunk));
     request.on('end', () => {
-      const call = { path: request.url!, headers: request.headers, body: JSON.parse(raw) };
+      const call = {
+        path: request.url!,
+        headers: request.headers,
+        body: JSON.parse(raw),
+      };
       received.push(call);
       setTimeout(() => {
-        response.writeHead(reply.status, { 'content-type': 'application/json', ...reply.headers });
-        response.end(JSON.stringify(reply.answer ? reply.answer(call) : reply.body));
+        response.writeHead(reply.status, {
+          'content-type': 'application/json',
+          ...reply.headers,
+        });
+        response.end(
+          JSON.stringify(reply.answer ? reply.answer(call) : reply.body),
+        );
       }, reply.delayMs ?? 0);
     });
   });

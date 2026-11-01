@@ -24,7 +24,6 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
-    "@tanstack/react-query": "catalog:",
     "@odb/ai": "workspace:*",
     "@odb/calculators": "workspace:*",
     "@odb/contracts": "workspace:*",
@@ -37,6 +36,7 @@
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",
     "@odb/workflows": "workspace:*",
+    "@tanstack/react-query": "catalog:",
     "server-only": "^0.0.1",
     "unpdf": "1.8.1",
     "zod": "catalog:"

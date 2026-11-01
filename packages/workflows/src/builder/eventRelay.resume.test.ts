@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EventLogName } from './client';
-import type { LoggedEvent, RelayCursor } from './eventRelayActivities';
 import { workflowEventRelay } from './eventRelay';
+import type { LoggedEvent, RelayCursor } from './eventRelayActivities';
 import { eventRelayCursorName } from './eventRelayStart';
 
 const savedCursors = new Map<string, RelayCursor>();
@@ -12,7 +12,10 @@ const attempts = new Map<string, number>();
 const setAside: unknown[] = [];
 const horizon = { xid: '20', seq: 0 };
 
-function eventsOf(log: EventLogName, events: [xid: string, seq: number][]): LoggedEvent[] {
+function eventsOf(
+  log: EventLogName,
+  events: [xid: string, seq: number][],
+): LoggedEvent[] {
   return events.map(([xid, globalSeq]) => ({
     log,
     xid,
@@ -42,7 +45,9 @@ const temporal = vi.hoisted(() => {
   }
   const retrying =
     (maximumAttempts: number) =>
-    <T extends Record<string, (input: never) => Promise<unknown>>>(activities: T) =>
+    <T extends Record<string, (input: never) => Promise<unknown>>>(
+      activities: T,
+    ) =>
       Object.fromEntries(
         Object.entries(activities).map(([name, activity]) => [
           name,
@@ -66,16 +71,22 @@ vi.mock('@temporalio/workflow', () => ({
   ActivityFailure: temporal.ActivityFailure,
   proxyActivities: (options: { retry?: { maximumAttempts?: number } }) =>
     temporal.retrying(options.retry?.maximumAttempts ?? 100)({
-      loadEventRelayCursor: async (name: string) => savedCursors.get(name) ?? null,
+      loadEventRelayCursor: async (name: string) =>
+        savedCursors.get(name) ?? null,
       startEventRelayCursorAtLatest: async (input: { name: string }) => {
         savedCursors.set(input.name, horizon);
         return horizon;
       },
-      saveEventRelayCursor: async (input: { name: string; cursor: RelayCursor }) => {
+      saveEventRelayCursor: async (input: {
+        name: string;
+        cursor: RelayCursor;
+      }) => {
         savedCursors.set(input.name, input.cursor);
       },
-      fetchTriggerEvents: async (input: { log: EventLogName; after: RelayCursor }) =>
-        logs[input.log].filter((event) => after(event, input.after)),
+      fetchTriggerEvents: async (input: {
+        log: EventLogName;
+        after: RelayCursor;
+      }) => logs[input.log].filter((event) => after(event, input.after)),
       startWorkflowRunsForEvent: async (event: LoggedEvent) => {
         attempts.set(key(event), (attempts.get(key(event)) ?? 0) + 1);
         if (failing.has(key(event))) {
@@ -99,8 +110,16 @@ const start = { xid: '0', seq: 0 };
 
 beforeEach(() => {
   logs = {
-    deal: eventsOf('deal', [['10', 1], ['10', 2], ['11', 3], ['12', 4]]),
-    account: eventsOf('account', [['10', 1], ['13', 2]]),
+    deal: eventsOf('deal', [
+      ['10', 1],
+      ['10', 2],
+      ['11', 3],
+      ['12', 4],
+    ]),
+    account: eventsOf('account', [
+      ['10', 1],
+      ['13', 2],
+    ]),
   };
   savedCursors.clear();
   started.length = 0;
@@ -134,7 +153,10 @@ describe('workflow event relay', () => {
     savedCursors.set(accountCursor, start);
 
     await expect(workflowEventRelay()).rejects.toEqual(
-      new ContinuedAsNew({ deal: { xid: '12', seq: 4 }, account: { xid: '13', seq: 2 } }),
+      new ContinuedAsNew({
+        deal: { xid: '12', seq: 4 },
+        account: { xid: '13', seq: 2 },
+      }),
     );
 
     expect(savedCursors.get(dealCursor)).toEqual({ xid: '12', seq: 4 });
@@ -143,10 +165,17 @@ describe('workflow event relay', () => {
   it('still relays a lower sequence that settles after a higher one', async () => {
     savedCursors.set(dealCursor, start);
     savedCursors.set(accountCursor, { xid: '13', seq: 2 });
-    logs.deal = eventsOf('deal', [['10', 1], ['11', 3]]);
+    logs.deal = eventsOf('deal', [
+      ['10', 1],
+      ['11', 3],
+    ]);
     await expect(workflowEventRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
 
-    logs.deal = eventsOf('deal', [['10', 1], ['11', 3], ['12', 2]]);
+    logs.deal = eventsOf('deal', [
+      ['10', 1],
+      ['11', 3],
+      ['12', 2],
+    ]);
     await expect(workflowEventRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
 
     expect(started).toEqual(['deal#1', 'deal#3', 'deal#2']);
@@ -162,7 +191,12 @@ describe('workflow event relay', () => {
     expect(attempts.get('deal#3')).toBe(5);
     expect(started).toEqual(['deal#2', 'deal#4']);
     expect(setAside).toEqual([
-      { relayName: dealCursor, globalSeq: 3, error: 'Cannot match deal#3', attempts: 5 },
+      {
+        relayName: dealCursor,
+        globalSeq: 3,
+        error: 'Cannot match deal#3',
+        attempts: 5,
+      },
     ]);
     expect(savedCursors.get(dealCursor)).toEqual({ xid: '12', seq: 4 });
   });

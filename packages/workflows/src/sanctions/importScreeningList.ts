@@ -8,7 +8,9 @@ interface ImportSteps {
   newId: () => string;
   startScreeningImport: (start: ImportRef) => Promise<void>;
   loadLatestScreeningList: (load: ImportRef) => Promise<void>;
-  failScreeningImport: (failure: ImportRef & { reason: string }) => Promise<void>;
+  failScreeningImport: (
+    failure: ImportRef & { reason: string },
+  ) => Promise<void>;
 }
 
 export async function runScreeningImport(steps: ImportSteps): Promise<void> {

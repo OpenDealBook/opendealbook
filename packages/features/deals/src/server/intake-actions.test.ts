@@ -6,7 +6,9 @@ const access = vi.hoisted(() => ({
 }));
 
 const mocks = vi.hoisted(() => {
-  const appendDealEvent = vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]);
+  const appendDealEvent = vi.fn(async () => [
+    { deal_seq: 1, aggregate_seq: 1 },
+  ]);
   const generateStructured = vi.fn();
 
   function makeBuilder(table: string) {
@@ -43,14 +45,17 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@odb/next/actions', () => ({
   enhanceAction:
-    (fn: (input: unknown, user: { id: string }) => unknown) => (input: unknown) =>
+    (fn: (input: unknown, user: { id: string }) => unknown) =>
+    (input: unknown) =>
       fn(input, { id: 'user-1' }),
 }));
 
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({
     from: mocks.from,
-    rpc: () => ({ throwOnError: async () => ({ data: access.allowed, error: null }) }),
+    rpc: () => ({
+      throwOnError: async () => ({ data: access.allowed, error: null }),
+    }),
   }),
 }));
 
@@ -118,7 +123,12 @@ describe('extractDealIntakeFromText', () => {
       reason: 'Connect an AI provider first',
     });
 
-    expect(await runExtract({ account_id: ACCOUNT, text: 'a memo' }, { id: 'user-1' })).toEqual({
+    expect(
+      await runExtract(
+        { account_id: ACCOUNT, text: 'a memo' },
+        { id: 'user-1' },
+      ),
+    ).toEqual({
       ok: false,
       refusal: 'Connect an AI provider first',
     });
@@ -128,13 +138,18 @@ describe('extractDealIntakeFromText', () => {
 describe('rerunDealIntake', () => {
   it('re-extracts and appends a deal.updated event with the mapped fields', async () => {
     await runRerun(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', text: 'an updated memo' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        text: 'an updated memo',
+      },
       { id: 'user-1' },
     );
 
     expect(mocks.generateStructured).toHaveBeenCalledTimes(1);
     expect(mocks.generateStructured).toHaveBeenCalledWith(
-      expect.objectContaining({ scope: { accountId: 'account-1', dealId: DEAL } }),
+      expect.objectContaining({
+        scope: { accountId: 'account-1', dealId: DEAL },
+      }),
     );
 
     const [, input] = mocks.appendDealEvent.mock.calls.at(-1) as unknown as [
@@ -169,7 +184,12 @@ describe('a caller without access', () => {
   it('may not extract a new deal for a team they cannot create deals in, and no AI is called', async () => {
     access.allowed = false;
 
-    expect(await runExtract({ account_id: ACCOUNT, text: 'a memo' }, { id: 'user-1' })).toEqual({
+    expect(
+      await runExtract(
+        { account_id: ACCOUNT, text: 'a memo' },
+        { id: 'user-1' },
+      ),
+    ).toEqual({
       ok: false,
       refusal: "Read-only members can't create deals. Ask a deal manager.",
     });
@@ -179,16 +199,24 @@ describe('a caller without access', () => {
   it.each([
     ["can't see", () => (access.deal = null)],
     ["can't manage", () => (access.allowed = false)],
-  ])('may not rerun intake on a deal they %s, and no AI is called', async (_case, deny) => {
-    deny();
+  ])(
+    'may not rerun intake on a deal they %s, and no AI is called',
+    async (_case, deny) => {
+      deny();
 
-    expect(await runRerun({ deal_id: DEAL, text: 'an updated memo' }, { id: 'user-1' })).toEqual({
-      ok: false,
-      refusal: 'Only deal managers can rerun intake.',
-    });
-    expect(mocks.generateStructured).not.toHaveBeenCalled();
-    expect(mocks.appendDealEvent).not.toHaveBeenCalled();
-  });
+      expect(
+        await runRerun(
+          { deal_id: DEAL, text: 'an updated memo' },
+          { id: 'user-1' },
+        ),
+      ).toEqual({
+        ok: false,
+        refusal: 'Only deal managers can rerun intake.',
+      });
+      expect(mocks.generateStructured).not.toHaveBeenCalled();
+      expect(mocks.appendDealEvent).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe('rerunDealIntake when AI is skipped', () => {
@@ -198,7 +226,12 @@ describe('rerunDealIntake when AI is skipped', () => {
       reason: 'The monthly AI limit is reached',
     });
 
-    expect(await runRerun({ deal_id: DEAL, text: 'an updated memo' }, { id: 'user-1' })).toEqual({
+    expect(
+      await runRerun(
+        { deal_id: DEAL, text: 'an updated memo' },
+        { id: 'user-1' },
+      ),
+    ).toEqual({
       ok: false,
       refusal: 'The monthly AI limit is reached',
     });
@@ -212,7 +245,10 @@ describe('rerunDealIntakePdf', () => {
       'base64',
     );
 
-    await runRerunPdf({ deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', pdf }, { id: 'user-1' });
+    await runRerunPdf(
+      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', pdf },
+      { id: 'user-1' },
+    );
 
     expect(mocks.extractText).toHaveBeenCalledTimes(1);
     expect(mocks.generateStructured).toHaveBeenCalledTimes(1);

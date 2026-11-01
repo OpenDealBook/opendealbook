@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import { timeZones } from '@odb/accounts/shared';
 
 import { zoneChoices } from './time-zones';
+
+import { readFileSync } from 'node:fs';
 
 function zonesTheDatabaseAccepts() {
   const schema = readFileSync(

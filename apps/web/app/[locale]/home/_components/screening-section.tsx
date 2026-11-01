@@ -48,7 +48,9 @@ function ScreenRow({
   return (
     <div className={'flex flex-wrap items-baseline justify-between gap-2'}>
       <div className={'flex flex-col gap-0.5'}>
-        <span className={'text-muted-foreground text-xs uppercase'}>{label}</span>
+        <span className={'text-muted-foreground text-xs uppercase'}>
+          {label}
+        </span>
         <span className={'text-sm'}>
           {adopted} vs {threshold}
           {gap === null ? '' : ` (${gap})`}
@@ -66,9 +68,13 @@ function ScreenBreakdown({ screen }: { screen: DealBoxScreenBreakdown }) {
         label={'DSCR'}
         adopted={dscrText(screen.dscr)}
         threshold={
-          screen.minDscr === null ? 'Not set' : `min ${dscrText(screen.minDscr)}`
+          screen.minDscr === null
+            ? 'Not set'
+            : `min ${dscrText(screen.minDscr)}`
         }
-        gap={screen.minDscr === null ? null : dscrGap(screen.dscr - screen.minDscr)}
+        gap={
+          screen.minDscr === null ? null : dscrGap(screen.dscr - screen.minDscr)
+        }
         pass={screen.dscrPass}
       />
       <ScreenRow
@@ -99,9 +105,7 @@ export async function ScreeningSection({ dealId }: { dealId: string }) {
       <CardHeader>
         <CardTitle className={'flex items-center gap-2'}>
           Screening
-          {screen.status === 'screened'
-            ? verdict(screen.pass)
-            : null}
+          {screen.status === 'screened' ? verdict(screen.pass) : null}
         </CardTitle>
       </CardHeader>
       <CardContent>

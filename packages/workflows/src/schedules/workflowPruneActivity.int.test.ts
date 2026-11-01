@@ -97,7 +97,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await owner.admin.from('workflow_run').delete().eq('account_id', owner.accountId);
+  await owner.admin
+    .from('workflow_run')
+    .delete()
+    .eq('account_id', owner.accountId);
   await owner.admin.from('accounts').delete().eq('id', owner.accountId);
   await owner.cleanup();
 });

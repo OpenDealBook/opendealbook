@@ -4,7 +4,9 @@ import {
   isAuthSessionMissingError,
 } from '@supabase/supabase-js';
 
-export async function signedInUser(client: SupabaseClient): Promise<User | null> {
+export async function signedInUser(
+  client: SupabaseClient,
+): Promise<User | null> {
   const { data, error } = await client.auth.getUser();
 
   if (

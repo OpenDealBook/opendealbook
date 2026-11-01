@@ -218,7 +218,9 @@ export function DealWorkbooks(props: {
                 <Label>Book a call url</Label>
                 <Input
                   value={config.bookACallUrl}
-                  onChange={(event) => field('bookACallUrl', event.target.value)}
+                  onChange={(event) =>
+                    field('bookACallUrl', event.target.value)
+                  }
                 />
               </div>
               <Button

@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { fetchDealSchedule } from './queries';
 
-function stubClient(options: {
-  schedule: unknown;
-  weeks: unknown[];
-}) {
+function stubClient(options: { schedule: unknown; weeks: unknown[] }) {
   const eqSpy = vi.fn();
   const orderSpy = vi.fn();
 
@@ -46,7 +43,10 @@ function stubClient(options: {
 describe('fetchDealSchedule', () => {
   it('returns the latest schedule for the deal with its weeks ordered by week number', async () => {
     const schedule = { id: 'sched-1', deal_id: 'deal-1' };
-    const weeks = [{ id: 'week-1', week_no: 1 }, { id: 'week-2', week_no: 2 }];
+    const weeks = [
+      { id: 'week-1', week_no: 1 },
+      { id: 'week-2', week_no: 2 },
+    ];
     const { client, eqSpy, orderSpy } = stubClient({ schedule, weeks });
 
     const result = await fetchDealSchedule(client, 'deal-1');

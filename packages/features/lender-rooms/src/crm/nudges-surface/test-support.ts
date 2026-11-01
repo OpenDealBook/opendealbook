@@ -50,5 +50,11 @@ export async function seedQuietTeam(daysQuiet = 30) {
     .throwOnError();
   await backdateRoom(roomId, daysQuiet);
 
-  return { owner, colleague, teamId: deal.accountId, dealId: deal.dealId, roomId };
+  return {
+    owner,
+    colleague,
+    teamId: deal.accountId,
+    dealId: deal.dealId,
+    roomId,
+  };
 }

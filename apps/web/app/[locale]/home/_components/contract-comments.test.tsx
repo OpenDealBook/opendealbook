@@ -138,7 +138,12 @@ function newCommentForm() {
 }
 
 beforeEach(() => {
-  for (const action of [server.add, server.reply, server.resolve, server.reopen]) {
+  for (const action of [
+    server.add,
+    server.reply,
+    server.resolve,
+    server.reopen,
+  ]) {
     action.mockReset();
     action.mockResolvedValue({ ok: true });
   }
@@ -182,9 +187,9 @@ describe('ContractComments', () => {
       ["Bea Law (Buyer's counsel)", 'Hold firm'],
     ]);
     expect(
-      container.querySelectorAll('[data-thread]')[1]?.getAttribute(
-        'data-thread',
-      ),
+      container
+        .querySelectorAll('[data-thread]')[1]
+        ?.getAttribute('data-thread'),
     ).toBe('t2');
   });
 

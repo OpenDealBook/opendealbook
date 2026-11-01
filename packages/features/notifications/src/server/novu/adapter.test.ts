@@ -1,7 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '@odb/supabase';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { NovuClient } from './adapter';
 import { syncNovuSubscriber, triggerNotification } from './adapter';

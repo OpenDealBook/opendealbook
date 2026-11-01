@@ -44,7 +44,9 @@ const OUTPUT_SCHEMAS: Partial<Record<NodeTypeName, z.ZodType>> = {
   ...Object.fromEntries(
     Object.values(stepRegistry).map((step) => [
       step.type,
-      DECISION_NODE_TYPES.includes(step.type) ? z.intersection(step.outputSchema, DECIDED) : step.outputSchema,
+      DECISION_NODE_TYPES.includes(step.type)
+        ? z.intersection(step.outputSchema, DECIDED)
+        : step.outputSchema,
     ]),
   ),
   event_trigger: EVENT_TRIGGER_OUTPUT,
@@ -59,30 +61,46 @@ const OUTPUT_TYPES: Record<string, OutputType> = {
   array: 'array',
 };
 
-const EDITOR_FIELDS = { label: { type: 'string' }, description: { type: 'string' } } as const;
+const EDITOR_FIELDS = {
+  label: { type: 'string' },
+  description: { type: 'string' },
+} as const;
 
 function propertiesOf(schema: JsonSchema): Record<string, JsonSchema> {
-  return Object.assign({}, schema.properties, ...[...(schema.anyOf ?? []), ...(schema.allOf ?? [])].map(propertiesOf));
+  return Object.assign(
+    {},
+    schema.properties,
+    ...[...(schema.anyOf ?? []), ...(schema.allOf ?? [])].map(propertiesOf),
+  );
 }
 
 function outputSchema(schema: z.ZodType): OutputSchema {
   return {
     type: 'default',
     properties: Object.fromEntries(
-      Object.entries(propertiesOf(z.toJSONSchema(schema))).map(([name, field]) => [
-        name,
-        { type: OUTPUT_TYPES[String(field.type)] ?? 'object', label: name },
-      ]),
+      Object.entries(propertiesOf(z.toJSONSchema(schema))).map(
+        ([name, field]) => [
+          name,
+          { type: OUTPUT_TYPES[String(field.type)] ?? 'object', label: name },
+        ],
+      ),
     ),
   };
 }
 
 function acceptsReference(field: JsonSchema): boolean {
-  return field.type === 'string' && field.enum === undefined && field.pattern === undefined;
+  return (
+    field.type === 'string' &&
+    field.enum === undefined &&
+    field.pattern === undefined
+  );
 }
 
 function paletteItem(type: NodeTypeName): PaletteItem {
-  const config = z.toJSONSchema(NODE_CONFIG_SCHEMAS[type], { target: 'draft-7', io: 'input' });
+  const config = z.toJSONSchema(NODE_CONFIG_SCHEMAS[type], {
+    target: 'draft-7',
+    io: 'input',
+  });
   const configFields = config.properties ?? {};
   const fields = { ...EDITOR_FIELDS, ...configFields };
   const output = OUTPUT_SCHEMAS[type];
@@ -91,7 +109,9 @@ function paletteItem(type: NodeTypeName): PaletteItem {
     ...NODE_TYPE_DISPLAY[type],
     defaultPropertiesData: Object.fromEntries(
       Object.entries(configFields).flatMap(([name, field]) =>
-        typeof field === 'object' && field.default !== undefined ? [[name, field.default]] : [],
+        typeof field === 'object' && field.default !== undefined
+          ? [[name, field.default]]
+          : [],
       ),
     ),
     schema: { ...config, type: 'object', properties: fields },
@@ -100,7 +120,8 @@ function paletteItem(type: NodeTypeName): PaletteItem {
       elements: Object.entries(fields).map(([name, field]) => ({
         type: 'Control',
         scope: `#/properties/${name}`,
-        ...(name in configFields && acceptsReference(field) && { options: { expression: true } }),
+        ...(name in configFields &&
+          acceptsReference(field) && { options: { expression: true } }),
       })),
     },
     ...(output && { outputSchema: outputSchema(output) }),

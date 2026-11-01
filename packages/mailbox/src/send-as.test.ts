@@ -43,7 +43,13 @@ describe('sendAs gmail against GMAIL_API_BASE', () => {
         ok: true,
         json: async () => ({
           messages: [
-            { payload: { headers: [{ name: 'Message-ID', value: '<first@mail.gmail.com>' }] } },
+            {
+              payload: {
+                headers: [
+                  { name: 'Message-ID', value: '<first@mail.gmail.com>' },
+                ],
+              },
+            },
           ],
         }),
       })
@@ -126,7 +132,10 @@ describe('sendAs microsoft', () => {
 
     const message = JSON.parse(draftInit.body);
     expect(message.subject).toBe('Hello');
-    expect(message.body).toEqual({ contentType: 'HTML', content: '<p>body</p>' });
+    expect(message.body).toEqual({
+      contentType: 'HTML',
+      content: '<p>body</p>',
+    });
     expect(message.toRecipients).toEqual([
       { emailAddress: { address: 'lead@target.com' } },
     ]);
@@ -135,7 +144,9 @@ describe('sendAs microsoft', () => {
     ]);
 
     const [sendUrl, sendInit] = fetchMock.mock.calls[1]!;
-    expect(sendUrl).toBe('https://graph.microsoft.com/v1.0/me/messages/msg-1/send');
+    expect(sendUrl).toBe(
+      'https://graph.microsoft.com/v1.0/me/messages/msg-1/send',
+    );
     expect(sendInit.method).toBe('POST');
     expect(sendInit.headers.Authorization).toBe('Bearer access-token');
   });
@@ -149,8 +160,18 @@ describe('sendAs replying in a thread', () => {
         status: 200,
         json: async () => ({
           messages: [
-            { payload: { headers: [{ name: 'Message-Id', value: '<first@mail.gmail.com>' }] } },
-            { payload: { headers: [{ name: 'Message-ID', value: '<second@lender.com>' }] } },
+            {
+              payload: {
+                headers: [
+                  { name: 'Message-Id', value: '<first@mail.gmail.com>' },
+                ],
+              },
+            },
+            {
+              payload: {
+                headers: [{ name: 'Message-ID', value: '<second@lender.com>' }],
+              },
+            },
           ],
         }),
       })
@@ -166,7 +187,10 @@ describe('sendAs replying in a thread', () => {
       inThread: 'thread-9',
     });
 
-    expect(result).toEqual({ providerMessageId: 'gmail-reply', threadId: 'thread-9' });
+    expect(result).toEqual({
+      providerMessageId: 'gmail-reply',
+      threadId: 'thread-9',
+    });
 
     const [threadUrl] = fetchMock.mock.calls[0]!;
     expect(String(threadUrl)).toBe(
@@ -174,12 +198,16 @@ describe('sendAs replying in a thread', () => {
     );
 
     const [sendUrl, sendInit] = fetchMock.mock.calls[1]!;
-    expect(sendUrl).toBe('https://gmail.googleapis.com/gmail/v1/users/me/messages/send');
+    expect(sendUrl).toBe(
+      'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+    );
     const body = JSON.parse(sendInit.body);
     expect(body.threadId).toBe('thread-9');
     const raw = Buffer.from(body.raw, 'base64url').toString('utf-8');
     expect(raw).toContain('In-Reply-To: <second@lender.com>\r\n');
-    expect(raw).toContain('References: <first@mail.gmail.com> <second@lender.com>\r\n');
+    expect(raw).toContain(
+      'References: <first@mail.gmail.com> <second@lender.com>\r\n',
+    );
     expect(raw).toContain('Subject: Re: Hello\r\n');
   });
 
@@ -190,8 +218,16 @@ describe('sendAs replying in a thread', () => {
         status: 200,
         json: async () => ({
           value: [
-            { id: 'later', receivedDateTime: '2026-10-10T10:00:00Z', from: { emailAddress: { address: 'dana@lender.com' } } },
-            { id: 'earlier', receivedDateTime: '2026-10-01T10:00:00Z', from: { emailAddress: { address: 'operator@firm.com' } } },
+            {
+              id: 'later',
+              receivedDateTime: '2026-10-10T10:00:00Z',
+              from: { emailAddress: { address: 'dana@lender.com' } },
+            },
+            {
+              id: 'earlier',
+              receivedDateTime: '2026-10-01T10:00:00Z',
+              from: { emailAddress: { address: 'operator@firm.com' } },
+            },
           ],
         }),
       })
@@ -209,10 +245,15 @@ describe('sendAs replying in a thread', () => {
       inThread: 'conv-1',
     });
 
-    expect(result).toEqual({ providerMessageId: 'reply-1', threadId: 'conv-1' });
+    expect(result).toEqual({
+      providerMessageId: 'reply-1',
+      threadId: 'conv-1',
+    });
 
     const [replyUrl, replyInit] = fetchMock.mock.calls[1]!;
-    expect(replyUrl).toBe('https://graph.microsoft.com/v1.0/me/messages/later/createReply');
+    expect(replyUrl).toBe(
+      'https://graph.microsoft.com/v1.0/me/messages/later/createReply',
+    );
     expect(replyInit.method).toBe('POST');
     const { message } = JSON.parse(replyInit.body);
     expect(message).toEqual({
@@ -223,25 +264,43 @@ describe('sendAs replying in a thread', () => {
     });
 
     const [sendUrl, sendInit] = fetchMock.mock.calls[2]!;
-    expect(sendUrl).toBe('https://graph.microsoft.com/v1.0/me/messages/reply-1/send');
+    expect(sendUrl).toBe(
+      'https://graph.microsoft.com/v1.0/me/messages/reply-1/send',
+    );
     expect(sendInit.method).toBe('POST');
   });
 });
 
 describe('sendAs refuses a failed send', () => {
   it('throws with the status when Gmail rejects the send', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    });
 
     await expect(
-      sendAs(gmailConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+      sendAs(gmailConnection, {
+        to: 'lead@target.com',
+        subject: 'Hello',
+        text: 'body',
+      }),
     ).rejects.toMatchObject({ constructor: MailboxRequestFailed, status: 403 });
   });
 
   it('throws with the status when Microsoft rejects the draft', async () => {
-    fetchMock.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    });
 
     await expect(
-      sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+      sendAs(microsoftConnection, {
+        to: 'lead@target.com',
+        subject: 'Hello',
+        text: 'body',
+      }),
     ).rejects.toThrow('401');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -255,7 +314,11 @@ describe('sendAs refuses a failed send', () => {
       .mockResolvedValueOnce({ ok: false, status: 503 });
 
     await expect(
-      sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+      sendAs(microsoftConnection, {
+        to: 'lead@target.com',
+        subject: 'Hello',
+        text: 'body',
+      }),
     ).rejects.toThrow('503');
   });
 });
@@ -265,7 +328,11 @@ describe('sendAs when the provider never answers the send', () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'));
 
     await expect(
-      sendAs(gmailConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+      sendAs(gmailConnection, {
+        to: 'lead@target.com',
+        subject: 'Hello',
+        text: 'body',
+      }),
     ).rejects.toBeInstanceOf(MailboxNoResponse);
   });
 
@@ -278,14 +345,22 @@ describe('sendAs when the provider never answers the send', () => {
       .mockRejectedValueOnce(new TypeError('fetch failed'));
 
     await expect(
-      sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' }),
+      sendAs(microsoftConnection, {
+        to: 'lead@target.com',
+        subject: 'Hello',
+        text: 'body',
+      }),
     ).rejects.toBeInstanceOf(MailboxNoResponse);
   });
 
   it('leaves a Microsoft draft that got no response as an ordinary error, since nothing was sent', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'));
 
-    const sending = sendAs(microsoftConnection, { to: 'lead@target.com', subject: 'Hello', text: 'body' });
+    const sending = sendAs(microsoftConnection, {
+      to: 'lead@target.com',
+      subject: 'Hello',
+      text: 'body',
+    });
 
     await expect(sending).rejects.toThrow('fetch failed');
     await expect(sending).rejects.not.toBeInstanceOf(MailboxNoResponse);

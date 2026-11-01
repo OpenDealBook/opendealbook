@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { provisionAccount, type IntegrationAccount } from '../../test-support/integration-harness';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../test-support/integration-harness';
 import { providerKey } from './providerKeys';
 
 let owner: IntegrationAccount;

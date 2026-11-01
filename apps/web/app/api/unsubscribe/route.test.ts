@@ -20,7 +20,9 @@ describe('POST /api/unsubscribe', () => {
       }),
     );
 
-    expect(rpc).toHaveBeenCalledWith('unsubscribe_outreach', { p_token: 'live-token' });
+    expect(rpc).toHaveBeenCalledWith('unsubscribe_outreach', {
+      p_token: 'live-token',
+    });
     expect(response.status).toBe(200);
   });
 

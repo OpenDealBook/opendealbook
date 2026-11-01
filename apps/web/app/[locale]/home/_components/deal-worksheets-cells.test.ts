@@ -1,20 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { worksheetColumns, worksheetDisplayCells } from './deal-worksheets-cells';
+import {
+  worksheetColumns,
+  worksheetDisplayCells,
+} from './deal-worksheets-cells';
 
 describe('worksheetColumns', () => {
   it('lists catalog fields followed by computed fields for margin_analysis', () => {
-    expect(worksheetColumns('margin_analysis').map((column) => column.key)).toEqual([
-      'line_item',
-      'revenue',
-      'direct_cost',
-      'margin',
-      'margin_pct',
-    ]);
+    expect(
+      worksheetColumns('margin_analysis').map((column) => column.key),
+    ).toEqual(['line_item', 'revenue', 'direct_cost', 'margin', 'margin_pct']);
   });
 
   it('has no computed fields for retention_plan', () => {
-    expect(worksheetColumns('retention_plan').map((column) => column.key)).toEqual([
+    expect(
+      worksheetColumns('retention_plan').map((column) => column.key),
+    ).toEqual([
       'employee',
       'role',
       'flight_risk',
@@ -80,6 +81,11 @@ describe('worksheetDisplayCells', () => {
       link: null,
     });
 
-    expect(cells.map((cell) => cell.key)).toEqual(['process', 'owner', 'status', 'link']);
+    expect(cells.map((cell) => cell.key)).toEqual([
+      'process',
+      'owner',
+      'status',
+      'link',
+    ]);
   });
 });

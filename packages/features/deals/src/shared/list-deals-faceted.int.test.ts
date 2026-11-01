@@ -40,7 +40,9 @@ async function seedDeal(name: string) {
 beforeAll(async () => {
   account = await provisionAccount();
 
-  const dealId = await seedDeal('Brennan Climate Services of Greater Tampa Bay');
+  const dealId = await seedDeal(
+    'Brennan Climate Services of Greater Tampa Bay',
+  );
   await seedDeal('[Example] Coastal HVAC Services');
 
   await appendDealEvent(account.user, {
@@ -48,7 +50,12 @@ beforeAll(async () => {
     aggregateType: 'deal_milestone',
     aggregateId: crypto.randomUUID(),
     eventType: 'deal_milestone.set',
-    payload: { kind: 'closing', target_on: '2099-01-15', actual_on: null, shared: true },
+    payload: {
+      kind: 'closing',
+      target_on: '2099-01-15',
+      actual_on: null,
+      shared: true,
+    },
   });
   await appendDealEvent(account.user, {
     dealId,
@@ -73,7 +80,9 @@ afterAll(async () => {
 
 describe('listDealsFaceted', () => {
   it('returns card facts for real deals and keeps examples apart', async () => {
-    const real = await listDealsFaceted(account.user, { accountId: account.accountId });
+    const real = await listDealsFaceted(account.user, {
+      accountId: account.accountId,
+    });
     const examples = await listDealsFaceted(account.user, {
       accountId: account.accountId,
       filters: { examples: true },

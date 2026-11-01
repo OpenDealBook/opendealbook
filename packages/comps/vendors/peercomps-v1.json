@@ -16,19 +16,103 @@
     "verified": true
   },
   "columns": [
-    {"vendor_column": "NAICS Code", "target_comp_column": "naics", "parser": "string", "required": true, "verified": false},
-    {"vendor_column": "SIC Code", "target_comp_column": "sic", "parser": "string", "required": false, "verified": false},
-    {"vendor_column": "Sale Date", "target_comp_column": "sale_date", "parser": "date", "required": true, "verified": false},
-    {"vendor_column": "State / Region", "target_comp_column": "state", "parser": "string", "required": false, "verified": false},
-    {"vendor_column": "Sale Price", "target_comp_column": "sale_price", "parser": "currency", "required": true, "verified": false},
-    {"vendor_column": "Gross Revenue", "target_comp_column": "revenue", "parser": "currency", "required": true, "verified": false},
-    {"vendor_column": "SDE", "target_comp_column": "sde", "parser": "currency", "required": true, "verified": false},
-    {"vendor_column": "EBITDA", "target_comp_column": "ebitda", "parser": "currency", "required": false, "verified": false},
-    {"vendor_column": "Inventory", "target_comp_column": "inventory", "parser": "currency", "required": false, "verified": false},
-    {"vendor_column": "Fixed Assets / FF&E", "target_comp_column": "ffe", "parser": "currency", "required": false, "verified": false},
-    {"vendor_column": "Terms", "target_comp_column": "terms", "parser": "string", "required": false, "verified": false},
-    {"vendor_column": "Price / Revenue", "target_comp_column": "mult_price_revenue", "parser": "number", "required": false, "verified": false},
-    {"vendor_column": "Price / SDE", "target_comp_column": "mult_price_sde", "parser": "number", "required": false, "verified": false},
-    {"vendor_column": "Price / EBITDA", "target_comp_column": "mult_price_ebitda", "parser": "number", "required": false, "verified": false}
+    {
+      "vendor_column": "NAICS Code",
+      "target_comp_column": "naics",
+      "parser": "string",
+      "required": true,
+      "verified": false
+    },
+    {
+      "vendor_column": "SIC Code",
+      "target_comp_column": "sic",
+      "parser": "string",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Sale Date",
+      "target_comp_column": "sale_date",
+      "parser": "date",
+      "required": true,
+      "verified": false
+    },
+    {
+      "vendor_column": "State / Region",
+      "target_comp_column": "state",
+      "parser": "string",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Sale Price",
+      "target_comp_column": "sale_price",
+      "parser": "currency",
+      "required": true,
+      "verified": false
+    },
+    {
+      "vendor_column": "Gross Revenue",
+      "target_comp_column": "revenue",
+      "parser": "currency",
+      "required": true,
+      "verified": false
+    },
+    {
+      "vendor_column": "SDE",
+      "target_comp_column": "sde",
+      "parser": "currency",
+      "required": true,
+      "verified": false
+    },
+    {
+      "vendor_column": "EBITDA",
+      "target_comp_column": "ebitda",
+      "parser": "currency",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Inventory",
+      "target_comp_column": "inventory",
+      "parser": "currency",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Fixed Assets / FF&E",
+      "target_comp_column": "ffe",
+      "parser": "currency",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Terms",
+      "target_comp_column": "terms",
+      "parser": "string",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Price / Revenue",
+      "target_comp_column": "mult_price_revenue",
+      "parser": "number",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Price / SDE",
+      "target_comp_column": "mult_price_sde",
+      "parser": "number",
+      "required": false,
+      "verified": false
+    },
+    {
+      "vendor_column": "Price / EBITDA",
+      "target_comp_column": "mult_price_ebitda",
+      "parser": "number",
+      "required": false,
+      "verified": false
+    }
   ]
 }

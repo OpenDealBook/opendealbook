@@ -6,18 +6,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const server = vi.hoisted(() => ({ save: vi.fn(), refresh: vi.fn() }));
 
-vi.mock('./letter-return-address-actions', () => ({ saveLetterReturnAddressAction: server.save }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: server.refresh }) }));
+vi.mock('./letter-return-address-actions', () => ({
+  saveLetterReturnAddressAction: server.save,
+}));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: server.refresh }),
+}));
 
 import { LetterReturnAddress } from './letter-return-address';
 
-const SAVED = { name: 'Harbor Acquisitions', addressLine1: '9 Elm St', city: 'Austin', state: 'TX', postalCode: '78702' };
+const SAVED = {
+  name: 'Harbor Acquisitions',
+  addressLine1: '9 Elm St',
+  city: 'Austin',
+  state: 'TX',
+  postalCode: '78702',
+};
 
 let container: HTMLDivElement;
 let root: Root;
 
 function field(text: string) {
-  const label = [...container.querySelectorAll('label')].find((candidate) => candidate.textContent === text)!;
+  const label = [...container.querySelectorAll('label')].find(
+    (candidate) => candidate.textContent === text,
+  )!;
   return label.control as HTMLInputElement;
 }
 
@@ -28,7 +40,10 @@ async function render(address: typeof SAVED | null) {
 }
 
 async function type(label: string, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )!.set!;
   await act(async () => {
     setter.call(field(label), value);
     field(label).dispatchEvent(new Event('input', { bubbles: true }));
@@ -37,7 +52,9 @@ async function type(label: string, value: string) {
 
 async function save() {
   await act(async () => {
-    container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   });
 }
 
@@ -70,7 +87,9 @@ describe('the letter return address setting', () => {
   it('says letters wait for a return address', async () => {
     await render(null);
 
-    expect(container.textContent).toContain('Letters are not sent until a return address is set.');
+    expect(container.textContent).toContain(
+      'Letters are not sent until a return address is set.',
+    );
   });
 
   it('saves the address a deal manager enters', async () => {
@@ -79,12 +98,19 @@ describe('the letter return address setting', () => {
     await type('City', 'Dallas');
     await save();
 
-    expect(server.save).toHaveBeenCalledWith({ accountId: 'team-1', ...SAVED, city: 'Dallas' });
+    expect(server.save).toHaveBeenCalledWith({
+      accountId: 'team-1',
+      ...SAVED,
+      city: 'Dallas',
+    });
     expect(server.refresh).toHaveBeenCalled();
   });
 
   it('shows why a save was refused', async () => {
-    server.save.mockResolvedValue({ ok: false, refusal: 'Changing the return address needs deals.manage' });
+    server.save.mockResolvedValue({
+      ok: false,
+      refusal: 'Changing the return address needs deals.manage',
+    });
     await render(SAVED);
 
     await save();

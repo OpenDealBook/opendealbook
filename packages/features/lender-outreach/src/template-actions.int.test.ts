@@ -2,9 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
-
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -29,6 +28,11 @@ vi.mock('@odb/supabase/server', () => ({
 import { unwrap } from '@odb/lender-rooms/actions/test-support/unwrap.ts';
 
 import { DEFAULT_TEMPLATE } from './default-template';
+import { loadOutreachTemplate } from './template';
+import {
+  resetOutreachTemplate,
+  saveOutreachTemplate,
+} from './template-actions';
 import {
   addMember,
   admin,
@@ -37,8 +41,6 @@ import {
   newTeam,
   provisionPerson,
 } from './test-support';
-import { loadOutreachTemplate } from './template';
-import { resetOutreachTemplate, saveOutreachTemplate } from './template-actions';
 
 const DEAL_TEAM_ONLY = 'Only the deal team can do that';
 const READ_ONLY = 'This team is read-only until billing is updated.';
@@ -89,7 +91,11 @@ describe('the team outreach template', () => {
 
   it('refuses a template with an empty subject or body', async () => {
     expect(
-      await saveOutreachTemplate({ accountId: teamId, subject: '  ', body: 'B' }),
+      await saveOutreachTemplate({
+        accountId: teamId,
+        subject: '  ',
+        body: 'B',
+      }),
     ).toEqual({ ok: false, refusal: 'Add a subject' });
     expect(
       await saveOutreachTemplate({ accountId: teamId, subject: 'S', body: '' }),
@@ -137,7 +143,11 @@ describe('the team outreach template', () => {
     caller.client = member;
 
     expect(
-      await saveOutreachTemplate({ accountId: teamId, subject: 'S', body: 'B' }),
+      await saveOutreachTemplate({
+        accountId: teamId,
+        subject: 'S',
+        body: 'B',
+      }),
     ).toEqual({ ok: false, refusal: DEAL_TEAM_ONLY });
     expect(await resetOutreachTemplate({ accountId: teamId })).toEqual({
       ok: false,

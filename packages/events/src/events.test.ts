@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { describe, expect, it, vi } from 'vitest';
 
 import type { Database } from '@odb/supabase';
 
@@ -299,17 +299,44 @@ describe('deal milestone events', () => {
       shared: true,
     };
     // @ts-expect-error a custom milestone needs a label
-    const unlabeled: DealMilestoneSetPayload = { kind: 'custom', target_on: null, actual_on: null };
+    const unlabeled: DealMilestoneSetPayload = {
+      kind: 'custom',
+      target_on: null,
+      actual_on: null,
+    };
     // @ts-expect-error a fixed milestone takes no label
-    const labeled: DealMilestoneSetPayload = { kind: 'closing', label: 'x', target_on: null, actual_on: null };
+    const labeled: DealMilestoneSetPayload = {
+      kind: 'closing',
+      label: 'x',
+      target_on: null,
+      actual_on: null,
+    };
     // @ts-expect-error a set states both dates, so a date is never cleared by omission
-    const partial: DealMilestoneSetPayload = { kind: 'closing', target_on: '2026-11-30' };
+    const partial: DealMilestoneSetPayload = {
+      kind: 'closing',
+      target_on: '2026-11-30',
+    };
     const removed: DealMilestoneRemovedPayload = {};
 
     const events: DealEventInput[] = [
-      { aggregateType: 'deal_milestone', aggregateId: 'm-1', eventType: 'deal_milestone.set', payload: closing },
-      { aggregateType: 'deal_milestone', aggregateId: 'm-2', eventType: 'deal_milestone.set', payload: custom },
-      { aggregateType: 'deal_milestone', aggregateId: 'm-1', eventType: 'deal_milestone.removed', payload: removed },
+      {
+        aggregateType: 'deal_milestone',
+        aggregateId: 'm-1',
+        eventType: 'deal_milestone.set',
+        payload: closing,
+      },
+      {
+        aggregateType: 'deal_milestone',
+        aggregateId: 'm-2',
+        eventType: 'deal_milestone.set',
+        payload: custom,
+      },
+      {
+        aggregateType: 'deal_milestone',
+        aggregateId: 'm-1',
+        eventType: 'deal_milestone.removed',
+        payload: removed,
+      },
     ];
 
     expect([unlabeled, labeled, partial]).toHaveLength(3);

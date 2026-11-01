@@ -17,7 +17,10 @@ describe('zipEntryPaths', () => {
     expect(
       zipEntryPaths({
         documentIds: ['2', '1'],
-        documents: [document('1', 'fin', 'p-and-l.pdf'), document('2', 'root', 'lease.pdf')],
+        documents: [
+          document('1', 'fin', 'p-and-l.pdf'),
+          document('2', 'root', 'lease.pdf'),
+        ],
         folders,
         roots: ['root'],
       }),
@@ -31,7 +34,10 @@ describe('zipEntryPaths', () => {
     expect(
       zipEntryPaths({
         documentIds: ['1', '2'],
-        documents: [document('1', 'fin', 'a.pdf'), document('2', 'fin', 'a.pdf')],
+        documents: [
+          document('1', 'fin', 'a.pdf'),
+          document('2', 'fin', 'a.pdf'),
+        ],
         folders,
         roots: ['root'],
       }).map((entry) => entry.path),
@@ -62,7 +68,9 @@ describe('readZipRequest', () => {
   }
 
   it('refuses a request from another site', async () => {
-    const result = await readZipRequest(post({ host: 'app.test', origin: 'https://evil.test' }));
+    const result = await readZipRequest(
+      post({ host: 'app.test', origin: 'https://evil.test' }),
+    );
 
     expect(result).toBeInstanceOf(Response);
     expect((result as Response).status).toBe(403);
@@ -73,7 +81,9 @@ describe('readZipRequest', () => {
     form.append('documentIds', id);
 
     expect(
-      await readZipRequest(post({ host: 'app.test', origin: 'http://app.test' }, form)),
+      await readZipRequest(
+        post({ host: 'app.test', origin: 'http://app.test' }, form),
+      ),
     ).toEqual({ documentIds: [id] });
   });
 });

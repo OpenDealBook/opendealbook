@@ -15,7 +15,9 @@ export function TrialDayOneEmail({
   userName,
   actionLink,
 }: TrialDayOneEmailProps) {
-  const heading = userName ? `Get your first deal moving, ${userName}` : 'Get your first deal moving';
+  const heading = userName
+    ? `Get your first deal moving, ${userName}`
+    : 'Get your first deal moving';
 
   return (
     <EmailLayout

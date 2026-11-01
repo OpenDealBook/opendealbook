@@ -1,6 +1,6 @@
-import { createHmac } from 'node:crypto';
-
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { createHmac } from 'node:crypto';
 
 const TEAM_ID = '00000000-0000-4000-8000-000000000001';
 const SECRET = 'lob-hook-secret';
@@ -13,7 +13,9 @@ const world = vi.hoisted(() => ({
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerAdminClient: () => ({
     rpc: (_name: string, args: { p_account_id: string }) => ({
-      throwOnError: async () => ({ data: world.secrets[args.p_account_id] ?? null }),
+      throwOnError: async () => ({
+        data: world.secrets[args.p_account_id] ?? null,
+      }),
     }),
     from: (table: string) => ({
       update: (patch: { status: string }) => {
@@ -28,7 +30,9 @@ vi.mock('@odb/supabase/server', () => ({
             return chain;
           },
           throwOnError: async () => {
-            world.updates.push(`${table} status=${patch.status} where ${filters.join(' ')}`);
+            world.updates.push(
+              `${table} status=${patch.status} where ${filters.join(' ')}`,
+            );
             return { data: null };
           },
         };
@@ -40,12 +44,18 @@ vi.mock('@odb/supabase/server', () => ({
 
 const { POST } = await import('./route');
 
-function signed(event: unknown, secret = SECRET, timestamp = String(Date.now())) {
+function signed(
+  event: unknown,
+  secret = SECRET,
+  timestamp = String(Date.now()),
+) {
   const body = JSON.stringify(event);
   return new Request(`https://opendealbook.com/api/webhooks/lob/${TEAM_ID}`, {
     method: 'POST',
     headers: {
-      'Lob-Signature': createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex'),
+      'Lob-Signature': createHmac('sha256', secret)
+        .update(`${timestamp}.${body}`)
+        .digest('hex'),
       'Lob-Signature-Timestamp': timestamp,
     },
     body,
@@ -60,7 +70,11 @@ const EARLIER: Record<string, string> = {
 };
 
 function letterEvent(type: string) {
-  return { id: 'evt_1', event_type: { id: type }, body: { id: 'ltr_123', object: 'letter' } };
+  return {
+    id: 'evt_1',
+    event_type: { id: type },
+    body: { id: 'ltr_123', object: 'letter' },
+  };
 }
 
 function post(request: Request, accountId = TEAM_ID) {
@@ -90,14 +104,23 @@ describe('the Lob webhook', () => {
   });
 
   it('refuses an event signed more than 5 minutes ago', async () => {
-    const response = await post(signed(letterEvent('letter.delivered'), SECRET, String(Date.now() - 5 * 60_000 - 1_000)));
+    const response = await post(
+      signed(
+        letterEvent('letter.delivered'),
+        SECRET,
+        String(Date.now() - 5 * 60_000 - 1_000),
+      ),
+    );
 
     expect(response.status).toBe(401);
     expect(world.updates).toEqual([]);
   });
 
   it('answers 404 for a team address that is not a uuid', async () => {
-    const response = await post(signed(letterEvent('letter.delivered')), 'not-a-team');
+    const response = await post(
+      signed(letterEvent('letter.delivered')),
+      'not-a-team',
+    );
 
     expect(response.status).toBe(404);
     expect(world.updates).toEqual([]);
@@ -111,7 +134,9 @@ describe('the Lob webhook', () => {
   });
 
   it('refuses a request signed with another secret', async () => {
-    const response = await post(signed(letterEvent('letter.delivered'), 'someone-else'));
+    const response = await post(
+      signed(letterEvent('letter.delivered'), 'someone-else'),
+    );
 
     expect(response.status).toBe(401);
     expect(world.updates).toEqual([]);

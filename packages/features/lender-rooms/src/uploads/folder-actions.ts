@@ -41,9 +41,9 @@ async function requireUnderFolderLimit(
         ? "The Buyer's counsel folder has reached its limit of 5,000 folders"
         : space.sellerCounselDealId
           ? "The Seller's counsel folder has reached its limit of 5,000 folders"
-        : space.roomId || space.sellerRoomId
-          ? 'This room has reached its limit of 5,000 folders'
-          : 'The lender package has reached its limit of 5,000 folders',
+          : space.roomId || space.sellerRoomId
+            ? 'This room has reached its limit of 5,000 folders'
+            : 'The lender package has reached its limit of 5,000 folders',
     );
   }
 }

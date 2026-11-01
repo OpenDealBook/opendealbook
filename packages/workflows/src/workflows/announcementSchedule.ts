@@ -2,9 +2,11 @@ import { proxyActivities, sleep } from '@temporalio/workflow';
 
 import type * as activities from '../activities';
 
-const { createNotification, isTeamLocked } = proxyActivities<typeof activities>({
-  startToCloseTimeout: '1 minute',
-});
+const { createNotification, isTeamLocked } = proxyActivities<typeof activities>(
+  {
+    startToCloseTimeout: '1 minute',
+  },
+);
 
 export interface AnnouncementItem {
   label: string;

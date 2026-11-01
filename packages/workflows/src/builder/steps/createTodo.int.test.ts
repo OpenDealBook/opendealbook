@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 
 import {
   provisionAccount,
@@ -36,10 +44,17 @@ beforeAll(async () => {
     .eq('account_id', teamId)
     .eq('user_id', owner.userId)
     .throwOnError();
-  dealId = await seedDeal(owner.admin, teamId, manager.userId, { description: 'Main St Bakery' });
-  otherTeamDealId = await seedDeal(outsider.admin, outsider.accountId, outsider.userId, {
-    description: 'Elsewhere Deli',
+  dealId = await seedDeal(owner.admin, teamId, manager.userId, {
+    description: 'Main St Bakery',
   });
+  otherTeamDealId = await seedDeal(
+    outsider.admin,
+    outsider.accountId,
+    outsider.userId,
+    {
+      description: 'Elsewhere Deli',
+    },
+  );
 });
 
 afterEach(() => {
@@ -47,8 +62,13 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  await owner.admin.from('accounts').delete().in('id', [teamId, outsider.accountId]);
-  await Promise.all([owner, manager, member, outsider].map((account) => account.cleanup()));
+  await owner.admin
+    .from('accounts')
+    .delete()
+    .in('id', [teamId, outsider.accountId]);
+  await Promise.all(
+    [owner, manager, member, outsider].map((account) => account.cleanup()),
+  );
 });
 
 function context(idempotencyKey: string) {
@@ -88,7 +108,10 @@ describe('create_todo step (integration)', () => {
       context: context(`${crypto.randomUUID()}:todo:0`),
       config: {
         title: 'Call the lender',
-        assignees: { kind: 'members', userIds: [member.userId, manager.userId] },
+        assignees: {
+          kind: 'members',
+          userIds: [member.userId, manager.userId],
+        },
         dueInDays: 3,
         dealId,
       },
@@ -113,12 +136,19 @@ describe('create_todo step (integration)', () => {
   it('leaves the due date and deal empty when the config names neither', async () => {
     const output = await createTodo.execute({
       context: context(`${crypto.randomUUID()}:todo:0`),
-      config: { title: 'Plain to-do', assignees: { kind: 'members', userIds: [member.userId] } },
+      config: {
+        title: 'Plain to-do',
+        assignees: { kind: 'members', userIds: [member.userId] },
+      },
       input: {},
     });
 
     expect(await todosOf(output.todoIds as string[])).toEqual([
-      expect.objectContaining({ user_id: member.userId, deal_id: null, due_at: null }),
+      expect.objectContaining({
+        user_id: member.userId,
+        deal_id: null,
+        due_at: null,
+      }),
     ]);
   });
 
@@ -152,8 +182,15 @@ describe('create_todo step (integration)', () => {
 
     const failure = await createTodo
       .execute({
-        context: { accountId: outsider.accountId, runId: 'run-1', idempotencyKey: 'run-1:todo:0' },
-        config: { title: 'Review the LOI', assignees: { kind: 'deal_managers' } },
+        context: {
+          accountId: outsider.accountId,
+          runId: 'run-1',
+          idempotencyKey: 'run-1:todo:0',
+        },
+        config: {
+          title: 'Review the LOI',
+          assignees: { kind: 'deal_managers' },
+        },
         input: {},
       })
       .catch((error: unknown) => error);
@@ -183,7 +220,10 @@ describe('create_todo step (integration)', () => {
     const title = `Retry ${crypto.randomUUID()}`;
     const args = {
       context: context(`${crypto.randomUUID()}:todo:0`),
-      config: { title, assignees: { kind: 'members', userIds: [member.userId] } },
+      config: {
+        title,
+        assignees: { kind: 'members', userIds: [member.userId] },
+      },
       input: {},
     };
 

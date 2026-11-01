@@ -23,7 +23,6 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
-    "@tanstack/react-query": "catalog:",
     "@odb/deal-timeline": "workspace:*",
     "@odb/deals": "workspace:*",
     "@odb/events": "workspace:*",
@@ -31,6 +30,7 @@
     "@odb/notifications": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/templates": "workspace:*",
+    "@tanstack/react-query": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

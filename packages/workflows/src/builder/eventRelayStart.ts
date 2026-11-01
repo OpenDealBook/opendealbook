@@ -11,7 +11,9 @@ export function eventRelayCursorName(log: EventLogName): string {
   return `${WORKFLOW_EVENT_RELAY_WORKFLOW_ID}:${log}`;
 }
 
-export async function ensureWorkflowEventRelay(client: Client): Promise<WorkflowHandle> {
+export async function ensureWorkflowEventRelay(
+  client: Client,
+): Promise<WorkflowHandle> {
   return client.workflow.start('workflowEventRelay', {
     taskQueue: TASK_QUEUE,
     workflowId: WORKFLOW_EVENT_RELAY_WORKFLOW_ID,

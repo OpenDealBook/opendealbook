@@ -69,12 +69,21 @@ function readGraph(version: {
   schema_version: number;
   graph: Json;
 }): { graph: RunnableGraph } | { problem: string } {
-  if (!(WORKFLOW_GRAPH_SCHEMA_VERSIONS as readonly number[]).includes(version.schema_version)) {
-    return { problem: `Schema version ${version.schema_version} is not supported` };
+  if (
+    !(WORKFLOW_GRAPH_SCHEMA_VERSIONS as readonly number[]).includes(
+      version.schema_version,
+    )
+  ) {
+    return {
+      problem: `Schema version ${version.schema_version} is not supported`,
+    };
   }
   let graph: RunnableGraph;
   try {
-    graph = parseWorkflowGraph({ schemaVersion: version.schema_version, graph: version.graph });
+    graph = parseWorkflowGraph({
+      schemaVersion: version.schema_version,
+      graph: version.graph,
+    });
   } catch {
     return { problem: 'The workflow graph could not be read' };
   }
@@ -94,7 +103,12 @@ export async function loadWorkflowRun(input: {
     .single()
     .throwOnError();
   const refuse = async (problem: string): Promise<LoadedWorkflowRun> => {
-    await transitionWorkflowRun({ runId: input.runId, from: 'running', to: 'failed', error: problem });
+    await transitionWorkflowRun({
+      runId: input.runId,
+      from: 'running',
+      to: 'failed',
+      error: problem,
+    });
     return { kind: 'refused' };
   };
   const read = readGraph(run.workflow_version);
@@ -394,10 +408,7 @@ async function runInstantNode(
   }
   const activity = Context.current();
   activity.heartbeat();
-  const beating = setInterval(
-    () => activity.heartbeat(),
-    HEARTBEAT_EVERY_MS,
-  );
+  const beating = setInterval(() => activity.heartbeat(), HEARTBEAT_EVERY_MS);
   try {
     return await execute(activity.cancellationSignal);
   } finally {

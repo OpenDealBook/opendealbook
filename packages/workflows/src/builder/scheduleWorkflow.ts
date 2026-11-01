@@ -1,11 +1,16 @@
-import { defineSearchAttributeKey, SearchAttributeType } from '@temporalio/common';
+import {
+  defineSearchAttributeKey,
+  SearchAttributeType,
+} from '@temporalio/common';
 import { log, proxyActivities, workflowInfo } from '@temporalio/workflow';
 
 import type * as client from './client';
 import type { ScheduledTrigger } from './schedule';
 import { wallClockParts } from './wallClock';
 
-const { startScheduledRun } = proxyActivities<Pick<typeof client, 'startScheduledRun'>>({
+const { startScheduledRun } = proxyActivities<
+  Pick<typeof client, 'startScheduledRun'>
+>({
   startToCloseTimeout: '1 minute',
   retry: {
     maximumAttempts: 5,
@@ -19,7 +24,9 @@ const SCHEDULED_START_TIME = defineSearchAttributeKey(
   SearchAttributeType.DATETIME,
 );
 
-export async function runScheduledTrigger(trigger: ScheduledTrigger): Promise<void> {
+export async function runScheduledTrigger(
+  trigger: ScheduledTrigger,
+): Promise<void> {
   const started = await startScheduledRun({
     accountId: trigger.accountId,
     workflowId: trigger.workflowId,
@@ -31,7 +38,10 @@ export async function runScheduledTrigger(trigger: ScheduledTrigger): Promise<vo
     triggerNodeId: trigger.nodeId,
   });
   if ('refused' in started) {
-    log.warn('Scheduled run not started', { ...trigger, reason: started.refused });
+    log.warn('Scheduled run not started', {
+      ...trigger,
+      reason: started.refused,
+    });
   }
 }
 

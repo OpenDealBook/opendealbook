@@ -9,7 +9,8 @@ const world = vi.hoisted(() => ({
 }));
 
 vi.mock('@odb/workflows/builder/publicUrl', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@odb/workflows/builder/publicUrl')>();
+  const original =
+    await importOriginal<typeof import('@odb/workflows/builder/publicUrl')>();
   const { AddressNotFound } = original;
   return {
     ...original,
@@ -41,7 +42,8 @@ vi.mock('@odb/supabase/server', () => ({
   }),
 }));
 
-const { saveAiProviderAction, disconnectAiProviderAction } = await import('./ai-provider-actions');
+const { saveAiProviderAction, disconnectAiProviderAction } =
+  await import('./ai-provider-actions');
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -117,29 +119,35 @@ describe('saving the team AI provider', () => {
       apiKey: 'sk-x',
     });
 
-    expect(result).toEqual({ ok: false, refusal: 'Use a public HTTPS base URL' });
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Use a public HTTPS base URL',
+    });
     expect(world.saved).toEqual([]);
   });
 
   it.each([
     ['local', 'http://127.0.0.1:4510/v1'],
     ['e2e', 'http://localhost:4510/v1'],
-  ])('saves a private or http base URL when private AI URLs are allowed on a %s stack', async (stack, baseUrl) => {
-    vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
-    vi.stubEnv('ODB_STACK', stack);
+  ])(
+    'saves a private or http base URL when private AI URLs are allowed on a %s stack',
+    async (stack, baseUrl) => {
+      vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
+      vi.stubEnv('ODB_STACK', stack);
 
-    const result = await saveAiProviderAction({
-      accountId: TEAM_ID,
-      provider: 'openai_compatible',
-      model: 'llama-3',
-      embeddingModel: '',
-      baseUrl,
-      apiKey: 'sk-x',
-    });
+      const result = await saveAiProviderAction({
+        accountId: TEAM_ID,
+        provider: 'openai_compatible',
+        model: 'llama-3',
+        embeddingModel: '',
+        baseUrl,
+        apiKey: 'sk-x',
+      });
 
-    expect(result).toEqual({ ok: true, value: undefined });
-    expect(world.saved[0]).toMatchObject({ p_base_url: baseUrl });
-  });
+      expect(result).toEqual({ ok: true, value: undefined });
+      expect(world.saved[0]).toMatchObject({ p_base_url: baseUrl });
+    },
+  );
 
   it('keeps refusing a private base URL on a production stack even with the flag set', async () => {
     vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
@@ -154,7 +162,10 @@ describe('saving the team AI provider', () => {
       apiKey: 'sk-x',
     });
 
-    expect(result).toEqual({ ok: false, refusal: 'Use a public HTTPS base URL' });
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Use a public HTTPS base URL',
+    });
     expect(world.saved).toEqual([]);
   });
 
@@ -187,7 +198,10 @@ describe('saving the team AI provider', () => {
       apiKey: 'sk-x',
     });
 
-    expect(result).toEqual({ ok: false, refusal: 'Use a public HTTPS base URL' });
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Use a public HTTPS base URL',
+    });
   });
 
   it('keeps the stored key when no new key is pasted', async () => {
@@ -216,7 +230,10 @@ describe('saving the team AI provider', () => {
       apiKey: 'sk-x',
     });
 
-    expect(result).toEqual({ ok: false, refusal: 'Enter the base URL of your endpoint' });
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'Enter the base URL of your endpoint',
+    });
     expect(world.saved).toEqual([]);
   });
 
@@ -236,7 +253,10 @@ describe('saving the team AI provider', () => {
   });
 
   it('refuses members who cannot manage settings', async () => {
-    world.error = { code: '42501', message: 'changing the AI provider needs settings.manage' };
+    world.error = {
+      code: '42501',
+      message: 'changing the AI provider needs settings.manage',
+    };
 
     const result = await saveAiProviderAction({
       accountId: TEAM_ID,
@@ -257,11 +277,16 @@ describe('saving the team AI provider', () => {
     const result = await disconnectAiProviderAction({ accountId: TEAM_ID });
 
     expect(result).toEqual({ ok: true, value: undefined });
-    expect(world.saved).toEqual([{ name: 'disconnect_llm_endpoint', p_account_id: TEAM_ID }]);
+    expect(world.saved).toEqual([
+      { name: 'disconnect_llm_endpoint', p_account_id: TEAM_ID },
+    ]);
   });
 
   it('refuses a disconnect from members who cannot manage settings', async () => {
-    world.error = { code: '42501', message: 'changing the AI provider needs settings.manage' };
+    world.error = {
+      code: '42501',
+      message: 'changing the AI provider needs settings.manage',
+    };
 
     expect(await disconnectAiProviderAction({ accountId: TEAM_ID })).toEqual({
       ok: false,

@@ -17,7 +17,10 @@ export type Assumption<T = number> =
   | { kind: 'band'; min: T; base: T; max: T }
   | { kind: 'sweep'; from: T; to: T; steps: number };
 
-export const scalar = (value: number): Assumption => ({ kind: 'scalar', value });
+export const scalar = (value: number): Assumption => ({
+  kind: 'scalar',
+  value,
+});
 
 export const band = (min: number, base: number, max: number): Assumption => ({
   kind: 'band',

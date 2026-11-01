@@ -34,7 +34,9 @@ export function classifyDuplicates(
 ): DedupeDecision {
   const subjectUrl = normalize(subject.sourceUrl);
   if (subjectUrl !== null) {
-    const match = existing.find((deal) => normalize(deal.sourceUrl) === subjectUrl);
+    const match = existing.find(
+      (deal) => normalize(deal.sourceUrl) === subjectUrl,
+    );
     if (match) {
       return {
         autoFlag: { duplicateOf: match.dealId, signal: 'source_url' },
@@ -48,7 +50,11 @@ export function classifyDuplicates(
   if (subjectName !== null) {
     for (const deal of existing) {
       if (normalize(deal.description) === subjectName) {
-        candidates.push({ candidateDealId: deal.dealId, signal: 'description', score: 0.5 });
+        candidates.push({
+          candidateDealId: deal.dealId,
+          signal: 'description',
+          score: 0.5,
+        });
       }
     }
   }

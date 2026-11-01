@@ -61,25 +61,27 @@ describe('saveDealValueMarkers (integration)', () => {
     const dealId = await newDeal('Value marker capture deal');
     holder.client = account.user;
 
-    const saved = ((await (saveDealValueMarkers as unknown as Action)(
-      {
-        deal_id: dealId,
-        markers: [
-          {
-            category: 'owner_dependency',
-            question_key: 'owner_dependency.daily_operations',
-            rating: 'not_good',
-            notes: 'Owner runs every customer relationship personally.',
-          },
-          {
-            category: 'recurring_revenue',
-            question_key: 'recurring_revenue.contract_share',
-            rating: 'looks_good',
-          },
-        ],
-      },
-      actor,
-    )) as { value: Record<string, unknown>[] }).value;
+    const saved = (
+      (await (saveDealValueMarkers as unknown as Action)(
+        {
+          deal_id: dealId,
+          markers: [
+            {
+              category: 'owner_dependency',
+              question_key: 'owner_dependency.daily_operations',
+              rating: 'not_good',
+              notes: 'Owner runs every customer relationship personally.',
+            },
+            {
+              category: 'recurring_revenue',
+              question_key: 'recurring_revenue.contract_share',
+              rating: 'looks_good',
+            },
+          ],
+        },
+        actor,
+      )) as { value: Record<string, unknown>[] }
+    ).value;
 
     expect(saved).toHaveLength(2);
     expect(saved).toEqual(

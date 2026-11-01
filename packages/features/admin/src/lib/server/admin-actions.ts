@@ -99,7 +99,11 @@ export const deleteAccountAction = enhanceAction(
       .eq('id', input.accountId)
       .single();
 
-    await assertTargetUserMutable(client, user.id, account!.primary_owner_user_id);
+    await assertTargetUserMutable(
+      client,
+      user.id,
+      account!.primary_owner_user_id,
+    );
 
     await client.from('accounts').delete().eq('id', input.accountId);
 

@@ -71,7 +71,9 @@ export async function DealLenderCrm({
       .throwOnError(),
     client
       .from('lender_room')
-      .select('id, name, lender_room_timeline_answer(answer, source, note, earliest_close_date)')
+      .select(
+        'id, name, lender_room_timeline_answer(answer, source, note, earliest_close_date)',
+      )
       .eq('deal_id', dealId)
       .order('created_at')
       .throwOnError(),

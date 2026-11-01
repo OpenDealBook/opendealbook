@@ -21,7 +21,10 @@ export interface PaidRunContext {
   signal?: AbortSignal;
 }
 
-export async function recordedResult<Result>(lookupId: string, result: z.ZodType<Result>): Promise<Result | null> {
+export async function recordedResult<Result>(
+  lookupId: string,
+  result: z.ZodType<Result>,
+): Promise<Result | null> {
   const { data: recorded } = await getSupabaseServerAdminClient()
     .from('paid_lookup')
     .select('result')
@@ -64,10 +67,15 @@ export async function paidApifyRun<Result>(
   );
   const body = parsedJson(response.text) as Json | undefined;
   const failedResult =
-    body === undefined ? { status: response.status, text: response.text } : { status: response.status, body };
+    body === undefined
+      ? { status: response.status, text: response.text }
+      : { status: response.status, body };
 
   if (response.status >= 300) {
-    await recordLookup(run.lookupId, { outcome: 'failed', result: failedResult });
+    await recordLookup(run.lookupId, {
+      outcome: 'failed',
+      result: failedResult,
+    });
     const message = `The ${run.actor.provider} provider answered ${response.status}`;
     if (response.status >= 500 || response.status === 429) {
       throw new Error(message);
@@ -78,7 +86,10 @@ export async function paidApifyRun<Result>(
     );
   }
   if (body === undefined) {
-    await recordLookup(run.lookupId, { outcome: 'failed', result: failedResult });
+    await recordLookup(run.lookupId, {
+      outcome: 'failed',
+      result: failedResult,
+    });
     throw ApplicationFailure.nonRetryable(
       `The ${run.actor.provider} provider answered with something that is not JSON`,
     );
@@ -86,6 +97,9 @@ export async function paidApifyRun<Result>(
 
   const result = run.result.parse(body);
   await run.beforeRecord?.(result);
-  await recordLookup(run.lookupId, { outcome: run.found(result) ? 'found' : 'not_found', result: body });
+  await recordLookup(run.lookupId, {
+    outcome: run.found(result) ? 'found' : 'not_found',
+    result: body,
+  });
   return result;
 }

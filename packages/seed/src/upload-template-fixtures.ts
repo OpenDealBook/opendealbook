@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { TEMPLATES_BUCKET, templateDocxPath } from '@odb/templates';
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const DOCX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

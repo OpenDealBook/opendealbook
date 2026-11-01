@@ -258,7 +258,9 @@ describe('draftLenderNudges', () => {
     const result = await draftLenderNudges({ accountId: teamId });
     const [draft] = result.ok ? result.value.drafts : [];
     expect(draft!.body).toContain('Hi Dana Reed,');
-    expect(draft!.body).toContain('Acme HVAC, 12 days; Project Kestrel, 7 days');
+    expect(draft!.body).toContain(
+      'Acme HVAC, 12 days; Project Kestrel, 7 days',
+    );
     expect(draft!.body).not.toContain('Corner Bakery');
     expect(draft!.body).not.toContain('Zanzibar-private-description');
     expect(draft!.body).toContain(`Thanks,\n${ourName}`);
@@ -269,7 +271,11 @@ describe('draftLenderNudges', () => {
       ok: true,
       value: {
         cannotDraft: [
-          { lenderId: quietLenderId, lenderName: 'Quiet Bank', reason: CANNOT_DRAFT },
+          {
+            lenderId: quietLenderId,
+            lenderName: 'Quiet Bank',
+            reason: CANNOT_DRAFT,
+          },
           { lenderId: null, lenderName: 'Unsaved Bank', reason: CANNOT_DRAFT },
         ],
       },
@@ -320,7 +326,10 @@ describe('sendLenderNudge', () => {
     });
 
     for (const room of [hvacRoom, bakeryRoom]) {
-      expect(await lastRow(room)).toMatchObject({ kind: 'nudge', status: 'failed' });
+      expect(await lastRow(room)).toMatchObject({
+        kind: 'nudge',
+        status: 'failed',
+      });
     }
     expect(await draftLenderNudges({ accountId: teamId })).toMatchObject({
       value: { drafts: [{ lenderId: acmeLenderId }] },
@@ -380,6 +389,8 @@ describe('sendLenderNudge', () => {
       refusal: "This lender isn't due a nudge anymore.",
     });
     expect(sendAs).not.toHaveBeenCalled();
-    expect(await lastRow(hvacRoom)).toMatchObject({ provider_message_id: 'pm-nudge' });
+    expect(await lastRow(hvacRoom)).toMatchObject({
+      provider_message_id: 'pm-nudge',
+    });
   });
 });

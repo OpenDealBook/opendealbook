@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { stubBootEnv } from '../../../../test-env';
 
-const NOT_LOADED = "Example deals couldn't be loaded. Reload them from Settings.";
+const NOT_LOADED =
+  "Example deals couldn't be loaded. Reload them from Settings.";
 
 const seedSampleDealsOnce = vi.hoisted(() => vi.fn(async () => {}));
 

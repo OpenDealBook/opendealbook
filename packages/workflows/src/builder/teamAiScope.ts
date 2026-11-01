@@ -51,7 +51,9 @@ export async function dealAiScope(
     .rpc('has_deal_permission', { deal_id: dealId, permission })
     .throwOnError();
 
-  return allowed ? ({ accountId: deal.account_id, dealId } as DealAiScope) : 'forbidden';
+  return allowed
+    ? ({ accountId: deal.account_id, dealId } as DealAiScope)
+    : 'forbidden';
 }
 
 export async function accountAiScope(
@@ -60,12 +62,19 @@ export async function accountAiScope(
   accountId: string,
 ): Promise<AiScope | null> {
   const { data: allowed } = await client
-    .rpc('has_permission', { user_id: userId, account_id: accountId, permission_name: 'deals.create' })
+    .rpc('has_permission', {
+      user_id: userId,
+      account_id: accountId,
+      permission_name: 'deals.create',
+    })
     .throwOnError();
 
   return allowed ? ({ accountId } as AiScope) : null;
 }
 
-export function resolveScopedTeamAi(scope: AiScope, kind: 'chat' | 'embedding'): Promise<TeamAi | null> {
+export function resolveScopedTeamAi(
+  scope: AiScope,
+  kind: 'chat' | 'embedding',
+): Promise<TeamAi | null> {
   return resolveTeamAi(scope.accountId, kind);
 }

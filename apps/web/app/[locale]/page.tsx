@@ -149,10 +149,11 @@ export default async function LandingPage() {
             Run every acquisition in one place.
           </h1>
           <p className={'text-muted-foreground max-w-2xl text-lg'}>
-            OpenDealbook is the deal platform for teams that grow by acquisition.
-            Pipeline, diligence, data room, contracts, and closing, with your team
-            and outside counsel, sellers, and brokers each in exactly the right
-            lane. Start free with a workspace of example deals already in flight.
+            OpenDealbook is the deal platform for teams that grow by
+            acquisition. Pipeline, diligence, data room, contracts, and closing,
+            with your team and outside counsel, sellers, and brokers each in
+            exactly the right lane. Start free with a workspace of example deals
+            already in flight.
           </p>
           <div className={'flex flex-wrap items-center justify-center gap-3'}>
             <Button asChild size={'lg'}>
@@ -232,9 +233,10 @@ export default async function LandingPage() {
             Explore a real pipeline on day one.
           </h2>
           <p className={'text-muted-foreground text-lg'}>
-            Your trial account comes loaded with example deals across every stage,
-            so you can open a live-looking data room, work a diligence checklist,
-            and page through a contract before you add a single deal of your own.
+            Your trial account comes loaded with example deals across every
+            stage, so you can open a live-looking data room, work a diligence
+            checklist, and page through a contract before you add a single deal
+            of your own.
           </p>
         </section>
 

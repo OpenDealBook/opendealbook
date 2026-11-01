@@ -52,8 +52,7 @@ export function TimelineQuestion({
           roomId,
           answer,
           note: note.trim() || null,
-          earliestCloseDate:
-            answer === 'no' ? earliestCloseDate || null : null,
+          earliestCloseDate: answer === 'no' ? earliestCloseDate || null : null,
         }),
       () => {
         setTold(true);

@@ -167,8 +167,6 @@ it('adds a whole-config control to node types whose config is a union', () => {
     },
   ]);
 
-  expect(wait!.uischema.elements).toEqual([
-    { type: 'Control', scope: '#' },
-  ]);
+  expect(wait!.uischema.elements).toEqual([{ type: 'Control', scope: '#' }]);
   expect(notify!.uischema.elements).toEqual([]);
 });

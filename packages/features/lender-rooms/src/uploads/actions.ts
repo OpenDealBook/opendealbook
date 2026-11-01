@@ -7,11 +7,7 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { refusableAction } from '../actions/refusable-action';
 import { Refusal } from '../actions/refusal';
-import {
-  isWithinFolder,
-  requireSpace,
-  requireSpaceFolder,
-} from './access';
+import { isWithinFolder, requireSpace, requireSpaceFolder } from './access';
 import { uploadRefusal } from './allowed';
 import { queueCounselUpload } from './counsel-uploads';
 import { type Admin, removeObject } from './objects';

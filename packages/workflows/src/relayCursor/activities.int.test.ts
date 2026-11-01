@@ -8,7 +8,6 @@ import {
   provisionAccount,
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
-
 import {
   loadRelayCursor,
   recordRelayFailedEvent,
@@ -81,14 +80,21 @@ describe('setting aside a failed relay event', () => {
   });
 
   it('records the event once with its last error, however often the record is repeated', async () => {
-    const failure = { relayName, globalSeq: 23494, error: 'Cannot coerce the result', attempts: 5 };
+    const failure = {
+      relayName,
+      globalSeq: 23494,
+      error: 'Cannot coerce the result',
+      attempts: 5,
+    };
 
     await recordRelayFailedEvent(failure);
     await recordRelayFailedEvent(failure);
 
     const { data } = await admin
       .from('relay_failed_event')
-      .select('relay_name, global_seq, error, attempts, retried_at, resolved_at')
+      .select(
+        'relay_name, global_seq, error, attempts, retried_at, resolved_at',
+      )
       .eq('relay_name', relayName)
       .throwOnError();
     expect(data).toEqual([
@@ -122,14 +128,22 @@ describe('telling super admins about a set-aside relay event', () => {
       .from('relay_failed_event')
       .update({ resolved_at: new Date().toISOString() })
       .eq('relay_name', relayName);
-    await admin.from('notifications').delete().like('dedupe_key', `relay_failed:${relayName}:%`);
+    await admin
+      .from('notifications')
+      .delete()
+      .like('dedupe_key', `relay_failed:${relayName}:%`);
     await superAdmin.cleanup();
     await member.cleanup();
   });
 
   it('notifies each super admin in the app once, and logs the relay and event', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const failure = { relayName, globalSeq: 23494, error: 'Cannot coerce the result', attempts: 5 };
+    const failure = {
+      relayName,
+      globalSeq: 23494,
+      error: 'Cannot coerce the result',
+      attempts: 5,
+    };
 
     await recordRelayFailedEvent(failure);
     await recordRelayFailedEvent(failure);
@@ -148,7 +162,9 @@ describe('telling super admins about a set-aside relay event', () => {
         dedupe_key: `relay_failed:${relayName}:23494:${superAdmin.userId}`,
       },
     ]);
-    expect(logged).toHaveBeenCalledWith(expect.stringContaining(`${relayName} event 23494`));
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringContaining(`${relayName} event 23494`),
+    );
     logged.mockRestore();
   });
 });

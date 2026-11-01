@@ -6,10 +6,13 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { uuidFromKey } from '../../uuidFromKey';
 import { NODE_CONFIG_SCHEMAS } from '../graph';
 import { defineStep } from '../step';
-import { teamRow } from '../teamRow';
 import { askTeamAi, parsedJson } from '../teamAi';
+import { teamRow } from '../teamRow';
 
-const verdictSchema = z.object({ fit: z.boolean(), reasons: z.array(z.string()) });
+const verdictSchema = z.object({
+  fit: z.boolean(),
+  reasons: z.array(z.string()),
+});
 
 const FIRM_FIELDS =
   'name, industry, city, state, employee_band, established_year, naics_code, revenue_estimate, profile, service_mix_json';
@@ -53,23 +56,32 @@ export const decisionModel = defineStep({
       .maybeSingle()
       .throwOnError();
     if (recorded) {
-      return { verdictId: recorded.id, fit: recorded.fit, reasons: recorded.reasons };
+      return {
+        verdictId: recorded.id,
+        fit: recorded.fit,
+        reasons: recorded.reasons,
+      };
     }
 
-    const firm = await teamRow(config.firmId, 'That firm is not on this team', (id) =>
-      getSupabaseServerAdminClient()
-        .from('firm')
-        .select(FIRM_FIELDS)
-        .eq('id', id)
-        .eq('account_id', context.accountId)
-        .maybeSingle()
-        .throwOnError(),
+    const firm = await teamRow(
+      config.firmId,
+      'That firm is not on this team',
+      (id) =>
+        getSupabaseServerAdminClient()
+          .from('firm')
+          .select(FIRM_FIELDS)
+          .eq('id', id)
+          .eq('account_id', context.accountId)
+          .maybeSingle()
+          .throwOnError(),
     );
 
     const [{ data: dealBox }, { data: facts }] = await Promise.all([
       admin
         .from('deal_box')
-        .select('criteria_json, broker_summary, min_dscr, required_personal_cash_flow')
+        .select(
+          'criteria_json, broker_summary, min_dscr, required_personal_cash_flow',
+        )
         .eq('account_id', context.accountId)
         .order('version', { ascending: false })
         .limit(1)
@@ -83,7 +95,9 @@ export const decisionModel = defineStep({
         .throwOnError(),
     ]);
     if (!dealBox) {
-      throw ApplicationFailure.nonRetryable('Set your deal box before using the decision model.');
+      throw ApplicationFailure.nonRetryable(
+        'Set your deal box before using the decision model.',
+      );
     }
 
     const answer = await askTeamAi({
@@ -100,7 +114,9 @@ export const decisionModel = defineStep({
 
     const verdict = verdictSchema.safeParse(parsedJson(answer.text));
     if (!verdict.success) {
-      throw ApplicationFailure.nonRetryable('The AI did not answer with a fit and reasons');
+      throw ApplicationFailure.nonRetryable(
+        'The AI did not answer with a fit and reasons',
+      );
     }
 
     await admin

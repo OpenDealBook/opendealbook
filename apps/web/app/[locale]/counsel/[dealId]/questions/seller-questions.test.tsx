@@ -71,6 +71,6 @@ describe('SellerQuestions', () => {
   it('says where questions will show when the seller has not been asked anything', () => {
     expect(
       renderToStaticMarkup(<SellerQuestions dealId={'deal1'} questions={[]} />),
-    ).toContain("Questions the deal team asks the seller show here.");
+    ).toContain('Questions the deal team asks the seller show here.');
   });
 });

@@ -63,7 +63,9 @@ function FieldInput(props: {
         {...common}
         value={((props.value ?? []) as string[]).join(', ')}
         onChange={(event) =>
-          props.onChange(event.target.value.split(',').map((item) => item.trim()))
+          props.onChange(
+            event.target.value.split(',').map((item) => item.trim()),
+          )
         }
       />
     );
@@ -89,8 +91,7 @@ export function UnionFields(props: {
   );
   const kept = Object.fromEntries(
     Object.entries(props.value).filter(
-      ([name]) =>
-        !props.variants.some((each) => name in each.properties!),
+      ([name]) => !props.variants.some((each) => name in each.properties!),
     ),
   );
 
@@ -109,7 +110,10 @@ export function UnionFields(props: {
         >
           {variant ? null : <option value={''}>Choose</option>}
           {props.variants.map((each) => (
-            <option key={each.properties![key]!.const} value={each.properties![key]!.const}>
+            <option
+              key={each.properties![key]!.const}
+              value={each.properties![key]!.const}
+            >
               {each.properties![key]!.const}
             </option>
           ))}
@@ -125,7 +129,9 @@ export function UnionFields(props: {
               field={field}
               value={props.value[name]}
               enabled={props.enabled}
-              onChange={(value) => props.onChange({ ...props.value, [name]: value })}
+              onChange={(value) =>
+                props.onChange({ ...props.value, [name]: value })
+              }
             />
           </label>
         ))}
@@ -136,7 +142,9 @@ export function UnionFields(props: {
 type Comparison = Partial<Record<Operator, [unknown, unknown]>>;
 
 function asNumberOrText(text: string): string | number {
-  return text.trim() !== '' && !Number.isNaN(Number(text)) ? Number(text) : text;
+  return text.trim() !== '' && !Number.isNaN(Number(text))
+    ? Number(text)
+    : text;
 }
 
 export function RuleFields(props: {
@@ -158,7 +166,9 @@ export function RuleFields(props: {
   }
 
   const [left, right] = operands as [{ var: string }, unknown];
-  const change = (next: Partial<{ operator: string; left: string; right: unknown }>) =>
+  const change = (
+    next: Partial<{ operator: string; left: string; right: unknown }>,
+  ) =>
     props.onChange({
       [next.operator ?? operator]: [
         { var: next.left ?? left.var },
@@ -202,14 +212,19 @@ export function RuleFields(props: {
         className={inputClass}
         disabled={!props.enabled}
         value={String(right ?? '')}
-        onChange={(event) => change({ right: asNumberOrText(event.target.value) })}
+        onChange={(event) =>
+          change({ right: asNumberOrText(event.target.value) })
+        }
       />
     </div>
   );
 }
 
 export function withRootUnions<
-  Item extends { schema: { oneOf?: unknown }; uischema: { type: string; elements: object[] } },
+  Item extends {
+    schema: { oneOf?: unknown };
+    uischema: { type: string; elements: object[] };
+  },
 >(palette: Item[]): Item[] {
   return palette.map((item) =>
     item.schema.oneOf

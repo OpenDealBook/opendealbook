@@ -48,7 +48,9 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  act(() => root.render(<SellerRoomInvite dealId={'deal-1'} blockedReason={null} />));
+  act(() =>
+    root.render(<SellerRoomInvite dealId={'deal-1'} blockedReason={null} />),
+  );
   type('seller-invite-name', 'Sam Seller');
   type('seller-invite-email', 'sam@seller.test');
 });
@@ -105,7 +107,9 @@ describe('SellerRoomInvite', () => {
       root.render(
         <SellerRoomInvite
           dealId={'deal-1'}
-          blockedReason={'Only deal managers can invite sellers. Ask Morgan Reyes.'}
+          blockedReason={
+            'Only deal managers can invite sellers. Ask Morgan Reyes.'
+          }
         />,
       ),
     );

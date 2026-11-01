@@ -21,10 +21,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:",
     "@odb/events": "workspace:*",
     "@odb/next": "workspace:*",
     "@odb/supabase": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "papaparse": "catalog:",
     "zod": "catalog:"
   },

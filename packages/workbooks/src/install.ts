@@ -75,7 +75,9 @@ export async function listWorkbooks(
 export async function listWorkbookTemplates(
   accountId: string,
   client: SupabaseClient<Database>,
-): Promise<Pick<Tables<'workbook_template'>, 'id' | 'name' | 'workflow_type'>[]> {
+): Promise<
+  Pick<Tables<'workbook_template'>, 'id' | 'name' | 'workflow_type'>[]
+> {
   const { data, error } = await client
     .from('workbook_template')
     .select('id, name, workflow_type')

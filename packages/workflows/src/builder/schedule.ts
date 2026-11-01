@@ -10,7 +10,11 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { getTemporalClient, TASK_QUEUE } from '../client';
 import { ensureSchedule } from '../schedules/ensureSchedule';
-import { NODE_CONFIG_SCHEMAS, type NodeConfig, parseWorkflowGraph } from './graph';
+import {
+  NODE_CONFIG_SCHEMAS,
+  type NodeConfig,
+  parseWorkflowGraph,
+} from './graph';
 import { teamTimezone } from './team-timezone';
 
 const THIRTY_DAY_MONTHS = ['APRIL', 'JUNE', 'SEPTEMBER', 'NOVEMBER'] as const;
@@ -21,7 +25,10 @@ export function scheduleSpec(
   timeZone: string,
 ): ScheduleSpec {
   if (config.every === 'hours') {
-    return { calendars: [{ hour: { start: 0, end: 23, step: config.hours } }], timezone: timeZone };
+    return {
+      calendars: [{ hour: { start: 0, end: 23, step: config.hours } }],
+      timezone: timeZone,
+    };
   }
   const [hour, minute] = config.at.split(':').map(Number);
   const at = { hour, minute };
@@ -31,7 +38,9 @@ export function scheduleSpec(
       return { calendars: [at], timezone: timeZone };
     case 'week':
       return {
-        calendars: [{ ...at, dayOfWeek: config.weekday.toUpperCase() as DayOfWeek }],
+        calendars: [
+          { ...at, dayOfWeek: config.weekday.toUpperCase() as DayOfWeek },
+        ],
         timezone: timeZone,
       };
     case 'month':
@@ -39,17 +48,28 @@ export function scheduleSpec(
   }
 }
 
-function monthly(day: number, at: CalendarSpec): Pick<ScheduleSpec, 'calendars' | 'skip'> {
+function monthly(
+  day: number,
+  at: CalendarSpec,
+): Pick<ScheduleSpec, 'calendars' | 'skip'> {
   if (day < 29) {
     return { calendars: [{ ...at, dayOfMonth: day }] };
   }
-  const februaryTwentyEighth: CalendarSpec = { ...at, month: 'FEBRUARY', dayOfMonth: 28 };
+  const februaryTwentyEighth: CalendarSpec = {
+    ...at,
+    month: 'FEBRUARY',
+    dayOfMonth: 28,
+  };
 
   return {
     calendars: [
       { ...at, dayOfMonth: day },
-      ...(day === 31 ? [{ ...at, month: [...THIRTY_DAY_MONTHS], dayOfMonth: 30 }] : []),
-      ...(day > 29 ? [{ ...at, month: 'FEBRUARY' as const, dayOfMonth: 29 }] : []),
+      ...(day === 31
+        ? [{ ...at, month: [...THIRTY_DAY_MONTHS], dayOfMonth: 30 }]
+        : []),
+      ...(day > 29
+        ? [{ ...at, month: 'FEBRUARY' as const, dayOfMonth: 29 }]
+        : []),
       februaryTwentyEighth,
     ],
     skip: [{ ...februaryTwentyEighth, year: LEAP_YEARS_TO_SKIP_FEB_28 }],
@@ -64,7 +84,9 @@ export interface ScheduledTrigger {
   timeZone: string;
 }
 
-export async function syncTeamSchedules(input: { accountId: string }): Promise<void> {
+export async function syncTeamSchedules(input: {
+  accountId: string;
+}): Promise<void> {
   const timeZone = await teamTimezone(input.accountId);
   const { data: workflows } = await getSupabaseServerAdminClient()
     .from('workflow')
@@ -74,15 +96,23 @@ export async function syncTeamSchedules(input: { accountId: string }): Promise<v
 
   const results = await Promise.allSettled(
     workflows.map((workflow) =>
-      syncRememberingFailure(timeZone, { accountId: input.accountId, workflowId: workflow.id }),
+      syncRememberingFailure(timeZone, {
+        accountId: input.accountId,
+        workflowId: workflow.id,
+      }),
     ),
   );
   const failures = results.flatMap((result, index) =>
-    result.status === 'rejected' ? [{ workflowId: workflows[index]!.id, cause: result.reason }] : [],
+    result.status === 'rejected'
+      ? [{ workflowId: workflows[index]!.id, cause: result.reason }]
+      : [],
   );
 
   for (const { workflowId, cause } of failures) {
-    console.error(`Syncing the schedules of workflow ${workflowId} failed`, cause);
+    console.error(
+      `Syncing the schedules of workflow ${workflowId} failed`,
+      cause,
+    );
   }
   if (failures.length > 0) {
     throw new SchedulesPartlyUpdated(failures.length, workflows.length);
@@ -94,7 +124,9 @@ export class SchedulesPartlyUpdated extends Error {
     readonly failed: number,
     readonly total: number,
   ) {
-    super(`${failed} of ${total} workflows' schedules couldn't be updated; try again`);
+    super(
+      `${failed} of ${total} workflows' schedules couldn't be updated; try again`,
+    );
   }
 }
 
@@ -118,7 +150,10 @@ async function syncRememberingFailure(
   await setSyncFailedAt(input.workflowId, null);
 }
 
-async function setSyncFailedAt(workflowId: string, failedAt: string | null): Promise<void> {
+async function setSyncFailedAt(
+  workflowId: string,
+  failedAt: string | null,
+): Promise<void> {
   await getSupabaseServerAdminClient()
     .from('workflow')
     .update({ schedules_sync_failed_at: failedAt })
@@ -178,7 +213,10 @@ async function syncWorkflowSchedulesInZone(
       .throwOnError();
     await ensureSchedule(temporal, {
       scheduleId,
-      spec: scheduleSpec(NODE_CONFIG_SCHEMAS.schedule_trigger.parse(node.config), timeZone),
+      spec: scheduleSpec(
+        NODE_CONFIG_SCHEMAS.schedule_trigger.parse(node.config),
+        timeZone,
+      ),
       action: {
         type: 'startWorkflow',
         workflowType: 'runScheduledTrigger',
@@ -217,7 +255,10 @@ async function syncWorkflowSchedulesInZone(
   }
 }
 
-async function deleteSchedule(temporal: Client, scheduleId: string): Promise<void> {
+async function deleteSchedule(
+  temporal: Client,
+  scheduleId: string,
+): Promise<void> {
   await temporal.schedule
     .getHandle(scheduleId)
     .delete()
@@ -228,8 +269,13 @@ async function deleteSchedule(temporal: Client, scheduleId: string): Promise<voi
     });
 }
 
-async function setPaused(temporal: Client, scheduleId: string, paused: boolean): Promise<void> {
-  await temporal.schedule
-    .getHandle(scheduleId)
-    .update((previous) => ({ ...previous, state: { ...previous.state, paused } }));
+async function setPaused(
+  temporal: Client,
+  scheduleId: string,
+  paused: boolean,
+): Promise<void> {
+  await temporal.schedule.getHandle(scheduleId).update((previous) => ({
+    ...previous,
+    state: { ...previous.state, paused },
+  }));
 }

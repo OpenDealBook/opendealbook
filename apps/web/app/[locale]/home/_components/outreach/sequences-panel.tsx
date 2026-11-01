@@ -56,7 +56,13 @@ type Draft = {
 };
 
 function emptyStep(): DraftStep {
-  return { key: crypto.randomUUID(), channel: 'email', delayDays: '0', subject: '', body: '' };
+  return {
+    key: crypto.randomUUID(),
+    channel: 'email',
+    delayDays: '0',
+    subject: '',
+    body: '',
+  };
 }
 
 function draftFromSequence(sequence: Sequence): Draft {
@@ -78,7 +84,12 @@ function savedSteps(steps: DraftStep[]) {
   return steps.map((step, index) => {
     const timing = { ordinal: index + 1, delayDays: Number(step.delayDays) };
     return step.channel === 'email'
-      ? { ...timing, channel: 'email' as const, subject: step.subject, body: step.body }
+      ? {
+          ...timing,
+          channel: 'email' as const,
+          subject: step.subject,
+          body: step.body,
+        }
       : { ...timing, channel: 'letter' as const, body: step.body };
   });
 }
@@ -117,7 +128,9 @@ export function SequencesPanel({
       (current) =>
         current && {
           ...current,
-          steps: current.steps.map((step) => (step.key === key ? { ...step, ...change } : step)),
+          steps: current.steps.map((step) =>
+            step.key === key ? { ...step, ...change } : step,
+          ),
         },
     );
   }
@@ -149,7 +162,12 @@ export function SequencesPanel({
           type={'button'}
           size={'sm'}
           onClick={() =>
-            setDraft({ sequenceId: null, name: '', description: '', steps: [emptyStep()] })
+            setDraft({
+              sequenceId: null,
+              name: '',
+              description: '',
+              steps: [emptyStep()],
+            })
           }
         >
           New sequence
@@ -257,7 +275,9 @@ export function SequencesPanel({
                     key={step.key}
                     className={'flex flex-col gap-3 rounded border p-3'}
                   >
-                    <legend className={'text-sm font-medium'}>Step {number}</legend>
+                    <legend className={'text-sm font-medium'}>
+                      Step {number}
+                    </legend>
                     <div className={'flex justify-end'}>
                       <Button
                         type={'button'}
@@ -266,7 +286,9 @@ export function SequencesPanel({
                         onClick={() =>
                           setDraft({
                             ...draft,
-                            steps: draft.steps.filter((other) => other.key !== step.key),
+                            steps: draft.steps.filter(
+                              (other) => other.key !== step.key,
+                            ),
                           })
                         }
                       >
@@ -276,13 +298,19 @@ export function SequencesPanel({
 
                     <div className={'grid gap-3 sm:grid-cols-2'}>
                       <div className={'flex flex-col gap-2'}>
-                        <Label htmlFor={`step-${step.key}-channel`}>Channel</Label>
+                        <Label htmlFor={`step-${step.key}-channel`}>
+                          Channel
+                        </Label>
                         <select
                           id={`step-${step.key}-channel`}
-                          className={'border-input bg-background h-9 rounded-md border px-3 text-sm'}
+                          className={
+                            'border-input bg-background h-9 rounded-md border px-3 text-sm'
+                          }
                           value={step.channel}
                           onChange={(event) =>
-                            changeStep(step.key, { channel: event.target.value as Channel })
+                            changeStep(step.key, {
+                              channel: event.target.value as Channel,
+                            })
                           }
                         >
                           <option value={'email'}>Email</option>
@@ -292,7 +320,9 @@ export function SequencesPanel({
 
                       <div className={'flex flex-col gap-2'}>
                         <Label htmlFor={`step-${step.key}-delay`}>
-                          {index === 0 ? 'Days before sending' : 'Days after the step before'}
+                          {index === 0
+                            ? 'Days before sending'
+                            : 'Days after the step before'}
                         </Label>
                         <Input
                           id={`step-${step.key}-delay`}
@@ -301,7 +331,9 @@ export function SequencesPanel({
                           required
                           value={step.delayDays}
                           onChange={(event) =>
-                            changeStep(step.key, { delayDays: event.target.value })
+                            changeStep(step.key, {
+                              delayDays: event.target.value,
+                            })
                           }
                         />
                       </div>
@@ -310,12 +342,16 @@ export function SequencesPanel({
                     {step.channel === 'email' ? (
                       <div className={'flex flex-col gap-2'}>
                         <div className={'flex items-center justify-between'}>
-                          <Label htmlFor={`step-${step.key}-subject`}>Subject</Label>
+                          <Label htmlFor={`step-${step.key}-subject`}>
+                            Subject
+                          </Label>
                           <MergeFieldPicker
                             fieldId={`step-${step.key}-subject`}
                             tokens={EMAIL_TOKENS}
                             value={step.subject}
-                            onChange={(subject) => changeStep(step.key, { subject })}
+                            onChange={(subject) =>
+                              changeStep(step.key, { subject })
+                            }
                           />
                         </div>
                         <Input
@@ -323,7 +359,9 @@ export function SequencesPanel({
                           required
                           value={step.subject}
                           onChange={(event) =>
-                            changeStep(step.key, { subject: event.target.value })
+                            changeStep(step.key, {
+                              subject: event.target.value,
+                            })
                           }
                         />
                       </div>
@@ -336,7 +374,11 @@ export function SequencesPanel({
                         </Label>
                         <MergeFieldPicker
                           fieldId={`step-${step.key}-body`}
-                          tokens={step.channel === 'letter' ? SEQUENCE_LETTER_FIELDS : EMAIL_TOKENS}
+                          tokens={
+                            step.channel === 'letter'
+                              ? SEQUENCE_LETTER_FIELDS
+                              : EMAIL_TOKENS
+                          }
                           value={step.body}
                           onChange={(body) => changeStep(step.key, { body })}
                         />
@@ -360,7 +402,9 @@ export function SequencesPanel({
                   type={'button'}
                   size={'sm'}
                   variant={'outline'}
-                  onClick={() => setDraft({ ...draft, steps: [...draft.steps, emptyStep()] })}
+                  onClick={() =>
+                    setDraft({ ...draft, steps: [...draft.steps, emptyStep()] })
+                  }
                 >
                   Add step
                 </Button>

@@ -34,9 +34,7 @@ export interface OperatingSummary {
   };
 }
 
-function netOperatingIncome(
-  period: OperatingPeriodMetrics,
-): number | null {
+function netOperatingIncome(period: OperatingPeriodMetrics): number | null {
   if (period.revenue === null || period.cogs === null || period.opex === null) {
     return null;
   }
@@ -66,7 +64,10 @@ function annualize(values: (number | null)[]): number | null {
   return (sum / available.length) * 12;
 }
 
-function variance(actual: number | null, baseline: number | null): OperatingVariance {
+function variance(
+  actual: number | null,
+  baseline: number | null,
+): OperatingVariance {
   if (actual === null || baseline === null) {
     return { baseline, actual, absolute_delta: null, percent_delta: null };
   }

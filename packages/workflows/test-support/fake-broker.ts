@@ -10,7 +10,10 @@ interface Received {
 
 export async function fakeBroker() {
   const received: Received[] = [];
-  const routes = new Map<string, { status: number; body: unknown; delayMs?: number }>();
+  const routes = new Map<
+    string,
+    { status: number; body: unknown; delayMs?: number }
+  >();
   const server = createServer((request, response) => {
     let text = '';
     request.on('data', (chunk) => (text += chunk));
@@ -26,8 +29,14 @@ export async function fakeBroker() {
       const reply = routes.get(`${route}${url.search}`) ??
         routes.get(route) ?? { status: 404, body: { error: 'no route' } };
       setTimeout(() => {
-        response.writeHead(reply.status, { 'content-type': 'application/json' });
-        response.end(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body));
+        response.writeHead(reply.status, {
+          'content-type': 'application/json',
+        });
+        response.end(
+          typeof reply.body === 'string'
+            ? reply.body
+            : JSON.stringify(reply.body),
+        );
       }, reply.delayMs ?? 0);
     });
   });

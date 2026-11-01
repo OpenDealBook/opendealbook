@@ -83,7 +83,8 @@ export const importCompsAction = enhanceAction(
         const match = (data ?? []).find(
           (license) =>
             matchesVendor(license.vendor, vendor) &&
-            (license.expires_at === null || Date.parse(license.expires_at) > now),
+            (license.expires_at === null ||
+              Date.parse(license.expires_at) > now),
         );
 
         return match ? { id: match.id } : null;

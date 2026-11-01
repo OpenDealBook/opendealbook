@@ -4,7 +4,11 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const server = vi.hoisted(() => ({ save: vi.fn(), disconnect: vi.fn(), refresh: vi.fn() }));
+const server = vi.hoisted(() => ({
+  save: vi.fn(),
+  disconnect: vi.fn(),
+  refresh: vi.fn(),
+}));
 
 vi.mock('./provider-key-actions', () => ({
   saveProviderKeyAction: server.save,
@@ -13,7 +17,9 @@ vi.mock('./provider-key-actions', () => ({
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: server.refresh }),
 }));
-vi.mock('../../../../../config/app.config', () => ({ default: { url: 'https://app.odb.test' } }));
+vi.mock('../../../../../config/app.config', () => ({
+  default: { url: 'https://app.odb.test' },
+}));
 
 import { ProviderKeySetting } from './provider-key';
 
@@ -29,14 +35,19 @@ async function render(props: Omit<Props, 'accountId'>) {
 }
 
 function field(text: string) {
-  const label = [...container.querySelectorAll('label')].find((candidate) => candidate.textContent === text);
+  const label = [...container.querySelectorAll('label')].find(
+    (candidate) => candidate.textContent === text,
+  );
   return (label?.control ?? null) as HTMLInputElement | null;
 }
 
 async function type(label: string, value: string) {
   await act(async () => {
     const element = field(label)!;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(element, value);
+    Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value',
+    )!.set!.call(element, value);
     element.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
@@ -48,13 +59,17 @@ async function save() {
 }
 
 function button(label: string, scope: ParentNode = container) {
-  return [...scope.querySelectorAll('button')].find((candidate) => candidate.textContent === label);
+  return [...scope.querySelectorAll('button')].find(
+    (candidate) => candidate.textContent === label,
+  );
 }
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   server.save.mockReset().mockResolvedValue({ ok: true, value: undefined });
-  server.disconnect.mockReset().mockResolvedValue({ ok: true, value: undefined });
+  server.disconnect
+    .mockReset()
+    .mockResolvedValue({ ok: true, value: undefined });
   server.refresh.mockReset();
   container = document.createElement('div');
   document.body.append(container);
@@ -87,18 +102,30 @@ describe('the email lookup key setting', () => {
   });
 
   it('shows the saved actor, never the saved key', async () => {
-    await render({ kind: 'email_lookup', current: { actorId: 'acme~site-contacts', provider: 'apify' }, canManage: true });
+    await render({
+      kind: 'email_lookup',
+      current: { actorId: 'acme~site-contacts', provider: 'apify' },
+      canManage: true,
+    });
 
     expect(field('Apify actor')!.value).toBe('acme~site-contacts');
     expect(field('Apify API key')!.value).toBe('');
     expect(field('Apify API key')!.type).toBe('password');
-    expect(field('Apify API key')!.placeholder).toBe('Saved. Paste a new key to replace it');
+    expect(field('Apify API key')!.placeholder).toBe(
+      'Saved. Paste a new key to replace it',
+    );
   });
 
   it('shows other members the provider and actor, with nothing to change', async () => {
-    await render({ kind: 'email_lookup', current: { actorId: 'acme~site-contacts', provider: 'apify' }, canManage: false });
+    await render({
+      kind: 'email_lookup',
+      current: { actorId: 'acme~site-contacts', provider: 'apify' },
+      canManage: false,
+    });
 
-    expect(container.textContent).toContain('Connected to Apify, actor acme~site-contacts');
+    expect(container.textContent).toContain(
+      'Connected to Apify, actor acme~site-contacts',
+    );
     expect(container.querySelector('input')).toBeNull();
     expect(container.querySelector('button')).toBeNull();
   });
@@ -109,7 +136,9 @@ describe('the email lookup key setting', () => {
 
     await save();
 
-    expect(container.querySelector('[role=alert]')?.textContent).toBe('Paste an API key');
+    expect(container.querySelector('[role=alert]')?.textContent).toBe(
+      'Paste an API key',
+    );
   });
 });
 
@@ -132,7 +161,11 @@ describe('the letters key setting', () => {
   });
 
   it('saves the Lob webhook secret beside the key, then clears it', async () => {
-    await render({ kind: 'letters', current: { actorId: null, provider: 'lob' }, canManage: true });
+    await render({
+      kind: 'letters',
+      current: { actorId: null, provider: 'lob' },
+      canManage: true,
+    });
 
     await type('Lob webhook secret', 'hook-secret');
     await save();
@@ -149,24 +182,39 @@ describe('the letters key setting', () => {
   });
 
   it('shows the webhook address to paste into Lob', async () => {
-    await render({ kind: 'letters', current: { actorId: null, provider: 'lob' }, canManage: true });
+    await render({
+      kind: 'letters',
+      current: { actorId: null, provider: 'lob' },
+      canManage: true,
+    });
 
-    expect(container.textContent).toContain('https://app.odb.test/api/webhooks/lob/team-1');
+    expect(container.textContent).toContain(
+      'https://app.odb.test/api/webhooks/lob/team-1',
+    );
   });
 
   it('asks a settings manager to confirm before disconnecting', async () => {
-    await render({ kind: 'letters', current: { actorId: null, provider: 'lob' }, canManage: true });
+    await render({
+      kind: 'letters',
+      current: { actorId: null, provider: 'lob' },
+      canManage: true,
+    });
 
     await act(async () => button('Disconnect')!.click());
     const dialog = document.body.querySelector('[role=dialog]')!;
 
     expect(dialog.textContent).toContain('Disconnect Lob?');
-    expect(dialog.textContent).toContain('Letter steps in workflows will fail until you connect it again.');
+    expect(dialog.textContent).toContain(
+      'Letter steps in workflows will fail until you connect it again.',
+    );
     expect(server.disconnect).not.toHaveBeenCalled();
 
     await act(async () => button('Disconnect', dialog)!.click());
 
-    expect(server.disconnect).toHaveBeenCalledWith({ accountId: 'team-1', kind: 'letters' });
+    expect(server.disconnect).toHaveBeenCalledWith({
+      accountId: 'team-1',
+      kind: 'letters',
+    });
   });
 
   it('tells other members when Lob is not connected', async () => {
@@ -195,13 +243,19 @@ describe('the federal courts key setting', () => {
   });
 
   it('warns that diligence skips federal courts once disconnected', async () => {
-    await render({ kind: 'courts', current: { actorId: null, provider: 'courtlistener' }, canManage: true });
+    await render({
+      kind: 'courts',
+      current: { actorId: null, provider: 'courtlistener' },
+      canManage: true,
+    });
 
     await act(async () => button('Disconnect')!.click());
     const dialog = document.body.querySelector('[role=dialog]')!;
 
     expect(dialog.textContent).toContain('Disconnect CourtListener?');
-    expect(dialog.textContent).toContain('Diligence will skip federal courts until you connect it again.');
+    expect(dialog.textContent).toContain(
+      'Diligence will skip federal courts until you connect it again.',
+    );
   });
 });
 
@@ -212,7 +266,10 @@ describe('the court records broker setting', () => {
 
   async function pick(value: string) {
     await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!.call(broker(), value);
+      Object.getOwnPropertyDescriptor(
+        HTMLSelectElement.prototype,
+        'value',
+      )!.set!.call(broker(), value);
       broker().dispatchEvent(new Event('change', { bubbles: true }));
     });
   }
@@ -235,33 +292,48 @@ describe('the court records broker setting', () => {
   });
 
   it('starts on the connected broker and warns that picking the other replaces its key', async () => {
-    await render({ kind: 'court_records', current: { actorId: null, provider: 'middesk' }, canManage: true });
+    await render({
+      kind: 'court_records',
+      current: { actorId: null, provider: 'middesk' },
+      canManage: true,
+    });
 
     expect(broker().value).toBe('middesk');
     expect(container.textContent).not.toContain('replaces');
 
     await pick('baselayer');
 
-    expect(container.textContent).toContain('Saving replaces the saved Middesk key.');
+    expect(container.textContent).toContain(
+      'Saving replaces the saved Middesk key.',
+    );
   });
 
   it('labels the brokers as beta because their results are unverified against live accounts', async () => {
     await render({ kind: 'court_records', current: null, canManage: false });
 
-    expect(container.querySelector('[data-slot=card-title]')!.textContent).toContain('Beta');
+    expect(
+      container.querySelector('[data-slot=card-title]')!.textContent,
+    ).toContain('Beta');
     expect(container.textContent).toContain(
       'Broker results are not yet verified against live Baselayer and Middesk accounts.',
     );
   });
 
-  it.each(['email_lookup', 'letters', 'courts'] as const)('shows no beta label on the %s card', async (kind) => {
-    await render({ kind, current: null, canManage: true });
+  it.each(['email_lookup', 'letters', 'courts'] as const)(
+    'shows no beta label on the %s card',
+    async (kind) => {
+      await render({ kind, current: null, canManage: true });
 
-    expect(container.textContent).not.toContain('Beta');
-  });
+      expect(container.textContent).not.toContain('Beta');
+    },
+  );
 
   it('shows other members which broker is connected', async () => {
-    await render({ kind: 'court_records', current: { actorId: null, provider: 'baselayer' }, canManage: false });
+    await render({
+      kind: 'court_records',
+      current: { actorId: null, provider: 'baselayer' },
+      canManage: false,
+    });
 
     expect(container.textContent).toContain('Connected to Baselayer');
   });

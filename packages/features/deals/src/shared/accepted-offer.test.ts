@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { type DealOffer, acceptedOffer } from './queries';
 
-const approvedFirst = { id: 'v1', number: 1, approved_at: '2026-10-01T00:00:00Z' };
+const approvedFirst = {
+  id: 'v1',
+  number: 1,
+  approved_at: '2026-10-01T00:00:00Z',
+};
 const acceptedCounter = { id: 'v2', number: 2, approved_at: null };
 const ACCEPTED_AT = '2026-10-09T15:00:00Z';
 
@@ -35,6 +39,8 @@ describe('acceptedOffer', () => {
   );
 
   it('is absent when no offer is live', () => {
-    expect(acceptedOffer({ live: null, history: [offer('rejected')] })).toBeNull();
+    expect(
+      acceptedOffer({ live: null, history: [offer('rejected')] }),
+    ).toBeNull();
   });
 });

@@ -21,19 +21,43 @@ test('the data room window opens documents at a page or sheet and refuses outsid
   const stamp = Date.now();
   await auth.signUp(page);
   const teamSlug = await completeTeamOnboarding(page, `Window Team ${stamp}`);
-  const { dealId, dealPath } = await createDeal(page, teamSlug, `Window Deal ${stamp}`);
-  cleanup.track({ kind: 'storage', bucket: 'data-room', prefix: `deal/${dealId}` });
+  const { dealId, dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Window Deal ${stamp}`,
+  );
+  cleanup.track({
+    kind: 'storage',
+    bucket: 'data-room',
+    prefix: `deal/${dealId}`,
+  });
 
   await page.goto(`${dealPath}/documents`);
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await page.getByRole('button', { name: 'Upload' }).first().click();
   await page.locator('input[type=file]').setInputFiles([
-    { name: 'p-and-l.pdf', mimeType: 'application/pdf', buffer: pdfDocument(5) },
-    { name: 'P&L.xlsx', mimeType: XLSX_CONTENT_TYPE, buffer: xlsxWorkbook(['Summary', 'P&L 2023']) },
+    {
+      name: 'p-and-l.pdf',
+      mimeType: 'application/pdf',
+      buffer: pdfDocument(5),
+    },
+    {
+      name: 'P&L.xlsx',
+      mimeType: XLSX_CONTENT_TYPE,
+      buffer: xlsxWorkbook(['Summary', 'P&L 2023']),
+    },
     {
       name: 'terms.docx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      buffer: wordDocument(Array.from({ length: 120 }, (_, index) => `Paragraph ${index + 1} of the terms`)),
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      buffer: wordDocument(
+        Array.from(
+          { length: 120 },
+          (_, index) => `Paragraph ${index + 1} of the terms`,
+        ),
+      ),
     },
   ]);
   await page
@@ -43,9 +67,16 @@ test('the data room window opens documents at a page or sheet and refuses outsid
     .click();
 
   const documents = async () =>
-    db.rows<{ id: string; name: string }>('dr_document', `deal_id=eq.${dealId}&select=id,name`);
-  await expect.poll(async () => (await documents()).length, { timeout: 60 * 1000 }).toBe(3);
-  const byName = Object.fromEntries((await documents()).map((doc) => [doc.name, doc.id]));
+    db.rows<{ id: string; name: string }>(
+      'dr_document',
+      `deal_id=eq.${dealId}&select=id,name`,
+    );
+  await expect
+    .poll(async () => (await documents()).length, { timeout: 60 * 1000 })
+    .toBe(3);
+  const byName = Object.fromEntries(
+    (await documents()).map((doc) => [doc.name, doc.id]),
+  );
   const view = `/deal-windows/${teamSlug}/${dealId}/data-room/view`;
 
   await page.reload();
@@ -63,38 +94,66 @@ test('the data room window opens documents at a page or sheet and refuses outsid
     await popup.setViewportSize(size);
     expect(
       await popup.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
       ),
     ).toBeLessThanOrEqual(0);
   }
 
   await popup.goto(`${view}?doc=${byName['p-and-l.pdf']}`);
-  await expect(popup.getByText('Page 1 of 5')).toBeVisible({ timeout: 30 * 1000 });
+  await expect(popup.getByText('Page 1 of 5')).toBeVisible({
+    timeout: 30 * 1000,
+  });
   await popup.goto(`${view}?doc=${byName['p-and-l.pdf']}&page=3`);
-  await expect(popup.getByText('Page 3 of 5')).toBeVisible({ timeout: 30 * 1000 });
-  for (const [param, shown] of [['abc', 1], ['0', 1], ['999', 5]] as const) {
+  await expect(popup.getByText('Page 3 of 5')).toBeVisible({
+    timeout: 30 * 1000,
+  });
+  for (const [param, shown] of [
+    ['abc', 1],
+    ['0', 1],
+    ['999', 5],
+  ] as const) {
     await popup.goto(`${view}?doc=${byName['p-and-l.pdf']}&page=${param}`);
-    await expect(popup.getByText(`Page ${shown} of 5`)).toBeVisible({ timeout: 30 * 1000 });
+    await expect(popup.getByText(`Page ${shown} of 5`)).toBeVisible({
+      timeout: 30 * 1000,
+    });
   }
 
-  await popup.goto(`${view}?doc=${byName['P&L.xlsx']}&sheet=${encodeURIComponent('P&L 2023')}`);
-  await expect(popup.getByRole('tab', { name: 'P&L 2023' })).toHaveAttribute('aria-selected', 'true', {
-    timeout: 30 * 1000,
-  });
+  await popup.goto(
+    `${view}?doc=${byName['P&L.xlsx']}&sheet=${encodeURIComponent('P&L 2023')}`,
+  );
+  await expect(popup.getByRole('tab', { name: 'P&L 2023' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+    {
+      timeout: 30 * 1000,
+    },
+  );
   await popup.goto(`${view}?doc=${byName['P&L.xlsx']}&sheet=Missing`);
-  await expect(popup.getByRole('tab', { name: 'Summary' })).toHaveAttribute('aria-selected', 'true', {
-    timeout: 30 * 1000,
-  });
+  await expect(popup.getByRole('tab', { name: 'Summary' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+    {
+      timeout: 30 * 1000,
+    },
+  );
 
   await popup.goto(`${view}?doc=${byName['terms.docx']}&page=2`);
-  await expect(popup.getByText(/^Page 2 of \d+$/)).toBeVisible({ timeout: 60 * 1000 });
+  await expect(popup.getByText(/^Page 2 of \d+$/)).toBeVisible({
+    timeout: 60 * 1000,
+  });
 
   await popup.goto(`${view}?doc=00000000-0000-4000-8000-000000000000`);
-  await expect(popup.getByText('That file is no longer available.')).toBeVisible();
+  await expect(
+    popup.getByText('That file is no longer available.'),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Open', exact: true }).first().click();
   await page.waitForTimeout(500);
-  expect(context.pages().filter((each) => each.url().includes('/deal-windows/'))).toHaveLength(1);
+  expect(
+    context.pages().filter((each) => each.url().includes('/deal-windows/')),
+  ).toHaveLength(1);
   await popup.close();
 
   const outsiderContext = await browser.newContext();
@@ -102,11 +161,9 @@ test('the data room window opens documents at a page or sheet and refuses outsid
   await auth.signUp(outsider, newCredentials());
   await completeTeamOnboarding(outsider, `Window Outsider ${stamp}`);
   expect(
-    (
-      await outsider.goto(
-        `/deal-windows/${teamSlug}/${dealId}/data-room/files/${byName['p-and-l.pdf']}`,
-      )
-    )!.status(),
+    (await outsider.goto(
+      `/deal-windows/${teamSlug}/${dealId}/data-room/files/${byName['p-and-l.pdf']}`,
+    ))!.status(),
   ).toBe(404);
   await outsiderContext.close();
 });

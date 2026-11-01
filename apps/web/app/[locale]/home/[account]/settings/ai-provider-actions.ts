@@ -5,8 +5,14 @@ import { z } from 'zod';
 import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
 import { getSupabaseServerClient } from '@odb/supabase/server';
-import { AddressNotFound, isPublicHttpsUrl } from '@odb/workflows/builder/publicUrl';
-import { ANTHROPIC_HAS_NO_EMBEDDINGS, privateAiUrlsAllowed } from '@odb/workflows/team-ai';
+import {
+  AddressNotFound,
+  isPublicHttpsUrl,
+} from '@odb/workflows/builder/publicUrl';
+import {
+  ANTHROPIC_HAS_NO_EMBEDDINGS,
+  privateAiUrlsAllowed,
+} from '@odb/workflows/team-ai';
 
 const NOT_PUBLIC = 'Use a public HTTPS base URL';
 
@@ -33,7 +39,11 @@ function publicOrRefuse(baseUrl: string): Promise<boolean> {
 
 export const saveAiProviderAction = refusableAction(
   async ({ accountId, provider, model, embeddingModel, baseUrl, apiKey }) => {
-    if (provider === 'openai_compatible' && !privateAiUrlsAllowed() && !(await publicOrRefuse(baseUrl))) {
+    if (
+      provider === 'openai_compatible' &&
+      !privateAiUrlsAllowed() &&
+      !(await publicOrRefuse(baseUrl))
+    ) {
       throw new Refusal(NOT_PUBLIC);
     }
     const { error } = await getSupabaseServerClient().rpc('save_llm_endpoint', {
@@ -57,7 +67,9 @@ export const saveAiProviderAction = refusableAction(
       apiKey: z.string(),
     })
     .refine(
-      (input) => input.provider !== 'openai_compatible' || z.url().safeParse(input.baseUrl).success,
+      (input) =>
+        input.provider !== 'openai_compatible' ||
+        z.url().safeParse(input.baseUrl).success,
       'Enter the base URL of your endpoint',
     )
     .refine(
@@ -68,9 +80,12 @@ export const saveAiProviderAction = refusableAction(
 
 export const disconnectAiProviderAction = refusableAction(
   async ({ accountId }) => {
-    const { error } = await getSupabaseServerClient().rpc('disconnect_llm_endpoint', {
-      p_account_id: accountId,
-    });
+    const { error } = await getSupabaseServerClient().rpc(
+      'disconnect_llm_endpoint',
+      {
+        p_account_id: accountId,
+      },
+    );
     refuseOrThrow(error);
   },
   z.object({ accountId: z.uuid() }),

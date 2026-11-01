@@ -6,7 +6,10 @@ const generateStructured = vi.fn();
 
 const storageFrom = vi.fn(() => ({ createSignedUploadUrl }));
 
-const access = vi.hoisted(() => ({ dealAccount: null as string | null, mayWork: false }));
+const access = vi.hoisted(() => ({
+  dealAccount: null as string | null,
+  mayWork: false,
+}));
 
 vi.mock('@odb/next/actions', () => ({
   enhanceAction: (fn: unknown) => fn,
@@ -124,7 +127,10 @@ describe('attachMeetingRecording', () => {
 
 describe('summarizeMeeting', () => {
   it('generates a summary from the transcript and stores it via meeting.updated', async () => {
-    generateStructured.mockResolvedValue({ ok: true, value: { summary: 'Three decisions made.' } });
+    generateStructured.mockResolvedValue({
+      ok: true,
+      value: { summary: 'Three decisions made.' },
+    });
 
     const result = await runSummarize(
       {
@@ -152,7 +158,10 @@ describe('summarizeMeeting', () => {
   });
 
   it('keeps the meeting without a summary and says why when AI is skipped', async () => {
-    generateStructured.mockResolvedValue({ ok: false, reason: 'Connect an AI provider first' });
+    generateStructured.mockResolvedValue({
+      ok: false,
+      reason: 'Connect an AI provider first',
+    });
     appendSpy.mockClear();
 
     const result = await runSummarize(
@@ -160,7 +169,10 @@ describe('summarizeMeeting', () => {
       user,
     );
 
-    expect(result).toEqual({ ok: false, reason: 'Connect an AI provider first' });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'Connect an AI provider first',
+    });
     expect(appendSpy).not.toHaveBeenCalled();
   });
 
@@ -175,7 +187,10 @@ describe('summarizeMeeting', () => {
       user,
     );
 
-    expect(result).toEqual({ ok: false, reason: 'Only the deal team can summarize this meeting.' });
+    expect(result).toEqual({
+      ok: false,
+      reason: 'Only the deal team can summarize this meeting.',
+    });
     expect(generateStructured).not.toHaveBeenCalled();
     expect(appendSpy).not.toHaveBeenCalled();
   });

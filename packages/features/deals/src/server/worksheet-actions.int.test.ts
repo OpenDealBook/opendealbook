@@ -61,15 +61,17 @@ describe('saveWorksheetRow (integration)', () => {
     const dealId = await newDeal('Worksheet insert deal');
     holder.client = account.user;
 
-    const saved = ((await (saveWorksheetRow as unknown as Action)(
-      {
-        deal_id: dealId,
-        worksheet_type: 'margin_analysis',
-        data: { line_item: 'Widgets', revenue: 100, direct_cost: 60 },
-        sort_order: 0,
-      },
-      actor,
-    )) as { value: Record<string, unknown> }).value;
+    const saved = (
+      (await (saveWorksheetRow as unknown as Action)(
+        {
+          deal_id: dealId,
+          worksheet_type: 'margin_analysis',
+          data: { line_item: 'Widgets', revenue: 100, direct_cost: 60 },
+          sort_order: 0,
+        },
+        actor,
+      )) as { value: Record<string, unknown> }
+    ).value;
 
     expect(saved).toMatchObject({
       deal_id: dealId,
@@ -84,26 +86,30 @@ describe('saveWorksheetRow (integration)', () => {
     const dealId = await newDeal('Worksheet update deal');
     holder.client = account.user;
 
-    const inserted = ((await (saveWorksheetRow as unknown as Action)(
-      {
-        deal_id: dealId,
-        worksheet_type: 'process_sop',
-        data: { process: 'Invoicing', status: 'not_started' },
-        sort_order: 0,
-      },
-      actor,
-    )) as { value: Record<string, unknown> }).value;
+    const inserted = (
+      (await (saveWorksheetRow as unknown as Action)(
+        {
+          deal_id: dealId,
+          worksheet_type: 'process_sop',
+          data: { process: 'Invoicing', status: 'not_started' },
+          sort_order: 0,
+        },
+        actor,
+      )) as { value: Record<string, unknown> }
+    ).value;
 
-    const updated = ((await (saveWorksheetRow as unknown as Action)(
-      {
-        id: inserted.id,
-        deal_id: dealId,
-        worksheet_type: 'process_sop',
-        data: { process: 'Invoicing', status: 'documented' },
-        sort_order: 0,
-      },
-      actor,
-    )) as { value: Record<string, unknown> }).value;
+    const updated = (
+      (await (saveWorksheetRow as unknown as Action)(
+        {
+          id: inserted.id,
+          deal_id: dealId,
+          worksheet_type: 'process_sop',
+          data: { process: 'Invoicing', status: 'documented' },
+          sort_order: 0,
+        },
+        actor,
+      )) as { value: Record<string, unknown> }
+    ).value;
 
     expect(updated.id).toBe(inserted.id);
     expect(updated.data).toMatchObject({ status: 'documented' });
@@ -181,20 +187,19 @@ describe('deleteWorksheetRow (integration)', () => {
     const dealId = await newDeal('Worksheet delete deal');
     holder.client = account.user;
 
-    const inserted = ((await (saveWorksheetRow as unknown as Action)(
-      {
-        deal_id: dealId,
-        worksheet_type: 'margin_analysis',
-        data: { line_item: 'Gadgets', revenue: 50, direct_cost: 10 },
-        sort_order: 0,
-      },
-      actor,
-    )) as { value: Record<string, unknown> }).value;
+    const inserted = (
+      (await (saveWorksheetRow as unknown as Action)(
+        {
+          deal_id: dealId,
+          worksheet_type: 'margin_analysis',
+          data: { line_item: 'Gadgets', revenue: 50, direct_cost: 10 },
+          sort_order: 0,
+        },
+        actor,
+      )) as { value: Record<string, unknown> }
+    ).value;
 
-    await (deleteWorksheetRow as unknown as Action)(
-      { id: inserted.id },
-      actor,
-    );
+    await (deleteWorksheetRow as unknown as Action)({ id: inserted.id }, actor);
 
     const { data: rows } = await account.admin
       .from('deal_worksheet_row')

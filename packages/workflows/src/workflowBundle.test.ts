@@ -1,5 +1,4 @@
 import { bundleWorkflowCode } from '@temporalio/worker';
-
 import { describe, expect, it } from 'vitest';
 
 import { fileURLToPath } from 'node:url';
@@ -10,7 +9,14 @@ describe('workflows entry', () => {
       workflowsPath: fileURLToPath(
         new URL('./workflows/index.ts', import.meta.url),
       ),
-      logger: { trace() {}, debug() {}, info() {}, warn() {}, error() {}, log() {} },
+      logger: {
+        trace() {},
+        debug() {},
+        info() {},
+        warn() {},
+        error() {},
+        log() {},
+      },
     });
 
     expect(bundle.code).toContain('notifyOverdueMilestonesDaily');

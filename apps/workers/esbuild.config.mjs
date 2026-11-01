@@ -50,7 +50,9 @@ const restartWorker = {
   setup(pluginBuild) {
     pluginBuild.onEnd(() => {
       worker?.kill();
-      worker = spawn(process.execPath, ['dist/worker.js'], { stdio: 'inherit' });
+      worker = spawn(process.execPath, ['dist/worker.js'], {
+        stdio: 'inherit',
+      });
     });
   },
 };

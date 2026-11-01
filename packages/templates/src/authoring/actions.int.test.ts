@@ -1,5 +1,3 @@
-import { randomBytes } from 'node:crypto';
-
 import {
   afterAll,
   afterEach,
@@ -22,6 +20,8 @@ import {
 } from '@odb/seller-rooms/test-support/world.ts';
 
 import { templateDocument, zipDeflated } from '../test-support/docx-template';
+
+import { randomBytes } from 'node:crypto';
 
 vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL);
 vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', ANON_KEY);
@@ -61,7 +61,11 @@ vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => (session.person as Person).client,
 }));
 
-import { beginTemplateUpload, parseTemplateDocx, saveTemplate } from './actions';
+import {
+  beginTemplateUpload,
+  parseTemplateDocx,
+  saveTemplate,
+} from './actions';
 
 const MEBIBYTE = 1024 * 1024;
 
@@ -81,7 +85,11 @@ async function upload(bytes: Uint8Array, declaredSize = bytes.length) {
 
   const stored = await owner.client.storage
     .from('templates')
-    .uploadToSignedUrl(begun.value.path, begun.value.token, new Blob([new Uint8Array(bytes)]));
+    .uploadToSignedUrl(
+      begun.value.path,
+      begun.value.token,
+      new Blob([new Uint8Array(bytes)]),
+    );
 
   return { templateId: begun.value.templateId, stored };
 }
@@ -103,7 +111,11 @@ beforeAll(async () => {
   analyst = await provisionPerson();
   await admin
     .from('accounts_memberships')
-    .insert({ account_id: teamId, user_id: analyst.userId, account_role: 'analyst' })
+    .insert({
+      account_id: teamId,
+      user_id: analyst.userId,
+      account_role: 'analyst',
+    })
     .throwOnError();
 });
 
@@ -194,19 +206,23 @@ describe('template upload through storage', () => {
       new TextEncoder().encode('Offer for {{purchase_price}}.'),
     );
 
-    expect(
-      await parseTemplateDocx({ accountId: teamId, templateId }),
-    ).toEqual({ ok: false, refusal: 'Templates must be Word .docx files' });
+    expect(await parseTemplateDocx({ accountId: teamId, templateId })).toEqual({
+      ok: false,
+      refusal: 'Templates must be Word .docx files',
+    });
   });
 
   it('refuses a zip that holds no Word document', async () => {
     const { templateId } = await upload(
-      zipDeflated([{ name: 'xl/workbook.xml', data: Buffer.from('<workbook/>') }]),
+      zipDeflated([
+        { name: 'xl/workbook.xml', data: Buffer.from('<workbook/>') },
+      ]),
     );
 
-    expect(
-      await parseTemplateDocx({ accountId: teamId, templateId }),
-    ).toEqual({ ok: false, refusal: 'Templates must be Word .docx files' });
+    expect(await parseTemplateDocx({ accountId: teamId, templateId })).toEqual({
+      ok: false,
+      refusal: 'Templates must be Word .docx files',
+    });
   });
 
   it('lets a fault that is not about the file surface', async () => {
@@ -248,9 +264,7 @@ describe('template upload through storage', () => {
     const docx = templateDocument(['Offer for {{purchase_price}}.']);
     const { templateId } = await upload(docx.subarray(0, docx.length / 2));
 
-    expect(
-      await parseTemplateDocx({ accountId: teamId, templateId }),
-    ).toEqual({
+    expect(await parseTemplateDocx({ accountId: teamId, templateId })).toEqual({
       ok: false,
       refusal: 'This file could not be read as a Word document',
     });

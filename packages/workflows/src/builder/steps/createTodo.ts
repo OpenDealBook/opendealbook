@@ -32,21 +32,29 @@ export const createTodo = defineStep({
 
     let assigneeIds: string[];
     if (config.assignees.kind === 'members') {
-      assigneeIds = config.assignees.userIds.map((userId) => userId.toLowerCase());
+      assigneeIds = config.assignees.userIds.map((userId) =>
+        userId.toLowerCase(),
+      );
       const { data: memberships } = await admin
         .from('accounts_memberships')
         .select('user_id')
         .eq('account_id', context.accountId)
         .in('user_id', assigneeIds.filter(isUuid))
         .throwOnError();
-      const members = new Set(memberships.map((membership) => membership.user_id));
+      const members = new Set(
+        memberships.map((membership) => membership.user_id),
+      );
       if (!assigneeIds.every((userId) => members.has(userId))) {
-        throw ApplicationFailure.nonRetryable('Someone in this step is not on this team');
+        throw ApplicationFailure.nonRetryable(
+          'Someone in this step is not on this team',
+        );
       }
     } else {
       assigneeIds = await dealManagerIds(context.accountId);
       if (assigneeIds.length === 0) {
-        throw ApplicationFailure.nonRetryable('This team has no deal managers to assign');
+        throw ApplicationFailure.nonRetryable(
+          'This team has no deal managers to assign',
+        );
       }
     }
 
@@ -70,7 +78,10 @@ export const createTodo = defineStep({
     const dueAt =
       config.dueInDays === undefined
         ? undefined
-        : localDateInDays(config.dueInDays, await teamTimezone(context.accountId));
+        : localDateInDays(
+            config.dueInDays,
+            await teamTimezone(context.accountId),
+          );
     const todos = assigneeIds.map((userId) => ({
       id: uuidFromKey(`workflow_step:${context.idempotencyKey}:${userId}`),
       account_id: context.accountId,

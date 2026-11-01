@@ -12,7 +12,13 @@ export function ensureSbaRefreshSchedule(client: Client): Promise<void> {
   return ensureSchedule(client, {
     scheduleId: SBA_REFRESH_SCHEDULE_ID,
     spec: {
-      calendars: [{ month: ['FEBRUARY', 'MAY', 'AUGUST', 'NOVEMBER'], dayOfMonth: 1, hour: 6 }],
+      calendars: [
+        {
+          month: ['FEBRUARY', 'MAY', 'AUGUST', 'NOVEMBER'],
+          dayOfMonth: 1,
+          hour: 6,
+        },
+      ],
     },
     action: {
       type: 'startWorkflow',

@@ -2,7 +2,10 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 
-import { FIXED_MILESTONES, type MilestoneKind } from '@odb/deal-timeline/schema.ts';
+import {
+  FIXED_MILESTONES,
+  type MilestoneKind,
+} from '@odb/deal-timeline/schema.ts';
 import type { DealListGroup, DealListItem, NextMilestone } from '@odb/deals';
 import { multipleText } from '@odb/deals/shared';
 import { Badge } from '@odb/ui/badge';
@@ -39,7 +42,8 @@ function nextStep(milestone: NextMilestone | null): string {
     return 'Not set';
   }
   const kind = milestone.kind as MilestoneKind;
-  const name = kind === 'custom' ? milestone.label! : FIXED_MILESTONES[kind].label;
+  const name =
+    kind === 'custom' ? milestone.label! : FIXED_MILESTONES[kind].label;
   return `${name}, ${shortDate.format(new Date(milestone.targetOn))}`;
 }
 
@@ -51,7 +55,9 @@ function resolutionText(
     return null;
   }
   const outcome = resolution === 'won' ? 'Won' : 'Lost';
-  return reason === null ? outcome : `${outcome} (${reason.replace(/_/g, ' ')})`;
+  return reason === null
+    ? outcome
+    : `${outcome} (${reason.replace(/_/g, ' ')})`;
 }
 
 export function DealCard({
@@ -80,7 +86,10 @@ export function DealCard({
       <div className={'flex flex-col gap-4 py-5 pr-4 pl-5'}>
         <div className={'flex flex-col gap-1'}>
           <div className={'flex items-start gap-2'}>
-            <Link href={href} className={'font-semibold break-words hover:underline'}>
+            <Link
+              href={href}
+              className={'font-semibold break-words hover:underline'}
+            >
               {deal.title}
             </Link>
             {deal.isExample ? (
@@ -100,7 +109,11 @@ export function DealCard({
             value={
               <>
                 {deal.openItems} open,{' '}
-                <span className={deal.overdueItems > 0 ? 'text-destructive' : undefined}>
+                <span
+                  className={
+                    deal.overdueItems > 0 ? 'text-destructive' : undefined
+                  }
+                >
                   {deal.overdueItems} overdue
                 </span>
               </>
@@ -122,7 +135,11 @@ export function DealCard({
           ) : null}
         </div>
 
-        <div className={'grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2 text-sm'}>
+        <div
+          className={
+            'grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2 text-sm'
+          }
+        >
           <Metric label={'Ask'} value={money(deal.askingPrice)} />
           <Metric label={'Revenue'} value={money(deal.revenue)} />
           <Metric label={'SDE'} value={money(deal.sde)} />
@@ -137,14 +154,18 @@ export function DealCard({
               <Badge variant={'outline'}>{multipleText(deal.multiple)}</Badge>
             ) : null}
             {deal.margin !== null ? (
-              <Badge variant={'outline'}>{Math.round(deal.margin * 100)}% margin</Badge>
+              <Badge variant={'outline'}>
+                {Math.round(deal.margin * 100)}% margin
+              </Badge>
             ) : null}
           </div>
         ) : null}
 
         <div className={'flex items-center justify-between gap-2'}>
           <span className={'text-muted-foreground text-xs'}>
-            {deal.daysInStage === null ? '' : `${deal.daysInStage} days in stage`}
+            {deal.daysInStage === null
+              ? ''
+              : `${deal.daysInStage} days in stage`}
           </span>
           <div className={'flex items-center gap-1'}>
             <Button asChild variant={'ghost'} size={'sm'}>

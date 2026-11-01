@@ -1,10 +1,10 @@
-import { execFile } from 'node:child_process';
-import { setTimeout as sleep } from 'node:timers/promises';
-import { promisify } from 'node:util';
-
 import type { Page } from '@playwright/test';
 
 import { completeTeamOnboarding, db, expect, test } from './fixtures';
+
+import { execFile } from 'node:child_process';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { promisify } from 'node:util';
 
 const run = promisify(execFile);
 
@@ -54,13 +54,18 @@ for (const leave of ['link', 'document'] as const) {
     test.setTimeout(120 * 1000);
 
     const { email } = await auth.signUp(page);
-    const slug = await completeTeamOnboarding(page, `Leave ${leave} ${Date.now()}`);
+    const slug = await completeTeamOnboarding(
+      page,
+      `Leave ${leave} ${Date.now()}`,
+    );
     await page.waitForLoadState('networkidle');
     await forgetPersonalZone(email);
     await holdBrowserZoneDetection(page);
 
     await page.goto(`/home/${slug}/settings`);
-    await page.getByLabel('Time zone', { exact: true }).selectOption('Asia/Tokyo');
+    await page
+      .getByLabel('Time zone', { exact: true })
+      .selectOption('Asia/Tokyo');
     await sleep(200);
 
     if (leave === 'link') {
@@ -69,6 +74,8 @@ for (const leave of ['link', 'document'] as const) {
       await page.goto(`/home/${slug}`);
     }
 
-    await expect.poll(() => teamZone(slug), { timeout: 10_000 }).toBe('Asia/Tokyo');
+    await expect
+      .poll(() => teamZone(slug), { timeout: 10_000 })
+      .toBe('Asia/Tokyo');
   });
 }

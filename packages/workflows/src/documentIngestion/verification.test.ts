@@ -63,13 +63,17 @@ describe('runDealVerification', () => {
     const { skipReason } = state.runVerification.mock.calls[0]![0] as {
       skipReason: (error: unknown) => string | null;
     };
-    expect(skipReason(new CapReached())).toBe('The monthly AI limit is reached');
+    expect(skipReason(new CapReached())).toBe(
+      'The monthly AI limit is reached',
+    );
     expect(skipReason(new Error('boom'))).toBeNull();
   });
 
   it('still fails on any other error', async () => {
     state.runVerification.mockRejectedValue(new Error('boom'));
 
-    await expect(runDealVerification({ dealId: 'deal1' })).rejects.toThrow('boom');
+    await expect(runDealVerification({ dealId: 'deal1' })).rejects.toThrow(
+      'boom',
+    );
   });
 });

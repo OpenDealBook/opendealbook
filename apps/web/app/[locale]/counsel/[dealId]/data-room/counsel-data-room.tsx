@@ -10,9 +10,11 @@ export function CounselDataRoom({
   groups: FolderGroup[];
 }) {
   if (groups.length === 0) {
-    return <p className={'text-muted-foreground'}>
+    return (
+      <p className={'text-muted-foreground'}>
         The deal team hasn&apos;t shared anything here yet.
-      </p>;
+      </p>
+    );
   }
 
   return groups.map((group) => (

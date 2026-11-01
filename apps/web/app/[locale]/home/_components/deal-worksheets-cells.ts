@@ -25,7 +25,9 @@ const COMPUTED_FIELD_CATALOG: Record<DealWorksheetType, ComputedField[]> = {
 };
 
 function formatCurrency(value: number | null): string {
-  return value === null ? NO_DATA : `$${Math.round(value).toLocaleString('en-US')}`;
+  return value === null
+    ? NO_DATA
+    : `$${Math.round(value).toLocaleString('en-US')}`;
 }
 
 function formatPercent(value: number | null): string {
@@ -40,7 +42,9 @@ function formatStoredValue(
     return NO_DATA;
   }
 
-  return field.kind === 'currency' ? formatCurrency(Number(value)) : String(value);
+  return field.kind === 'currency'
+    ? formatCurrency(Number(value))
+    : String(value);
 }
 
 export interface WorksheetColumn {

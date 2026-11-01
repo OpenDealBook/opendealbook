@@ -1,13 +1,18 @@
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-import { type AiEndpoint, type AiRequest, completeWithTeamAi } from './aiClient';
+import {
+  type AiEndpoint,
+  type AiRequest,
+  completeWithTeamAi,
+} from './aiClient';
 import { recordAiCallUsage, reserveAiCall } from './caps';
 
 export { CapReached } from './caps';
 
 export const CONNECT_AI_PROVIDER = 'Connect an AI provider first';
 export const ADD_EMBEDDING_MODEL = 'Add an embedding model to your AI provider';
-export const ANTHROPIC_HAS_NO_EMBEDDINGS = 'Anthropic has no embeddings API; leave Embedding model empty';
+export const ANTHROPIC_HAS_NO_EMBEDDINGS =
+  'Anthropic has no embeddings API; leave Embedding model empty';
 
 export class TeamAiNotConnected extends Error {
   constructor(message = CONNECT_AI_PROVIDER) {
@@ -39,7 +44,9 @@ export async function resolveTeamAi(
       .eq('account_id', accountId)
       .maybeSingle()
       .throwOnError(),
-    admin.rpc('llm_endpoint_api_key', { p_account_id: accountId }).throwOnError(),
+    admin
+      .rpc('llm_endpoint_api_key', { p_account_id: accountId })
+      .throwOnError(),
   ]);
   const model = kind === 'chat' ? endpoint?.chat_model : endpoint?.model;
   if (!endpoint || !model || !apiKey) {
@@ -58,7 +65,11 @@ export async function resolveTeamAi(
 export async function meterTeamAiCall<T>(
   ai: TeamAi,
   call: { dealId?: string; firmId?: string },
-  request: () => Promise<{ result: T; promptTokens: number | null; completionTokens: number | null }>,
+  request: () => Promise<{
+    result: T;
+    promptTokens: number | null;
+    completionTokens: number | null;
+  }>,
 ): Promise<T> {
   const { callId } = await reserveAiCall(ai.accountId, {
     model: ai.model,
@@ -79,7 +90,12 @@ export function completeMetered(
 ): Promise<string> {
   return meterTeamAiCall(ai, call, async () => {
     const completion = await completeWithTeamAi(
-      { provider: ai.provider, model: ai.model, baseUrl: ai.baseUrl, apiKey: ai.apiKey },
+      {
+        provider: ai.provider,
+        model: ai.model,
+        baseUrl: ai.baseUrl,
+        apiKey: ai.apiKey,
+      },
       prompt,
       { signal: call.signal },
       request,

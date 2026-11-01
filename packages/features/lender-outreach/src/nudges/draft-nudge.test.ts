@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { draftNudge } from './draft-nudge';
 
 describe('draftNudge', () => {
-  it("greets the primary contact, lists every quiet deal with its days quiet, and signs off as the sender", () => {
+  it('greets the primary contact, lists every quiet deal with its days quiet, and signs off as the sender', () => {
     const body = draftNudge({
       contactName: 'Dana Reed',
       ourName: 'Sam Buyer',

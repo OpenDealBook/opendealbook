@@ -1,5 +1,6 @@
-import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { z } from 'zod';
+
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import {
   SCREENED_ENTRY,
@@ -76,5 +77,10 @@ export async function screenSubjects(
     }
   }
   const byId = [...entries].sort(([left], [right]) => left - right);
-  return { candidates: matchSubjects(subjects, byId.map(([, entry]) => entry)) };
+  return {
+    candidates: matchSubjects(
+      subjects,
+      byId.map(([, entry]) => entry),
+    ),
+  };
 }

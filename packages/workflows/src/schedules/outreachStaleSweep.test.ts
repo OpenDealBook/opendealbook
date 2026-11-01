@@ -1,5 +1,4 @@
 import type { Client } from '@temporalio/client';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { fakeScheduleClient, staleSchedule } from './fakeScheduleClient';
@@ -9,7 +8,9 @@ describe('ensureOutreachStaleSweepSchedule', () => {
   it('schedules the outreach sweep workflow every 15 minutes', async () => {
     const create = vi.fn();
 
-    await ensureOutreachStaleSweepSchedule({ schedule: { create } } as unknown as Client);
+    await ensureOutreachStaleSweepSchedule({
+      schedule: { create },
+    } as unknown as Client);
 
     const options = create.mock.calls[0]![0];
     expect(options.scheduleId).toBe('outreach-stale-sweep');
@@ -24,6 +25,8 @@ describe('ensureOutreachStaleSweepSchedule', () => {
 
     await ensureOutreachStaleSweepSchedule(client);
 
-    expect(schedules.get('outreach-stale-sweep')?.spec).toEqual({ intervals: [{ every: '15m' }] });
+    expect(schedules.get('outreach-stale-sweep')?.spec).toEqual({
+      intervals: [{ every: '15m' }],
+    });
   });
 });

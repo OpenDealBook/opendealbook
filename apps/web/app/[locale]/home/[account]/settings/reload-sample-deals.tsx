@@ -12,8 +12,8 @@ export function ReloadSampleDeals({ accountId }: { accountId: string }) {
     <section className={'flex flex-col items-start gap-2'}>
       <h2 className={'text-lg font-medium'}>Sample deals</h2>
       <p className={'text-muted-foreground text-sm'}>
-        Add the example deals back to this team to try features without
-        touching real work.
+        Add the example deals back to this team to try features without touching
+        real work.
       </p>
       <Button
         type={'button'}

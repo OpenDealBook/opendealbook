@@ -28,9 +28,10 @@ export default async function TeamWorkflowsPage({
     .order('started_at', { referencedTable: 'runs', ascending: false })
     .limit(1, { referencedTable: 'runs' })
     .order('name');
-  const { data: workflows } = await (view === 'archived'
-    ? query.not('archived_at', 'is', null)
-    : query.is('archived_at', null)
+  const { data: workflows } = await (
+    view === 'archived'
+      ? query.not('archived_at', 'is', null)
+      : query.is('archived_at', null)
   ).throwOnError();
 
   return (

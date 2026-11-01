@@ -11,18 +11,26 @@ describe('awaitsUnknownSend', () => {
   });
 
   it('flags a held enrollment whose current step was sent with an unknown result', () => {
-    expect(awaitsUnknownSend({ ...waiting, status: 'held' }, unknownSends)).toBe(true);
+    expect(
+      awaitsUnknownSend({ ...waiting, status: 'held' }, unknownSends),
+    ).toBe(true);
   });
 
   it('leaves out an enrollment that left the queue', () => {
-    expect(awaitsUnknownSend({ ...waiting, status: 'failed' }, unknownSends)).toBe(false);
+    expect(
+      awaitsUnknownSend({ ...waiting, status: 'failed' }, unknownSends),
+    ).toBe(false);
   });
 
   it('ignores an unknown send on an earlier step', () => {
-    expect(awaitsUnknownSend({ ...waiting, current_step: 3 }, unknownSends)).toBe(false);
+    expect(
+      awaitsUnknownSend({ ...waiting, current_step: 3 }, unknownSends),
+    ).toBe(false);
   });
 
   it('ignores an unknown send on another enrollment', () => {
-    expect(awaitsUnknownSend({ ...waiting, id: 'e2' }, unknownSends)).toBe(false);
+    expect(awaitsUnknownSend({ ...waiting, id: 'e2' }, unknownSends)).toBe(
+      false,
+    );
   });
 });

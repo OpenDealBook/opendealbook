@@ -207,7 +207,12 @@ async function bellRows(eventType: string, eventKey: string) {
   return data;
 }
 
-function ourBell(eventType: string, eventKey: string, body: string, link: string) {
+function ourBell(
+  eventType: string,
+  eventKey: string,
+  body: string,
+  link: string,
+) {
   return [us.userId, colleague.userId].toSorted().map((userId) => ({
     recipient_user_id: userId,
     deal_id: deal.dealId,
@@ -1566,9 +1571,9 @@ describe('notification recipients', () => {
   it('leave out a lender who switched off the answered notification', async () => {
     const { data: lenderTeam } = await admin
       .rpc('create_team_account', {
-      account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
-      user_id: lenderA2.userId,
-    })
+        account_name: `Int ${crypto.randomUUID().slice(0, 8)}`,
+        user_id: lenderA2.userId,
+      })
       .throwOnError();
     const { data: preference } = await admin
       .from('notification_preference')

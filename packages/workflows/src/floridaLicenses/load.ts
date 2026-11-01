@@ -25,7 +25,11 @@ export async function loadFloridaLicenseSnapshot({
   if (current.status === 'succeeded') {
     return;
   }
-  await client.from('florida_license').delete().eq('import_id', importId).throwOnError();
+  await client
+    .from('florida_license')
+    .delete()
+    .eq('import_id', importId)
+    .throwOnError();
   let batch: FloridaLicense[] = [];
   let licenseCount = 0;
   const insert = async () => {
@@ -55,7 +59,9 @@ export async function loadFloridaLicenseSnapshot({
   const { data: superseded } = await client
     .from('florida_license_import')
     .select('id')
-    .or(`status.eq.failed,and(status.eq.succeeded,created_at.lt.${current.created_at})`)
+    .or(
+      `status.eq.failed,and(status.eq.succeeded,created_at.lt.${current.created_at})`,
+    )
     .throwOnError();
   await client
     .from('florida_license')

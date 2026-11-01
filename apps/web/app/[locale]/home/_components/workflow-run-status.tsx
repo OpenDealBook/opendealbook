@@ -14,7 +14,10 @@ const LABELS: Record<RunStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const VARIANTS: Record<RunStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const VARIANTS: Record<
+  RunStatus,
+  'default' | 'secondary' | 'destructive' | 'outline'
+> = {
   running: 'default',
   waiting: 'secondary',
   awaiting_approval: 'secondary',

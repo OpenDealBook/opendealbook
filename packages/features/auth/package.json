@@ -21,9 +21,9 @@
   },
   "dependencies": {
     "@hookform/resolvers": "catalog:",
-    "@supabase/supabase-js": "catalog:",
     "@odb/supabase": "workspace:*",
     "@odb/ui": "workspace:*",
+    "@supabase/supabase-js": "catalog:",
     "react-hook-form": "catalog:",
     "zod": "catalog:"
   },

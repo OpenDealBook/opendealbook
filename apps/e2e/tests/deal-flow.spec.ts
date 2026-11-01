@@ -36,24 +36,30 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   test.setTimeout(120 * 1000);
 
   await auth.signUp(page);
-  const slug = await completeTeamOnboarding(page, `Deal Flow Team ${Date.now()}`, {
-    name: 'Playwright Buyer',
-  });
+  const slug = await completeTeamOnboarding(
+    page,
+    `Deal Flow Team ${Date.now()}`,
+    {
+      name: 'Playwright Buyer',
+    },
+  );
   await expect(page).toHaveURL(new RegExp(`/home/${slug}(/|$)`));
 
   await page.goto(`/home/${slug}/deals`);
   await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible();
-  const examplesFilter = page.getByRole('checkbox', { name: /^Examples \(4\)$/ });
+  const examplesFilter = page.getByRole('checkbox', {
+    name: /^Examples \(4\)$/,
+  });
   await expect(examplesFilter).toBeVisible();
   await expect(page.getByText('Example', { exact: true })).toHaveCount(0);
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await examplesFilter.click();
   await expect(examplesFilter).toBeChecked();
   await expect(page.getByText('Example', { exact: true })).toHaveCount(4);
   await expect(
-    page
-      .getByText('[Example] Riverline Logistics')
-      .first(),
+    page.getByText('[Example] Riverline Logistics').first(),
   ).toBeVisible();
   await examplesFilter.click();
   await expect(examplesFilter).not.toBeChecked();
@@ -118,15 +124,17 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   await page.goto(`/home/${slug}/deals/${dealId}/financials`);
   await expect(async () => {
     await page.getByRole('button', { name: 'New SDE' }).click();
-    await page.waitForURL(/\/financials\/calcs\/[0-9a-f-]{36}$/, { timeout: 8000 });
+    await page.waitForURL(/\/financials\/calcs\/[0-9a-f-]{36}$/, {
+      timeout: 8000,
+    });
   }).toPass({ timeout: 60 * 1000 });
-  await expect(page.getByRole('heading', { name: /^SDE v\d+, /, level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /^SDE v\d+, /, level: 1 }),
+  ).toBeVisible();
 
   await sdeRow(page, 'Sales').getByRole('textbox').fill('1000000');
   await sdeRow(page, 'COGS').getByRole('textbox').fill('400000');
-  await sdeRow(page, 'Operating expenses')
-    .getByRole('textbox')
-    .fill('300000');
+  await sdeRow(page, 'Operating expenses').getByRole('textbox').fill('300000');
   await sdeRow(page, 'Owner salary').getByRole('textbox').fill('200000');
   await sdeRow(page, 'Depreciation and amortization')
     .getByRole('textbox')
@@ -141,7 +149,11 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   await expect(page.getByText('Weighted SDE $507,676')).toBeVisible();
 
   await expect(page.getByText('No financials adopted yet')).toBeVisible();
-  await calcRowAction(page, page.getByRole('row').filter({ hasText: 'SDE' }).last(), 'Adopt');
+  await calcRowAction(
+    page,
+    page.getByRole('row').filter({ hasText: 'SDE' }).last(),
+    'Adopt',
+  );
   await expect(page.getByText('No financials adopted yet')).toHaveCount(0, {
     timeout: 30 * 1000,
   });
@@ -154,7 +166,9 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   const checklistRow = page
     .getByRole('row')
     .filter({ hasText: 'Confirm financials' });
-  await checklistRow.getByLabel('Status of Confirm financials').selectOption('clean');
+  await checklistRow
+    .getByLabel('Status of Confirm financials')
+    .selectOption('clean');
   await expect(
     checklistRow.getByLabel('Status of Confirm financials'),
   ).toHaveValue('clean');

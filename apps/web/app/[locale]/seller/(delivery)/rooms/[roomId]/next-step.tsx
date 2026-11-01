@@ -29,7 +29,9 @@ export function NextStep({
   today: string;
 }) {
   const datedItems = items.flatMap((item) =>
-    item.due_at ? [{ label: item.title, targetOn: item.due_at.slice(0, 10) }] : [],
+    item.due_at
+      ? [{ label: item.title, targetOn: item.due_at.slice(0, 10) }]
+      : [],
   );
   const dated = [...deadlines, ...datedItems];
   const steps = [

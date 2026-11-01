@@ -4,7 +4,13 @@ import type { SentGmail } from '../stand-ins/gmail';
 import type { ProxyCall } from '../stand-ins/nango';
 import type { CompleteCheckout } from '../stand-ins/stripe';
 import type { TestUser } from './auth';
-import { ANON_KEY, LLM_API_KEY, serviceHeaders, STAND_INS, SUPABASE_URL } from './stack';
+import {
+  ANON_KEY,
+  LLM_API_KEY,
+  serviceHeaders,
+  STAND_INS,
+  SUPABASE_URL,
+} from './stack';
 
 async function call<Body>(
   base: string,
@@ -29,15 +35,26 @@ async function supabase(path: string, init: RequestInit): Promise<unknown> {
   return JSON.parse(text || 'null');
 }
 
-async function connectTeam(user: TestUser, accountId: string, model: string): Promise<void> {
-  const { access_token: token } = (await supabase('/auth/v1/token?grant_type=password', {
-    method: 'POST',
-    headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
-    body: JSON.stringify({ email: user.email, password: user.password }),
-  })) as { access_token: string };
+async function connectTeam(
+  user: TestUser,
+  accountId: string,
+  model: string,
+): Promise<void> {
+  const { access_token: token } = (await supabase(
+    '/auth/v1/token?grant_type=password',
+    {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({ email: user.email, password: user.password }),
+    },
+  )) as { access_token: string };
   await supabase('/rest/v1/rpc/save_llm_endpoint', {
     method: 'POST',
-    headers: { apikey: ANON_KEY, authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    headers: {
+      apikey: ANON_KEY,
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
     body: JSON.stringify({
       p_account_id: accountId,
       p_provider: 'openai_compatible',

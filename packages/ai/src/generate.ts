@@ -44,7 +44,10 @@ interface RetrievedChunk {
 
 function userMessage(question: string, chunks: RetrievedChunk[]): string {
   const context = chunks
-    .map((chunk, index) => `Excerpt ${index + 1} (id ${chunk.id}):\n${chunk.content}`)
+    .map(
+      (chunk, index) =>
+        `Excerpt ${index + 1} (id ${chunk.id}):\n${chunk.content}`,
+    )
     .join('\n\n');
 
   return `Document excerpts:\n\n${context}\n\nQuestion: ${question}`;
@@ -74,11 +77,15 @@ export async function answerDealQuestion(
     );
   }
 
-  const [embedding] = await meterTeamAiCall(embedder, { dealId: scope.dealId }, async () => ({
-    result: await embedTexts(embedder, [question]),
-    promptTokens: null,
-    completionTokens: null,
-  }));
+  const [embedding] = await meterTeamAiCall(
+    embedder,
+    { dealId: scope.dealId },
+    async () => ({
+      result: await embedTexts(embedder, [question]),
+      promptTokens: null,
+      completionTokens: null,
+    }),
+  );
 
   const { data: chunks, error: retrievalError } = await client.rpc(
     'match_document_chunks',

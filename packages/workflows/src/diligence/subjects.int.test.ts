@@ -435,13 +435,20 @@ describe('diligenceSubjects (integration)', () => {
       mailing_postal_code: '06103',
     });
     const cityOf = async (firm: Record<string, unknown>) => {
-      const { dealId } = await seedFirmDeal(owner, { name: 'Firm With A City', ...firm });
+      const { dealId } = await seedFirmDeal(owner, {
+        name: 'Firm With A City',
+        ...firm,
+      });
       return (await diligenceSubjects(owner.accountId, dealId)).city;
     };
 
-    expect(await cityOf({ city: 'Stamford', public_business_id: fromRegistry })).toBe('Stamford');
+    expect(
+      await cityOf({ city: 'Stamford', public_business_id: fromRegistry }),
+    ).toBe('Stamford');
     expect(await cityOf({ public_business_id: fromRegistry })).toBe('HARTFORD');
-    expect(await cityOf({ city: '', public_business_id: fromRegistry })).toBe('HARTFORD');
+    expect(await cityOf({ city: '', public_business_id: fromRegistry })).toBe(
+      'HARTFORD',
+    );
     expect(await cityOf({})).toBeNull();
   });
 

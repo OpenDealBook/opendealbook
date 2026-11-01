@@ -43,12 +43,18 @@ function makeClient(seed: Seed) {
     updates: {} as Record<string, Record<string, unknown>[]>,
   };
 
-  function record(bag: Record<string, Record<string, unknown>[]>, table: string, value: unknown) {
+  function record(
+    bag: Record<string, Record<string, unknown>[]>,
+    table: string,
+    value: unknown,
+  ) {
     (bag[table] ??= []).push(value as Record<string, unknown>);
   }
 
   function builder(table: string): any {
-    const rows = seed.tables?.[table] ?? (seed.singles?.[table] ? [seed.singles[table]!] : []);
+    const rows =
+      seed.tables?.[table] ??
+      (seed.singles?.[table] ? [seed.singles[table]!] : []);
     const single =
       table in (seed.singles ?? {})
         ? seed.singles![table]
@@ -71,7 +77,10 @@ function makeClient(seed: Seed) {
       single: async () => ({ data: single, error: null }),
       insert: (payload: unknown) => {
         record(captures.inserts, table, payload);
-        return { then: (resolve: (value: { error: null }) => unknown) => resolve({ error: null }) };
+        return {
+          then: (resolve: (value: { error: null }) => unknown) =>
+            resolve({ error: null }),
+        };
       },
       update: (payload: unknown) => {
         record(captures.updates, table, payload);
@@ -106,7 +115,9 @@ const connectionRow = {
 const commonSingles = {
   mailbox_connection: connectionRow,
   accounts: { name: 'Acme Buyers' },
-  deal_box: { criteria_json: { industries: ['Accounting'], min_revenue: 1_000_000 } },
+  deal_box: {
+    criteria_json: { industries: ['Accounting'], min_revenue: 1_000_000 },
+  },
   contact: { name: 'Pat Owner', email: 'pat@firm.com' },
   firm: {
     name: 'Firm LLC',
@@ -142,7 +153,14 @@ function enrollment(id: string, targetEmail: string) {
 describe('dispatchAccountOutreach throttle', () => {
   it('sends only daily_cap minus messages already sent today', async () => {
     const { client, captures } = makeClient({
-      singles: { ...commonSingles, outreach_setting: { daily_cap: 2, max_touches: 1, letter_return_address_line1: '1 Main St' } },
+      singles: {
+        ...commonSingles,
+        outreach_setting: {
+          daily_cap: 2,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+      },
       tables: {
         outreach_enrollment: [
           enrollment('e1', 'a@firm.com'),
@@ -150,7 +168,11 @@ describe('dispatchAccountOutreach throttle', () => {
           enrollment('e3', 'c@firm.com'),
         ],
         outreach_message: [
-          { to_email: 'prior@firm.com', status: 'sent', sent_at: new Date().toISOString() },
+          {
+            to_email: 'prior@firm.com',
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          },
         ],
         outreach_suppression: [],
       },
@@ -161,17 +183,32 @@ describe('dispatchAccountOutreach throttle', () => {
     const result = await dispatchAccountOutreach({ accountId: 'acct-1' });
 
     expect(result.sent).toBe(1);
-    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
-    expect(captures.updates.outreach_message!.map((row) => row.status)).toEqual(['sent']);
+    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+      1,
+    );
+    expect(captures.updates.outreach_message!.map((row) => row.status)).toEqual(
+      ['sent'],
+    );
   });
 
   it('sends nothing when the cap is already spent', async () => {
     const { client } = makeClient({
-      singles: { ...commonSingles, outreach_setting: { daily_cap: 1, max_touches: 1, letter_return_address_line1: '1 Main St' } },
+      singles: {
+        ...commonSingles,
+        outreach_setting: {
+          daily_cap: 1,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+      },
       tables: {
         outreach_enrollment: [enrollment('e1', 'a@firm.com')],
         outreach_message: [
-          { to_email: 'prior@firm.com', status: 'sent', sent_at: new Date().toISOString() },
+          {
+            to_email: 'prior@firm.com',
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          },
         ],
         outreach_suppression: [],
       },
@@ -182,7 +219,9 @@ describe('dispatchAccountOutreach throttle', () => {
     const result = await dispatchAccountOutreach({ accountId: 'acct-1' });
 
     expect(result.sent).toBe(0);
-    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+      0,
+    );
   });
 });
 
@@ -191,7 +230,11 @@ describe('dispatchAccountOutreach sequence resolution', () => {
     const { client, captures } = makeClient({
       singles: {
         ...commonSingles,
-        outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' },
+        outreach_setting: {
+          daily_cap: 10,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
         outreach_step: {
           sequence_id: SEQUENCE_ID,
           ordinal: 1,
@@ -227,8 +270,15 @@ describe('dispatchAccountOutreach sequence resolution', () => {
     const { client } = makeClient({
       singles: {
         ...commonSingles,
-        outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' },
-        outreach_step: { ...commonSingles.outreach_step, body: 'Hi {{ recipient.firstName }},' },
+        outreach_setting: {
+          daily_cap: 10,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+        outreach_step: {
+          ...commonSingles.outreach_step,
+          body: 'Hi {{ recipient.firstName }},',
+        },
       },
       tables: {
         outreach_enrollment: [enrollment('e1', 'a@firm.com')],
@@ -241,7 +291,8 @@ describe('dispatchAccountOutreach sequence resolution', () => {
 
     await dispatchAccountOutreach({ accountId: 'acct-1' });
 
-    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { text: string };
+    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock
+      .calls[0]![1] as { text: string };
     expect(sendArgs.text).toMatch(/^Hi Pat,\n/);
   });
 
@@ -255,8 +306,15 @@ describe('dispatchAccountOutreach sequence resolution', () => {
       singles: {
         ...commonSingles,
         contact: { name, email: 'pat@firm.com' },
-        outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' },
-        outreach_step: { ...commonSingles.outreach_step, body: 'Hi {{ recipient.firstName | there }},' },
+        outreach_setting: {
+          daily_cap: 10,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+        outreach_step: {
+          ...commonSingles.outreach_step,
+          body: 'Hi {{ recipient.firstName | there }},',
+        },
       },
       tables: {
         outreach_enrollment: [enrollment('e1', 'a@firm.com')],
@@ -269,7 +327,8 @@ describe('dispatchAccountOutreach sequence resolution', () => {
 
     await dispatchAccountOutreach({ accountId: 'acct-1' });
 
-    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { text: string };
+    const sendArgs = (state.sendAs as ReturnType<typeof vi.fn>).mock
+      .calls[0]![1] as { text: string };
     expect(sendArgs.text.split('\n')[0]).toBe(greeting);
   });
 });
@@ -277,7 +336,14 @@ describe('dispatchAccountOutreach sequence resolution', () => {
 describe('dispatchAccountOutreach failure isolation', () => {
   it('logs the failed recipient and still sends the rest of the batch', async () => {
     const { client, captures } = makeClient({
-      singles: { ...commonSingles, outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' } },
+      singles: {
+        ...commonSingles,
+        outreach_setting: {
+          daily_cap: 10,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+      },
       tables: {
         outreach_enrollment: [
           enrollment('e1', 'a@firm.com'),
@@ -295,7 +361,9 @@ describe('dispatchAccountOutreach failure isolation', () => {
 
     const result = await dispatchAccountOutreach({ accountId: 'acct-1' });
 
-    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(2);
+    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+      2,
+    );
     expect(result.sent).toBe(1);
 
     const outcomes = captures.updates.outreach_message!;
@@ -303,15 +371,31 @@ describe('dispatchAccountOutreach failure isolation', () => {
     expect(outcomes[0]!.error).toBe('Gmail send failed with status 400');
 
     const enrollmentUpdates = captures.updates.outreach_enrollment!;
-    expect(enrollmentUpdates.map((row) => row.status)).toEqual(['failed', 'sent']);
+    expect(enrollmentUpdates.map((row) => row.status)).toEqual([
+      'failed',
+      'sent',
+    ]);
   });
 
   it('skips a recipient already at max_touches', async () => {
     const { client } = makeClient({
-      singles: { ...commonSingles, outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' } },
+      singles: {
+        ...commonSingles,
+        outreach_setting: {
+          daily_cap: 10,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+      },
       tables: {
         outreach_enrollment: [enrollment('e1', 'a@firm.com')],
-        outreach_message: [{ to_email: 'a@firm.com', status: 'sent', sent_at: '2020-01-01T00:00:00.000Z' }],
+        outreach_message: [
+          {
+            to_email: 'a@firm.com',
+            status: 'sent',
+            sent_at: '2020-01-01T00:00:00.000Z',
+          },
+        ],
         outreach_suppression: [],
       },
     });
@@ -321,12 +405,21 @@ describe('dispatchAccountOutreach failure isolation', () => {
     const result = await dispatchAccountOutreach({ accountId: 'acct-1' });
 
     expect(result.sent).toBe(0);
-    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+      0,
+    );
   });
 
   it('skips a suppressed recipient', async () => {
     const { client } = makeClient({
-      singles: { ...commonSingles, outreach_setting: { daily_cap: 10, max_touches: 1, letter_return_address_line1: '1 Main St' } },
+      singles: {
+        ...commonSingles,
+        outreach_setting: {
+          daily_cap: 10,
+          max_touches: 1,
+          letter_return_address_line1: '1 Main St',
+        },
+      },
       tables: {
         outreach_enrollment: [enrollment('e1', 'a@firm.com')],
         outreach_message: [],
@@ -339,6 +432,8 @@ describe('dispatchAccountOutreach failure isolation', () => {
     const result = await dispatchAccountOutreach({ accountId: 'acct-1' });
 
     expect(result.sent).toBe(0);
-    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(0);
+    expect((state.sendAs as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(
+      0,
+    );
   });
 });

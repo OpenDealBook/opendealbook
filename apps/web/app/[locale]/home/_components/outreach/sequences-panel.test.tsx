@@ -10,7 +10,9 @@ const server = vi.hoisted(() => ({
   refresh: vi.fn(),
 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: server.refresh }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: server.refresh }),
+}));
 vi.mock('@odb/outreach-app/server', () => ({
   createSequence: server.create,
   seedDefaultSequences: vi.fn(),
@@ -28,8 +30,20 @@ const MIXED: Sequence = {
   enabled: true,
   isDefault: false,
   steps: [
-    { ordinal: 1, delayDays: 0, channel: 'letter', subject: null, body: 'Letter body' },
-    { ordinal: 2, delayDays: 7, channel: 'email', subject: 'Quick question', body: 'Email body' },
+    {
+      ordinal: 1,
+      delayDays: 0,
+      channel: 'letter',
+      subject: null,
+      body: 'Letter body',
+    },
+    {
+      ordinal: 2,
+      delayDays: 7,
+      channel: 'email',
+      subject: 'Quick question',
+      body: 'Email body',
+    },
   ],
 };
 
@@ -47,10 +61,17 @@ function field(text: string, step?: number) {
     step === undefined
       ? container
       : [...container.querySelectorAll('fieldset')].find(
-          (fieldset) => fieldset.querySelector('legend')?.textContent === `Step ${step}`,
+          (fieldset) =>
+            fieldset.querySelector('legend')?.textContent === `Step ${step}`,
         )!;
-  const label = [...scope.querySelectorAll('label')].find((candidate) => candidate.textContent === text);
-  return (label?.control ?? null) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+  const label = [...scope.querySelectorAll('label')].find(
+    (candidate) => candidate.textContent === text,
+  );
+  return (label?.control ?? null) as
+    | HTMLInputElement
+    | HTMLTextAreaElement
+    | HTMLSelectElement
+    | null;
 }
 
 async function type(label: string, value: string, step?: number) {
@@ -59,32 +80,44 @@ async function type(label: string, value: string, step?: number) {
   const setter = Object.getOwnPropertyDescriptor(prototype, 'value')!.set!;
   await act(async () => {
     setter.call(element, value);
-    element.dispatchEvent(new Event(element instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+    element.dispatchEvent(
+      new Event(element instanceof HTMLSelectElement ? 'change' : 'input', {
+        bubbles: true,
+      }),
+    );
   });
 }
 
 async function click(text: string) {
-  const target = [...container.querySelectorAll('button')].find((button) => button.textContent === text)!;
+  const target = [...container.querySelectorAll('button')].find(
+    (button) => button.textContent === text,
+  )!;
   await act(async () => {
     target.click();
   });
 }
 
 async function openPicker(label: string, step: number) {
-  const trigger = field(label, step)!.labels![0]!.parentElement!.querySelector('button')!;
+  const trigger = field(label, step)!.labels![0]!.parentElement!.querySelector(
+    'button',
+  )!;
   await act(async () => {
-    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    trigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
   });
 }
 
 function pickerFields() {
-  return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => item.textContent);
+  return [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map(
+    (item) => item.textContent,
+  );
 }
 
 async function pick(text: string) {
-  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-    (candidate) => candidate.textContent === text,
-  )!;
+  const item = [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ].find((candidate) => candidate.textContent === text)!;
   await act(async () => {
     item.click();
   });
@@ -95,7 +128,9 @@ async function pick(text: string) {
 
 async function save() {
   await act(async () => {
-    container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    container
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
   });
 }
 
@@ -141,8 +176,19 @@ describe('SequencesPanel', () => {
       name: 'Letter then email',
       description: '',
       steps: [
-        { ordinal: 1, delayDays: 0, channel: 'letter', body: 'New letter body' },
-        { ordinal: 2, delayDays: 10, channel: 'email', subject: 'Quick question', body: 'Email body' },
+        {
+          ordinal: 1,
+          delayDays: 0,
+          channel: 'letter',
+          body: 'New letter body',
+        },
+        {
+          ordinal: 2,
+          delayDays: 10,
+          channel: 'email',
+          subject: 'Quick question',
+          body: 'Email body',
+        },
       ],
     });
   });
@@ -166,7 +212,13 @@ describe('SequencesPanel', () => {
       description: '',
       steps: [
         { ordinal: 1, delayDays: 0, channel: 'letter', body: 'Dear owner' },
-        { ordinal: 2, delayDays: 7, channel: 'email', subject: 'Following up', body: 'Hi again' },
+        {
+          ordinal: 2,
+          delayDays: 7,
+          channel: 'email',
+          subject: 'Following up',
+          body: 'Hi again',
+        },
       ],
     });
   });
@@ -208,7 +260,11 @@ describe('SequencesPanel', () => {
     expect(pickerFields()).toContain('Sender email');
 
     await act(async () => {
-      document.querySelector('[role="menu"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      document
+        .querySelector('[role="menu"]')!
+        .dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        );
     });
     await openPicker('Letter', 1);
     expect(pickerFields()).toHaveLength(14);
@@ -224,7 +280,15 @@ describe('SequencesPanel', () => {
 
     expect(server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        steps: [{ ordinal: 1, delayDays: 7, channel: 'email', subject: 'Quick question', body: 'Email body' }],
+        steps: [
+          {
+            ordinal: 1,
+            delayDays: 7,
+            channel: 'email',
+            subject: 'Quick question',
+            body: 'Email body',
+          },
+        ],
       }),
     );
   });

@@ -5,7 +5,10 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { TEMPLATE_LETTER_FIELDS } from '@odb/outreach-app';
-import { createLetterTemplate, updateLetterTemplate } from '@odb/outreach-app/server';
+import {
+  createLetterTemplate,
+  updateLetterTemplate,
+} from '@odb/outreach-app/server';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Input } from '@odb/ui/input';
@@ -47,7 +50,10 @@ export function LetterTemplatesPanel({
         if (draft.templateId === null) {
           await createLetterTemplate(template);
         } else {
-          const result = await updateLetterTemplate({ ...template, templateId: draft.templateId });
+          const result = await updateLetterTemplate({
+            ...template,
+            templateId: draft.templateId,
+          });
           if (!result.ok) {
             setError(result.refusal);
             return;
@@ -74,7 +80,9 @@ export function LetterTemplatesPanel({
       </div>
 
       {templates.length === 0 && draft === null ? (
-        <p className={'text-muted-foreground text-sm'}>No letter templates yet.</p>
+        <p className={'text-muted-foreground text-sm'}>
+          No letter templates yet.
+        </p>
       ) : null}
 
       <div className={'flex flex-col gap-3'}>
@@ -87,14 +95,20 @@ export function LetterTemplatesPanel({
                 size={'sm'}
                 variant={'outline'}
                 onClick={() =>
-                  setDraft({ templateId: template.id, name: template.name, body: template.body })
+                  setDraft({
+                    templateId: template.id,
+                    name: template.name,
+                    body: template.body,
+                  })
                 }
               >
                 Edit
               </Button>
             </CardHeader>
             <CardContent>
-              <p className={'text-muted-foreground text-sm whitespace-pre-wrap'}>
+              <p
+                className={'text-muted-foreground text-sm whitespace-pre-wrap'}
+              >
                 {template.body}
               </p>
             </CardContent>
@@ -106,7 +120,9 @@ export function LetterTemplatesPanel({
         <Card>
           <CardHeader>
             <CardTitle className={'text-base'}>
-              {draft.templateId === null ? 'New letter template' : 'Edit letter template'}
+              {draft.templateId === null
+                ? 'New letter template'
+                : 'Edit letter template'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -117,7 +133,9 @@ export function LetterTemplatesPanel({
                   id={'letter-template-name'}
                   required
                   value={draft.name}
-                  onChange={(event) => setDraft({ ...draft, name: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...draft, name: event.target.value })
+                  }
                 />
               </div>
 
@@ -136,17 +154,25 @@ export function LetterTemplatesPanel({
                   required
                   rows={10}
                   value={draft.body}
-                  onChange={(event) => setDraft({ ...draft, body: event.target.value })}
+                  onChange={(event) =>
+                    setDraft({ ...draft, body: event.target.value })
+                  }
                 />
               </div>
 
-              {error !== null ? <p className={'text-destructive text-sm'}>{error}</p> : null}
+              {error !== null ? (
+                <p className={'text-destructive text-sm'}>{error}</p>
+              ) : null}
 
               <div className={'flex gap-2'}>
                 <Button type={'submit'} disabled={pending}>
                   {pending ? 'Saving...' : 'Save letter template'}
                 </Button>
-                <Button type={'button'} variant={'outline'} onClick={() => setDraft(null)}>
+                <Button
+                  type={'button'}
+                  variant={'outline'}
+                  onClick={() => setDraft(null)}
+                >
                   Cancel
                 </Button>
               </div>

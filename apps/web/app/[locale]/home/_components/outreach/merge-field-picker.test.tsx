@@ -13,8 +13,17 @@ function Host({ tokens, initial }: { tokens: string[]; initial: string }) {
   const [value, setValue] = useState(initial);
   return (
     <>
-      <textarea id={'body'} value={value} onChange={(event) => setValue(event.target.value)} />
-      <MergeFieldPicker fieldId={'body'} tokens={tokens} value={value} onChange={setValue} />
+      <textarea
+        id={'body'}
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+      />
+      <MergeFieldPicker
+        fieldId={'body'}
+        tokens={tokens}
+        value={value}
+        onChange={setValue}
+      />
     </>
   );
 }
@@ -33,14 +42,16 @@ async function openMenu() {
   await act(async () => {
     container
       .querySelector('button')!
-      .dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      );
   });
 }
 
 async function choose(label: string) {
-  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
-    (candidate) => candidate.textContent === label,
-  )!;
+  const item = [
+    ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+  ].find((candidate) => candidate.textContent === label)!;
   await act(async () => {
     item.click();
   });
@@ -74,7 +85,11 @@ describe('MergeFieldPicker', () => {
     await openMenu();
 
     const menu = document.querySelector('[role="menu"]')!;
-    expect([...menu.children].map((group) => [...group.children].map((node) => node.textContent))).toEqual([
+    expect(
+      [...menu.children].map((group) =>
+        [...group.children].map((node) => node.textContent),
+      ),
+    ).toEqual([
       ['Firm', 'Firm name', 'Firm city'],
       ['Sender', 'Sender name'],
     ]);
@@ -101,7 +116,9 @@ describe('MergeFieldPicker', () => {
     await act(async () => {
       document
         .querySelector('[role="menu"]')!
-        .dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        .dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        );
     });
     await settleFocus();
 

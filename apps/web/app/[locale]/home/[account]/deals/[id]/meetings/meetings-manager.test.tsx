@@ -17,7 +17,9 @@ vi.mock('@odb/meetings/server', () => ({
 }));
 vi.mock('@odb/supabase/hooks', () => ({ useSupabase: () => ({}) }));
 vi.mock('@nangohq/frontend', () => ({ default: class {} }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: server.refresh }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: server.refresh }),
+}));
 
 import { MeetingsManager } from './meetings-manager';
 
@@ -59,18 +61,28 @@ afterEach(() => {
 
 async function summarize() {
   await act(async () => {
-    const transcript = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="Paste transcript"]')!;
-    Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(transcript, 'We agreed terms.');
+    const transcript = container.querySelector<HTMLTextAreaElement>(
+      'textarea[placeholder="Paste transcript"]',
+    )!;
+    Object.getOwnPropertyDescriptor(
+      HTMLTextAreaElement.prototype,
+      'value',
+    )!.set!.call(transcript, 'We agreed terms.');
     transcript.dispatchEvent(new Event('input', { bubbles: true }));
   });
   await act(async () => {
-    [...container.querySelectorAll('button')].find((button) => button.textContent === 'Summarize')!.click();
+    [...container.querySelectorAll('button')]
+      .find((button) => button.textContent === 'Summarize')!
+      .click();
   });
 }
 
 describe('summarizing a meeting', () => {
   it('says why the meeting was kept without a summary', async () => {
-    server.summarize.mockResolvedValue({ ok: false, reason: 'The monthly AI limit is reached' });
+    server.summarize.mockResolvedValue({
+      ok: false,
+      reason: 'The monthly AI limit is reached',
+    });
 
     await summarize();
 

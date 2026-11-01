@@ -47,7 +47,8 @@ export function docketHit(overrides: Record<string, unknown>) {
     court: 'District Court, S.D. Texas',
     court_id: 'txsd',
     docketNumber: '4:21-cv-00412',
-    docket_absolute_url: '/docket/61234567/rowan-fixture-plumbing-v-harbour-supply/',
+    docket_absolute_url:
+      '/docket/61234567/rowan-fixture-plumbing-v-harbour-supply/',
     dateFiled: '2021-03-04',
     dateTerminated: null,
     suitNature: '190 Contract: Other',

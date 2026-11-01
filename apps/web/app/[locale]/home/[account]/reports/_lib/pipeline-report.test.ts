@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPipelineReport, type PipelineReportInput } from './pipeline-report';
+import {
+  buildPipelineReport,
+  type PipelineReportInput,
+} from './pipeline-report';
 
 const stages = [
   { key: 'sourcing', label: 'Sourcing' },
@@ -137,7 +140,10 @@ describe('buildPipelineReport', () => {
 
     const report = buildPipelineReport(input);
 
-    expect(report.funnel.map((step) => step.key)).toEqual(['sourcing', 'offer']);
+    expect(report.funnel.map((step) => step.key)).toEqual([
+      'sourcing',
+      'offer',
+    ]);
   });
 
   it('summarizes resolutions with a win rate', () => {

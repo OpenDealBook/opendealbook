@@ -166,9 +166,7 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
 
   // 3. Lender: header, deal, notice; preview and download the master file;
   // open a request; make a folder in "Your files" and upload into it.
-  await expect(
-    lenderPage.getByText(`Prepared for ${roomName}`),
-  ).toBeVisible();
+  await expect(lenderPage.getByText(`Prepared for ${roomName}`)).toBeVisible();
   await expect(
     lenderPage
       .getByRole('region', { name: 'People in this room' })
@@ -216,10 +214,16 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
     await page.goto(`/home/${teamSlug}`);
     await page.locator('button:has(svg.lucide-bell)').click();
     await expect(
-      page.getByRole('link', { name: `${roomName} made a new request on ${dealDescription}` }),
-    ).toHaveAttribute('href', new RegExp(`/lenders/${roomId}/requests/asks/[0-9a-f-]{36}$`), {
-      timeout: 4000,
-    });
+      page.getByRole('link', {
+        name: `${roomName} made a new request on ${dealDescription}`,
+      }),
+    ).toHaveAttribute(
+      'href',
+      new RegExp(`/lenders/${roomId}/requests/asks/[0-9a-f-]{36}$`),
+      {
+        timeout: 4000,
+      },
+    );
   }).toPass({ timeout: 60 * 1000 });
 
   const folders = lenderPage.getByRole('navigation', { name: 'Folders' });
@@ -349,9 +353,7 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   );
 
   await lenderPage.goto(`/lender/${roomId}`);
-  await expect(
-    lenderPage.getByText(`Prepared for ${roomName}`),
-  ).toBeVisible();
+  await expect(lenderPage.getByText(`Prepared for ${roomName}`)).toBeVisible();
   await expect(lenderPage.getByText(masterName)).toHaveCount(0);
   await expect(
     lenderPage.getByRole('button', { name: removedName, exact: true }),
@@ -367,9 +369,7 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
   await expect(page.getByText(removedName)).toHaveCount(0);
 
   await lenderPage.reload();
-  await expect(
-    lenderPage.getByText(`Prepared for ${roomName}`),
-  ).toBeVisible();
+  await expect(lenderPage.getByText(`Prepared for ${roomName}`)).toBeVisible();
   await expect(lenderPage.getByText(removedName)).toHaveCount(0);
 
   await page.goto(`${roomPath}?tab=settings`);
@@ -385,7 +385,10 @@ test('lender room journey: invite, sign in, browse, request, track, hide, close'
       .click({ timeout: 3000 });
   }).toPass({ timeout: 60 * 1000 });
   await expect(
-    page.getByRole('listitem').filter({ hasText: closingTodo }).getByRole('checkbox'),
+    page
+      .getByRole('listitem')
+      .filter({ hasText: closingTodo })
+      .getByRole('checkbox'),
   ).toBeChecked();
   await page.goto(`${roomPath}?tab=settings`);
   await page.getByRole('tab', { name: 'Status and access' }).click();

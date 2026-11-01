@@ -1,5 +1,4 @@
 import type { CalendarSpec, ScheduleSpec } from '@temporalio/client';
-
 import { describe, expect, it } from 'vitest';
 
 import { scheduleSpec } from './schedule';
@@ -19,23 +18,44 @@ const MONTHS = [
   'NOVEMBER',
   'DECEMBER',
 ];
-const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const WEEKDAYS = [
+  'SUNDAY',
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+];
 
-type Field = CalendarSpec['hour'] | CalendarSpec['month'] | CalendarSpec['dayOfWeek'];
+type Field =
+  | CalendarSpec['hour']
+  | CalendarSpec['month']
+  | CalendarSpec['dayOfWeek'];
 
-function fieldMatches(field: Field, value: number, names: string[] = []): boolean {
+function fieldMatches(
+  field: Field,
+  value: number,
+  names: string[] = [],
+): boolean {
   if (field === undefined || field === '*') {
     return true;
   }
   const index = (bound: string | number) =>
-    typeof bound === 'number' ? bound : names.indexOf(bound) + (names === MONTHS ? 1 : 0);
+    typeof bound === 'number'
+      ? bound
+      : names.indexOf(bound) + (names === MONTHS ? 1 : 0);
   return (Array.isArray(field) ? field : [field]).some((range) => {
     if (typeof range !== 'object') {
       return index(range) === value;
     }
     const start = index(range.start);
     const end = range.end === undefined ? start : index(range.end);
-    return value >= start && value <= end && (value - start) % (range.step ?? 1) === 0;
+    return (
+      value >= start &&
+      value <= end &&
+      (value - start) % (range.step ?? 1) === 0
+    );
   });
 }
 
@@ -50,9 +70,17 @@ function calendarMatches(calendar: CalendarSpec, at: Date): boolean {
   );
 }
 
-function localFireTimes(spec: ScheduleSpec, from: string, to: string): string[] {
+function localFireTimes(
+  spec: ScheduleSpec,
+  from: string,
+  to: string,
+): string[] {
   const fires: string[] = [];
-  for (let at = new Date(`${from}T00:00Z`); at < new Date(`${to}T00:00Z`); at = new Date(at.getTime() + 60_000)) {
+  for (
+    let at = new Date(`${from}T00:00Z`);
+    at < new Date(`${to}T00:00Z`);
+    at = new Date(at.getTime() + 60_000)
+  ) {
     if (
       spec.calendars!.some((calendar) => calendarMatches(calendar, at)) &&
       !(spec.skip ?? []).some((calendar) => calendarMatches(calendar, at))
@@ -68,14 +96,18 @@ const monthly = (day: number) =>
 
 describe('scheduleSpec', () => {
   it('reads every calendar time in the team timezone', () => {
-    expect(scheduleSpec({ every: 'day', at: '17:45' }, 'America/Chicago').timezone).toBe(
-      'America/Chicago',
-    );
+    expect(
+      scheduleSpec({ every: 'day', at: '17:45' }, 'America/Chicago').timezone,
+    ).toBe('America/Chicago');
   });
 
   it('fires every day at the given time', () => {
     expect(
-      localFireTimes(scheduleSpec({ every: 'day', at: '17:45' }, 'UTC'), '2027-03-01', '2027-03-04'),
+      localFireTimes(
+        scheduleSpec({ every: 'day', at: '17:45' }, 'UTC'),
+        '2027-03-01',
+        '2027-03-04',
+      ),
     ).toEqual(['2027-03-01 17:45', '2027-03-02 17:45', '2027-03-03 17:45']);
   });
 
@@ -91,13 +123,26 @@ describe('scheduleSpec', () => {
 
   it('fires every few hours from midnight on the hour', () => {
     expect(
-      localFireTimes(scheduleSpec({ every: 'hours', hours: 6 }, 'UTC'), '2027-03-01', '2027-03-02'),
-    ).toEqual(['2027-03-01 00:00', '2027-03-01 06:00', '2027-03-01 12:00', '2027-03-01 18:00']);
+      localFireTimes(
+        scheduleSpec({ every: 'hours', hours: 6 }, 'UTC'),
+        '2027-03-01',
+        '2027-03-02',
+      ),
+    ).toEqual([
+      '2027-03-01 00:00',
+      '2027-03-01 06:00',
+      '2027-03-01 12:00',
+      '2027-03-01 18:00',
+    ]);
   });
 
   it('fires every 24 hours at midnight', () => {
     expect(
-      localFireTimes(scheduleSpec({ every: 'hours', hours: 24 }, 'UTC'), '2027-03-01', '2027-03-03'),
+      localFireTimes(
+        scheduleSpec({ every: 'hours', hours: 24 }, 'UTC'),
+        '2027-03-01',
+        '2027-03-03',
+      ),
     ).toEqual(['2027-03-01 00:00', '2027-03-02 00:00']);
   });
 
@@ -129,9 +174,14 @@ describe('scheduleSpec', () => {
     ]);
   });
 
-  it.each([29, 30, 31])('fires once on February 29 in a leap year for day %i', (day) => {
-    expect(localFireTimes(monthly(day), '2028-02-01', '2028-03-01')).toEqual(['2028-02-29 09:15']);
-  });
+  it.each([29, 30, 31])(
+    'fires once on February 29 in a leap year for day %i',
+    (day) => {
+      expect(localFireTimes(monthly(day), '2028-02-01', '2028-03-01')).toEqual([
+        '2028-02-29 09:15',
+      ]);
+    },
+  );
 
   it('fires on February 28 in a year that is not a leap year for day 29', () => {
     expect(localFireTimes(monthly(29), '2027-02-01', '2027-04-01')).toEqual([
@@ -141,17 +191,25 @@ describe('scheduleSpec', () => {
   });
 
   it('fires on February 28 in 2100, which is not a leap year', () => {
-    expect(localFireTimes(monthly(31), '2100-02-01', '2100-03-01')).toEqual(['2100-02-28 09:15']);
+    expect(localFireTimes(monthly(31), '2100-02-01', '2100-03-01')).toEqual([
+      '2100-02-28 09:15',
+    ]);
   });
 });
 
 describe('localWallTime', () => {
   it('names both fires of a repeated fall-back hour by the same local time', () => {
-    expect(localWallTime(new Date('2027-11-07T06:30:00Z'), 'America/Chicago')).toBe('2027-11-07T01:30');
-    expect(localWallTime(new Date('2027-11-07T07:30:00Z'), 'America/Chicago')).toBe('2027-11-07T01:30');
+    expect(
+      localWallTime(new Date('2027-11-07T06:30:00Z'), 'America/Chicago'),
+    ).toBe('2027-11-07T01:30');
+    expect(
+      localWallTime(new Date('2027-11-07T07:30:00Z'), 'America/Chicago'),
+    ).toBe('2027-11-07T01:30');
   });
 
   it('names local midnight as hour 00 of the new day', () => {
-    expect(localWallTime(new Date('2027-03-02T06:00:00Z'), 'America/Chicago')).toBe('2027-03-02T00:00');
+    expect(
+      localWallTime(new Date('2027-03-02T06:00:00Z'), 'America/Chicago'),
+    ).toBe('2027-03-02T00:00');
   });
 });

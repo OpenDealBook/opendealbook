@@ -36,8 +36,12 @@ describe('buildDealStatsContributorPackage', () => {
 
   it('reports which submitted fields are unverified against public BVR docs', () => {
     const pkg = buildDealStatsContributorPackage(deal);
-    const verifiedLabels = DEALSTATS_CONTRIBUTOR_FIELDS.filter((f) => f.verified).map((f) => f.label);
-    const unverifiedLabels = DEALSTATS_CONTRIBUTOR_FIELDS.filter((f) => !f.verified).map((f) => f.label);
+    const verifiedLabels = DEALSTATS_CONTRIBUTOR_FIELDS.filter(
+      (f) => f.verified,
+    ).map((f) => f.label);
+    const unverifiedLabels = DEALSTATS_CONTRIBUTOR_FIELDS.filter(
+      (f) => !f.verified,
+    ).map((f) => f.label);
     expect(verifiedLabels).toContain('MVIC Price');
     expect(verifiedLabels).toContain('NAICS');
     expect(unverifiedLabels.length).toBeGreaterThan(0);

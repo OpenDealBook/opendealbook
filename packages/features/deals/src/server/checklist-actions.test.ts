@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const GENERATED_ID = '00000000-0000-0000-0000-000000000001';
 
 const mocks = vi.hoisted(() => {
-  const appendDealEvent = vi.fn(async () => [{ deal_seq: 1, aggregate_seq: 1 }]);
+  const appendDealEvent = vi.fn(async () => [
+    { deal_seq: 1, aggregate_seq: 1 },
+  ]);
   const appendDealEvents = vi.fn(async () => [
     { deal_seq: 1, aggregate_seq: 1 },
   ]);
@@ -114,7 +116,10 @@ describe('applyChecklistTemplate', () => {
     ]);
 
     await runApplyChecklistTemplate(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', template_id: '384a7618-43e9-434e-8933-9e8aeb5aa712' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        template_id: '384a7618-43e9-434e-8933-9e8aeb5aa712',
+      },
       { id: 'user-1' },
     );
 
@@ -155,7 +160,10 @@ describe('applyChecklistTemplate', () => {
 
   it('appends nothing when the template has no items', async () => {
     await runApplyChecklistTemplate(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', template_id: '15e8e39a-4c7d-4d68-8dcf-e893cbba1eee' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        template_id: '15e8e39a-4c7d-4d68-8dcf-e893cbba1eee',
+      },
       { id: 'user-1' },
     );
 
@@ -166,7 +174,10 @@ describe('applyChecklistTemplate', () => {
 describe('addChecklistItem', () => {
   it('appends a checklist_item.added event carrying the title', async () => {
     const result = await runAddChecklistItem(
-      { deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30', title: 'Confirm lease transfer' },
+      {
+        deal_id: '6221ddef-b8e9-484f-8bb8-0967d8e16a30',
+        title: 'Confirm lease transfer',
+      },
       { id: 'user-1' },
     );
 

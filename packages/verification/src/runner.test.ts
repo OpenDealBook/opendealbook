@@ -22,7 +22,10 @@ function makeClient(config: FakeConfig) {
         select: () => builder,
         eq: () => builder,
         limit: () => builder,
-        single: async () => ({ data: config.rows?.[table] ?? null, error: null }),
+        single: async () => ({
+          data: config.rows?.[table] ?? null,
+          error: null,
+        }),
         insert(rows: unknown) {
           capture.inserts[table] = rows;
           const result = {
@@ -189,14 +192,19 @@ describe('runVerification', () => {
       skipReason: (error) => (error instanceof Skip ? error.message : null),
     });
 
-    expect(result).toEqual({ runId: 'run1', status: 'skipped', reason: 'The monthly AI limit is reached' });
+    expect(result).toEqual({
+      runId: 'run1',
+      status: 'skipped',
+      reason: 'The monthly AI limit is reached',
+    });
     expect(capture.updatedIds.verification_run).toBe('run1');
     expect(capture.updates.verification_run).toMatchObject({
       status: 'skipped',
       skipped_reason: 'The monthly AI limit is reached',
     });
     expect(
-      (capture.updates.verification_run as { finished_at?: unknown }).finished_at,
+      (capture.updates.verification_run as { finished_at?: unknown })
+        .finished_at,
     ).toBeTypeOf('string');
     expect(notify).not.toHaveBeenCalled();
   });
@@ -221,6 +229,8 @@ describe('runVerification', () => {
         skipReason: () => null,
       }),
     ).rejects.toThrow('gather exploded');
-    expect(capture.updates.verification_run).toMatchObject({ status: 'failed' });
+    expect(capture.updates.verification_run).toMatchObject({
+      status: 'failed',
+    });
   });
 });

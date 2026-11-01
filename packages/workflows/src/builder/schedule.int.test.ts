@@ -1,11 +1,13 @@
+import {
+  ScheduleNotFoundError,
+  type ScheduleOptions,
+} from '@temporalio/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   provisionAccount,
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
-import { ScheduleNotFoundError, type ScheduleOptions } from '@temporalio/client';
-
 import { fakeScheduleClient } from '../schedules/fakeScheduleClient';
 
 const temporal = vi.hoisted(() => ({
@@ -13,7 +15,10 @@ const temporal = vi.hoisted(() => ({
   fireTime: new Date(),
   createFails: (_scheduleId: string): boolean => false,
   createdPaused: new Map<string, boolean | undefined>(),
-  start: vi.fn(async (_type: string, _options: { workflowId: string; args: unknown[] }) => undefined),
+  start: vi.fn(
+    async (_type: string, _options: { workflowId: string; args: unknown[] }) =>
+      undefined,
+  ),
   warn: vi.fn((_message: string, _attributes: unknown) => undefined),
 }));
 
@@ -34,7 +39,9 @@ vi.mock('@temporalio/workflow', async () => {
   return {
     proxyActivities: () => ({ startScheduledRun }),
     log: { warn: temporal.warn },
-    workflowInfo: () => ({ typedSearchAttributes: { get: () => temporal.fireTime } }),
+    workflowInfo: () => ({
+      typedSearchAttributes: { get: () => temporal.fireTime },
+    }),
   };
 });
 
@@ -60,8 +67,15 @@ function graphWith(
 ): WorkflowGraph {
   return {
     nodes: [
-      ...triggers.map((trigger) => ({ ...trigger, type: 'schedule_trigger' as const })),
-      { id: 'notify', type: 'notify_team', config: { message: 'Weekly review' } },
+      ...triggers.map((trigger) => ({
+        ...trigger,
+        type: 'schedule_trigger' as const,
+      })),
+      {
+        id: 'notify',
+        type: 'notify_team',
+        config: { message: 'Weekly review' },
+      },
     ],
     edges: triggers.map((trigger) => ({
       id: `${trigger.id}-notify`,
@@ -88,8 +102,15 @@ async function publish(graph: WorkflowGraph): Promise<string> {
   return data.id;
 }
 
-async function setWorkflow(patch: { enabled?: boolean; archived_at?: string | null }) {
-  await owner.admin.from('workflow').update(patch).eq('id', workflowId).throwOnError();
+async function setWorkflow(patch: {
+  enabled?: boolean;
+  archived_at?: string | null;
+}) {
+  await owner.admin
+    .from('workflow')
+    .update(patch)
+    .eq('id', workflowId)
+    .throwOnError();
 }
 
 async function sync() {
@@ -97,7 +118,11 @@ async function sync() {
 }
 
 async function setTeamTimezone(timezone: string) {
-  await owner.admin.from('accounts').update({ timezone }).eq('id', teamId).throwOnError();
+  await owner.admin
+    .from('accounts')
+    .update({ timezone })
+    .eq('id', teamId)
+    .throwOnError();
 }
 
 async function triggerRow(versionId: string, nodeId: string) {
@@ -113,7 +138,9 @@ async function triggerRow(versionId: string, nodeId: string) {
 }
 
 async function scheduleOf(versionId: string, nodeId: string) {
-  return schedules.get((await triggerRow(versionId, nodeId)).temporal_schedule_id!);
+  return schedules.get(
+    (await triggerRow(versionId, nodeId)).temporal_schedule_id!,
+  );
 }
 
 async function runs() {
@@ -171,7 +198,10 @@ afterEach(async () => {
 describe('syncWorkflowSchedules (integration)', () => {
   it('gives each schedule trigger of an enabled workflow one running schedule in the team timezone, recorded on its trigger row', async () => {
     const versionId = await publish(
-      graphWith({ id: 'weekly', config: weekly }, { id: 'month-end', config: { every: 'month', day: 31, at: '07:00' } }),
+      graphWith(
+        { id: 'weekly', config: weekly },
+        { id: 'month-end', config: { every: 'month', day: 31, at: '07:00' } },
+      ),
     );
     await setWorkflow({ enabled: true });
 
@@ -186,7 +216,15 @@ describe('syncWorkflowSchedules (integration)', () => {
         type: 'startWorkflow',
         workflowType: 'runScheduledTrigger',
         taskQueue: 'opendealbook',
-        args: [{ accountId: teamId, workflowId, versionId, nodeId: 'weekly', timeZone: TIME_ZONE }],
+        args: [
+          {
+            accountId: teamId,
+            workflowId,
+            versionId,
+            nodeId: 'weekly',
+            timeZone: TIME_ZONE,
+          },
+        ],
       },
     });
     expect(await scheduleOf(versionId, 'month-end')).toMatchObject({
@@ -196,7 +234,9 @@ describe('syncWorkflowSchedules (integration)', () => {
   });
 
   it('pauses the schedules of a disabled workflow and runs them again once it is enabled', async () => {
-    const versionId = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const versionId = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
 
     await sync();
     expect((await scheduleOf(versionId, 'weekly'))?.state?.paused).toBe(true);
@@ -211,11 +251,16 @@ describe('syncWorkflowSchedules (integration)', () => {
   });
 
   it('pauses the schedules of an archived workflow', async () => {
-    const versionId = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const versionId = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
     await setWorkflow({ enabled: true });
     await sync();
 
-    await setWorkflow({ enabled: false, archived_at: new Date().toISOString() });
+    await setWorkflow({
+      enabled: false,
+      archived_at: new Date().toISOString(),
+    });
     await sync();
 
     expect((await scheduleOf(versionId, 'weekly'))?.state?.paused).toBe(true);
@@ -230,7 +275,10 @@ describe('syncWorkflowSchedules (integration)', () => {
     const newer = await publish(graphWith({ id: 'weekly', config: daily }));
     await sync();
 
-    expect(await triggerRow(older, 'weekly')).toEqual({ kind: 'schedule', temporal_schedule_id: null });
+    expect(await triggerRow(older, 'weekly')).toEqual({
+      kind: 'schedule',
+      temporal_schedule_id: null,
+    });
     expect(schedules.size).toBe(1);
     expect(await scheduleOf(newer, 'weekly')).toMatchObject({
       spec: scheduleSpec(daily, TIME_ZONE),
@@ -246,11 +294,16 @@ describe('syncWorkflowSchedules (integration)', () => {
     await publish(graphWith({ id: 'weekly', config: weekly }));
     await sync();
 
-    expect(await triggerRow(older, 'weekly')).toEqual({ kind: 'schedule', temporal_schedule_id: null });
+    expect(await triggerRow(older, 'weekly')).toEqual({
+      kind: 'schedule',
+      temporal_schedule_id: null,
+    });
   });
 
   it('creates the schedule of a disabled workflow already paused', async () => {
-    const versionId = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const versionId = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
 
     await sync();
 
@@ -259,7 +312,9 @@ describe('syncWorkflowSchedules (integration)', () => {
   });
 
   it('tracks a schedule whose creation failed and creates it on the next sync', async () => {
-    const versionId = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const versionId = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
     await setWorkflow({ enabled: true });
     temporal.createFails = () => true;
 
@@ -270,7 +325,9 @@ describe('syncWorkflowSchedules (integration)', () => {
     temporal.createFails = () => false;
     await sync();
 
-    expect(schedules.get(temporal_schedule_id!)).toMatchObject({ state: { paused: false } });
+    expect(schedules.get(temporal_schedule_id!)).toMatchObject({
+      state: { paused: false },
+    });
   });
 
   it('makes no schedule for a workflow that was never published', async () => {
@@ -292,7 +349,9 @@ describe('syncTeamSchedules (integration)', () => {
       .single()
       .throwOnError();
     workflowId = second.id;
-    const secondVersion = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const secondVersion = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
     await sync();
 
     await setTeamTimezone('Europe/London');
@@ -304,7 +363,9 @@ describe('syncTeamSchedules (integration)', () => {
     ] as const) {
       expect(await scheduleOf(versionId, 'weekly')).toMatchObject({
         spec: scheduleSpec(weekly, 'Europe/London'),
-        action: { args: [{ workflowId: owningWorkflowId, timeZone: 'Europe/London' }] },
+        action: {
+          args: [{ workflowId: owningWorkflowId, timeZone: 'Europe/London' }],
+        },
       });
     }
   });
@@ -321,11 +382,15 @@ describe('syncTeamSchedules (integration)', () => {
         .throwOnError();
       workflowId = data.id;
       workflowIds.push(data.id);
-      versionIds.push(await publish(graphWith({ id: 'weekly', config: weekly })));
+      versionIds.push(
+        await publish(graphWith({ id: 'weekly', config: weekly })),
+      );
     }
     temporal.createFails = (scheduleId) => !scheduleId.includes(versionIds[1]!);
 
-    const failure = await syncTeamSchedules({ accountId: teamId }).catch((error: unknown) => error);
+    const failure = await syncTeamSchedules({ accountId: teamId }).catch(
+      (error: unknown) => error,
+    );
 
     expect(failure).toBeInstanceOf(SchedulesPartlyUpdated);
     expect(failure).toMatchObject({
@@ -351,20 +416,24 @@ describe('syncTeamSchedules (integration)', () => {
         .throwOnError();
       workflowId = data.id;
       workflowIds.push(data.id);
-      versionIds.push(await publish(graphWith({ id: 'weekly', config: weekly })));
+      versionIds.push(
+        await publish(graphWith({ id: 'weekly', config: weekly })),
+      );
     }
     temporal.createFails = (scheduleId) => !scheduleId.includes(versionIds[1]!);
 
-    await expect(syncTeamSchedules({ accountId: teamId })).rejects.toBeInstanceOf(
-      SchedulesPartlyUpdated,
-    );
+    await expect(
+      syncTeamSchedules({ accountId: teamId }),
+    ).rejects.toBeInstanceOf(SchedulesPartlyUpdated);
 
     const { data } = await owner.admin
       .from('workflow')
       .select('id, schedules_sync_failed_at')
       .in('id', workflowIds)
       .throwOnError();
-    const failedAt = new Map(data.map((row) => [row.id, row.schedules_sync_failed_at]));
+    const failedAt = new Map(
+      data.map((row) => [row.id, row.schedules_sync_failed_at]),
+    );
     expect(failedAt.get(workflowIds[1]!)).toBeNull();
     for (const failed of [workflowIds[0]!, workflowIds[2]!]) {
       expect(failedAt.get(failed)).not.toBeNull();
@@ -375,10 +444,18 @@ describe('syncTeamSchedules (integration)', () => {
 
 describe('a schedule firing (integration)', () => {
   it('starts one run after its trigger node under the scheduled fire time, even when the fire is delivered twice', async () => {
-    const versionId = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const versionId = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
     await setWorkflow({ enabled: true });
     temporal.fireTime = new Date('2027-03-01T14:30:00.000Z');
-    const trigger = { accountId: teamId, workflowId, versionId, nodeId: 'weekly', timeZone: TIME_ZONE };
+    const trigger = {
+      accountId: teamId,
+      workflowId,
+      versionId,
+      nodeId: 'weekly',
+      timeZone: TIME_ZONE,
+    };
 
     await runScheduledTrigger(trigger);
     await runScheduledTrigger(trigger);
@@ -394,32 +471,54 @@ describe('a schedule firing (integration)', () => {
     });
     expect(temporal.start).toHaveBeenCalledWith(
       'runPublishedWorkflow',
-      expect.objectContaining({ workflowId: `workflow-run-${run!.id}`, args: [{ runId: run!.id }] }),
+      expect.objectContaining({
+        workflowId: `workflow-run-${run!.id}`,
+        args: [{ runId: run!.id }],
+      }),
     );
   });
 
   it('starts one run for a local time that repeats when the clocks fall back', async () => {
-    const versionId = await publish(graphWith({ id: 'nightly', config: { every: 'day', at: '01:30' } }));
+    const versionId = await publish(
+      graphWith({ id: 'nightly', config: { every: 'day', at: '01:30' } }),
+    );
     await setWorkflow({ enabled: true });
-    const trigger = { accountId: teamId, workflowId, versionId, nodeId: 'nightly', timeZone: TIME_ZONE };
+    const trigger = {
+      accountId: teamId,
+      workflowId,
+      versionId,
+      nodeId: 'nightly',
+      timeZone: TIME_ZONE,
+    };
 
     temporal.fireTime = new Date('2027-11-07T06:30:00.000Z');
     await runScheduledTrigger(trigger);
     temporal.fireTime = new Date('2027-11-07T07:30:00.000Z');
     await runScheduledTrigger(trigger);
 
-    expect((await runs()).map((run) => run.trigger_ref)).toEqual(['nightly@2027-11-07T01:30']);
+    expect((await runs()).map((run) => run.trigger_ref)).toEqual([
+      'nightly@2027-11-07T01:30',
+    ]);
   });
 
   it('starts a run for each schedule trigger that fires in the same minute', async () => {
     const versionId = await publish(
-      graphWith({ id: 'weekly', config: weekly }, { id: 'also-weekly', config: weekly }),
+      graphWith(
+        { id: 'weekly', config: weekly },
+        { id: 'also-weekly', config: weekly },
+      ),
     );
     await setWorkflow({ enabled: true });
     temporal.fireTime = new Date('2027-03-01T14:30:00.000Z');
 
     for (const nodeId of ['weekly', 'also-weekly']) {
-      await runScheduledTrigger({ accountId: teamId, workflowId, versionId, nodeId, timeZone: TIME_ZONE });
+      await runScheduledTrigger({
+        accountId: teamId,
+        workflowId,
+        versionId,
+        nodeId,
+        timeZone: TIME_ZONE,
+      });
     }
 
     expect((await runs()).map((run) => run.trigger_ref).sort()).toEqual([
@@ -434,11 +533,19 @@ describe('a schedule firing that must not start a run (integration)', () => {
 
   async function fire(versionId: string) {
     temporal.fireTime = new Date('2027-03-01T14:30:00.000Z');
-    await runScheduledTrigger({ accountId: teamId, workflowId, versionId, nodeId: 'weekly', timeZone: TIME_ZONE });
+    await runScheduledTrigger({
+      accountId: teamId,
+      workflowId,
+      versionId,
+      nodeId: 'weekly',
+      timeZone: TIME_ZONE,
+    });
   }
 
   function refusedFor() {
-    return temporal.warn.mock.calls.map(([, attributes]) => (attributes as { reason: string }).reason);
+    return temporal.warn.mock.calls.map(
+      ([, attributes]) => (attributes as { reason: string }).reason,
+    );
   }
 
   it('records a refusal and starts nothing for a disabled, archived or superseded workflow', async () => {
@@ -458,14 +565,18 @@ describe('a schedule firing that must not start a run (integration)', () => {
   });
 
   it('records a refusal and starts nothing while the team is locked', async () => {
-    const versionId = await publish(graphWith({ id: 'weekly', config: weekly }));
+    const versionId = await publish(
+      graphWith({ id: 'weekly', config: weekly }),
+    );
     await setWorkflow({ enabled: true });
     const { data: config } = await owner.admin
       .from('config')
       .select('enable_team_account_billing')
       .single()
       .throwOnError();
-    await owner.admin.rpc('set_team_account_billing', { enabled: true }).throwOnError();
+    await owner.admin
+      .rpc('set_team_account_billing', { enabled: true })
+      .throwOnError();
     await owner.admin
       .from('accounts')
       .update({ trial_ends_at: new Date(Date.now() - 24 * HOUR).toISOString() })
@@ -476,7 +587,9 @@ describe('a schedule firing that must not start a run (integration)', () => {
       await fire(versionId);
     } finally {
       await owner.admin
-        .rpc('set_team_account_billing', { enabled: config.enable_team_account_billing })
+        .rpc('set_team_account_billing', {
+          enabled: config.enable_team_account_billing,
+        })
         .throwOnError();
     }
 

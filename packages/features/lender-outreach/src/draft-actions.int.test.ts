@@ -29,12 +29,7 @@ vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://app.odb.test');
 import { unwrap } from '@odb/lender-rooms/actions/test-support/unwrap.ts';
 
 import { draftLenderOutreach } from './draft-actions';
-import {
-  appendEvent,
-  seedDeal,
-  seedLender,
-  seedRoomFor,
-} from './seed-deal';
+import { appendEvent, seedDeal, seedLender, seedRoomFor } from './seed-deal';
 import { saveOutreachTemplate } from './template-actions';
 import {
   addMember,
@@ -71,7 +66,11 @@ beforeAll(async () => {
   await addMember(teamId, colleague.userId);
   await admin
     .from('accounts_memberships')
-    .insert({ account_id: teamId, user_id: viewer.userId, account_role: 'viewer' })
+    .insert({
+      account_id: teamId,
+      user_id: viewer.userId,
+      account_role: 'viewer',
+    })
     .throwOnError();
 
   await admin
@@ -92,8 +91,16 @@ beforeAll(async () => {
     { name: 'Bo Bare', email: 'bo@bare.test', isPrimary: true },
   ]);
 
-  firstRoom = await seedRoomFor({ accountId: teamId, dealId }, 'First Bank', bankDomain);
-  closedRoom = await seedRoomFor({ accountId: teamId, dealId }, 'Closed Bank', `closed-${suffix}.test`);
+  firstRoom = await seedRoomFor(
+    { accountId: teamId, dealId },
+    'First Bank',
+    bankDomain,
+  );
+  closedRoom = await seedRoomFor(
+    { accountId: teamId, dealId },
+    'Closed Bank',
+    `closed-${suffix}.test`,
+  );
   await admin
     .from('lender_room')
     .update({ closed_at: new Date().toISOString() })
@@ -126,10 +133,16 @@ beforeAll(async () => {
     must_close_by: '2026-11-30',
     must_close_reason: 'The seller lease expires',
   });
-  await appendEvent(dealId, crypto.randomUUID(), 'deal_milestone', 'deal_milestone.set', {
-    kind: 'closing',
-    target_on: '2026-10-30',
-  });
+  await appendEvent(
+    dealId,
+    crypto.randomUUID(),
+    'deal_milestone',
+    'deal_milestone.set',
+    {
+      kind: 'closing',
+      target_on: '2026-10-30',
+    },
+  );
 });
 
 afterAll(deleteProvisionedPeople);
@@ -173,7 +186,9 @@ describe('draftLenderOutreach', () => {
     );
     const bare = drafts.find((draft) => draft.roomId === bareRoom)!;
 
-    expect(bare.body).not.toMatch(/null|undefined|\{\{|Loan amount|Timeline|\n\n\n/);
+    expect(bare.body).not.toMatch(
+      /null|undefined|\{\{|Loan amount|Timeline|\n\n\n/,
+    );
     expect(drafts.map((draft) => draft.roomId).sort()).toEqual(
       [bareRoom, otherDealRoom].sort(),
     );
@@ -185,7 +200,7 @@ describe('draftLenderOutreach', () => {
     expect(drafts[0]!.body).toContain("I'm Sam Buyer from Buyer Capital.");
   });
 
-  it("names the deal by its code name, never the business, when one is set", async () => {
+  it('names the deal by its code name, never the business, when one is set', async () => {
     const codedDeal = await seedDeal(teamId, 'Cedar Plumbing');
     await appendEvent(codedDeal, codedDeal, 'deal', 'deal.updated', {
       code_name: 'Project Kestrel',
@@ -239,16 +254,18 @@ describe('draftLenderOutreach', () => {
       `unsaved-${suffix}.test`,
     );
 
-    expect(await unwrap(draftLenderOutreach({ dealId: strandedDeal }))).toEqual({
-      drafts: [],
-      skipped: [
-        {
-          roomId: unsavedRoom,
-          roomName: 'Unsaved Bank',
-          reason: 'Save this lender with a primary contact to draft',
-        },
-      ],
-    });
+    expect(await unwrap(draftLenderOutreach({ dealId: strandedDeal }))).toEqual(
+      {
+        drafts: [],
+        skipped: [
+          {
+            roomId: unsavedRoom,
+            roomName: 'Unsaved Bank',
+            reason: 'Save this lender with a primary contact to draft',
+          },
+        ],
+      },
+    );
   });
 
   it('drafts to the lender the room is linked to, and skips a room with no linked lender, whatever domain it carries', async () => {
@@ -290,7 +307,11 @@ describe('draftLenderOutreach', () => {
     );
 
     expect(drafts).toMatchObject([
-      { roomId: relinked, lenderName: 'Linked Bank', to: `lee@${linkedDomain}` },
+      {
+        roomId: relinked,
+        lenderName: 'Linked Bank',
+        to: `lee@${linkedDomain}`,
+      },
     ]);
     expect(skipped).toEqual([
       {

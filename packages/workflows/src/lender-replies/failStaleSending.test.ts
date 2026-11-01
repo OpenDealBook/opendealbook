@@ -25,7 +25,8 @@ vi.mock('@odb/supabase/admin', () => ({
         },
         throwOnError: () => {
           for (const row of state.rows) {
-            if (filters.every((filter) => filter(row))) Object.assign(row, patch);
+            if (filters.every((filter) => filter(row)))
+              Object.assign(row, patch);
           }
           return Promise.resolve({ error: null });
         },
@@ -65,6 +66,10 @@ describe('failStaleSendingOutreach', () => {
     await failStaleSendingOutreach();
     await failStaleSendingOutreach();
 
-    expect(state.rows.map((row) => row.status)).toEqual(['failed', 'sending', 'sent']);
+    expect(state.rows.map((row) => row.status)).toEqual([
+      'failed',
+      'sending',
+      'sent',
+    ]);
   });
 });

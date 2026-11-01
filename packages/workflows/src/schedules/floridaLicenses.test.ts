@@ -11,7 +11,11 @@ describe('ensureFloridaLicenseSchedule', () => {
 
     expect(schedules.get('florida-licenses-import')).toMatchObject({
       spec: { calendars: [{ hour: 7 }] },
-      action: { type: 'startWorkflow', workflowType: 'importFloridaLicenses', args: [] },
+      action: {
+        type: 'startWorkflow',
+        workflowType: 'importFloridaLicenses',
+        args: [],
+      },
     });
   });
 });

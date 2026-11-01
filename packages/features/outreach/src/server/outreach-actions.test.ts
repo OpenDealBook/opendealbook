@@ -79,7 +79,16 @@ const mocks = vi.hoisted(() => {
     }),
   });
 
-  return { insertSpy, upsertSpy, updateSpy, deleteSpy, rpcSpy, from, rpc, configure };
+  return {
+    insertSpy,
+    upsertSpy,
+    updateSpy,
+    deleteSpy,
+    rpcSpy,
+    from,
+    rpc,
+    configure,
+  };
 });
 
 vi.mock('@odb/next/actions', () => ({
@@ -177,12 +186,22 @@ describe('seedDefaultSequences', () => {
   it('seeds the letter starter turned off, with each step on its channel', async () => {
     await run(seedDefaultSequences)({ accountId: ACCOUNT }, { id: 'user-1' });
 
-    const sequenceInserts = mocks.insertSpy.mock.calls.filter(([table]) => table === 'outreach_sequence');
-    const stepInserts = mocks.insertSpy.mock.calls.filter(([table]) => table === 'outreach_step');
+    const sequenceInserts = mocks.insertSpy.mock.calls.filter(
+      ([table]) => table === 'outreach_sequence',
+    );
+    const stepInserts = mocks.insertSpy.mock.calls.filter(
+      ([table]) => table === 'outreach_step',
+    );
 
-    expect(sequenceInserts.map(([, row]) => (row as { enabled: boolean }).enabled)).toEqual([true, true, false]);
     expect(
-      (stepInserts[2]![1] as Record<string, unknown>[]).map((step) => [step.channel, step.delay_days, step.subject === null]),
+      sequenceInserts.map(([, row]) => (row as { enabled: boolean }).enabled),
+    ).toEqual([true, true, false]);
+    expect(
+      (stepInserts[2]![1] as Record<string, unknown>[]).map((step) => [
+        step.channel,
+        step.delay_days,
+        step.subject === null,
+      ]),
     ).toEqual([
       ['letter', 0, true],
       ['email', 7, false],
@@ -210,7 +229,15 @@ describe('createSequence', () => {
         accountId: ACCOUNT,
         name: 'Custom',
         description: 'A custom template',
-        steps: [{ ordinal: 1, delayDays: 2, channel: 'email', subject: 'Hi', body: 'Body' }],
+        steps: [
+          {
+            ordinal: 1,
+            delayDays: 2,
+            channel: 'email',
+            subject: 'Hi',
+            body: 'Body',
+          },
+        ],
       },
       { id: 'user-1' },
     );
@@ -240,13 +267,22 @@ describe('sequence steps', () => {
         name: 'Letter first',
         steps: [
           { ordinal: 1, delayDays: 0, channel: 'letter', body: 'Dear owner' },
-          { ordinal: 2, delayDays: 7, channel: 'email', subject: 'Following up', body: 'Hi' },
+          {
+            ordinal: 2,
+            delayDays: 7,
+            channel: 'email',
+            subject: 'Following up',
+            body: 'Hi',
+          },
         ],
       },
       { id: 'user-1' },
     );
 
-    const [, steps] = mocks.insertSpy.mock.calls[1] as [string, Record<string, unknown>[]];
+    const [, steps] = mocks.insertSpy.mock.calls[1] as [
+      string,
+      Record<string, unknown>[],
+    ];
     expect(steps).toEqual([
       {
         account_id: ACCOUNT,
@@ -300,23 +336,37 @@ describe('letter templates', () => {
     mocks.configure({ singles: { letter_template: { id: SEQUENCE } } });
 
     const result = await run(updateLetterTemplate)(
-      { accountId: ACCOUNT, templateId: SEQUENCE, name: 'Intro v2', body: 'Hello' },
+      {
+        accountId: ACCOUNT,
+        templateId: SEQUENCE,
+        name: 'Intro v2',
+        body: 'Hello',
+      },
       { id: 'user-1' },
     );
 
     expect(result).toEqual({ ok: true, value: undefined });
-    expect(mocks.updateSpy).toHaveBeenCalledWith('letter_template', { name: 'Intro v2', body: 'Hello' });
+    expect(mocks.updateSpy).toHaveBeenCalledWith('letter_template', {
+      name: 'Intro v2',
+      body: 'Hello',
+    });
   });
 
   it('refuses an edit that changes no template', async () => {
     const result = await run(updateLetterTemplate)(
-      { accountId: ACCOUNT, templateId: SEQUENCE, name: 'Intro v2', body: 'Hello' },
+      {
+        accountId: ACCOUNT,
+        templateId: SEQUENCE,
+        name: 'Intro v2',
+        body: 'Hello',
+      },
       { id: 'user-1' },
     );
 
     expect(result).toEqual({
       ok: false,
-      refusal: 'Only deal managers can edit letter templates. Ask a deal manager.',
+      refusal:
+        'Only deal managers can edit letter templates. Ask a deal manager.',
     });
   });
 });
@@ -324,18 +374,24 @@ describe('letter templates', () => {
 describe('resolveUnknownSend', () => {
   const ENROLLMENT = '00000000-0000-4000-8000-000000000003';
 
-  it.each(['mark_sent', 'retry', 'stop'])('settles the unknown send with %s', async (resolution) => {
-    const result = await run(resolveUnknownSend)(
-      { enrollmentId: ENROLLMENT, resolution },
-      { id: 'user-1' },
-    );
+  it.each(['mark_sent', 'retry', 'stop'])(
+    'settles the unknown send with %s',
+    async (resolution) => {
+      const result = await run(resolveUnknownSend)(
+        { enrollmentId: ENROLLMENT, resolution },
+        { id: 'user-1' },
+      );
 
-    expect(result).toEqual({ ok: true, value: undefined });
-    expect(mocks.rpcSpy).toHaveBeenCalledWith('resolve_unknown_outreach_send', {
-      p_enrollment_id: ENROLLMENT,
-      p_resolution: resolution,
-    });
-  });
+      expect(result).toEqual({ ok: true, value: undefined });
+      expect(mocks.rpcSpy).toHaveBeenCalledWith(
+        'resolve_unknown_outreach_send',
+        {
+          p_enrollment_id: ENROLLMENT,
+          p_resolution: resolution,
+        },
+      );
+    },
+  );
 
   it('refuses an enrollment the team cannot find', async () => {
     mocks.configure({
@@ -347,12 +403,18 @@ describe('resolveUnknownSend', () => {
       { id: 'user-1' },
     );
 
-    expect(result).toEqual({ ok: false, refusal: 'This enrollment was not found' });
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'This enrollment was not found',
+    });
   });
 
   it('tells a member without deals.manage to ask a deal manager', async () => {
     mocks.configure({
-      rpcError: { code: '42501', message: 'resolving an unknown send needs deals.manage' },
+      rpcError: {
+        code: '42501',
+        message: 'resolving an unknown send needs deals.manage',
+      },
     });
 
     const result = await run(resolveUnknownSend)(
@@ -362,7 +424,8 @@ describe('resolveUnknownSend', () => {
 
     expect(result).toEqual({
       ok: false,
-      refusal: 'Only deal managers can settle an unknown send. Ask a deal manager.',
+      refusal:
+        'Only deal managers can settle an unknown send. Ask a deal manager.',
     });
   });
 });
@@ -374,7 +437,15 @@ describe('updateSequence', () => {
         accountId: ACCOUNT,
         sequenceId: SEQUENCE,
         name: 'Renamed',
-        steps: [{ ordinal: 1, delayDays: 0, channel: 'email', subject: 'S', body: 'B' }],
+        steps: [
+          {
+            ordinal: 1,
+            delayDays: 0,
+            channel: 'email',
+            subject: 'S',
+            body: 'B',
+          },
+        ],
       },
       { id: 'user-1' },
     );
@@ -389,7 +460,15 @@ describe('updateSequence', () => {
     expect(mocks.rpcSpy).toHaveBeenCalledWith('replace_outreach_steps', {
       p_account_id: ACCOUNT,
       p_sequence_id: SEQUENCE,
-      p_steps: [{ ordinal: 1, delay_days: 0, channel: 'email', subject: 'S', body: 'B' }],
+      p_steps: [
+        {
+          ordinal: 1,
+          delay_days: 0,
+          channel: 'email',
+          subject: 'S',
+          body: 'B',
+        },
+      ],
     });
     expect(mocks.deleteSpy).not.toHaveBeenCalled();
     expect(mocks.insertSpy).not.toHaveBeenCalled();
@@ -635,9 +714,13 @@ describe('setOutreachSetting', () => {
   });
 
   it('needs max touches; the form sends the default', async () => {
-    const { setOutreachSettingSchema } = await import('../schema/outreach.schema');
+    const { setOutreachSettingSchema } =
+      await import('../schema/outreach.schema');
 
-    expect(setOutreachSettingSchema.safeParse({ accountId: ACCOUNT, dailyCap: 25 }).success).toBe(false);
+    expect(
+      setOutreachSettingSchema.safeParse({ accountId: ACCOUNT, dailyCap: 25 })
+        .success,
+    ).toBe(false);
   });
 });
 

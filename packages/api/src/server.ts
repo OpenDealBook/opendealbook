@@ -56,7 +56,9 @@ export const createApiKey = enhanceAction(
       return {
         ok: false,
         refusal:
-          error.message === 'team is read-only' ? TEAM_READ_ONLY : CANNOT_CREATE,
+          error.message === 'team is read-only'
+            ? TEAM_READ_ONLY
+            : CANNOT_CREATE,
       };
     }
 

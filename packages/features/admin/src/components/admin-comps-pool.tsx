@@ -30,14 +30,19 @@ export function AdminCompsPool() {
     return <Spinner />;
   }
 
-  const { minBucket, compBuckets, activityBuckets, externalComps, optInActive } =
-    data!;
+  const {
+    minBucket,
+    compBuckets,
+    activityBuckets,
+    externalComps,
+    optInActive,
+  } = data!;
   const closed = summarizeBuckets(compBuckets);
   const activity = summarizeBuckets(activityBuckets);
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-muted-foreground text-sm">
         Buckets below the k-anonymity minimum of {minBucket} are hidden, and
         only coarse region and NAICS-3 dimensions are shown. Proprietary and
         internal comparables never appear here.
@@ -141,7 +146,9 @@ export function AdminCompsPool() {
                   <TableCell>
                     <Badge variant="outline">{bucket.n}</Badge>
                   </TableCell>
-                  <TableCell>{formatMoney(bucket.median_asking_price)}</TableCell>
+                  <TableCell>
+                    {formatMoney(bucket.median_asking_price)}
+                  </TableCell>
                   <TableCell>{formatMoney(bucket.median_loi_price)}</TableCell>
                 </TableRow>
               ))}

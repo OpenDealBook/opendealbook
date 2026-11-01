@@ -9,7 +9,10 @@ export function isLoaded(current: Snapshot | null): current is Snapshot {
   return current !== null && current.entries > 0;
 }
 
-export function screeningListSkip(current: Snapshot | null, now: Date): string | null {
+export function screeningListSkip(
+  current: Snapshot | null,
+  now: Date,
+): string | null {
   if (!isLoaded(current)) {
     return 'The sanctions list is not loaded yet';
   }

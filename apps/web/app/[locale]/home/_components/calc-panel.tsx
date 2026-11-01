@@ -261,7 +261,9 @@ export function CalculatorsPanel(props: {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Delete {deleting === null ? null : versionName(deleting, props.versions)}?
+              Delete{' '}
+              {deleting === null ? null : versionName(deleting, props.versions)}
+              ?
             </DialogTitle>
             <DialogDescription>You can't undo this.</DialogDescription>
           </DialogHeader>

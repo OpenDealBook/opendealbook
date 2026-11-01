@@ -1,11 +1,16 @@
-import { createHash, randomUUID } from 'crypto';
-
 import ExcelJS from 'exceljs';
 
 import bizcomps from './vendors/bizcomps-v1.json';
+import {
+  loadColumnMap,
+  mapRow,
+  type ColumnMap,
+  type ParsedValue,
+} from './vendors/column-map';
 import dealstats from './vendors/dealstats-v1.json';
 import peercomps from './vendors/peercomps-v1.json';
-import { loadColumnMap, mapRow, type ColumnMap, type ParsedValue } from './vendors/column-map';
+
+import { createHash, randomUUID } from 'crypto';
 
 const UNSAFE_IN_STORAGE_KEY = /[^A-Za-z0-9._-]/g;
 
@@ -56,7 +61,10 @@ export interface ImportCompsInput {
 
 export interface ImportCompsDeps {
   storeRawFile(path: string, body: string): Promise<void>;
-  findActiveLicense(accountId: string, vendor: VendorKey): Promise<{ id: string } | null>;
+  findActiveLicense(
+    accountId: string,
+    vendor: VendorKey,
+  ): Promise<{ id: string } | null>;
   upsertComps(rows: ProprietaryCompRow[]): Promise<void>;
   recordImport(record: CompImportInsert): Promise<{ id: string }>;
 }
@@ -208,7 +216,11 @@ function asNumber(value: ParsedValue | undefined): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-function upsertKey(accountId: string, vendor: VendorKey, mapped: Record<string, ParsedValue>): string {
+function upsertKey(
+  accountId: string,
+  vendor: VendorKey,
+  mapped: Record<string, ParsedValue>,
+): string {
   return createHash('sha256')
     .update(`${accountId}|${vendor}|${JSON.stringify(mapped)}`)
     .digest('hex');
@@ -255,8 +267,12 @@ export async function importComps(
 
   const config = VENDOR_CONFIG[input.vendor];
   const records =
-    input.format === 'xlsx' ? await parseXlsx(input.content) : parseCsv(input.content);
-  const rows = records.map((record) => toProprietaryCompRow(config, input, record));
+    input.format === 'xlsx'
+      ? await parseXlsx(input.content)
+      : parseCsv(input.content);
+  const rows = records.map((record) =>
+    toProprietaryCompRow(config, input, record),
+  );
 
   const storagePath = `${input.accountId}/${input.vendor}/${randomUUID()}-${input.filename.replace(UNSAFE_IN_STORAGE_KEY, '_')}`;
   await deps.storeRawFile(storagePath, input.content);
@@ -277,5 +293,9 @@ export async function importComps(
     created_by: input.createdBy,
   });
 
-  return { importId: imported.id, licenseId: license.id, rowCount: rows.length };
+  return {
+    importId: imported.id,
+    licenseId: license.id,
+    rowCount: rows.length,
+  };
 }

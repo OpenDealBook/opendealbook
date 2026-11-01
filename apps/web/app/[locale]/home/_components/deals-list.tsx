@@ -89,7 +89,9 @@ function resolutionLabel(
     return '';
   }
   const outcome = resolution === 'won' ? 'Won' : 'Lost';
-  return reason === null ? outcome : `${outcome} (${reason.replace(/_/g, ' ')})`;
+  return reason === null
+    ? outcome
+    : `${outcome} (${reason.replace(/_/g, ' ')})`;
 }
 
 function options(
@@ -121,10 +123,7 @@ function nameMap(
   return map;
 }
 
-function nextPageHref(
-  params: RawSearchParams,
-  cursor: string,
-): string {
+function nextPageHref(params: RawSearchParams, cursor: string): string {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     const raw = Array.isArray(value) ? value[0] : value;
@@ -239,11 +238,7 @@ export async function DealsList({
 
       <div className={'flex min-w-0 flex-1 flex-col gap-4'}>
         <div className={'flex flex-wrap items-center justify-between gap-2'}>
-          <SavedViewsBar
-            views={savedViews}
-            accountId={accountId}
-            view={view}
-          />
+          <SavedViewsBar views={savedViews} accountId={accountId} view={view} />
           <div className={'flex items-center gap-2'}>
             <DealsViewToggle view={view} />
             <Button asChild size={'sm'}>
@@ -254,9 +249,7 @@ export async function DealsList({
 
         {result.items.length === 0 ? (
           <p className={'text-muted-foreground text-sm'}>
-            {hasActiveFilters(searchParams)
-              ? 'No deals match'
-              : 'No deals yet'}
+            {hasActiveFilters(searchParams) ? 'No deals match' : 'No deals yet'}
           </p>
         ) : (
           <>
@@ -287,7 +280,10 @@ export async function DealsList({
             ) : (
               <div className={'flex flex-col gap-6'}>
                 {grouped.map((section) => (
-                  <section key={section.group} className={'flex flex-col gap-3'}>
+                  <section
+                    key={section.group}
+                    className={'flex flex-col gap-3'}
+                  >
                     <h2 className={'text-muted-foreground text-xs font-medium'}>
                       {section.label} ({section.items.length})
                     </h2>
@@ -358,7 +354,10 @@ function GroupSection({
       {items.map((deal) => (
         <TableRow key={deal.id}>
           <TableCell className={'flex items-center gap-2'}>
-            <Link href={`${detailBasePath}/${deal.id}`} className={'hover:underline'}>
+            <Link
+              href={`${detailBasePath}/${deal.id}`}
+              className={'hover:underline'}
+            >
               {deal.title}
             </Link>
             {deal.isExample ? (
@@ -366,7 +365,9 @@ function GroupSection({
             ) : null}
           </TableCell>
           {columns.map((column) => (
-            <TableCell key={column.key}>{COLUMN_CELLS[column.key](deal)}</TableCell>
+            <TableCell key={column.key}>
+              {COLUMN_CELLS[column.key](deal)}
+            </TableCell>
           ))}
           <TableCell>
             <DealRowActions

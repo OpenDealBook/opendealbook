@@ -107,7 +107,11 @@ describe('resolveRecipients', () => {
   });
 
   it('keeps a team member whose role reads broker out of brokers', () => {
-    const tim = pulled('tim', { source: 'team', side: 'buyer', role: 'broker' });
+    const tim = pulled('tim', {
+      source: 'team',
+      side: 'buyer',
+      role: 'broker',
+    });
 
     expect(
       resolveRecipients([tim, bea], { groups: ['brokers'], people: [] }).map(
@@ -117,7 +121,11 @@ describe('resolveRecipients', () => {
   });
 
   it('keeps a team member whose role reads attorney out of counsel groups', () => {
-    const tia = pulled('tia', { source: 'team', side: 'buyer', role: 'attorney' });
+    const tia = pulled('tia', {
+      source: 'team',
+      side: 'buyer',
+      role: 'attorney',
+    });
     const tom = pulled('tom', {
       source: 'team',
       side: 'seller',

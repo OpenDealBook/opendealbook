@@ -14,10 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@odb/ui/select';
-import {
-  TemplateField,
-  type TemplateFieldType,
-} from '@odb/ui/template-field';
+import { TemplateField, type TemplateFieldType } from '@odb/ui/template-field';
 
 import { createGeneratedLinks } from '../actions';
 import { SendToSellerPanel } from './send-to-seller-panel';

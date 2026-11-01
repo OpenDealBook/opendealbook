@@ -1,7 +1,7 @@
+import Papa from 'papaparse';
+
 import { mapSbaRows, type SbaCompFacts, type SbaProgram } from '@odb/comps';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
-
-import Papa from 'papaparse';
 
 import { fetchSbaFiles } from '../leadImports/discover';
 
@@ -12,7 +12,8 @@ export interface SbaResources {
 
 export async function discoverSbaResources(): Promise<SbaResources> {
   const files = await fetchSbaFiles();
-  const urls = (kind: 'sba_7a' | 'sba_504') => files.filter((file) => file.kind === kind).map((file) => file.url);
+  const urls = (kind: 'sba_7a' | 'sba_504') =>
+    files.filter((file) => file.kind === kind).map((file) => file.url);
   return { sevenA: urls('sba_7a'), fiveOhFour: urls('sba_504') };
 }
 
@@ -82,7 +83,9 @@ export async function refreshSbaProgram(
     }
 
     const rows = facts.map(toCompRow);
-    const { error } = await client.from('comp').upsert(rows, { onConflict: 'source,source_ref' });
+    const { error } = await client
+      .from('comp')
+      .upsert(rows, { onConflict: 'source,source_ref' });
 
     if (error) {
       throw error;

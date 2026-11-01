@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
 import type { Client } from '@temporalio/client';
-
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import '../../test-support/integration-harness';
@@ -63,10 +62,18 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await admin.from('screening_import').delete().in('id', imports).throwOnError();
+  await admin
+    .from('screening_import')
+    .delete()
+    .in('id', imports)
+    .throwOnError();
   for (const importId of preexisting) {
     if ((await entryCount(importId)) === 0) {
-      await admin.from('screening_import').delete().eq('id', importId).throwOnError();
+      await admin
+        .from('screening_import')
+        .delete()
+        .eq('id', importId)
+        .throwOnError();
     }
   }
 });
@@ -178,7 +185,10 @@ describe('screenSubjects', () => {
     ]);
 
     expect(result).toHaveProperty('candidates');
-    const { candidates } = result as Extract<typeof result, { candidates: unknown }>;
+    const { candidates } = result as Extract<
+      typeof result,
+      { candidates: unknown }
+    >;
     expect(
       candidates.map((candidate) => [
         candidate.subjectKey,
@@ -197,12 +207,18 @@ describe('screenSubjects with an empty snapshot', () => {
     const empty = await started();
     await admin
       .from('screening_import')
-      .update({ status: 'succeeded', as_of: '2026-10-27T11:15:00Z', entry_count: 26173 })
+      .update({
+        status: 'succeeded',
+        as_of: '2026-10-27T11:15:00Z',
+        entry_count: 26173,
+      })
       .eq('id', empty)
       .throwOnError();
 
     expect(
-      await screenSubjects([{ key: 'owner', name: 'Vladimir Putin', kind: 'person' }]),
+      await screenSubjects([
+        { key: 'owner', name: 'Vladimir Putin', kind: 'person' },
+      ]),
     ).toEqual({ skipped: 'The sanctions list is not loaded yet' });
   });
 });
@@ -226,7 +242,11 @@ describe('ensureScreeningListLoaded', () => {
     const empty = await started();
     await admin
       .from('screening_import')
-      .update({ status: 'succeeded', as_of: '2026-10-27T11:15:00Z', entry_count: 26173 })
+      .update({
+        status: 'succeeded',
+        as_of: '2026-10-27T11:15:00Z',
+        entry_count: 26173,
+      })
       .eq('id', empty)
       .throwOnError();
     const { client, triggered } = recordingClient();

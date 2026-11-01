@@ -40,7 +40,9 @@ export function UnknownSendActions({
   canResolve: boolean;
 }) {
   const router = useRouter();
-  const [confirming, setConfirming] = useState<keyof typeof CONFIRMATIONS | null>(null);
+  const [confirming, setConfirming] = useState<
+    keyof typeof CONFIRMATIONS | null
+  >(null);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -61,7 +63,8 @@ export function UnknownSendActions({
   return (
     <div className={'flex flex-col gap-2'}>
       <p className={'text-sm'}>
-        We couldn&apos;t tell whether this email went out. Check the mailbox&apos;s sent folder.
+        We couldn&apos;t tell whether this email went out. Check the
+        mailbox&apos;s sent folder.
       </p>
       {canResolve ? (
         <div className={'flex flex-wrap gap-2'}>
@@ -99,12 +102,17 @@ export function UnknownSendActions({
           {refusal}
         </p>
       ) : null}
-      <Dialog open={confirming !== null} onOpenChange={() => setConfirming(null)}>
+      <Dialog
+        open={confirming !== null}
+        onOpenChange={() => setConfirming(null)}
+      >
         {confirming ? (
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{CONFIRMATIONS[confirming].title}</DialogTitle>
-              <DialogDescription>{CONFIRMATIONS[confirming].description}</DialogDescription>
+              <DialogDescription>
+                {CONFIRMATIONS[confirming].description}
+              </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button
@@ -115,7 +123,11 @@ export function UnknownSendActions({
               >
                 Cancel
               </Button>
-              <Button type={'button'} disabled={pending} onClick={() => resolve(confirming)}>
+              <Button
+                type={'button'}
+                disabled={pending}
+                onClick={() => resolve(confirming)}
+              >
                 {CONFIRMATIONS[confirming].confirm}
               </Button>
             </DialogFooter>

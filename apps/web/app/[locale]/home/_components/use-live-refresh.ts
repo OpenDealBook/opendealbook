@@ -28,21 +28,23 @@ export function useLiveRefresh<Table extends keyof Tables & string>(
     const refresh = () => router.refresh();
     // A channel carries the token it joined with; joining before the session
     // is read joins as anon, and RLS then delivers nothing.
-    const channel = client.realtime.setAuth().then(() =>
-      client
-        .channel(`${table}:${filter}:${crypto.randomUUID()}`)
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table, filter },
-          refresh,
-        )
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table, filter },
-          refresh,
-        )
-        .subscribe(),
-    );
+    const channel = client.realtime
+      .setAuth()
+      .then(() =>
+        client
+          .channel(`${table}:${filter}:${crypto.randomUUID()}`)
+          .on(
+            'postgres_changes',
+            { event: 'INSERT', schema: 'public', table, filter },
+            refresh,
+          )
+          .on(
+            'postgres_changes',
+            { event: 'UPDATE', schema: 'public', table, filter },
+            refresh,
+          )
+          .subscribe(),
+      );
 
     return () => {
       void channel.then((joined) => client.removeChannel(joined));

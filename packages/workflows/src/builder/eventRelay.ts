@@ -26,7 +26,9 @@ const IDLE_POLL = '30 seconds';
 
 export type RelayCursors = Partial<Record<EventLogName, RelayCursor>>;
 
-export async function workflowEventRelay(input: RelayCursors = {}): Promise<void> {
+export async function workflowEventRelay(
+  input: RelayCursors = {},
+): Promise<void> {
   const cursors: RelayCursors = {};
   let relayed = 0;
 
@@ -36,7 +38,11 @@ export async function workflowEventRelay(input: RelayCursors = {}): Promise<void
       input[log] ??
       (await loadEventRelayCursor(name)) ??
       (await startEventRelayCursorAtLatest({ name }));
-    const events = await fetchTriggerEvents({ log, after: cursor, limit: BATCH_SIZE });
+    const events = await fetchTriggerEvents({
+      log,
+      after: cursor,
+      limit: BATCH_SIZE,
+    });
 
     for (const event of events) {
       await relayOrSetAside(

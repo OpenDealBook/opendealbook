@@ -20,7 +20,8 @@ const { AlreadySignedInDocumenso, recordExternalSignature } =
 const { recordSigning } = await import('./documenso');
 
 type SignatureState = import('./documenso').SignatureState;
-type ExternalSignatureDeps = import('./external-signature').ExternalSignatureDeps;
+type ExternalSignatureDeps =
+  import('./external-signature').ExternalSignatureDeps;
 
 type Person = Awaited<ReturnType<typeof provisionPerson>>;
 
@@ -253,9 +254,15 @@ describe('recording a contract signed outside the platform', () => {
     const dealId = await dealAt('loi_submitted');
     const signed: unknown[] = [];
 
-    await record(dealId, 'loi', null, { bytes: PDF, kind: 'pdf' }, async (loi) => {
-      signed.push(loi);
-    });
+    await record(
+      dealId,
+      'loi',
+      null,
+      { bytes: PDF, kind: 'pdf' },
+      async (loi) => {
+        signed.push(loi);
+      },
+    );
 
     expect(signed).toEqual([{ dealId, signedOn: SIGNED_ON }]);
   });
@@ -264,9 +271,15 @@ describe('recording a contract signed outside the platform', () => {
     const dealId = await dealAt('pa_submitted');
     const signed: unknown[] = [];
 
-    await record(dealId, 'apa', null, { bytes: PDF, kind: 'pdf' }, async (apa) => {
-      signed.push(apa);
-    });
+    await record(
+      dealId,
+      'apa',
+      null,
+      { bytes: PDF, kind: 'pdf' },
+      async (apa) => {
+        signed.push(apa);
+      },
+    );
 
     expect(signed).toEqual([]);
   });

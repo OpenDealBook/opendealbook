@@ -4,8 +4,8 @@ import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import { NODE_CONFIG_SCHEMAS } from '../graph';
 import { defineStep } from '../step';
-import { teamRow } from '../teamRow';
 import { askTeamAi } from '../teamAi';
+import { teamRow } from '../teamRow';
 
 type Address = {
   line1: string | null;
@@ -15,7 +15,9 @@ type Address = {
 };
 
 function cleanPart(part: string | null): string | null {
-  return part === null ? null : part.replaceAll('.', '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return part === null
+    ? null
+    : part.replaceAll('.', '').replace(/\s+/g, ' ').trim().toUpperCase();
 }
 
 function cleanPostalCode(postalCode: string | null): string | null {
@@ -80,7 +82,8 @@ export function firstMailingAddress({
       })),
     ]
       .map(cleanAddress)
-      .find((address) => address.line1 && address.city && address.postalCode) ?? null
+      .find((address) => address.line1 && address.city && address.postalCode) ??
+    null
   );
 }
 
@@ -96,7 +99,12 @@ const addressFields = 'address_line1, city, state, postal_code';
 
 async function publicRecords(businessId: string) {
   const admin = getSupabaseServerAdminClient();
-  const [{ data: registries }, { data: ppp }, { data: sba }, { data: form5500 }] = await Promise.all([
+  const [
+    { data: registries },
+    { data: ppp },
+    { data: sba },
+    { data: form5500 },
+  ] = await Promise.all([
     admin
       .from('state_registry_entity')
       .select(
@@ -107,13 +115,17 @@ async function publicRecords(businessId: string) {
       .throwOnError(),
     admin
       .from('ppp_loan')
-      .select(`${addressFields}, naics_code, jobs_reported, loan_amount, approved_on`)
+      .select(
+        `${addressFields}, naics_code, jobs_reported, loan_amount, approved_on`,
+      )
       .eq('business_id', businessId)
       .order('approved_on', { ascending: false, nullsFirst: false })
       .throwOnError(),
     admin
       .from('sba_loan')
-      .select(`${addressFields}, program, naics_code, jobs_supported, loan_amount, approved_on`)
+      .select(
+        `${addressFields}, program, naics_code, jobs_supported, loan_amount, approved_on`,
+      )
       .eq('business_id', businessId)
       .order('approved_on', { ascending: false, nullsFirst: false })
       .throwOnError(),
@@ -134,7 +146,12 @@ export const prepareFirm = defineStep({
   inputSchema: z.object({}),
   outputSchema: z.object({
     mailingAddress: z
-      .object({ line1: z.string().nullable(), city: z.string().nullable(), state: z.string().nullable(), postalCode: z.string().nullable() })
+      .object({
+        line1: z.string().nullable(),
+        city: z.string().nullable(),
+        state: z.string().nullable(),
+        postalCode: z.string().nullable(),
+      })
       .nullable(),
     profileId: z.string(),
   }),
@@ -148,7 +165,9 @@ export const prepareFirm = defineStep({
     } = await teamRow(config.firmId, 'That firm is not on this team', (id) =>
       getSupabaseServerAdminClient()
         .from('firm')
-        .select('name, industry, city, state, website, employee_band, established_year, naics_code, public_business_id, owner_mailing_address_line1, owner_mailing_city, owner_mailing_state, owner_mailing_postal_code')
+        .select(
+          'name, industry, city, state, website, employee_band, established_year, naics_code, public_business_id, owner_mailing_address_line1, owner_mailing_city, owner_mailing_state, owner_mailing_postal_code',
+        )
         .eq('id', id)
         .eq('account_id', context.accountId)
         .maybeSingle()
@@ -167,13 +186,21 @@ export const prepareFirm = defineStep({
       ? await publicRecords(firm.public_business_id)
       : { registries: [], ppp: [], sba: [], form5500: [] };
 
-    const foundAddress = existingAddress ? null : firstMailingAddress({ registries, ppp, sba, form5500 });
+    const foundAddress = existingAddress
+      ? null
+      : firstMailingAddress({ registries, ppp, sba, form5500 });
 
     const profile = await askTeamAi({
       accountId: context.accountId,
       firmId: config.firmId,
       signal: context.signal,
-      prompt: profilePrompt({ firm, registry: registries[0] ?? null, ppp, sba, form5500 }),
+      prompt: profilePrompt({
+        firm,
+        registry: registries[0] ?? null,
+        ppp,
+        sba,
+        form5500,
+      }),
     });
 
     await getSupabaseServerAdminClient()
@@ -192,6 +219,9 @@ export const prepareFirm = defineStep({
       .eq('id', config.firmId)
       .throwOnError();
 
-    return { mailingAddress: existingAddress ?? foundAddress, profileId: config.firmId };
+    return {
+      mailingAddress: existingAddress ?? foundAddress,
+      profileId: config.firmId,
+    };
   },
 });

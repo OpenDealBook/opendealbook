@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { provisionAccount, type IntegrationAccount } from '../../../test-support/integration-harness';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../../test-support/integration-harness';
 import { registryLookup } from './registryLookup';
 
 let owner: IntegrationAccount;
@@ -12,14 +15,21 @@ let outsiderFirmId: string;
 
 function lookUp(config: Record<string, unknown>) {
   return registryLookup.execute({
-    context: { accountId: owner.accountId, runId: 'run-1', idempotencyKey: 'run-1:registry:0' },
+    context: {
+      accountId: owner.accountId,
+      runId: 'run-1',
+      idempotencyKey: 'run-1:registry:0',
+    },
     config,
     input: {},
   });
 }
 
 beforeAll(async () => {
-  [owner, outsider] = await Promise.all([provisionAccount(), provisionAccount()]);
+  [owner, outsider] = await Promise.all([
+    provisionAccount(),
+    provisionAccount(),
+  ]);
   const { data: business } = await owner.admin
     .from('public_business')
     .insert({ name: 'Rowan Fixture Plumbing LLC' })
@@ -50,7 +60,11 @@ beforeAll(async () => {
   await owner.admin
     .from('state_registry_officer')
     .insert([
-      { entity_id: entity.id, name: 'Ana Delgado-Ruiz', title: 'Managing Member' },
+      {
+        entity_id: entity.id,
+        name: 'Ana Delgado-Ruiz',
+        title: 'Managing Member',
+      },
       { entity_id: entity.id, name: 'Rowan Fictional', title: null },
     ])
     .throwOnError();
@@ -58,16 +72,28 @@ beforeAll(async () => {
   const firms = await owner.admin
     .from('firm')
     .insert([
-      { account_id: owner.accountId, name: 'Rowan Fixture Plumbing', public_business_id: businessId },
+      {
+        account_id: owner.accountId,
+        name: 'Rowan Fixture Plumbing',
+        public_business_id: businessId,
+      },
       { account_id: owner.accountId, name: 'Unregistered Painting' },
     ])
     .select('id, name')
     .throwOnError();
-  firmId = firms.data.find((firm: { name: string }) => firm.name === 'Rowan Fixture Plumbing')!.id;
-  unregisteredFirmId = firms.data.find((firm: { name: string }) => firm.name === 'Unregistered Painting')!.id;
+  firmId = firms.data.find(
+    (firm: { name: string }) => firm.name === 'Rowan Fixture Plumbing',
+  )!.id;
+  unregisteredFirmId = firms.data.find(
+    (firm: { name: string }) => firm.name === 'Unregistered Painting',
+  )!.id;
   const { data: outsiderFirm } = await outsider.admin
     .from('firm')
-    .insert({ account_id: outsider.accountId, name: 'Rowan Fixture Plumbing', public_business_id: businessId })
+    .insert({
+      account_id: outsider.accountId,
+      name: 'Rowan Fixture Plumbing',
+      public_business_id: businessId,
+    })
     .select('id')
     .single()
     .throwOnError();
@@ -75,8 +101,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await owner.admin.from('accounts').delete().in('id', [owner.accountId, outsider.accountId]);
-  await owner.admin.from('state_registry_entity').delete().eq('business_id', businessId);
+  await owner.admin
+    .from('accounts')
+    .delete()
+    .in('id', [owner.accountId, outsider.accountId]);
+  await owner.admin
+    .from('state_registry_entity')
+    .delete()
+    .eq('business_id', businessId);
   await owner.admin.from('public_business').delete().eq('id', businessId);
   await Promise.all([owner.cleanup(), outsider.cleanup()]);
 });
@@ -90,7 +122,12 @@ describe('registry_lookup step (integration)', () => {
         entityNumber: expect.stringMatching(/^reg-/),
         name: 'Rowan Fixture Plumbing LLC',
         registeredAgent: 'Island Agents Inc',
-        mailingAddress: { line1: '12 Beach Rd', city: 'Saipan', state: 'MP', postalCode: '96950' },
+        mailingAddress: {
+          line1: '12 Beach Rd',
+          city: 'Saipan',
+          state: 'MP',
+          postalCode: '96950',
+        },
       },
       officers: expect.arrayContaining([
         { name: 'Ana Delgado-Ruiz', title: 'Managing Member' },
@@ -103,7 +140,9 @@ describe('registry_lookup step (integration)', () => {
   });
 
   it('answers not found, without failing, when no registry record is linked', async () => {
-    expect(await lookUp({ firmId: unregisteredFirmId })).toEqual({ found: false });
+    expect(await lookUp({ firmId: unregisteredFirmId })).toEqual({
+      found: false,
+    });
   });
 
   it('refuses a firm id that is not a firm id', async () => {

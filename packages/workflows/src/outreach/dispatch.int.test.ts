@@ -1,6 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { ApplicationFailure } from '@temporalio/common';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
@@ -41,7 +40,10 @@ const letters = vi.hoisted(() => {
   return {
     LetterCapReached,
     LetterSetupMissing,
-    sendLetter: vi.fn(async (..._args: unknown[]) => ({ letterId: 'letter-1', status: 'created' })),
+    sendLetter: vi.fn(async (..._args: unknown[]) => ({
+      letterId: 'letter-1',
+      status: 'created',
+    })),
   };
 });
 
@@ -89,13 +91,15 @@ async function seedSequence(): Promise<void> {
   }
   sequenceId = sequence.id as string;
 
-  const { error: stepError } = await account.admin.from('outreach_step').insert({
-    account_id: account.accountId,
-    sequence_id: sequenceId,
-    ordinal: 1,
-    subject: 'Quick question',
-    body: 'Hi there, would you be open to a conversation?',
-  });
+  const { error: stepError } = await account.admin
+    .from('outreach_step')
+    .insert({
+      account_id: account.accountId,
+      sequence_id: sequenceId,
+      ordinal: 1,
+      subject: 'Quick question',
+      body: 'Hi there, would you be open to a conversation?',
+    });
   if (stepError) {
     throw stepError;
   }
@@ -134,7 +138,11 @@ async function setSetting(dailyCap: number, maxTouches: number): Promise<void> {
   }
 }
 
-async function enroll(targetEmail: string, status = 'queued', currentStep = 1): Promise<string> {
+async function enroll(
+  targetEmail: string,
+  status = 'queued',
+  currentStep = 1,
+): Promise<string> {
   const { data, error } = await account.admin
     .from('outreach_enrollment')
     .insert({
@@ -213,12 +221,20 @@ async function approvedFirm(name: string): Promise<string> {
     .throwOnError();
   await account.admin
     .from('firm_verdict_approval')
-    .insert({ verdict_id: verdict.id, account_id: account.accountId, approved_by: account.userId })
+    .insert({
+      verdict_id: verdict.id,
+      account_id: account.accountId,
+      approved_by: account.userId,
+    })
     .throwOnError();
   return firm.id as string;
 }
 
-async function enrollFirm(firmId: string, targetEmail: string, currentStep: number): Promise<string> {
+async function enrollFirm(
+  firmId: string,
+  targetEmail: string,
+  currentStep: number,
+): Promise<string> {
   const id = await enroll(targetEmail, 'queued', currentStep);
   await account.admin
     .from('outreach_enrollment')
@@ -245,7 +261,12 @@ async function progress(id: string) {
     .eq('id', id)
     .single()
     .throwOnError();
-  return data as { status: string; current_step: number; sent_count: number; next_send_at: string };
+  return data as {
+    status: string;
+    current_step: number;
+    sent_count: number;
+    next_send_at: string;
+  };
 }
 
 const DAY_MS = 86_400_000;
@@ -269,7 +290,9 @@ describe('dispatchAccountOutreach (integration)', () => {
     await enroll('b@target.test');
     await enroll('c@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(2);
     expect(mailbox.sendAs).toHaveBeenCalledTimes(2);
@@ -299,10 +322,15 @@ describe('dispatchAccountOutreach (integration)', () => {
     await enroll('repeat@target.test');
     await enroll('fresh@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(1);
-    const counts = await messagesFor(['repeat@target.test', 'fresh@target.test']);
+    const counts = await messagesFor([
+      'repeat@target.test',
+      'fresh@target.test',
+    ]);
     expect(counts['repeat@target.test']).toBe(1);
     expect(counts['fresh@target.test']).toBe(1);
   });
@@ -321,7 +349,11 @@ describe('dispatchAccountOutreach (integration)', () => {
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'sent', current_step: 2, sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'sent',
+      current_step: 2,
+      sent_count: 1,
+    });
   });
 
   it('allows three touches for a team that has not set its own limit', async () => {
@@ -346,10 +378,15 @@ describe('dispatchAccountOutreach (integration)', () => {
     const blocked = await enroll('blocked@target.test');
     await enroll('allowed@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(1);
-    const counts = await messagesFor(['blocked@target.test', 'allowed@target.test']);
+    const counts = await messagesFor([
+      'blocked@target.test',
+      'allowed@target.test',
+    ]);
     expect(counts['blocked@target.test']).toBe(0);
     expect(counts['allowed@target.test']).toBe(1);
     expect(await progress(blocked)).toMatchObject({ status: 'suppressed' });
@@ -358,7 +395,9 @@ describe('dispatchAccountOutreach (integration)', () => {
   it('marks a send that got no response unknown and never resends it', async () => {
     await setSetting(10, 5);
     const enrollmentId = await enroll('silent@target.test');
-    mailbox.sendAs.mockRejectedValueOnce(new mailbox.MailboxNoResponse('Gmail send got no response'));
+    mailbox.sendAs.mockRejectedValueOnce(
+      new mailbox.MailboxNoResponse('Gmail send got no response'),
+    );
 
     await dispatchAccountOutreach({ accountId: account.accountId });
     await dispatchAccountOutreach({ accountId: account.accountId });
@@ -371,8 +410,13 @@ describe('dispatchAccountOutreach (integration)', () => {
       .single()
       .throwOnError();
     expect(data.status).toBe('unknown');
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', current_step: 1 });
-    expect(await failure(enrollmentId)).toBe('Send result unknown; check the mailbox');
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'queued',
+      current_step: 1,
+    });
+    expect(await failure(enrollmentId)).toBe(
+      'Send result unknown; check the mailbox',
+    );
   });
 
   it('does not resend when a retry follows a crash after the provider accepted the email', async () => {
@@ -380,12 +424,15 @@ describe('dispatchAccountOutreach (integration)', () => {
     await enroll('once@target.test');
     mailbox.sendAs.mockImplementationOnce(async () => {
       database.reachable = false;
-      return { providerMessageId: 'accepted-before-crash', threadId: 'thread-before-crash' };
+      return {
+        providerMessageId: 'accepted-before-crash',
+        threadId: 'thread-before-crash',
+      };
     });
 
-    await expect(dispatchAccountOutreach({ accountId: account.accountId })).rejects.toThrow(
-      'worker lost the database',
-    );
+    await expect(
+      dispatchAccountOutreach({ accountId: account.accountId }),
+    ).rejects.toThrow('worker lost the database');
     database.reachable = true;
     await dispatchAccountOutreach({ accountId: account.accountId });
 
@@ -414,7 +461,9 @@ describe('dispatchAccountOutreach (integration)', () => {
   it('records the message as failed with the provider error when the send throws', async () => {
     await setSetting(10, 5);
     const enrollmentId = await enroll('bounced@target.test');
-    mailbox.sendAs.mockRejectedValueOnce(new mailbox.MailboxRequestFailed(400, 'Gmail send'));
+    mailbox.sendAs.mockRejectedValueOnce(
+      new mailbox.MailboxRequestFailed(400, 'Gmail send'),
+    );
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
@@ -423,28 +472,43 @@ describe('dispatchAccountOutreach (integration)', () => {
       .select('status, error')
       .eq('enrollment_id', enrollmentId)
       .single();
-    expect(data).toEqual({ status: 'failed', error: 'Gmail send failed with status 400' });
+    expect(data).toEqual({
+      status: 'failed',
+      error: 'Gmail send failed with status 400',
+    });
     expect(await progress(enrollmentId)).toMatchObject({ status: 'failed' });
-    expect(await failure(enrollmentId)).toBe('Gmail send failed with status 400');
+    expect(await failure(enrollmentId)).toBe(
+      'Gmail send failed with status 400',
+    );
   });
 
   it('keeps the enrollment queued with the reason when the send fails for a passing reason, then sends next tick', async () => {
     await setSetting(10, 5);
     const enrollmentId = await enroll('later@target.test');
-    mailbox.sendAs.mockRejectedValueOnce(new mailbox.MailboxRequestFailed(503, 'Gmail send'));
+    mailbox.sendAs.mockRejectedValueOnce(
+      new mailbox.MailboxRequestFailed(503, 'Gmail send'),
+    );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', sent_count: 0 });
-    expect(await failure(enrollmentId)).toBe('Gmail send failed with status 503');
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'queued',
+      sent_count: 0,
+    });
+    expect(await failure(enrollmentId)).toBe(
+      'Gmail send failed with status 503',
+    );
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(enrollmentId));
     warn.mockRestore();
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).toHaveBeenCalledTimes(2);
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'sent', sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'sent',
+      sent_count: 1,
+    });
     expect(await failure(enrollmentId)).toBeNull();
   });
 
@@ -473,7 +537,9 @@ describe('dispatchAccountOutreach (integration)', () => {
 
     expect(mailbox.sendAs).not.toHaveBeenCalled();
     expect(await progress(enrollmentId)).toMatchObject({ status: 'queued' });
-    expect(await failure(enrollmentId)).toBe('Set a letter return address first');
+    expect(await failure(enrollmentId)).toBe(
+      'Set a letter return address first',
+    );
   });
 
   it('finishes an enrollment whose step was removed and keeps dispatching the rest', async () => {
@@ -483,11 +549,17 @@ describe('dispatchAccountOutreach (integration)', () => {
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
-    expect(await progress(orphan)).toMatchObject({ status: 'sent', current_step: 9 });
-    expect(await progress(fine)).toMatchObject({ status: 'sent', sent_count: 1 });
+    expect(await progress(orphan)).toMatchObject({
+      status: 'sent',
+      current_step: 9,
+    });
+    expect(await progress(fine)).toMatchObject({
+      status: 'sent',
+      sent_count: 1,
+    });
   });
 
-  it('replies to the first email\'s thread with its subject on a follow-up', async () => {
+  it("replies to the first email's thread with its subject on a follow-up", async () => {
     await setSetting(10, 5);
     await addStep(2, 7);
     const enrollmentId = await enroll('follow@target.test', 'queued', 2);
@@ -509,7 +581,10 @@ describe('dispatchAccountOutreach (integration)', () => {
 
     expect(mailbox.sendAs).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ subject: 'Re: Quick question', inThread: 'first-thread' }),
+      expect.objectContaining({
+        subject: 'Re: Quick question',
+        inThread: 'first-thread',
+      }),
     );
   });
 
@@ -517,7 +592,11 @@ describe('dispatchAccountOutreach (integration)', () => {
     await setSetting(10, 1);
     await account.admin
       .from('outreach_suppression')
-      .insert({ account_id: account.accountId, email: 'Blocked@Target.test', reason: 'opt_out' })
+      .insert({
+        account_id: account.accountId,
+        email: 'Blocked@Target.test',
+        reason: 'opt_out',
+      })
       .throwOnError();
     const prior = await enroll('Touched@Target.test', 'sent');
     await account.admin
@@ -535,7 +614,9 @@ describe('dispatchAccountOutreach (integration)', () => {
     await enroll('blocked@target.test');
     await enroll('touched@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(0);
     expect(mailbox.sendAs).not.toHaveBeenCalled();
@@ -576,7 +657,9 @@ describe('dispatchAccountOutreach (integration)', () => {
       .throwOnError();
     await enroll('retry@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(1);
   });
@@ -586,11 +669,16 @@ describe('dispatchAccountOutreach (integration)', () => {
     const first = await enroll('twice@target.test');
     const second = await enroll('twice@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(1);
     expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
-    expect([(await progress(first)).status, (await progress(second)).status]).toEqual(['sent', 'sent']);
+    expect([
+      (await progress(first)).status,
+      (await progress(second)).status,
+    ]).toEqual(['sent', 'sent']);
   });
 
   it('records which mailbox sent the email', async () => {
@@ -614,16 +702,24 @@ describe('dispatchAccountOutreach (integration)', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     delete process.env.NEXT_PUBLIC_SITE_URL;
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
     process.env.NEXT_PUBLIC_SITE_URL = SITE_URL;
 
     expect(result.sent).toBe(0);
     expect(mailbox.sendAs).not.toHaveBeenCalled();
-    expect(error).toHaveBeenCalledWith(expect.stringContaining('NEXT_PUBLIC_SITE_URL'));
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('NEXT_PUBLIC_SITE_URL'),
+    );
     error.mockRestore();
   });
 
-  async function priorMessage(enrollmentId: string, status: string, sentAt: string | null) {
+  async function priorMessage(
+    enrollmentId: string,
+    status: string,
+    sentAt: string | null,
+  ) {
     await account.admin
       .from('outreach_message')
       .insert({
@@ -670,7 +766,11 @@ describe('dispatchAccountOutreach (integration)', () => {
       .throwOnError();
     await account.admin
       .from('firm_verdict_approval')
-      .insert({ verdict_id: verdict.id, account_id: account.accountId, approved_by: account.userId })
+      .insert({
+        verdict_id: verdict.id,
+        account_id: account.accountId,
+        approved_by: account.userId,
+      })
       .throwOnError();
     const enrollmentId = await enroll('sent@target.test');
     await account.admin
@@ -683,7 +783,10 @@ describe('dispatchAccountOutreach (integration)', () => {
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).not.toHaveBeenCalled();
-    expect(await enrollment(enrollmentId)).toEqual({ status: 'sent', sent_count: 1 });
+    expect(await enrollment(enrollmentId)).toEqual({
+      status: 'sent',
+      sent_count: 1,
+    });
     const { data: contacted } = await account.admin
       .from('firm')
       .select('status')
@@ -712,7 +815,10 @@ describe('dispatchAccountOutreach (integration)', () => {
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).not.toHaveBeenCalled();
-    expect(await enrollment(enrollmentId)).toEqual({ status: 'queued', sent_count: 0 });
+    expect(await enrollment(enrollmentId)).toEqual({
+      status: 'queued',
+      sent_count: 0,
+    });
   });
 
   it('stamps the started time on the message before the send', async () => {
@@ -742,7 +848,9 @@ describe('dispatchAccountOutreach (integration)', () => {
     await priorMessage(inFlight, 'sending', new Date().toISOString());
     await enroll('next@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(0);
     expect(mailbox.sendAs).not.toHaveBeenCalled();
@@ -768,7 +876,11 @@ describe('dispatchAccountOutreach (integration)', () => {
 
     expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
     expect(await stepStatuses(enrollmentId)).toEqual(['retried', 'sent']);
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 1,
+    });
   });
 
   it('settles a retried step whose fresh send already went out without resending', async () => {
@@ -781,14 +893,20 @@ describe('dispatchAccountOutreach (integration)', () => {
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).not.toHaveBeenCalled();
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 1,
+    });
   });
 
   it('keeps the retried row when the resend fails for a passing reason', async () => {
     await setSetting(10, 5);
     const enrollmentId = await enroll('passing@target.test');
     await priorMessage(enrollmentId, 'retried', new Date().toISOString());
-    mailbox.sendAs.mockRejectedValueOnce(new mailbox.MailboxRequestFailed(503, 'Gmail send'));
+    mailbox.sendAs.mockRejectedValueOnce(
+      new mailbox.MailboxRequestFailed(503, 'Gmail send'),
+    );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await dispatchAccountOutreach({ accountId: account.accountId });
@@ -800,13 +918,20 @@ describe('dispatchAccountOutreach (integration)', () => {
   it('counts an unknown send on a stopped enrollment as a touch', async () => {
     await setSetting(10, 1);
     const stopped = await enroll('prior@target.test', 'failed');
-    await priorMessage(stopped, 'unknown', new Date(Date.now() - DAY_MS).toISOString());
+    await priorMessage(
+      stopped,
+      'unknown',
+      new Date(Date.now() - DAY_MS).toISOString(),
+    );
     const next = await enroll('prior@target.test');
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).not.toHaveBeenCalled();
-    expect(await progress(next)).toMatchObject({ status: 'sent', sent_count: 0 });
+    expect(await progress(next)).toMatchObject({
+      status: 'sent',
+      sent_count: 0,
+    });
   });
 
   it('counts a retried send against the daily cap on the day it was attempted', async () => {
@@ -814,24 +939,32 @@ describe('dispatchAccountOutreach (integration)', () => {
     const enrollmentId = await enroll('capped@target.test');
     await priorMessage(enrollmentId, 'retried', new Date().toISOString());
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(0);
     expect(await stepStatuses(enrollmentId)).toEqual(['retried']);
   });
 
-  it('resends a step retried on an earlier day within today\'s cap', async () => {
+  it("resends a step retried on an earlier day within today's cap", async () => {
     await setSetting(1, 5);
     const enrollmentId = await enroll('yesterday@target.test');
-    await priorMessage(enrollmentId, 'retried', new Date(Date.now() - DAY_MS).toISOString());
+    await priorMessage(
+      enrollmentId,
+      'retried',
+      new Date(Date.now() - DAY_MS).toISOString(),
+    );
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(1);
     expect(await stepStatuses(enrollmentId)).toEqual(['retried', 'sent']);
   });
 
-  it('advances to the next step and schedules it by that step\'s delay', async () => {
+  it("advances to the next step and schedules it by that step's delay", async () => {
     await setSetting(10, 5);
     await addStep(2, 7);
     const enrollmentId = await enroll('multi@target.test');
@@ -839,9 +972,17 @@ describe('dispatchAccountOutreach (integration)', () => {
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     const after = await progress(enrollmentId);
-    expect(after).toMatchObject({ status: 'queued', current_step: 2, sent_count: 1 });
-    expect(Date.parse(after.next_send_at) - Date.now()).toBeGreaterThan(7 * DAY_MS - 60_000);
-    expect(Date.parse(after.next_send_at) - Date.now()).toBeLessThanOrEqual(7 * DAY_MS);
+    expect(after).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 1,
+    });
+    expect(Date.parse(after.next_send_at) - Date.now()).toBeGreaterThan(
+      7 * DAY_MS - 60_000,
+    );
+    expect(Date.parse(after.next_send_at) - Date.now()).toBeLessThanOrEqual(
+      7 * DAY_MS,
+    );
   });
 
   it('sends the next step once it is due and completes after the last step', async () => {
@@ -855,7 +996,11 @@ describe('dispatchAccountOutreach (integration)', () => {
       expect.anything(),
       expect.objectContaining({ subject: 'Step 2' }),
     );
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'sent', current_step: 2, sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'sent',
+      current_step: 2,
+      sent_count: 1,
+    });
   });
 
   it('advances once without resending when a retry finds the step already sent', async () => {
@@ -867,7 +1012,11 @@ describe('dispatchAccountOutreach (integration)', () => {
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(mailbox.sendAs).not.toHaveBeenCalled();
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 1,
+    });
   });
 
   it('carries a one-click unsubscribe link in the body and the List-Unsubscribe header', async () => {
@@ -882,7 +1031,11 @@ describe('dispatchAccountOutreach (integration)', () => {
     const link = `${SITE_URL}/unsubscribe?token=${data.unsubscribe_token}`;
     await account.admin
       .from('buyer_profile')
-      .insert({ account_id: account.accountId, version: 1, display_name: 'Jordan Buyer' })
+      .insert({
+        account_id: account.accountId,
+        version: 1,
+        display_name: 'Jordan Buyer',
+      })
       .throwOnError();
 
     await dispatchAccountOutreach({ accountId: account.accountId });
@@ -893,9 +1046,13 @@ describe('dispatchAccountOutreach (integration)', () => {
       headers: Record<string, string>;
     };
     expect(email.text).toMatch(
-      new RegExp(`\\n\\nJordan Buyer, ${RETURN_ADDRESS} · Unsubscribe: ${link.replace(/[?]/g, '\\?')}$`),
+      new RegExp(
+        `\\n\\nJordan Buyer, ${RETURN_ADDRESS} · Unsubscribe: ${link.replace(/[?]/g, '\\?')}$`,
+      ),
     );
-    expect(email.html).toContain(`<br><br>Jordan Buyer, ${RETURN_ADDRESS} · <a href="${link}">Unsubscribe</a>`);
+    expect(email.html).toContain(
+      `<br><br>Jordan Buyer, ${RETURN_ADDRESS} · <a href="${link}">Unsubscribe</a>`,
+    );
     expect(email.headers).toEqual({
       'List-Unsubscribe': `<${SITE_URL}/api/unsubscribe?token=${data.unsubscribe_token}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -922,10 +1079,16 @@ describe('dispatchAccountOutreach (integration)', () => {
     await addStep(2, 0, 'letter');
     await addStep(3, 7);
     const firmId = await approvedFirm('Letter Firm LLC');
-    const letterEnrollment = await enrollFirm(firmId, 'owner@letterfirm.test', 2);
+    const letterEnrollment = await enrollFirm(
+      firmId,
+      'owner@letterfirm.test',
+      2,
+    );
     await enroll('email@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
     expect(letters.sendLetter).toHaveBeenCalledWith({
@@ -937,27 +1100,52 @@ describe('dispatchAccountOutreach (integration)', () => {
       stepOrdinal: 2,
     });
     expect(result.sent).toBe(2);
-    expect(await progress(letterEnrollment)).toMatchObject({ status: 'queued', current_step: 3, sent_count: 1 });
+    expect(await progress(letterEnrollment)).toMatchObject({
+      status: 'queued',
+      current_step: 3,
+      sent_count: 1,
+    });
   });
 
   it('keeps every due letter queued with the limit reason when the letter cap is reached', async () => {
     await setSetting(10, 5);
     await addStep(2, 0, 'letter');
-    const first = await enrollFirm(await approvedFirm('Capped Firm LLC'), 'owner@capped.test', 2);
-    const second = await enrollFirm(await approvedFirm('Also Capped LLC'), 'owner@alsocapped.test', 2);
+    const first = await enrollFirm(
+      await approvedFirm('Capped Firm LLC'),
+      'owner@capped.test',
+      2,
+    );
+    const second = await enrollFirm(
+      await approvedFirm('Also Capped LLC'),
+      'owner@alsocapped.test',
+      2,
+    );
     letters.sendLetter.mockRejectedValue(
       new letters.LetterCapReached('The monthly letter limit is reached'),
     );
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
     const attempts = letters.sendLetter.mock.calls.length;
     letters.sendLetter.mockReset();
-    letters.sendLetter.mockImplementation(async () => ({ letterId: 'letter-1', status: 'created' }));
+    letters.sendLetter.mockImplementation(async () => ({
+      letterId: 'letter-1',
+      status: 'created',
+    }));
 
     expect(result.sent).toBe(0);
     expect(attempts).toBe(1);
-    expect(await progress(first)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 0 });
-    expect(await progress(second)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 0 });
+    expect(await progress(first)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 0,
+    });
+    expect(await progress(second)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 0,
+    });
     expect(await failure(first)).toBe('The monthly letter limit is reached');
     expect(await failure(second)).toBe('The monthly letter limit is reached');
   });
@@ -972,7 +1160,9 @@ describe('dispatchAccountOutreach (integration)', () => {
       ApplicationFailure.nonRetryable('This firm has no mailing address'),
     );
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(1);
     expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
@@ -982,7 +1172,10 @@ describe('dispatchAccountOutreach (integration)', () => {
       .eq('id', letterEnrollment)
       .single()
       .throwOnError();
-    expect(data).toEqual({ status: 'failed', error: 'This firm has no mailing address' });
+    expect(data).toEqual({
+      status: 'failed',
+      error: 'This firm has no mailing address',
+    });
   });
 
   it('leaves a letter enrollment queued for the next tick when its letter fails for a passing reason', async () => {
@@ -1002,23 +1195,42 @@ describe('dispatchAccountOutreach (integration)', () => {
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
     letters.sendLetter.mockReset();
-    letters.sendLetter.mockImplementation(async () => ({ letterId: 'letter-1', status: 'created' }));
+    letters.sendLetter.mockImplementation(async () => ({
+      letterId: 'letter-1',
+      status: 'created',
+    }));
 
     expect(result.sent).toBe(2);
     expect(mailbox.sendAs).toHaveBeenCalledTimes(1);
-    expect(await progress(flaky)).toMatchObject({ status: 'queued', current_step: 2, sent_count: 0 });
-    expect(await progress(steady)).toMatchObject({ status: 'sent', sent_count: 1 });
-    expect(await failure(flaky)).toBe('Lob address check failed with status 503');
+    expect(await progress(flaky)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+      sent_count: 0,
+    });
+    expect(await progress(steady)).toMatchObject({
+      status: 'sent',
+      sent_count: 1,
+    });
+    expect(await failure(flaky)).toBe(
+      'Lob address check failed with status 503',
+    );
     expect(warn).toHaveBeenCalledWith(
-      expect.stringMatching(new RegExp(`${flaky}.*Lob address check failed with status 503`)),
+      expect.stringMatching(
+        new RegExp(`${flaky}.*Lob address check failed with status 503`),
+      ),
     );
     warn.mockRestore();
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
-    expect(await progress(flaky)).toMatchObject({ status: 'sent', sent_count: 1 });
+    expect(await progress(flaky)).toMatchObject({
+      status: 'sent',
+      sent_count: 1,
+    });
     expect(await failure(flaky)).toBeNull();
   });
 
@@ -1032,20 +1244,39 @@ describe('dispatchAccountOutreach (integration)', () => {
     return data.error as string | null;
   }
 
-  it('holds every due letter queued with the reason when the team\'s letter setup is missing', async () => {
+  it("holds every due letter queued with the reason when the team's letter setup is missing", async () => {
     await setSetting(10, 5);
     await addStep(2, 0, 'letter');
-    const first = await enrollFirm(await approvedFirm('First Firm LLC'), 'owner@first.test', 2);
-    const second = await enrollFirm(await approvedFirm('Second Firm LLC'), 'owner@second.test', 2);
-    letters.sendLetter.mockRejectedValue(new letters.LetterSetupMissing('Connect a letter provider first'));
+    const first = await enrollFirm(
+      await approvedFirm('First Firm LLC'),
+      'owner@first.test',
+      2,
+    );
+    const second = await enrollFirm(
+      await approvedFirm('Second Firm LLC'),
+      'owner@second.test',
+      2,
+    );
+    letters.sendLetter.mockRejectedValue(
+      new letters.LetterSetupMissing('Connect a letter provider first'),
+    );
 
     await dispatchAccountOutreach({ accountId: account.accountId });
     const attempts = letters.sendLetter.mock.calls.length;
     letters.sendLetter.mockReset();
-    letters.sendLetter.mockImplementation(async () => ({ letterId: 'letter-1', status: 'created' }));
+    letters.sendLetter.mockImplementation(async () => ({
+      letterId: 'letter-1',
+      status: 'created',
+    }));
 
-    expect(await progress(first)).toMatchObject({ status: 'queued', current_step: 2 });
-    expect(await progress(second)).toMatchObject({ status: 'queued', current_step: 2 });
+    expect(await progress(first)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+    });
+    expect(await progress(second)).toMatchObject({
+      status: 'queued',
+      current_step: 2,
+    });
     expect(await failure(first)).toBe('Connect a letter provider first');
     expect(await failure(second)).toBe('Connect a letter provider first');
     expect(attempts).toBe(1);
@@ -1060,7 +1291,11 @@ describe('dispatchAccountOutreach (integration)', () => {
       .throwOnError();
     await account.admin
       .from('buyer_profile')
-      .insert({ account_id: account.accountId, version: 1, display_name: 'Jordan Buyer' })
+      .insert({
+        account_id: account.accountId,
+        version: 1,
+        display_name: 'Jordan Buyer',
+      })
       .throwOnError();
     await enroll('signed@target.test');
 
@@ -1073,7 +1308,9 @@ describe('dispatchAccountOutreach (integration)', () => {
       .single()
       .throwOnError();
     const email = mailbox.sendAs.mock.calls[0]![1] as { text: string };
-    expect(email.text).toMatch(new RegExp(`^From Jordan Buyer at ${team.name}\\n`));
+    expect(email.text).toMatch(
+      new RegExp(`^From Jordan Buyer at ${team.name}\\n`),
+    );
   });
 
   it('greets a recipient whose contact has no name naturally', async () => {
@@ -1085,7 +1322,11 @@ describe('dispatchAccountOutreach (integration)', () => {
       .throwOnError();
     const { data: contact } = await account.admin
       .from('contact')
-      .insert({ account_id: account.accountId, name: null, email: 'found@target.test' })
+      .insert({
+        account_id: account.accountId,
+        name: null,
+        email: 'found@target.test',
+      })
       .select('id')
       .single()
       .throwOnError();
@@ -1138,7 +1379,10 @@ describe('dispatchAccountOutreach (integration)', () => {
       .eq('id', enrollmentId)
       .single()
       .throwOnError();
-    expect(data).toEqual({ status: 'failed', error: 'This enrollment has no firm to mail' });
+    expect(data).toEqual({
+      status: 'failed',
+      error: 'This enrollment has no firm to mail',
+    });
   });
 
   it('does not mail a letter to a firm whose email opted out', async () => {
@@ -1147,14 +1391,20 @@ describe('dispatchAccountOutreach (integration)', () => {
     const firmId = await approvedFirm('Opted Firm LLC');
     await account.admin
       .from('outreach_suppression')
-      .insert({ account_id: account.accountId, email: 'Owner@Opted.test', reason: 'opt_out' })
+      .insert({
+        account_id: account.accountId,
+        email: 'Owner@Opted.test',
+        reason: 'opt_out',
+      })
       .throwOnError();
     const enrollmentId = await enrollFirm(firmId, 'owner@opted.test', 2);
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(letters.sendLetter).not.toHaveBeenCalled();
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'suppressed' });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'suppressed',
+    });
   });
 
   it('still mails a letter to an address that only bounced', async () => {
@@ -1163,14 +1413,21 @@ describe('dispatchAccountOutreach (integration)', () => {
     const firmId = await approvedFirm('Bounced Firm LLC');
     await account.admin
       .from('outreach_suppression')
-      .insert({ account_id: account.accountId, email: 'owner@bounced.test', reason: 'bounce' })
+      .insert({
+        account_id: account.accountId,
+        email: 'owner@bounced.test',
+        reason: 'bounce',
+      })
       .throwOnError();
     const enrollmentId = await enrollFirm(firmId, 'owner@bounced.test', 2);
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
     expect(letters.sendLetter).toHaveBeenCalledTimes(1);
-    expect(await progress(enrollmentId)).toMatchObject({ status: 'sent', sent_count: 1 });
+    expect(await progress(enrollmentId)).toMatchObject({
+      status: 'sent',
+      sent_count: 1,
+    });
   });
 
   it('holds letters with the reason while the team has no active mailbox', async () => {
@@ -1181,7 +1438,11 @@ describe('dispatchAccountOutreach (integration)', () => {
       .update({ status: 'revoked' })
       .eq('account_id', account.accountId)
       .throwOnError();
-    const enrollmentId = await enrollFirm(await approvedFirm('Quiet Firm LLC'), 'owner@quiet.test', 2);
+    const enrollmentId = await enrollFirm(
+      await approvedFirm('Quiet Firm LLC'),
+      'owner@quiet.test',
+      2,
+    );
 
     await dispatchAccountOutreach({ accountId: account.accountId });
 
@@ -1190,7 +1451,7 @@ describe('dispatchAccountOutreach (integration)', () => {
     expect(await failure(enrollmentId)).toBe('Connect a mailbox first');
   });
 
-  it('counts a mailed letter toward the target\'s max touches', async () => {
+  it("counts a mailed letter toward the target's max touches", async () => {
     await setSetting(10, 1);
     await account.admin
       .from('outreach_setting')
@@ -1214,7 +1475,9 @@ describe('dispatchAccountOutreach (integration)', () => {
       .throwOnError();
     await enroll('lettered@target.test');
 
-    const result = await dispatchAccountOutreach({ accountId: account.accountId });
+    const result = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(result.sent).toBe(0);
     expect(mailbox.sendAs).not.toHaveBeenCalled();
@@ -1223,10 +1486,13 @@ describe('dispatchAccountOutreach (integration)', () => {
 
 describe('dispatchAccountOutreach for a locked team (integration)', () => {
   async function switchToTeam(): Promise<void> {
-    const { data: team, error } = await account.admin.rpc('create_team_account', {
-      account_name: `Outreach ${crypto.randomUUID().slice(0, 8)}`,
-      user_id: account.userId,
-    });
+    const { data: team, error } = await account.admin.rpc(
+      'create_team_account',
+      {
+        account_name: `Outreach ${crypto.randomUUID().slice(0, 8)}`,
+        user_id: account.userId,
+      },
+    );
     if (error) {
       throw error;
     }
@@ -1244,21 +1510,25 @@ describe('dispatchAccountOutreach for a locked team (integration)', () => {
     }
   }
 
-  it('holds a locked team\'s sequence and resumes it once the lock lifts', async () => {
+  it("holds a locked team's sequence and resumes it once the lock lifts", async () => {
     await switchToTeam();
     await setSetting(10, 5);
     await enroll('held@target.test');
     await turnTeamBillingOn(account.admin);
     await setTrialEnd(-86_400_000);
 
-    const whileLocked = await dispatchAccountOutreach({ accountId: account.accountId });
+    const whileLocked = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(whileLocked.sent).toBe(0);
     expect(mailbox.sendAs).not.toHaveBeenCalled();
 
     await setTrialEnd(86_400_000);
 
-    const afterUnlock = await dispatchAccountOutreach({ accountId: account.accountId });
+    const afterUnlock = await dispatchAccountOutreach({
+      accountId: account.accountId,
+    });
 
     expect(afterUnlock.sent).toBe(1);
     const counts = await messagesFor(['held@target.test']);

@@ -19,18 +19,29 @@ test('a checklist item is edited in place: waiting on, then a note', async ({
   const noteBody = `Landlord promised it by Friday ${stamp}`;
 
   await auth.signUp(page, team);
-  const teamSlug = await completeTeamOnboarding(page, `Checklist Team ${stamp}`);
-  const { dealPath } = await createDeal(page, teamSlug, `Checklist Deal ${stamp}`);
+  const teamSlug = await completeTeamOnboarding(
+    page,
+    `Checklist Team ${stamp}`,
+  );
+  const { dealPath } = await createDeal(
+    page,
+    teamSlug,
+    `Checklist Deal ${stamp}`,
+  );
 
   await page.goto(`${dealPath}/diligence`);
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => undefined);
+  await page
+    .waitForLoadState('networkidle', { timeout: 3000 })
+    .catch(() => undefined);
   await page.getByLabel('New item title').fill(itemTitle);
   await page.getByRole('button', { name: 'Add item' }).click();
   const row = page.getByRole('row').filter({ hasText: itemTitle });
   await expect(row).toBeVisible();
 
   await row.getByLabel(`Waiting on for ${itemTitle}`).selectOption('seller');
-  await expect(row.getByLabel(`Waiting on for ${itemTitle}`)).toHaveValue('seller');
+  await expect(row.getByLabel(`Waiting on for ${itemTitle}`)).toHaveValue(
+    'seller',
+  );
 
   await page.getByRole('button', { name: 'Waiting on seller' }).click();
   await expect(row).toBeVisible();
@@ -43,6 +54,9 @@ test('a checklist item is edited in place: waiting on, then a note', async ({
 
   await page.reload();
   await expect(
-    page.getByRole('row').filter({ hasText: itemTitle }).getByLabel(`Waiting on for ${itemTitle}`),
+    page
+      .getByRole('row')
+      .filter({ hasText: itemTitle })
+      .getByLabel(`Waiting on for ${itemTitle}`),
   ).toHaveValue('seller');
 });

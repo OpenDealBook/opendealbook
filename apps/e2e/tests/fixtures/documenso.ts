@@ -23,7 +23,9 @@ export async function openDocumensoSender(browser: Browser): Promise<Page> {
     await page.goto(`${DOCUMENSO_URL}/signin`);
     await page.waitForLoadState('networkidle');
     await page.getByLabel('Email').fill(HARNESS_ACCOUNT.email);
-    await page.getByLabel('Password', { exact: true }).fill(HARNESS_ACCOUNT.password);
+    await page
+      .getByLabel('Password', { exact: true })
+      .fill(HARNESS_ACCOUNT.password);
     await page.getByRole('button', { name: 'Sign In' }).click();
     await page.waitForURL(/\/t\/[^/]+\//, { timeout: 30_000 });
   }).toPass({ timeout: 150_000 });
@@ -51,9 +53,9 @@ export async function placeSignaturesAndSend(
       await sender.mouse.move(spot.x - 40, spot.y - 20);
       await sender.mouse.move(spot.x, spot.y);
       await sender.mouse.click(spot.x, spot.y);
-      await expect(
-        sender.getByText(`${index + 1} Field`).first(),
-      ).toBeVisible({ timeout: 3_000 });
+      await expect(sender.getByText(`${index + 1} Field`).first()).toBeVisible({
+        timeout: 3_000,
+      });
     }).toPass({ timeout: 30_000 });
   }
 
@@ -78,7 +80,9 @@ async function newInvitation(email: string) {
           subject: /Please sign this document/,
           timeout: 5_000,
         }).catch(() => undefined);
-        return invitation !== undefined && !openedInvitations.has(invitation.id);
+        return (
+          invitation !== undefined && !openedInvitations.has(invitation.id)
+        );
       },
       { message: `a new signing invitation for ${email}`, timeout: 120_000 },
     )
@@ -111,19 +115,34 @@ export async function signDocumentFromEmail(
   await pad.getByPlaceholder('Type your signature').fill(name);
   await pad.getByRole('button', { name: 'Next' }).click();
 
-  const complete = signer.getByRole('button', { name: 'Complete', exact: true });
-  for (let attempt = 0; attempt < 8 && !(await complete.isVisible()); attempt++) {
+  const complete = signer.getByRole('button', {
+    name: 'Complete',
+    exact: true,
+  });
+  for (
+    let attempt = 0;
+    attempt < 8 && !(await complete.isVisible());
+    attempt++
+  ) {
     await signer.getByRole('button', { name: 'Next Field' }).click();
     const hint = signer.getByText('Click to insert field');
     await expect(async () => {
       const box = await hint.boundingBox();
       expect(box).not.toBeNull();
-      await signer.mouse.click(box!.x + box!.width / 2, box!.y + box!.height + 25);
+      await signer.mouse.click(
+        box!.x + box!.width / 2,
+        box!.y + box!.height + 25,
+      );
     }).toPass({ timeout: 30_000 });
     await signer.waitForTimeout(500);
   }
   await expect(complete).toBeVisible();
   await complete.click();
-  await signer.getByRole('dialog').getByRole('button', { name: 'Sign', exact: true }).click();
-  await expect(signer.getByText('Document Signed')).toBeVisible({ timeout: 60_000 });
+  await signer
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Sign', exact: true })
+    .click();
+  await expect(signer.getByText('Document Signed')).toBeVisible({
+    timeout: 60_000,
+  });
 }

@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
+
 import bizcomps from './bizcomps-v1.json';
+import {
+  loadColumnMap,
+  mapRow,
+  parseField,
+  type ColumnMap,
+} from './column-map';
 import dealstats from './dealstats-v1.json';
 import peercomps from './peercomps-v1.json';
-import { loadColumnMap, mapRow, parseField, type ColumnMap } from './column-map';
 
 describe('loadColumnMap', () => {
   it('loads each drafted vendor map and preserves verified flags', () => {
@@ -12,7 +18,9 @@ describe('loadColumnMap', () => {
     }
     const ds = loadColumnMap(dealstats);
     expect(ds.vendor).toBe('DealStats');
-    const employees = ds.columns.find((c) => c.target_comp_column === 'employees');
+    const employees = ds.columns.find(
+      (c) => c.target_comp_column === 'employees',
+    );
     expect(employees?.verified).toBe(false);
     const naics = ds.columns.find((c) => c.target_comp_column === 'naics');
     expect(naics?.verified).toBe(true);
@@ -28,7 +36,13 @@ describe('loadColumnMap', () => {
         vendor: 'X',
         version: 'v1',
         columns: [
-          { vendor_column: 'A', target_comp_column: 'a', parser: 'bogus', required: false, verified: true },
+          {
+            vendor_column: 'A',
+            target_comp_column: 'a',
+            parser: 'bogus',
+            required: false,
+            verified: true,
+          },
         ],
       }),
     ).toThrow();
@@ -84,9 +98,27 @@ describe('mapRow', () => {
     vendor: 'Test',
     version: 'v1',
     columns: [
-      { vendor_column: 'NAICS', target_comp_column: 'naics', parser: 'string', required: true, verified: true },
-      { vendor_column: 'Sale Price', target_comp_column: 'sale_price', parser: 'currency', required: true, verified: true },
-      { vendor_column: 'Days', target_comp_column: 'days_on_market', parser: 'integer', required: false, verified: true },
+      {
+        vendor_column: 'NAICS',
+        target_comp_column: 'naics',
+        parser: 'string',
+        required: true,
+        verified: true,
+      },
+      {
+        vendor_column: 'Sale Price',
+        target_comp_column: 'sale_price',
+        parser: 'currency',
+        required: true,
+        verified: true,
+      },
+      {
+        vendor_column: 'Days',
+        target_comp_column: 'days_on_market',
+        parser: 'integer',
+        required: false,
+        verified: true,
+      },
     ],
   };
 

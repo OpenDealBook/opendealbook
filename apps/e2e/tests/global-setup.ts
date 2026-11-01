@@ -1,15 +1,11 @@
+import { rpc } from './fixtures/db';
 import {
   MAILPIT_SMTP_PORT,
   WEB_URL,
   WEB_URL_FROM_DOCKER,
 } from './fixtures/stack';
-import { rpc } from './fixtures/db';
 import { documensoApiKey } from './stack/documenso';
-import {
-  SENDER,
-  mainServerEnv,
-  workersEnv,
-} from './stack/env';
+import { SENDER, mainServerEnv, workersEnv } from './stack/env';
 import { novuApiKey, pointNovuEmailAt, syncNovuBridge } from './stack/novu';
 import { missingServices, workersArePolling } from './stack/services';
 import { buildWebServer, startWebServer } from './stack/web-server';

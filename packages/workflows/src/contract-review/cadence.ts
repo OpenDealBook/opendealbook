@@ -43,7 +43,9 @@ export function reviewNudgeDue(
     return 'escalate';
   }
   if (today.date < escalationDay) {
-    return today.date > requestDay && isBusinessDay(today.date) ? 'remind' : null;
+    return today.date > requestDay && isBusinessDay(today.date)
+      ? 'remind'
+      : null;
   }
 
   return daysBetween(escalationDay, today.date) % 7 === 0 ? 'remind' : null;

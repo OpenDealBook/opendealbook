@@ -82,7 +82,9 @@ export function SavedViewsBar({
     } else {
       visible.add(key);
     }
-    const next = DEFAULT_VISIBLE_COLUMNS.filter((column) => visible.has(column));
+    const next = DEFAULT_VISIBLE_COLUMNS.filter((column) =>
+      visible.has(column),
+    );
     const params = new URLSearchParams(searchParams);
     if (next.length === DEFAULT_VISIBLE_COLUMNS.length) {
       params.delete(DEAL_PARAM.cols);
@@ -93,9 +95,7 @@ export function SavedViewsBar({
   }
 
   function handleSave() {
-    const parsed = parseDealParams(
-      Object.fromEntries(searchParams.entries()),
-    );
+    const parsed = parseDealParams(Object.fromEntries(searchParams.entries()));
     startTransition(async () => {
       await saveView({
         account_id: accountId,

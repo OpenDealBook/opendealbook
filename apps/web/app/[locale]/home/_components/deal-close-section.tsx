@@ -3,15 +3,15 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 
 import {
-  createClientTransition,
-  updateClientTransitionStep,
-} from '@odb/close/server';
-import {
   type ChecklistStatus,
   type TransitionStep,
   checklistStatusSchema,
   transitionStepSchema,
 } from '@odb/close/schema';
+import {
+  createClientTransition,
+  updateClientTransitionStep,
+} from '@odb/close/server';
 import { fetchClientTransitions } from '@odb/close/shared';
 import type { Tables } from '@odb/supabase';
 import { useSupabase } from '@odb/supabase/hooks';
@@ -63,9 +63,9 @@ export function DealCloseSection({
   accountId: string;
 }) {
   const client = useSupabase();
-  const [transitions, setTransitions] = useState<
-    Tables<'client_transition'>[]
-  >([]);
+  const [transitions, setTransitions] = useState<Tables<'client_transition'>[]>(
+    [],
+  );
   const [clientName, setClientName] = useState('');
   const [pending, startTransition] = useTransition();
 

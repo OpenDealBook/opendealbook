@@ -3,12 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import '../../test-support/integration-harness';
-
 import { deleteOrphanedDealObjects } from './activities';
 
-const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+const admin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: { persistSession: false, autoRefreshToken: false },
+  },
+);
 
 const HOUR = 3_600_000;
 
@@ -24,10 +27,16 @@ let teamId: string;
 let dealId: string;
 const staged: StoredObject[] = [];
 
-async function store(bucket: Bucket, path: string, ageHours: number): Promise<StoredObject> {
+async function store(
+  bucket: Bucket,
+  path: string,
+  ageHours: number,
+): Promise<StoredObject> {
   const uploaded = await admin.storage
     .from(bucket)
-    .upload(path, new TextEncoder().encode('%PDF-1.4'), { contentType: 'application/pdf' });
+    .upload(path, new TextEncoder().encode('%PDF-1.4'), {
+      contentType: 'application/pdf',
+    });
 
   if (uploaded.error) {
     throw uploaded.error;
@@ -36,7 +45,9 @@ async function store(bucket: Bucket, path: string, ageHours: number): Promise<St
   await admin
     .schema('storage')
     .from('objects')
-    .update({ created_at: new Date(Date.now() - ageHours * HOUR).toISOString() })
+    .update({
+      created_at: new Date(Date.now() - ageHours * HOUR).toISOString(),
+    })
     .eq('bucket_id', bucket)
     .eq('name', path)
     .throwOnError();
@@ -110,7 +121,11 @@ afterAll(async () => {
 
 describe('deleteOrphanedDealObjects', () => {
   it('deletes a data room object over 24 hours old whose deal does not exist', async () => {
-    const orphan = await store('data-room', `deal/${crypto.randomUUID()}/${crypto.randomUUID()}-cim.pdf`, 25);
+    const orphan = await store(
+      'data-room',
+      `deal/${crypto.randomUUID()}/${crypto.randomUUID()}-cim.pdf`,
+      25,
+    );
 
     await deleteOrphanedDealObjects();
 
@@ -132,7 +147,11 @@ describe('deleteOrphanedDealObjects', () => {
   it.each<Bucket>(['data-room', 'meeting-recordings'])(
     'keeps a %s object over 24 hours old whose deal exists',
     async (bucket) => {
-      const owned = await store(bucket, `deal/${dealId}/${crypto.randomUUID()}/kept.pdf`, 72);
+      const owned = await store(
+        bucket,
+        `deal/${dealId}/${crypto.randomUUID()}/kept.pdf`,
+        72,
+      );
 
       await deleteOrphanedDealObjects();
 
@@ -141,7 +160,11 @@ describe('deleteOrphanedDealObjects', () => {
   );
 
   it('keeps an object under 24 hours old whose deal does not exist yet', async () => {
-    const fresh = await store('data-room', `deal/${crypto.randomUUID()}/${crypto.randomUUID()}-fresh.pdf`, 23);
+    const fresh = await store(
+      'data-room',
+      `deal/${crypto.randomUUID()}/${crypto.randomUUID()}-fresh.pdf`,
+      23,
+    );
 
     await deleteOrphanedDealObjects();
 

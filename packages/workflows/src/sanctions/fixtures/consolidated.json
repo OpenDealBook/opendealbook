@@ -44,9 +44,7 @@
         }
       ],
       "name": "BANK OF KUNLUN CO LTD",
-      "programs": [
-        "561-Related"
-      ],
+      "programs": ["561-Related"],
       "remarks": "United States financial institutions are prohibited from opening or maintaining a correspondent account or a payable-through account for the foreign financial institution listed here, pursuant to 31 C.F.R. section 561.201(c)",
       "source": "Capta List (CAP) - Treasury Department",
       "source_information_url": "https://ofac.treasury.gov/other-ofac-sanctions-lists",
@@ -124,10 +122,7 @@
         }
       ],
       "name": "Joint Stock Company Russian Agricultural Bank",
-      "programs": [
-        "UKRAINE-EO13662",
-        "RUSSIA-EO14024"
-      ],
+      "programs": ["UKRAINE-EO13662", "RUSSIA-EO14024"],
       "remarks": "For more information on directives, please visit the following link: http://www.treasury.gov/resource-center/sanctions/Programs/Pages/ukraine.aspx#directives.",
       "source": "Non-SDN Menu-Based Sanctions List (NS-MBS List) - Treasury Department",
       "source_information_url": "https://ofac.treasury.gov/other-ofac-sanctions-lists",
@@ -205,10 +200,7 @@
         }
       ],
       "name": "Joint Stock Company Russian Agricultural Bank",
-      "programs": [
-        "UKRAINE-EO13662",
-        "RUSSIA-EO14024"
-      ],
+      "programs": ["UKRAINE-EO13662", "RUSSIA-EO14024"],
       "remarks": "For more information on directives, please visit the following link: http://www.treasury.gov/resource-center/sanctions/Programs/Pages/ukraine.aspx#directives.",
       "source": "Sectoral Sanctions Identifications List (SSI) - Treasury Department",
       "source_information_url": "https://ofac.treasury.gov/other-ofac-sanctions-lists",
@@ -246,16 +238,10 @@
           "postal_code": null
         }
       ],
-      "alt_names": [
-        "PUTIN, Vladimir"
-      ],
+      "alt_names": ["PUTIN, Vladimir"],
       "call_sign": null,
-      "citizenships": [
-        "RU"
-      ],
-      "dates_of_birth": [
-        "1952-10-07"
-      ],
+      "citizenships": ["RU"],
+      "dates_of_birth": ["1952-10-07"],
       "end_date": null,
       "entity_number": "35096",
       "federal_register_notice": null,
@@ -279,15 +265,9 @@
       "license_policy": null,
       "license_requirement": null,
       "name": "PUTIN, Vladimir Vladimirovich",
-      "nationalities": [
-        "RU"
-      ],
-      "places_of_birth": [
-        "Leningrad, Russia"
-      ],
-      "programs": [
-        "RUSSIA-EO14024"
-      ],
+      "nationalities": ["RU"],
+      "places_of_birth": ["Leningrad, Russia"],
+      "programs": ["RUSSIA-EO14024"],
       "remarks": null,
       "source": "Specially Designated Nationals (SDN) - Treasury Department",
       "source_information_url": "https://home.treasury.gov/policy-issues/financial-sanctions/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists",
@@ -360,9 +340,7 @@
       "name": "MAR AZUL",
       "nationalities": [],
       "places_of_birth": [],
-      "programs": [
-        "CUBA"
-      ],
+      "programs": ["CUBA"],
       "remarks": null,
       "source": "Specially Designated Nationals (SDN) - Treasury Department",
       "source_information_url": "https://home.treasury.gov/policy-issues/financial-sanctions/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists",

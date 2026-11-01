@@ -10,9 +10,13 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const nppesOrganization = z
   .object({
     number: z.string(),
-    basic: z.object({ organization_name: z.string(), status: z.string() }).loose(),
+    basic: z
+      .object({ organization_name: z.string(), status: z.string() })
+      .loose(),
     other_names: z.array(z.object({ organization_name: z.string() }).loose()),
-    taxonomies: z.array(z.object({ desc: z.string().nullable(), primary: z.boolean() }).loose()),
+    taxonomies: z.array(
+      z.object({ desc: z.string().nullable(), primary: z.boolean() }).loose(),
+    ),
   })
   .loose();
 
@@ -23,7 +27,13 @@ const OPEN_DATA_PAGE = 1000;
 interface OpenDataSet {
   registry: string;
   dataset: string;
-  columns: { names: [string, ...string[]]; number: string; type: string; status: string | null; expires: string };
+  columns: {
+    names: [string, ...string[]];
+    number: string;
+    type: string;
+    status: string | null;
+    expires: string;
+  };
 }
 
 const OPEN_DATA = {
@@ -122,19 +132,34 @@ type SourceSearch = { candidates: LicenseCandidate[] } | { notChecked: string };
 
 const NO_WORD = 'the name has no word to search by';
 
-async function getJson<Body>(url: string, body: z.ZodType<Body>, signal: AbortSignal | undefined): Promise<Body> {
+async function getJson<Body>(
+  url: string,
+  body: z.ZodType<Body>,
+  signal: AbortSignal | undefined,
+): Promise<Body> {
   const response = await fetch(url, {
-    signal: AbortSignal.any([AbortSignal.timeout(REQUEST_TIMEOUT_MS), ...(signal ? [signal] : [])]),
+    signal: AbortSignal.any([
+      AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      ...(signal ? [signal] : []),
+    ]),
   });
-  if (response.status >= 400 && response.status < 500 && response.status !== 429) {
-    throw ApplicationFailure.nonRetryable(`${new URL(url).host} answered ${response.status}`);
+  if (
+    response.status >= 400 &&
+    response.status < 500 &&
+    response.status !== 429
+  ) {
+    throw ApplicationFailure.nonRetryable(
+      `${new URL(url).host} answered ${response.status}`,
+    );
   }
   if (!response.ok) {
     throw new Error(`${new URL(url).host} answered ${response.status}`);
   }
   const parsed = body.safeParse(await response.json());
   if (!parsed.success) {
-    throw ApplicationFailure.nonRetryable(`${new URL(url).host} answered in an unexpected shape: ${parsed.error.message}`);
+    throw ApplicationFailure.nonRetryable(
+      `${new URL(url).host} answered in an unexpected shape: ${parsed.error.message}`,
+    );
   }
   return parsed.data;
 }
@@ -153,7 +178,9 @@ async function searchNppes(
   signal: AbortSignal | undefined,
 ): Promise<SourceSearch> {
   const wanted = normalizeName(business.name);
-  const firstWord = wanted.split(' ').find((word) => (word.match(/[a-z]/g) ?? []).length >= 2);
+  const firstWord = wanted
+    .split(' ')
+    .find((word) => (word.match(/[a-z]/g) ?? []).length >= 2);
   if (firstWord === undefined) {
     return { notChecked: `NPPES was not checked: ${NO_WORD}` };
   }
@@ -167,13 +194,19 @@ async function searchNppes(
       limit: String(NPPES_PAGE),
       skip: String(page * NPPES_PAGE),
     });
-    const { results } = await getJson(`${origin}/api/?${params}`, nppesPage, signal);
+    const { results } = await getJson(
+      `${origin}/api/?${params}`,
+      nppesPage,
+      signal,
+    );
     organizations.push(...results);
     if (results.length < NPPES_PAGE) {
       return {
         candidates: organizations
           .filter((organization) =>
-            [organization.basic, ...organization.other_names].some((named) => normalizeName(named.organization_name) === wanted),
+            [organization.basic, ...organization.other_names].some(
+              (named) => normalizeName(named.organization_name) === wanted,
+            ),
           )
           .map((organization) => ({
             subjectKey: business.key,
@@ -181,7 +214,9 @@ async function searchNppes(
             registry: 'NPPES',
             licenseeName: organization.basic.organization_name,
             licenseNumber: organization.number,
-            licenseType: organization.taxonomies.find((taxonomy) => taxonomy.primary)?.desc ?? null,
+            licenseType:
+              organization.taxonomies.find((taxonomy) => taxonomy.primary)
+                ?.desc ?? null,
             status: NPPES_STATUSES.get(organization.basic.status) ?? null,
             expiresOn: null,
             raw: organization,
@@ -189,11 +224,19 @@ async function searchNppes(
       };
     }
   }
-  return { notChecked: 'NPPES was not checked: more than 1,200 organizations start with the same word' };
+  return {
+    notChecked:
+      'NPPES was not checked: more than 1,200 organizations start with the same word',
+  };
 }
 
 function filterWords(name: string): string[] {
-  const written = new Set(name.toLowerCase().replaceAll("'", '').split(/[^a-z0-9]+/));
+  const written = new Set(
+    name
+      .toLowerCase()
+      .replaceAll("'", '')
+      .split(/[^a-z0-9]+/),
+  );
   return normalizeName(name)
     .split(' ')
     .filter((word) => word !== 'and' && written.has(word));
@@ -206,9 +249,13 @@ function isRealDay(year: string, month: string, day: string): boolean {
 
 function expiresOn(written: string | undefined): string | null {
   const parts =
-    /^(?<month>\d{2})\/(?<day>\d{2})\/(?<year>\d{4})$/.exec(written ?? '')?.groups ??
-    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(T|$)/.exec(written ?? '')?.groups;
-  return parts && isRealDay(parts.year!, parts.month!, parts.day!) ? `${parts.year}-${parts.month}-${parts.day}` : null;
+    /^(?<month>\d{2})\/(?<day>\d{2})\/(?<year>\d{4})$/.exec(written ?? '')
+      ?.groups ??
+    /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(T|$)/.exec(written ?? '')
+      ?.groups;
+  return parts && isRealDay(parts.year!, parts.month!, parts.day!)
+    ? `${parts.year}-${parts.month}-${parts.day}`
+    : null;
 }
 
 async function searchOpenData(
@@ -221,7 +268,9 @@ async function searchOpenData(
   const wanted = normalizeName(business.name);
   const words = filterWords(business.name);
   if (words.length === 0) {
-    return { notChecked: `License data for ${state} was not checked: ${NO_WORD}` };
+    return {
+      notChecked: `License data for ${state} was not checked: ${NO_WORD}`,
+    };
   }
   const where = columns.names
     .map(
@@ -233,7 +282,9 @@ async function searchOpenData(
   const license = z
     .object({
       [primaryName]: z.string(),
-      ...Object.fromEntries(otherNames.map((column) => [column, z.string().optional()])),
+      ...Object.fromEntries(
+        otherNames.map((column) => [column, z.string().optional()]),
+      ),
       [columns.number]: z.string().optional(),
       [columns.type]: z.string(),
       [columns.expires]: z.string().optional(),
@@ -248,7 +299,11 @@ async function searchOpenData(
       $limit: String(OPEN_DATA_PAGE),
       $offset: String(offset),
     });
-    const page = await getJson(`${origin}/resource/${dataset}.json?${params}`, z.array(license), signal);
+    const page = await getJson(
+      `${origin}/resource/${dataset}.json?${params}`,
+      z.array(license),
+      signal,
+    );
     rows.push(...page);
     if (page.length < OPEN_DATA_PAGE) {
       break;
@@ -256,7 +311,12 @@ async function searchOpenData(
   }
   return {
     candidates: rows
-      .filter((row) => columns.names.some((column) => row[column] !== undefined && normalizeName(row[column]) === wanted))
+      .filter((row) =>
+        columns.names.some(
+          (column) =>
+            row[column] !== undefined && normalizeName(row[column]) === wanted,
+        ),
+      )
       .map((row) => ({
         subjectKey: business.key,
         source: 'licenses',
@@ -292,16 +352,24 @@ const floridaSnapshot = z
 
 const FLORIDA_MATCH_CAP = 200;
 
-async function searchFloridaSnapshot(business: Business): Promise<SourceSearch> {
+async function searchFloridaSnapshot(
+  business: Business,
+): Promise<SourceSearch> {
   const { data } = await getSupabaseServerAdminClient()
     .rpc('florida_licenses_named', { p_name: normalizeName(business.name) })
     .throwOnError();
   const snapshot = floridaSnapshot.parse(data);
-  if (snapshot === null || Date.now() - new Date(snapshot.snapshot_at).getTime() > SNAPSHOT_MAX_AGE_MS) {
+  if (
+    snapshot === null ||
+    Date.now() - new Date(snapshot.snapshot_at).getTime() > SNAPSHOT_MAX_AGE_MS
+  ) {
     return { notChecked: 'License data is not available for FL' };
   }
   if (snapshot.match_count > FLORIDA_MATCH_CAP) {
-    return { notChecked: 'License data for FL was not checked: too many licenses share this name' };
+    return {
+      notChecked:
+        'License data for FL was not checked: too many licenses share this name',
+    };
   }
   return {
     candidates: snapshot.licenses.map((license) => ({
@@ -325,7 +393,13 @@ async function searchState(
   signal: AbortSignal | undefined,
 ): Promise<SourceSearch> {
   if (hasOpenData(state)) {
-    return searchOpenData(urls[state], OPEN_DATA[state], state, business, signal);
+    return searchOpenData(
+      urls[state],
+      OPEN_DATA[state],
+      state,
+      business,
+      signal,
+    );
   }
   if (state !== 'FL') {
     return { notChecked: `License data is not available for ${state}` };
@@ -337,22 +411,44 @@ async function searchState(
 
 function registryUrls(): LicenseRegistryUrls {
   const standIn = process.env.LICENSE_REGISTRY_URL;
-  return standIn ? { NPPES: standIn, TX: standIn, IL: standIn, CO: standIn, CT: standIn, WA: standIn } : LICENSE_REGISTRY_URLS;
+  return standIn
+    ? {
+        NPPES: standIn,
+        TX: standIn,
+        IL: standIn,
+        CO: standIn,
+        CT: standIn,
+        WA: standIn,
+      }
+    : LICENSE_REGISTRY_URLS;
 }
 
 export async function searchLicenses(
-  { business, state, signal }: { business: Business; state: string | null; signal?: AbortSignal },
+  {
+    business,
+    state,
+    signal,
+  }: { business: Business; state: string | null; signal?: AbortSignal },
   urls: LicenseRegistryUrls = registryUrls(),
 ): Promise<{ candidates: LicenseCandidate[]; notChecked: string[] }> {
   if (state === null) {
-    return { candidates: [], notChecked: ['License data is not available for a business with no state'] };
+    return {
+      candidates: [],
+      notChecked: [
+        'License data is not available for a business with no state',
+      ],
+    };
   }
   const searches = await Promise.all([
     searchNppes(urls.NPPES, business, state, signal),
     searchState(state, urls, business, signal),
   ]);
   return {
-    candidates: searches.flatMap((search) => ('candidates' in search ? search.candidates : [])),
-    notChecked: searches.flatMap((search) => ('notChecked' in search ? [search.notChecked] : [])),
+    candidates: searches.flatMap((search) =>
+      'candidates' in search ? search.candidates : [],
+    ),
+    notChecked: searches.flatMap((search) =>
+      'notChecked' in search ? [search.notChecked] : [],
+    ),
   };
 }

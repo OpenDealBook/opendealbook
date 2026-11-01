@@ -1,5 +1,6 @@
-import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { z } from 'zod';
+
+import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
 import {
   BrokerRefused,
@@ -18,7 +19,11 @@ const RECORD_PRODUCTS = ['litigations', 'liens', 'bankruptcies'];
 
 const business = z.object({ id: z.string() });
 
-const order = z.object({ product: z.string(), status: z.string(), completed_at: z.string().nullish() });
+const order = z.object({
+  product: z.string(),
+  status: z.string(),
+  completed_at: z.string().nullish(),
+});
 
 const lien = z
   .object({
@@ -50,8 +55,17 @@ const bankruptcy = z
   })
   .loose();
 
-const LIEN_KIND_BY_TYPE: Record<string, BrokerRecord['kind']> = { ucc: 'ucc', state: 'tax_lien', federal: 'tax_lien' };
-const OPEN_BY_STATUS: Record<string, boolean> = { open: true, closed: false, Open: true, Closed: false };
+const LIEN_KIND_BY_TYPE: Record<string, BrokerRecord['kind']> = {
+  ucc: 'ucc',
+  state: 'tax_lien',
+  federal: 'tax_lien',
+};
+const OPEN_BY_STATUS: Record<string, boolean> = {
+  open: true,
+  closed: false,
+  Open: true,
+  Closed: false,
+};
 
 function lienRecord(hit: z.infer<typeof lien>): BrokerRecord {
   return {
@@ -113,7 +127,9 @@ export async function checkMiddesk({
   const call = (path: string, body?: unknown) =>
     brokerJson('Middesk', {
       url: `${credentials.baseUrl}${path}`,
-      headers: { authorization: `Basic ${Buffer.from(`${credentials.apiKey}:`).toString('base64')}` },
+      headers: {
+        authorization: `Basic ${Buffer.from(`${credentials.apiKey}:`).toString('base64')}`,
+      },
       body,
       signal,
     });
@@ -134,7 +150,10 @@ export async function checkMiddesk({
 
   async function businessId() {
     const { data: claim } = await db
-      .rpc('claim_middesk_business', { p_account_id: accountId, p_firm_id: firmId })
+      .rpc('claim_middesk_business', {
+        p_account_id: accountId,
+        p_firm_id: firmId,
+      })
       .single()
       .throwOnError();
     if (claim.business_id || !claim.claimed) {
@@ -142,7 +161,11 @@ export async function checkMiddesk({
     }
     const [earlier] = z
       .object({ data: z.array(business) })
-      .parse(await call(`/businesses?${new URLSearchParams({ external_id: firmId })}`)).data;
+      .parse(
+        await call(
+          `/businesses?${new URLSearchParams({ external_id: firmId })}`,
+        ),
+      ).data;
     const { id } =
       earlier ??
       business.parse(
@@ -150,7 +173,11 @@ export async function checkMiddesk({
           name: firm.name,
           external_id: firmId,
           addresses: [{ city, state }],
-          orders: [{ product: VERIFY }, { product: 'litigations' }, { product: 'bankruptcies' }],
+          orders: [
+            { product: VERIFY },
+            { product: 'litigations' },
+            { product: 'bankruptcies' },
+          ],
         }),
       );
     await db
@@ -168,14 +195,22 @@ export async function checkMiddesk({
       return { status: 'pending' };
     }
     const placed = await everyPage(`/businesses/${id}/orders`, order);
-    if (placed.some((each) => RECORD_PRODUCTS.includes(each.product) && each.status === 'rejected')) {
+    if (
+      placed.some(
+        (each) =>
+          RECORD_PRODUCTS.includes(each.product) && each.status === 'rejected',
+      )
+    ) {
       return { status: 'not_checked' };
     }
-    const completed = (product: string) => placed.some((each) => each.product === product && each.completed_at);
+    const completed = (product: string) =>
+      placed.some((each) => each.product === product && each.completed_at);
     if (!completed(VERIFY)) {
       return { status: 'pending' };
     }
-    const missing = RECORD_PRODUCTS.filter((product) => !placed.some((each) => each.product === product));
+    const missing = RECORD_PRODUCTS.filter(
+      (product) => !placed.some((each) => each.product === product),
+    );
     for (const product of missing) {
       await call(`/businesses/${id}/orders`, { product });
     }

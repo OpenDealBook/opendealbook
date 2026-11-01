@@ -180,12 +180,14 @@ describe('seller room folders', () => {
         { id: shared, parentId: null, name: 'Financials', shown: 'picked' },
         { id: child, parentId: shared, name: '2024', shown: 'with-parent' },
         { id: teamOnly, parentId: null, name: 'Internal', shown: 'hidden' },
-        ...['Financials', 'Legal', 'Operations', 'Tax', 'Other'].map((name) => ({
-          id: expect.any(String),
-          parentId: null,
-          name,
-          shown: 'hidden',
-        })),
+        ...['Financials', 'Legal', 'Operations', 'Tax', 'Other'].map(
+          (name) => ({
+            id: expect.any(String),
+            parentId: null,
+            name,
+            shown: 'hidden',
+          }),
+        ),
       ]),
     );
     expect(result).toHaveLength(8);
@@ -265,7 +267,7 @@ describe('seller room folders', () => {
     expect(listed).not.toContain(underPackage);
   });
 
-  it('refuses the Buyer\'s counsel folder or a folder inside it, and the seller sees none of it', async () => {
+  it("refuses the Buyer's counsel folder or a folder inside it, and the seller sees none of it", async () => {
     const dealId = await newDeal(teamId, owner);
     const { data: counselFolder } = await admin
       .rpc('ensure_counsel_uploads_folder', { deal_id: dealId })

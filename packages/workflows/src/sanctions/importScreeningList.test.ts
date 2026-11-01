@@ -1,5 +1,8 @@
-import { ActivityFailure, CancelledFailure, RetryState } from '@temporalio/common';
-
+import {
+  ActivityFailure,
+  CancelledFailure,
+  RetryState,
+} from '@temporalio/common';
 import { describe, expect, it } from 'vitest';
 
 import { runScreeningImport } from './importScreeningList';
@@ -14,7 +17,10 @@ function steps(loadFailure: Error) {
       loadLatestScreeningList: async () => {
         throw loadFailure;
       },
-      failScreeningImport: async (failure: { importId: string; reason: string }) => {
+      failScreeningImport: async (failure: {
+        importId: string;
+        reason: string;
+      }) => {
         failed.push(failure);
       },
     },
@@ -63,7 +69,10 @@ describe('runScreeningImport', () => {
     await runScreeningImport(run);
 
     expect(failed).toEqual([
-      { importId: 'import-1', reason: 'GET https://data.trade.gov answered 503' },
+      {
+        importId: 'import-1',
+        reason: 'GET https://data.trade.gov answered 503',
+      },
     ]);
   });
 });

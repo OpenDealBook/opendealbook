@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useState } from 'react';
 
-import { updateDealProfile } from "@odb/deals/server";
-import type { Tables } from "@odb/supabase";
-import { Button } from "@odb/ui/button";
+import { updateDealProfile } from '@odb/deals/server';
+import type { Tables } from '@odb/supabase';
+import { Button } from '@odb/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -12,38 +12,38 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@odb/ui/dialog";
-import { Input } from "@odb/ui/input";
-import { Label } from "@odb/ui/label";
+} from '@odb/ui/dialog';
+import { Input } from '@odb/ui/input';
+import { Label } from '@odb/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@odb/ui/select";
+} from '@odb/ui/select';
 
-import { GatedControl } from "./gated-control";
-import { useRefusableAction } from "./use-refusable-action";
+import { GatedControl } from './gated-control';
+import { useRefusableAction } from './use-refusable-action';
 
-const OTHER_INDUSTRY = "other";
+const OTHER_INDUSTRY = 'other';
 
-const MANAGERS_ONLY = "Only deal managers can edit the deal profile.";
+const MANAGERS_ONLY = 'Only deal managers can edit the deal profile.';
 
 export type ProfileDeal = {
   id: string;
   code_name: string | null;
   firm: { name: string };
   deal_profile: Pick<
-    Tables<"deal_profile">,
-    | "industry_id"
-    | "industry"
-    | "location_raw"
-    | "employee_band"
-    | "website"
-    | "owner_role"
-    | "reason_for_sale"
-    | "year_established"
+    Tables<'deal_profile'>,
+    | 'industry_id'
+    | 'industry'
+    | 'location_raw'
+    | 'employee_band'
+    | 'website'
+    | 'owner_role'
+    | 'reason_for_sale'
+    | 'year_established'
   >;
 };
 
@@ -51,7 +51,7 @@ type Industry = { id: string; name: string };
 
 function toText(value: string): string | null {
   const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
+  return trimmed === '' ? null : trimmed;
 }
 
 function TextField({
@@ -67,10 +67,10 @@ function TextField({
   value: string;
   onChange: (value: string) => void;
   hint?: string;
-  type?: "number";
+  type?: 'number';
 }) {
   return (
-    <div className={"flex flex-col gap-1.5"}>
+    <div className={'flex flex-col gap-1.5'}>
       <Label htmlFor={id}>{label}</Label>
       <Input
         id={id}
@@ -78,7 +78,7 @@ function TextField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-      {hint ? <p className={"text-muted-foreground text-xs"}>{hint}</p> : null}
+      {hint ? <p className={'text-muted-foreground text-xs'}>{hint}</p> : null}
     </div>
   );
 }
@@ -99,19 +99,19 @@ export function DealProfileForm({
 
   const [businessName, setBusinessName] = useState(deal.firm.name);
   const [industryChoice, setIndustryChoice] = useState(
-    profile.industry_id ?? (profile.industry === null ? "" : OTHER_INDUSTRY),
+    profile.industry_id ?? (profile.industry === null ? '' : OTHER_INDUSTRY),
   );
-  const [otherIndustry, setOtherIndustry] = useState(profile.industry ?? "");
-  const [codeName, setCodeName] = useState(deal.code_name ?? "");
-  const [locationRaw, setLocationRaw] = useState(profile.location_raw ?? "");
-  const [employeeBand, setEmployeeBand] = useState(profile.employee_band ?? "");
-  const [website, setWebsite] = useState(profile.website ?? "");
-  const [ownerRole, setOwnerRole] = useState(profile.owner_role ?? "");
+  const [otherIndustry, setOtherIndustry] = useState(profile.industry ?? '');
+  const [codeName, setCodeName] = useState(deal.code_name ?? '');
+  const [locationRaw, setLocationRaw] = useState(profile.location_raw ?? '');
+  const [employeeBand, setEmployeeBand] = useState(profile.employee_band ?? '');
+  const [website, setWebsite] = useState(profile.website ?? '');
+  const [ownerRole, setOwnerRole] = useState(profile.owner_role ?? '');
   const [reasonForSale, setReasonForSale] = useState(
-    profile.reason_for_sale ?? "",
+    profile.reason_for_sale ?? '',
   );
   const [yearEstablished, setYearEstablished] = useState(
-    profile.year_established?.toString() ?? "",
+    profile.year_established?.toString() ?? '',
   );
 
   const duplicateName = otherBusinessNames.some(
@@ -128,7 +128,7 @@ export function DealProfileForm({
           deal_id: deal.id,
           business_name: businessName,
           industry_id:
-            industryChoice === "" || industryChoice === OTHER_INDUSTRY
+            industryChoice === '' || industryChoice === OTHER_INDUSTRY
               ? null
               : industryChoice,
           industry:
@@ -146,24 +146,24 @@ export function DealProfileForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className={"flex flex-col gap-5"}>
-      <div className={"grid gap-4 sm:grid-cols-2"}>
-        <div className={"flex flex-col gap-1.5"}>
+    <form onSubmit={onSubmit} className={'flex flex-col gap-5'}>
+      <div className={'grid gap-4 sm:grid-cols-2'}>
+        <div className={'flex flex-col gap-1.5'}>
           <TextField
-            id={"profile-business-name"}
-            label={"Business name"}
+            id={'profile-business-name'}
+            label={'Business name'}
             value={businessName}
             onChange={setBusinessName}
           />
           {duplicateName ? (
-            <p className={"text-warning text-xs"}>
+            <p className={'text-warning text-xs'}>
               Another deal in this team already uses this business name.
             </p>
           ) : null}
         </div>
         <TextField
-          id={"profile-code-name"}
-          label={"Code name"}
+          id={'profile-code-name'}
+          label={'Code name'}
           value={codeName}
           onChange={setCodeName}
           hint={
@@ -172,11 +172,11 @@ export function DealProfileForm({
         />
       </div>
 
-      <div className={"flex flex-col gap-1.5"}>
-        <Label htmlFor={"profile-industry"}>Industry</Label>
+      <div className={'flex flex-col gap-1.5'}>
+        <Label htmlFor={'profile-industry'}>Industry</Label>
         <Select value={industryChoice} onValueChange={setIndustryChoice}>
-          <SelectTrigger id={"profile-industry"} className={"w-full sm:w-72"}>
-            <SelectValue placeholder={"Pick an industry"} />
+          <SelectTrigger id={'profile-industry'} className={'w-full sm:w-72'}>
+            <SelectValue placeholder={'Pick an industry'} />
           </SelectTrigger>
           <SelectContent>
             {industries.map((industry) => (
@@ -189,11 +189,11 @@ export function DealProfileForm({
         </Select>
         {industryChoice === OTHER_INDUSTRY ? (
           <>
-            <Label htmlFor={"profile-other-industry"} className={"sr-only"}>
+            <Label htmlFor={'profile-other-industry'} className={'sr-only'}>
               Other industry
             </Label>
             <Input
-              id={"profile-other-industry"}
+              id={'profile-other-industry'}
               required
               value={otherIndustry}
               onChange={(event) => setOtherIndustry(event.target.value)}
@@ -202,55 +202,55 @@ export function DealProfileForm({
         ) : null}
       </div>
 
-      <div className={"grid gap-4 border-t pt-4 sm:grid-cols-2"}>
+      <div className={'grid gap-4 border-t pt-4 sm:grid-cols-2'}>
         <TextField
-          id={"profile-location"}
-          label={"Location"}
+          id={'profile-location'}
+          label={'Location'}
           value={locationRaw}
           onChange={setLocationRaw}
         />
         <TextField
-          id={"profile-year-established"}
-          label={"Year established"}
-          type={"number"}
+          id={'profile-year-established'}
+          label={'Year established'}
+          type={'number'}
           value={yearEstablished}
           onChange={setYearEstablished}
         />
         <TextField
-          id={"profile-employee-band"}
-          label={"Employee band"}
+          id={'profile-employee-band'}
+          label={'Employee band'}
           value={employeeBand}
           onChange={setEmployeeBand}
         />
         <TextField
-          id={"profile-website"}
-          label={"Website"}
+          id={'profile-website'}
+          label={'Website'}
           value={website}
           onChange={setWebsite}
         />
         <TextField
-          id={"profile-owner-role"}
-          label={"Owner role"}
+          id={'profile-owner-role'}
+          label={'Owner role'}
           value={ownerRole}
           onChange={setOwnerRole}
         />
         <TextField
-          id={"profile-reason-for-sale"}
-          label={"Reason for sale"}
+          id={'profile-reason-for-sale'}
+          label={'Reason for sale'}
           value={reasonForSale}
           onChange={setReasonForSale}
         />
       </div>
 
       {refusal !== null ? (
-        <p role={"alert"} className={"text-destructive text-sm"}>
+        <p role={'alert'} className={'text-destructive text-sm'}>
           {refusal}
         </p>
       ) : null}
 
-      <div className={"flex justify-end"}>
-        <Button type={"submit"} disabled={pending}>
-          {pending ? "Saving..." : "Save profile"}
+      <div className={'flex justify-end'}>
+        <Button type={'submit'} disabled={pending}>
+          {pending ? 'Saving...' : 'Save profile'}
         </Button>
       </div>
     </form>
@@ -275,7 +275,7 @@ export function DealProfileDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className={"max-h-[90dvh] overflow-y-auto sm:max-w-2xl"}>
+      <DialogContent className={'max-h-[90dvh] overflow-y-auto sm:max-w-2xl'}>
         <DialogHeader>
           <DialogTitle>Deal profile</DialogTitle>
           <DialogDescription>

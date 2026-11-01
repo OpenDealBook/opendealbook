@@ -22,9 +22,7 @@ export async function resolveNovuChannels(
   }
 
   const disabled = new Set(
-    (data ?? [])
-      .filter((row) => !row.enabled)
-      .map((row) => row.channel),
+    (data ?? []).filter((row) => !row.enabled).map((row) => row.channel),
   );
 
   return NOVU_OWNED_CHANNELS.filter((channel) => !disabled.has(channel));

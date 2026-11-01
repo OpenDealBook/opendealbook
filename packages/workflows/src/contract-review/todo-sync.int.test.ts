@@ -24,9 +24,23 @@ describe('syncContractReviewTodos (integration)', () => {
     await syncContractReviewTodos(review.admin, review.teamId);
     await syncContractReviewTodos(review.admin, review.teamId);
 
-    expect((await todosOf(review)).map(({ user_id, deal_id, title }) => ({ user_id, deal_id, title }))).toEqual([
-      { user_id: review.owner.userId, deal_id: review.dealId, title: "Waiting on buyer's counsel since Oct 17" },
-      { user_id: review.owner.userId, deal_id: review.dealId, title: "Waiting on seller's counsel since Oct 17" },
+    expect(
+      (await todosOf(review)).map(({ user_id, deal_id, title }) => ({
+        user_id,
+        deal_id,
+        title,
+      })),
+    ).toEqual([
+      {
+        user_id: review.owner.userId,
+        deal_id: review.dealId,
+        title: "Waiting on buyer's counsel since Oct 17",
+      },
+      {
+        user_id: review.owner.userId,
+        deal_id: review.dealId,
+        title: "Waiting on seller's counsel since Oct 17",
+      },
     ]);
   });
 
@@ -74,15 +88,24 @@ describe('syncContractReviewTodos (integration)', () => {
     const review = await seedReview({ sellerCounsel: false });
     await syncContractReviewTodos(review.admin, review.teamId);
     const [deleted] = await todosOf(review);
-    await review.admin.from('personal_todo').delete().eq('id', deleted!.id).throwOnError();
+    await review.admin
+      .from('personal_todo')
+      .delete()
+      .eq('id', deleted!.id)
+      .throwOnError();
 
     await syncContractReviewTodos(review.admin, review.teamId);
 
-    expect((await todosOf(review)).map((todo) => todo.title)).not.toContain(deleted!.title);
+    expect((await todosOf(review)).map((todo) => todo.title)).not.toContain(
+      deleted!.title,
+    );
   });
 
   it('dates a fresh to-do from a newer request', async () => {
-    const review = await seedReview({ sellerCounsel: false, buyerCounsel: true });
+    const review = await seedReview({
+      sellerCounsel: false,
+      buyerCounsel: true,
+    });
     await review.decide('seller', '2026-10-18T04:00:00Z');
     await syncContractReviewTodos(review.admin, review.teamId);
 

@@ -77,14 +77,28 @@ describe('postalCode', () => {
 describe('matchKey', () => {
   it('joins postal code, street number and normalized name', () => {
     expect(
-      matchKey({ name: 'Acme Plumbing, LLC', addressLine1: '12 Congress Ave', postalCode: '78701-0001' }),
+      matchKey({
+        name: 'Acme Plumbing, LLC',
+        addressLine1: '12 Congress Ave',
+        postalCode: '78701-0001',
+      }),
     ).toBe('78701|12|acme plumbing');
   });
 
   it('is the same for two spellings of one business at one address', () => {
     expect(
-      matchKey({ name: 'THE ACME PLUMBING CO.', addressLine1: '12 Congress Avenue Ste 4', postalCode: '78701' }),
-    ).toBe(matchKey({ name: 'Acme Plumbing LLC', addressLine1: '12 Congress Ave', postalCode: '78701' }));
+      matchKey({
+        name: 'THE ACME PLUMBING CO.',
+        addressLine1: '12 Congress Avenue Ste 4',
+        postalCode: '78701',
+      }),
+    ).toBe(
+      matchKey({
+        name: 'Acme Plumbing LLC',
+        addressLine1: '12 Congress Ave',
+        postalCode: '78701',
+      }),
+    );
   });
 
   it.each([
@@ -108,7 +122,9 @@ describe('nameSimilarity', () => {
   });
 
   it('links a one-letter typo', () => {
-    expect(nameSimilarity('Lakeside Dental Care', 'Lakeside Dentl Care')).toBeGreaterThanOrEqual(0.9);
+    expect(
+      nameSimilarity('Lakeside Dental Care', 'Lakeside Dentl Care'),
+    ).toBeGreaterThanOrEqual(0.9);
   });
 
   it('reviews a name that adds a trade', () => {
@@ -118,7 +134,9 @@ describe('nameSimilarity', () => {
   });
 
   it('drops an unrelated business at the same address', () => {
-    expect(nameSimilarity('Acme Plumbing', 'Golden Dragon Restaurant')).toBeLessThan(0.6);
+    expect(
+      nameSimilarity('Acme Plumbing', 'Golden Dragon Restaurant'),
+    ).toBeLessThan(0.6);
   });
 });
 

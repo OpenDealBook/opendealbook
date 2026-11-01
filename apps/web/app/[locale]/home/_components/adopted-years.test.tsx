@@ -13,8 +13,18 @@ describe('AdoptedYears', () => {
     const html = renderToStaticMarkup(
       <AdoptedYears
         years={[
-          { year: 1, debt_service: 36_000, dscr: 100_000 / 36_000, net_cash_flow: 64_000 },
-          { year: 2, debt_service: 53_142.857, dscr: 2.0699, net_cash_flow: 56_857.143 },
+          {
+            year: 1,
+            debt_service: 36_000,
+            dscr: 100_000 / 36_000,
+            net_cash_flow: 64_000,
+          },
+          {
+            year: 2,
+            debt_service: 53_142.857,
+            dscr: 2.0699,
+            net_cash_flow: 56_857.143,
+          },
           { year: 3, debt_service: 0, dscr: null, net_cash_flow: 121_000 },
         ]}
       />,

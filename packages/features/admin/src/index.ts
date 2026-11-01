@@ -21,5 +21,8 @@ export {
   getAdminOverviewAction,
   getAdminCompsPoolAction,
 } from './lib/server/admin-insights';
-export { useAdminOverview, useAdminCompsPool } from './hooks/use-admin-insights';
+export {
+  useAdminOverview,
+  useAdminCompsPool,
+} from './hooks/use-admin-insights';
 export { summarizeBuckets } from './lib/comps-summary';

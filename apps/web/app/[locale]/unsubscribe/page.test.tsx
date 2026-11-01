@@ -10,10 +10,15 @@ vi.mock('@odb/supabase/server', () => ({
 }));
 
 vi.mock('next-intl/server', () => ({
-  getTranslations: async ({ namespace }: { namespace: string }) => (key: string) =>
-    `${namespace}.${key}`
-      .split('.')
-      .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], messages),
+  getTranslations:
+    async ({ namespace }: { namespace: string }) =>
+    (key: string) =>
+      `${namespace}.${key}`
+        .split('.')
+        .reduce<unknown>(
+          (node, part) => (node as Record<string, unknown>)[part],
+          messages,
+        ),
 }));
 
 import UnsubscribePage from './page';

@@ -7,11 +7,24 @@ import { referenceAllowed, upstreamFields } from './upstream';
 const graph: WorkflowGraph = {
   nodes: [
     { id: 'evt', type: 'event_trigger', config: { eventType: 'deal.created' } },
-    { id: 'ask', type: 'ask_ai', label: 'Summarise deal', config: { prompt: 'Sum up' } },
+    {
+      id: 'ask',
+      type: 'ask_ai',
+      label: 'Summarise deal',
+      config: { prompt: 'Sum up' },
+    },
     { id: 'side', type: 'decision_model', config: { firmId: 'f' } },
-    { id: 'pause', type: 'wait', config: { kind: 'duration', amount: 1, unit: 'hours' } },
+    {
+      id: 'pause',
+      type: 'wait',
+      config: { kind: 'duration', amount: 1, unit: 'hours' },
+    },
     { id: 'tell', type: 'notify_team', config: { message: 'x' } },
-    { id: 'after', type: 'create_todo', config: { title: 't', assignees: { kind: 'deal_managers' } } },
+    {
+      id: 'after',
+      type: 'create_todo',
+      config: { title: 't', assignees: { kind: 'deal_managers' } },
+    },
   ],
   edges: [
     { id: 'e1', sourceNodeId: 'evt', targetNodeId: 'ask' },
@@ -54,7 +67,9 @@ describe('upstreamFields', () => {
 
 describe('upstreamFields offers only steps that always run earlier', () => {
   const offered = (graph: WorkflowGraph, nodeId: string) =>
-    upstreamFields(graph, nodeId, paletteNodeTypes()).map(({ nodeId: id, fields }) => [id, fields.map((field) => field.name)]);
+    upstreamFields(graph, nodeId, paletteNodeTypes()).map(
+      ({ nodeId: id, fields }) => [id, fields.map((field) => field.name)],
+    );
 
   it('leaves out either side of a branch or approval once the paths join', () => {
     const joined: WorkflowGraph = {
@@ -68,8 +83,18 @@ describe('upstreamFields offers only steps that always run earlier', () => {
       ],
       edges: [
         { id: 'e1', sourceNodeId: 't', targetNodeId: 'ok' },
-        { id: 'e2', sourceNodeId: 'ok', targetNodeId: 'yes', sourceHandle: 'approved' },
-        { id: 'e3', sourceNodeId: 'ok', targetNodeId: 'no', sourceHandle: 'rejected' },
+        {
+          id: 'e2',
+          sourceNodeId: 'ok',
+          targetNodeId: 'yes',
+          sourceHandle: 'approved',
+        },
+        {
+          id: 'e3',
+          sourceNodeId: 'ok',
+          targetNodeId: 'no',
+          sourceHandle: 'rejected',
+        },
         { id: 'e4', sourceNodeId: 'yes', targetNodeId: 'm' },
         { id: 'e5', sourceNodeId: 'no', targetNodeId: 'm' },
         { id: 'e6', sourceNodeId: 'm', targetNodeId: 'end' },
@@ -98,9 +123,19 @@ describe('upstreamFields offers only steps that always run earlier', () => {
       ],
       edges: [
         { id: 'e1', sourceNodeId: 't', targetNodeId: 'L' },
-        { id: 'e2', sourceNodeId: 'L', targetNodeId: 'b1', sourceHandle: 'each' },
+        {
+          id: 'e2',
+          sourceNodeId: 'L',
+          targetNodeId: 'b1',
+          sourceHandle: 'each',
+        },
         { id: 'e3', sourceNodeId: 'b1', targetNodeId: 'b2' },
-        { id: 'e4', sourceNodeId: 'L', targetNodeId: 'after', sourceHandle: 'done' },
+        {
+          id: 'e4',
+          sourceNodeId: 'L',
+          targetNodeId: 'after',
+          sourceHandle: 'done',
+        },
       ],
     };
 
@@ -126,9 +161,19 @@ describe('upstreamFields offers only steps that always run earlier', () => {
       ],
       edges: [
         { id: 'e1', sourceNodeId: 't', targetNodeId: 'L' },
-        { id: 'e2', sourceNodeId: 'L', targetNodeId: 'b1', sourceHandle: 'each' },
+        {
+          id: 'e2',
+          sourceNodeId: 'L',
+          targetNodeId: 'b1',
+          sourceHandle: 'each',
+        },
         { id: 'e3', sourceNodeId: 'b1', targetNodeId: 'b2' },
-        { id: 'e4', sourceNodeId: 'L', targetNodeId: 'after', sourceHandle: 'done' },
+        {
+          id: 'e4',
+          sourceNodeId: 'L',
+          targetNodeId: 'after',
+          sourceHandle: 'done',
+        },
       ],
     };
 

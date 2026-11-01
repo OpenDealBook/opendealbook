@@ -1,8 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
-
 import { DATA_ROOM_BUCKET } from '@odb/data-room/storage';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 import { unwrap } from '../actions/test-support/unwrap';
 import {

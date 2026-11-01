@@ -25,26 +25,31 @@ import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 
 import appConfig from '../../../../../config/app.config';
-
 import { useRefusableAction } from '../../_components/use-refusable-action';
-import { disconnectProviderKeyAction, saveProviderKeyAction } from './provider-key-actions';
+import {
+  disconnectProviderKeyAction,
+  saveProviderKeyAction,
+} from './provider-key-actions';
 
 const KINDS = {
   email_lookup: {
     title: 'Email lookup',
     description: "Finds owners' emails with Apify on your team's own key.",
     provider: 'Apify',
-    stepsFail: 'Email lookup steps in workflows will fail until you connect it again.',
+    stepsFail:
+      'Email lookup steps in workflows will fail until you connect it again.',
   },
   letters: {
     title: 'Letters',
     description: "Mails letters through Lob on your team's own key.",
     provider: 'Lob',
-    stepsFail: 'Letter steps in workflows will fail until you connect it again.',
+    stepsFail:
+      'Letter steps in workflows will fail until you connect it again.',
   },
   courts: {
     title: 'Federal courts',
-    description: "Searches federal and bankruptcy court dockets on CourtListener with your team's own free token.",
+    description:
+      "Searches federal and bankruptcy court dockets on CourtListener with your team's own free token.",
     provider: 'CourtListener',
     stepsFail: 'Diligence will skip federal courts until you connect it again.',
   },
@@ -52,7 +57,8 @@ const KINDS = {
     title: 'State court and lien records',
     description:
       "Searches the business's state court cases, liens and UCC filings through your team's broker, Baselayer or Middesk. A team connects one broker.",
-    stepsFail: 'Diligence will skip state court and lien records until you connect it again.',
+    stepsFail:
+      'Diligence will skip state court and lien records until you connect it again.',
   },
 };
 
@@ -76,8 +82,11 @@ export function ProviderKeySetting({
   canManage: boolean;
 }) {
   const { title, description, stepsFail } = KINDS[kind];
-  const [broker, setBroker] = useState<Broker>(current && isBroker(current.provider) ? current.provider : 'baselayer');
-  const provider = kind === 'court_records' ? BROKERS[broker] : KINDS[kind].provider;
+  const [broker, setBroker] = useState<Broker>(
+    current && isBroker(current.provider) ? current.provider : 'baselayer',
+  );
+  const provider =
+    kind === 'court_records' ? BROKERS[broker] : KINDS[kind].provider;
   const { refusal, pending, run } = useRefusableAction();
   const [apiKey, setApiKey] = useState('');
   const [actorId, setActorId] = useState(current?.actorId ?? '');
@@ -97,7 +106,8 @@ export function ProviderKeySetting({
         <CardDescription>{description}</CardDescription>
         {kind === 'court_records' ? (
           <p className={'text-muted-foreground text-sm'}>
-            Broker results are not yet verified against live Baselayer and Middesk accounts.
+            Broker results are not yet verified against live Baselayer and
+            Middesk accounts.
           </p>
         ) : null}
       </CardHeader>
@@ -128,7 +138,9 @@ export function ProviderKeySetting({
               <Label className={'flex flex-col items-start gap-1'}>
                 Broker
                 <select
-                  className={'bg-background h-9 w-full rounded-md border px-2 text-sm'}
+                  className={
+                    'bg-background h-9 w-full rounded-md border px-2 text-sm'
+                  }
                   value={broker}
                   disabled={pending}
                   onChange={(event) => setBroker(event.target.value as Broker)}
@@ -141,7 +153,10 @@ export function ProviderKeySetting({
                 </select>
               </Label>
             ) : null}
-            {kind === 'court_records' && current && isBroker(current.provider) && current.provider !== broker ? (
+            {kind === 'court_records' &&
+            current &&
+            isBroker(current.provider) &&
+            current.provider !== broker ? (
               <p className={'text-muted-foreground text-sm'}>
                 Saving replaces the saved {BROKERS[current.provider]} key.
               </p>
@@ -152,7 +167,9 @@ export function ProviderKeySetting({
                 type={'password'}
                 autoComplete={'off'}
                 value={apiKey}
-                placeholder={current ? 'Saved. Paste a new key to replace it' : undefined}
+                placeholder={
+                  current ? 'Saved. Paste a new key to replace it' : undefined
+                }
                 disabled={pending}
                 onChange={(event) => setApiKey(event.target.value)}
               />
@@ -176,13 +193,18 @@ export function ProviderKeySetting({
                     type={'password'}
                     autoComplete={'off'}
                     value={webhookSecret}
-                    placeholder={current ? 'Paste a new secret to replace the saved one' : undefined}
+                    placeholder={
+                      current
+                        ? 'Paste a new secret to replace the saved one'
+                        : undefined
+                    }
                     disabled={pending}
                     onChange={(event) => setWebhookSecret(event.target.value)}
                   />
                 </Label>
                 <p className={'text-muted-foreground text-sm break-all'}>
-                  Lob webhook address: {`${appConfig.url}/api/webhooks/lob/${accountId}`}
+                  Lob webhook address:{' '}
+                  {`${appConfig.url}/api/webhooks/lob/${accountId}`}
                 </p>
               </>
             ) : null}
@@ -198,7 +220,11 @@ export function ProviderKeySetting({
               {current ? (
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button type={'button'} variant={'outline'} disabled={pending}>
+                    <Button
+                      type={'button'}
+                      variant={'outline'}
+                      disabled={pending}
+                    >
                       Disconnect
                     </Button>
                   </DialogTrigger>
@@ -217,7 +243,11 @@ export function ProviderKeySetting({
                         <Button
                           type={'button'}
                           variant={'destructive'}
-                          onClick={() => run(() => disconnectProviderKeyAction({ accountId, kind }))}
+                          onClick={() =>
+                            run(() =>
+                              disconnectProviderKeyAction({ accountId, kind }),
+                            )
+                          }
                         >
                           Disconnect
                         </Button>

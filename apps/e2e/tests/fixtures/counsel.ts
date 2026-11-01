@@ -46,7 +46,11 @@ export function createCounsel(cleanup: Cleanup) {
       dealPage: Page,
       person: { email: string; name?: string },
     ) {
-      return invite(card(dealPage, 'Counsel'), "Invite buyer's counsel", person);
+      return invite(
+        card(dealPage, 'Counsel'),
+        "Invite buyer's counsel",
+        person,
+      );
     },
 
     inviteSellerCounsel(
@@ -60,7 +64,10 @@ export function createCounsel(cleanup: Cleanup) {
       );
     },
 
-    async signIn(page: Page, { email, dealId }: { email: string; dealId: string }) {
+    async signIn(
+      page: Page,
+      { email, dealId }: { email: string; dealId: string },
+    ) {
       const invite = await waitForMessage({ to: email, subject: /counsel/ });
       await page.goto(firstLink(invite, /\/counsel\/confirm\?/));
       await page.getByRole('button', { name: 'Continue', exact: true }).click();
@@ -90,9 +97,7 @@ export function createContracts(cleanup: Cleanup) {
         body: readFileSync(DRAFT_DOCX),
       },
     );
-    expect(response.ok, `upload ${path}: ${await response.text()}`).toBe(
-      true,
-    );
+    expect(response.ok, `upload ${path}: ${await response.text()}`).toBe(true);
   }
 
   return {

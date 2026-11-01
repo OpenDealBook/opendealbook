@@ -23,9 +23,7 @@ export function createSeller(cleanup: Cleanup) {
         subject: /invited you to the room for/,
       });
       await page.goto(firstLink(invite, /\/seller\/confirm\?/));
-      await page
-        .getByRole('button', { name: 'Continue to your room' })
-        .click();
+      await page.getByRole('button', { name: 'Continue to your room' }).click();
       await page.waitForURL(ROOM_PATH);
       await page.getByRole('button', { name: 'Skip' }).click();
       await expect(page.getByRole('button', { name: 'Skip' })).toHaveCount(0);

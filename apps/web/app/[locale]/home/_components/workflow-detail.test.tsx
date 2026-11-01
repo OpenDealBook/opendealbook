@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+import { SCHEDULES_SYNC_FAILED } from '../[account]/workflows/workflow-refusals';
 import {
   alerts,
   announced,
@@ -18,7 +19,6 @@ import {
   submit,
   type,
 } from './lender-test-kit';
-import { SCHEDULES_SYNC_FAILED } from '../[account]/workflows/workflow-refusals';
 import { WorkflowDetail } from './workflow-detail';
 
 vi.mock(
@@ -89,7 +89,11 @@ const props: Props = {
   ],
   canManage: true,
   schedulesSyncFailed: false,
-  ...(fakeActions('cancelWaitingRuns', 'renameWorkflow', 'retryScheduleSync') as Pick<
+  ...(fakeActions(
+    'cancelWaitingRuns',
+    'renameWorkflow',
+    'retryScheduleSync',
+  ) as Pick<
     Props,
     'cancelWaitingRuns' | 'renameWorkflow' | 'retryScheduleSync'
   >),
@@ -106,10 +110,16 @@ it('heads the page with the name and its enabled and archived state', () => {
   show(
     <WorkflowDetail
       {...props}
-      workflow={{ ...props.workflow, enabled: false, archived_at: '2026-10-19T00:00:00Z' }}
+      workflow={{
+        ...props.workflow,
+        enabled: false,
+        archived_at: '2026-10-19T00:00:00Z',
+      }}
     />,
   );
-  expect(partsOf('header')).toEqual(['New deal alert Disabled Archived Rename']);
+  expect(partsOf('header')).toEqual([
+    'New deal alert Disabled Archived Rename',
+  ]);
 });
 
 it('renames the workflow in place for a workflows manager', async () => {
@@ -127,7 +137,8 @@ it('renames the workflow in place for a workflows manager', async () => {
 });
 
 it('keeps the rename open with the refusal when the server refuses', async () => {
-  fakeServer.refusalFor.renameWorkflow = 'Changing a workflow needs workflows.manage';
+  fakeServer.refusalFor.renameWorkflow =
+    'Changing a workflow needs workflows.manage';
   show(<WorkflowDetail {...props} />);
 
   await press('Rename');
@@ -216,7 +227,9 @@ it('hides Cancel waiting runs when nothing is published', () => {
   show(
     <WorkflowDetail
       {...props}
-      versions={props.versions.filter((version) => version.published_at === null)}
+      versions={props.versions.filter(
+        (version) => version.published_at === null,
+      )}
       runs={[]}
     />,
   );
@@ -242,12 +255,15 @@ it('keeps saying schedules failed to update and lets a manager retry', async () 
 
   await press('Retry schedules');
 
-  expect(fakeServer.inputsTo('retryScheduleSync')).toEqual([{ workflowId: WORKFLOW }]);
+  expect(fakeServer.inputsTo('retryScheduleSync')).toEqual([
+    { workflowId: WORKFLOW },
+  ]);
   expect(fakeServer.refreshes).toBe(1);
 });
 
 it('shows why a retry of the schedules was refused', async () => {
-  fakeServer.refusalFor.retryScheduleSync = "Schedules couldn't be updated; try again";
+  fakeServer.refusalFor.retryScheduleSync =
+    "Schedules couldn't be updated; try again";
   show(<WorkflowDetail {...props} schedulesSyncFailed />);
 
   await press('Retry schedules');

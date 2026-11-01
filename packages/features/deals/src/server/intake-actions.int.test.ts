@@ -45,7 +45,10 @@ vi.mock('@odb/ai/server', () => ({
 
 vi.mock('unpdf', () => ({
   getDocumentProxy: async () => ({ numPages: 1 }),
-  extractText: async () => ({ totalPages: 1, text: 'EXTRACTED PDF LISTING TEXT' }),
+  extractText: async () => ({
+    totalPages: 1,
+    text: 'EXTRACTED PDF LISTING TEXT',
+  }),
 }));
 
 import {
@@ -187,7 +190,9 @@ describe('createDealFromIntake (integration)', () => {
 
     const { data } = await account.admin
       .from('deal')
-      .select('asking_price, description, firm:firm_id(name), deal_profile(industry, location_raw)')
+      .select(
+        'asking_price, description, firm:firm_id(name), deal_profile(industry, location_raw)',
+      )
       .eq('id', (result as { value: string }).value)
       .single()
       .throwOnError();

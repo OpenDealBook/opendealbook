@@ -70,10 +70,11 @@ function loanAsk(room: LenderRoomSummary): string | null {
   ]
     .filter((part) => part !== null)
     .join(' ');
-  const term =
-    room.term_years === null ? null : `${room.term_years}-year term`;
+  const term = room.term_years === null ? null : `${room.term_years}-year term`;
 
-  return [loan || null, term].filter((part) => part !== null).join(', ') || null;
+  return (
+    [loan || null, term].filter((part) => part !== null).join(', ') || null
+  );
 }
 
 export function longDate(isoDate: string): string {

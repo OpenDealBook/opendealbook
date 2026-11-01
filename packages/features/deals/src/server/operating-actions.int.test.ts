@@ -61,20 +61,22 @@ describe('saveDealOperatingPeriod (integration)', () => {
     const dealId = await newDeal('Operating period capture deal');
     holder.client = account.user;
 
-    const saved = ((await (saveDealOperatingPeriod as unknown as Action)(
-      {
-        deal_id: dealId,
-        period_month: '2026-09-01',
-        revenue: 100_000,
-        cogs: 40_000,
-        opex: 20_000,
-        cash_balance: 250_000,
-        headcount: 8,
-        debt_service: 5_000,
-        notes: 'Normal month.',
-      },
-      actor,
-    )) as { value: Record<string, unknown> }).value;
+    const saved = (
+      (await (saveDealOperatingPeriod as unknown as Action)(
+        {
+          deal_id: dealId,
+          period_month: '2026-09-01',
+          revenue: 100_000,
+          cogs: 40_000,
+          opex: 20_000,
+          cash_balance: 250_000,
+          headcount: 8,
+          debt_service: 5_000,
+          notes: 'Normal month.',
+        },
+        actor,
+      )) as { value: Record<string, unknown> }
+    ).value;
 
     expect(saved).toMatchObject({
       deal_id: dealId,

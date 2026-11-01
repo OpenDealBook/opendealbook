@@ -21,9 +21,17 @@ function ensureHourly(
 }
 
 export function ensureLenderNudgeTodoSyncSchedule(client: Client) {
-  return ensureHourly(client, 'lender-nudge-todo-sync', 'syncLenderNudgeTodosHourly');
+  return ensureHourly(
+    client,
+    'lender-nudge-todo-sync',
+    'syncLenderNudgeTodosHourly',
+  );
 }
 
 export function ensureLenderNudgeEmailSchedule(client: Client) {
-  return ensureHourly(client, 'lender-nudge-daily-email', 'emailLendersToNudgeHourly');
+  return ensureHourly(
+    client,
+    'lender-nudge-daily-email',
+    'emailLendersToNudgeHourly',
+  );
 }

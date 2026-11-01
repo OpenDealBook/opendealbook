@@ -214,7 +214,10 @@ describe('setSellerSendLimitAction', () => {
     await expect(
       setSellerSendLimitAction({ accountId, dailyLimit: null }),
     ).rejects.toThrow('delete failed');
-    expect(state.insert).not.toHaveBeenCalledWith('admin_action_log', expect.anything());
+    expect(state.insert).not.toHaveBeenCalledWith(
+      'admin_action_log',
+      expect.anything(),
+    );
   });
 
   it('accepts zero, which blocks sending', async () => {

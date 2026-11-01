@@ -79,8 +79,7 @@ const PHRASES: Record<
   'contract.signature_status_changed': (p) =>
     `recorded a contract signature as ${p.status}`,
   'contract.extension_noted': () => 'noted an LOI extension',
-  'contract.extension_rescheduled': () =>
-    "changed an LOI extension's end date",
+  'contract.extension_rescheduled': () => "changed an LOI extension's end date",
   'offer.drafted': () => 'drafted an offer',
   'offer.version_added': () => 'revised an offer',
   'offer.submitted': () => 'submitted an offer',

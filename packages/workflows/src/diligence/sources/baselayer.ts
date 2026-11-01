@@ -14,7 +14,9 @@ export type BaselayerCheck =
   | { step: 'searching'; searchId: string }
   | { step: 'records'; lienSearchId: string; docketSearchId: string };
 
-type BaselayerOutcome = BrokerOutcome<{ status: 'pending'; check: BaselayerCheck } | { status: 'no_match' }>;
+type BaselayerOutcome = BrokerOutcome<
+  { status: 'pending'; check: BaselayerCheck } | { status: 'no_match' }
+>;
 
 const COMPLETED = 'COMPLETED';
 const GAVE_UP = new Set(['FAILED', 'CANCELLED']);
@@ -25,7 +27,9 @@ const businessSearch = order.extend({
   business: z
     .object({
       id: z.string(),
-      registrations: z.array(z.object({ state: z.string(), registration_type: z.string() })),
+      registrations: z.array(
+        z.object({ state: z.string(), registration_type: z.string() }),
+      ),
       addresses: z.array(z.object({ state: z.string() })),
     })
     .nullish(),
@@ -73,7 +77,8 @@ const OPEN_BY_STATUS: Record<string, boolean> = {
 function lienRecord(hit: z.infer<typeof filing>): BrokerRecord {
   return {
     source: 'baselayer',
-    kind: LIEN_KIND_BY_FILING_FAMILY[hit.filing_type.split('.')[0]!] ?? 'unknown',
+    kind:
+      LIEN_KIND_BY_FILING_FAMILY[hit.filing_type.split('.')[0]!] ?? 'unknown',
     title: hit.parties
       .filter(({ role }) => role !== 'debtor')
       .map(({ name }) => name)
@@ -124,7 +129,10 @@ export async function checkBaselayer({
       return { status: 'not_checked' };
     }
     if (search.state !== COMPLETED) {
-      return { status: 'pending', check: { step: 'searching', searchId: search.id } };
+      return {
+        status: 'pending',
+        check: { step: 'searching', searchId: search.id },
+      };
     }
     if (!search.business) {
       return { status: 'no_match' };
@@ -133,18 +141,38 @@ export async function checkBaselayer({
     const homeStates = registrations
       .filter(({ registration_type }) => registration_type === 'domestic')
       .map(({ state }) => state);
-    const searchStates = [...new Set([...homeStates, ...addresses.map(({ state }) => state)])];
+    const searchStates = [
+      ...new Set([...homeStates, ...addresses.map(({ state }) => state)]),
+    ];
     if (searchStates.length === 0) {
       return { status: 'not_checked' };
     }
-    const liens = order.parse(await call('/lien_searches', { business_id: id, search_states: searchStates }));
-    const dockets = order.parse(
-      await call('/docket_searches', { business_id: id, options: ['Order.Litigations', 'Order.Bankruptcy'] }),
+    const liens = order.parse(
+      await call('/lien_searches', {
+        business_id: id,
+        search_states: searchStates,
+      }),
     );
-    return { status: 'pending', check: { step: 'records', lienSearchId: liens.id, docketSearchId: dockets.id } };
+    const dockets = order.parse(
+      await call('/docket_searches', {
+        business_id: id,
+        options: ['Order.Litigations', 'Order.Bankruptcy'],
+      }),
+    );
+    return {
+      status: 'pending',
+      check: {
+        step: 'records',
+        lienSearchId: liens.id,
+        docketSearchId: dockets.id,
+      },
+    };
   }
 
-  async function records(lienSearchId: string, docketSearchId: string): Promise<BaselayerOutcome> {
+  async function records(
+    lienSearchId: string,
+    docketSearchId: string,
+  ): Promise<BaselayerOutcome> {
     const lienBody = await call(`/lien_searches/${lienSearchId}`);
     const docketBody = await call(`/docket_searches/${docketSearchId}`);
     const liens = order.parse(lienBody);
@@ -171,7 +199,12 @@ export async function checkBaselayer({
   try {
     switch (check.step) {
       case 'search':
-        return await afterSearch(await call('/searches', { name: firm.name, address: `${firm.city}, ${firm.state}` }));
+        return await afterSearch(
+          await call('/searches', {
+            name: firm.name,
+            address: `${firm.city}, ${firm.state}`,
+          }),
+        );
       case 'searching':
         return await afterSearch(await call(`/searches/${check.searchId}`));
       case 'records':

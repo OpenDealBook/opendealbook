@@ -52,7 +52,11 @@ export function longDate(isoDate: string) {
   });
 }
 
-function block(heading: string, lines: Array<string | null>, closing: string[] = []) {
+function block(
+  heading: string,
+  lines: Array<string | null>,
+  closing: string[] = [],
+) {
   const present = lines.filter((line) => line !== null);
 
   return present.length === 0
@@ -62,8 +66,12 @@ function block(heading: string, lines: Array<string | null>, closing: string[] =
 
 function termsBlock({ terms }: OutreachFacts) {
   return block('What we are looking for:', [
-    terms.loanAmount === null ? null : `- Loan amount: ${dollars.format(terms.loanAmount)}`,
-    terms.loanType === null ? null : `- Loan type: ${LOAN_TYPE_LABELS[terms.loanType]}`,
+    terms.loanAmount === null
+      ? null
+      : `- Loan amount: ${dollars.format(terms.loanAmount)}`,
+    terms.loanType === null
+      ? null
+      : `- Loan type: ${LOAN_TYPE_LABELS[terms.loanType]}`,
     terms.termYears === null
       ? null
       : `- Term: ${terms.termYears} ${terms.termYears === 1 ? 'year' : 'years'}`,
@@ -80,10 +88,10 @@ function timelineBlock(facts: OutreachFacts) {
   return block(
     'Timeline:',
     [
-      targetCloseDate === null ? null : `- Target close: ${longDate(targetCloseDate)}`,
-      mustCloseBy === null
+      targetCloseDate === null
         ? null
-        : `- Must close by: ${longDate(mustCloseBy)}`,
+        : `- Target close: ${longDate(targetCloseDate)}`,
+      mustCloseBy === null ? null : `- Must close by: ${longDate(mustCloseBy)}`,
     ],
     mustCloseBy === null ? [] : [`Can you close by ${longDate(mustCloseBy)}?`],
   );
@@ -93,9 +101,13 @@ function fill(text: string, values: Record<string, string>) {
   return text
     .split('\n')
     .filter((line) =>
-      [...line.matchAll(/\{\{(\w+)\}\}/g)].every(([, key]) => values[key!] !== ''),
+      [...line.matchAll(/\{\{(\w+)\}\}/g)].every(
+        ([, key]) => values[key!] !== '',
+      ),
     )
-    .map((line) => line.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key]!))
+    .map((line) =>
+      line.replace(/\{\{(\w+)\}\}/g, (_, key: string) => values[key]!),
+    )
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();

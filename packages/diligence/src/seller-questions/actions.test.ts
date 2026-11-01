@@ -207,7 +207,10 @@ describe('answerSellerQuestion', () => {
   it('writes the answer and notifies the buyer when the LOI is signed', async () => {
     mocks.state.loiSigned = true;
 
-    await runAnswer({ questionId: 'question-1', answer: 'Here is the answer.' });
+    await runAnswer({
+      questionId: 'question-1',
+      answer: 'Here is the answer.',
+    });
 
     const update = mocks.updateSpy.mock.calls.find(
       ([table]) => table === 'seller_question',

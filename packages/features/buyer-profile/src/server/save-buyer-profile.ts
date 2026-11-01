@@ -60,10 +60,16 @@ export async function saveBuyerProfile(
     account_id: accountId,
     version,
     ...draft,
-    expertise_json: draft.expertise_json?.areas.length ? draft.expertise_json : null,
-    financing_json: hasValue(draft.financing_json) ? draft.financing_json : null,
+    expertise_json: draft.expertise_json?.areas.length
+      ? draft.expertise_json
+      : null,
+    financing_json: hasValue(draft.financing_json)
+      ? draft.financing_json
+      : null,
     contact_json: hasValue(draft.contact_json) ? draft.contact_json : null,
-    interested_json: draft.interested_json?.length ? draft.interested_json : null,
+    interested_json: draft.interested_json?.length
+      ? draft.interested_json
+      : null,
     not_interested_json: draft.not_interested_json?.length
       ? draft.not_interested_json
       : null,

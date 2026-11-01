@@ -25,7 +25,11 @@ const sharedStepFields = {
 };
 
 export const outreachStepSchema = z.discriminatedUnion('channel', [
-  z.object({ ...sharedStepFields, channel: z.literal('email'), subject: z.string().min(1) }),
+  z.object({
+    ...sharedStepFields,
+    channel: z.literal('email'),
+    subject: z.string().min(1),
+  }),
   z.object({ ...sharedStepFields, channel: z.literal('letter') }),
 ]);
 

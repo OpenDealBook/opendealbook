@@ -24,7 +24,10 @@ import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 
 import { useRefusableAction } from '../../_components/use-refusable-action';
-import { disconnectAiProviderAction, saveAiProviderAction } from './ai-provider-actions';
+import {
+  disconnectAiProviderAction,
+  saveAiProviderAction,
+} from './ai-provider-actions';
 
 const PROVIDERS = {
   openai: 'OpenAI',
@@ -51,7 +54,9 @@ export function AiProviderSetting({
   canManage: boolean;
 }) {
   const { refusal, pending, run } = useRefusableAction();
-  const [provider, setProvider] = useState((current?.provider ?? 'openai') as Provider);
+  const [provider, setProvider] = useState(
+    (current?.provider ?? 'openai') as Provider,
+  );
   const [model, setModel] = useState(current?.model ?? '');
   const [embeddingModel, setEmbeddingModel] = useState(
     current?.provider === 'anthropic' ? '' : (current?.embeddingModel ?? ''),
@@ -75,7 +80,15 @@ export function AiProviderSetting({
             onSubmit={(event) => {
               event.preventDefault();
               run(
-                () => saveAiProviderAction({ accountId, provider, model, embeddingModel, baseUrl, apiKey }),
+                () =>
+                  saveAiProviderAction({
+                    accountId,
+                    provider,
+                    model,
+                    embeddingModel,
+                    baseUrl,
+                    apiKey,
+                  }),
                 () => setApiKey(''),
               );
             }}
@@ -84,7 +97,9 @@ export function AiProviderSetting({
               Provider
               <select
                 aria-label={'Provider'}
-                className={'bg-background h-9 w-full rounded-md border px-2 text-sm'}
+                className={
+                  'bg-background h-9 w-full rounded-md border px-2 text-sm'
+                }
                 value={provider}
                 disabled={pending}
                 onChange={(event) => {
@@ -121,8 +136,8 @@ export function AiProviderSetting({
                   onChange={(event) => setEmbeddingModel(event.target.value)}
                 />
                 <span className={'text-muted-foreground text-xs font-normal'}>
-                  Document search needs an embedding model from OpenAI or an OpenAI-compatible
-                  endpoint. Anthropic has none.
+                  Document search needs an embedding model from OpenAI or an
+                  OpenAI-compatible endpoint. Anthropic has none.
                 </span>
               </Label>
             )}
@@ -145,7 +160,9 @@ export function AiProviderSetting({
                 type={'password'}
                 autoComplete={'off'}
                 value={apiKey}
-                placeholder={current ? 'Saved. Paste a new key to replace it' : undefined}
+                placeholder={
+                  current ? 'Saved. Paste a new key to replace it' : undefined
+                }
                 disabled={pending}
                 onChange={(event) => setApiKey(event.target.value)}
               />
@@ -162,7 +179,11 @@ export function AiProviderSetting({
               {current ? (
                 <Dialog>
                   <DialogTrigger asChild>
-                    <Button type={'button'} variant={'outline'} disabled={pending}>
+                    <Button
+                      type={'button'}
+                      variant={'outline'}
+                      disabled={pending}
+                    >
                       Disconnect
                     </Button>
                   </DialogTrigger>
@@ -170,7 +191,8 @@ export function AiProviderSetting({
                     <DialogHeader>
                       <DialogTitle>Disconnect the AI provider?</DialogTitle>
                       <DialogDescription>
-                        AI steps in workflows will fail until you connect one again.
+                        AI steps in workflows will fail until you connect one
+                        again.
                       </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -183,7 +205,9 @@ export function AiProviderSetting({
                         <Button
                           type={'button'}
                           variant={'destructive'}
-                          onClick={() => run(() => disconnectAiProviderAction({ accountId }))}
+                          onClick={() =>
+                            run(() => disconnectAiProviderAction({ accountId }))
+                          }
                         >
                           Disconnect
                         </Button>
@@ -199,7 +223,9 @@ export function AiProviderSetting({
             {PROVIDERS[current.provider as Provider]}, {current.model}
           </p>
         ) : (
-          <p className={'text-muted-foreground text-sm'}>No AI provider connected</p>
+          <p className={'text-muted-foreground text-sm'}>
+            No AI provider connected
+          </p>
         )}
       </CardContent>
     </Card>

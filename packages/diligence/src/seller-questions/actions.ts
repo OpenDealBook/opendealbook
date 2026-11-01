@@ -3,7 +3,10 @@
 import { z } from 'zod';
 
 import { enhanceAction } from '@odb/next/actions';
-import { createNovuClient, triggerNotification } from '@odb/notifications/server';
+import {
+  createNovuClient,
+  triggerNotification,
+} from '@odb/notifications/server';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import {

@@ -22,7 +22,9 @@ import {
 import { Refusal, refusableAction } from './refusal';
 
 async function pdfToText(base64: string): Promise<string> {
-  const pdf = await getDocumentProxy(Uint8Array.from(Buffer.from(base64, 'base64')));
+  const pdf = await getDocumentProxy(
+    Uint8Array.from(Buffer.from(base64, 'base64')),
+  );
   const { text } = await extractText(pdf, { mergePages: true });
 
   return text;
@@ -43,10 +45,16 @@ async function extractForCreator(
   userId: string,
   text: () => Promise<string>,
 ) {
-  const scope = await accountAiScope(getSupabaseServerClient(), userId, accountId);
+  const scope = await accountAiScope(
+    getSupabaseServerClient(),
+    userId,
+    accountId,
+  );
 
   if (!scope) {
-    throw new Refusal("Read-only members can't create deals. Ask a deal manager.");
+    throw new Refusal(
+      "Read-only members can't create deals. Ask a deal manager.",
+    );
   }
 
   return draftOrRefuse(scope, await text());
@@ -99,7 +107,8 @@ async function rerunFromText(
 }
 
 export const rerunDealIntake = refusableAction(
-  async (data) => rerunFromText(getSupabaseServerClient(), data.deal_id, data.text),
+  async (data) =>
+    rerunFromText(getSupabaseServerClient(), data.deal_id, data.text),
   rerunDealIntakeSchema,
   {
     what: 'rerun intake',

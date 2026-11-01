@@ -1,6 +1,5 @@
-import { z } from 'zod';
-
 import { createEnv, secret, url } from '@docuconf/t3';
+import { z } from 'zod';
 
 /**
  * The typed, boot-validated env contract for the Temporal worker process.
@@ -14,7 +13,9 @@ export const env = createEnv({
     TEMPORAL_ADDRESS: z
       .string()
       .default('localhost:7233')
-      .describe('Host and port of the Temporal frontend the worker connects to'),
+      .describe(
+        'Host and port of the Temporal frontend the worker connects to',
+      ),
     SUPABASE_SERVICE_ROLE_KEY: secret(z.string().min(1)).describe(
       'Supabase service role key used for privileged server-side access',
     ),
@@ -76,7 +77,9 @@ export const env = createEnv({
       ),
     DOCLING_URL: url()
       .optional()
-      .describe('Base URL of the Docling service used to extract document text'),
+      .describe(
+        'Base URL of the Docling service used to extract document text',
+      ),
     DOCLING_API_KEY: secret(z.string())
       .optional()
       .describe('Docling API key used to authenticate extraction requests'),

@@ -17,6 +17,9 @@ export async function failStaleSendingOutreachMessages(): Promise<void> {
   await client
     .from('outreach_enrollment')
     .update({ status: 'failed' })
-    .in('id', stale.map((message) => message.enrollment_id))
+    .in(
+      'id',
+      stale.map((message) => message.enrollment_id),
+    )
     .throwOnError();
 }

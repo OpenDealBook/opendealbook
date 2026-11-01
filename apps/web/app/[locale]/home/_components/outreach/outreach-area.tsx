@@ -17,9 +17,9 @@ import { LetterTemplatesPanel } from './letter-templates-panel';
 import { MailboxConnectForm } from './mailbox-connect-form';
 import { MonthlyCaps } from './monthly-caps';
 import { loadMonthlyCaps } from './monthly-caps-usage';
+import { DEFAULT_DAILY_CAP } from './outreach-defaults';
 import { SequencesPanel, type Sequence } from './sequences-panel';
 import { SettingsForm } from './settings-form';
-import { DEFAULT_DAILY_CAP } from './outreach-defaults';
 import { SuppressionForm } from './suppression-form';
 import { awaitsUnknownSend } from './unknown-send';
 import { UnknownSendActions } from './unknown-send-actions';
@@ -63,7 +63,11 @@ export async function OutreachArea({
       .select('sequence_id, ordinal, delay_days, channel, subject, body')
       .eq('account_id', accountId)
       .order('ordinal'),
-    client.from('firm').select('id, name').eq('account_id', accountId).order('name'),
+    client
+      .from('firm')
+      .select('id, name')
+      .eq('account_id', accountId)
+      .order('name'),
     client
       .from('contact')
       .select('id, name, email, firm_id')
@@ -77,7 +81,9 @@ export async function OutreachArea({
       .maybeSingle(),
     client
       .from('outreach_enrollment')
-      .select('id, status, target_email, next_send_at, sent_count, current_step')
+      .select(
+        'id, status, target_email, next_send_at, sent_count, current_step',
+      )
       .eq('account_id', accountId)
       .order('next_send_at'),
     client
@@ -188,7 +194,10 @@ export async function OutreachArea({
       </Section>
 
       <Section title={'Letter templates'}>
-        <LetterTemplatesPanel accountId={accountId} templates={letterTemplates.data ?? []} />
+        <LetterTemplatesPanel
+          accountId={accountId}
+          templates={letterTemplates.data ?? []}
+        />
       </Section>
 
       <Section title={'Enroll targets'}>
@@ -244,7 +253,10 @@ export async function OutreachArea({
                       <TableCell>{row.sent_count}</TableCell>
                       <TableCell>
                         {awaitsUnknownSend(row, unknownSends.data) ? (
-                          <UnknownSendActions enrollmentId={row.id} canResolve={canManageDeals} />
+                          <UnknownSendActions
+                            enrollmentId={row.id}
+                            canResolve={canManageDeals}
+                          />
                         ) : null}
                       </TableCell>
                     </TableRow>

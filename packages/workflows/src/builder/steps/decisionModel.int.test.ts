@@ -1,14 +1,22 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { fakeAiProvider, openAiReply } from '../../../test-support/fake-ai-provider';
-import { provisionAccount, type IntegrationAccount } from '../../../test-support/integration-harness';
+import {
+  fakeAiProvider,
+  openAiReply,
+} from '../../../test-support/fake-ai-provider';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../../test-support/integration-harness';
 import { decisionModel } from './decisionModel';
 
 const network = vi.hoisted(() => ({ trustedFakeUrl: '' }));
 
 vi.mock('../publicUrl', () => ({
   publicAddressOf: async (url: string) =>
-    url.startsWith(network.trustedFakeUrl) ? { address: '127.0.0.1', family: 4 } : null,
+    url.startsWith(network.trustedFakeUrl)
+      ? { address: '127.0.0.1', family: 4 }
+      : null,
 }));
 
 let owner: IntegrationAccount;
@@ -33,7 +41,10 @@ async function seedFirm(account: IntegrationAccount) {
 }
 
 beforeAll(async () => {
-  [owner, outsider] = await Promise.all([provisionAccount(), provisionAccount()]);
+  [owner, outsider] = await Promise.all([
+    provisionAccount(),
+    provisionAccount(),
+  ]);
   provider = await fakeAiProvider(openAiReply('unused'));
   await owner.admin
     .from('outreach_setting')
@@ -54,10 +65,17 @@ beforeAll(async () => {
     .update({ base_url: provider.baseUrl })
     .eq('account_id', owner.accountId)
     .throwOnError();
-  [firmId, outsiderFirmId] = await Promise.all([seedFirm(owner), seedFirm(outsider)]);
+  [firmId, outsiderFirmId] = await Promise.all([
+    seedFirm(owner),
+    seedFirm(outsider),
+  ]);
   await owner.admin
     .from('deal_box')
-    .insert({ account_id: owner.accountId, version: 1, criteria_json: { industries: ['plumbing'] } })
+    .insert({
+      account_id: owner.accountId,
+      version: 1,
+      criteria_json: { industries: ['plumbing'] },
+    })
     .throwOnError();
   await owner.admin
     .from('decision_fact')
@@ -67,7 +85,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   provider.close();
-  await owner.admin.from('accounts').delete().in('id', [owner.accountId, outsider.accountId]);
+  await owner.admin
+    .from('accounts')
+    .delete()
+    .in('id', [owner.accountId, outsider.accountId]);
   await Promise.all([owner.cleanup(), outsider.cleanup()]);
 });
 
@@ -81,10 +102,15 @@ function decide(idempotencyKey: string, config: Record<string, unknown>) {
 
 describe('decision_model step (integration)', () => {
   it("asks the team's AI with its deal box and facts, then appends the verdict", async () => {
-    provider.reply.body = openAiReply('{"fit": false, "reasons": ["HVAC is outside the deal box"]}').body;
+    provider.reply.body = openAiReply(
+      '{"fit": false, "reasons": ["HVAC is outside the deal box"]}',
+    ).body;
     provider.received.length = 0;
 
-    const output = await decide('run-1:fit:0', { firmId, instructions: 'Be strict.' });
+    const output = await decide('run-1:fit:0', {
+      firmId,
+      instructions: 'Be strict.',
+    });
 
     const { data: verdicts } = await owner.admin
       .from('firm_verdict')
@@ -92,9 +118,17 @@ describe('decision_model step (integration)', () => {
       .eq('firm_id', firmId)
       .throwOnError();
     expect(verdicts).toEqual([
-      { id: output.verdictId, fit: false, reasons: ['HVAC is outside the deal box'], model: 'layla' },
+      {
+        id: output.verdictId,
+        fit: false,
+        reasons: ['HVAC is outside the deal box'],
+        model: 'layla',
+      },
     ]);
-    expect(output).toMatchObject({ fit: false, reasons: ['HVAC is outside the deal box'] });
+    expect(output).toMatchObject({
+      fit: false,
+      reasons: ['HVAC is outside the deal box'],
+    });
     const prompt = provider.received[0]!.body.messages[0]!.content;
     expect(prompt).toContain('plumbing');
     expect(prompt).toContain('We never buy franchises');
@@ -105,18 +139,25 @@ describe('decision_model step (integration)', () => {
 
   it('returns the recorded verdict without asking again when the step is retried', async () => {
     provider.received.length = 0;
-    provider.reply.body = openAiReply('{"fit": true, "reasons": ["changed its mind"]}').body;
+    provider.reply.body = openAiReply(
+      '{"fit": true, "reasons": ["changed its mind"]}',
+    ).body;
 
     const output = await decide('run-1:fit:0', { firmId });
 
-    expect(output).toMatchObject({ fit: false, reasons: ['HVAC is outside the deal box'] });
+    expect(output).toMatchObject({
+      fit: false,
+      reasons: ['HVAC is outside the deal box'],
+    });
     expect(provider.received).toEqual([]);
   });
 
-  it("refuses, without asking the AI, a firm on another team", async () => {
+  it('refuses, without asking the AI, a firm on another team', async () => {
     provider.received.length = 0;
 
-    await expect(decide('run-1:fit:1', { firmId: outsiderFirmId })).rejects.toMatchObject({
+    await expect(
+      decide('run-1:fit:1', { firmId: outsiderFirmId }),
+    ).rejects.toMatchObject({
       nonRetryable: true,
       message: 'That firm is not on this team',
     });
@@ -138,7 +179,11 @@ describe('decision_model step (integration)', () => {
   });
 
   it('fails at once, without asking the AI, when the team has no deal box', async () => {
-    await owner.admin.from('deal_box').delete().eq('account_id', owner.accountId).throwOnError();
+    await owner.admin
+      .from('deal_box')
+      .delete()
+      .eq('account_id', owner.accountId)
+      .throwOnError();
     provider.received.length = 0;
 
     await expect(decide('run-1:fit:3', { firmId })).rejects.toMatchObject({

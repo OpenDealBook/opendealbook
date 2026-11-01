@@ -21,9 +21,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:",
     "@odb/shared": "workspace:*",
-    "@odb/supabase": "workspace:*"
+    "@odb/supabase": "workspace:*",
+    "@supabase/supabase-js": "catalog:"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",

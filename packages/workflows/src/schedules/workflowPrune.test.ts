@@ -26,6 +26,8 @@ describe('ensureWorkflowPruneSchedule', () => {
 
     await ensureWorkflowPruneSchedule(client);
 
-    expect(schedules.get('workflow-step-data-prune')?.spec).toEqual({ calendars: [{ hour: 3 }] });
+    expect(schedules.get('workflow-step-data-prune')?.spec).toEqual({
+      calendars: [{ hour: 3 }],
+    });
   });
 });

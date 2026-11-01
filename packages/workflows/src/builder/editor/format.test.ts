@@ -1,23 +1,47 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WorkflowGraph } from '../graph';
-import { fromEditorData, toEditorData, type EditorData, type EditorLayout } from './format';
+import {
+  fromEditorData,
+  toEditorData,
+  type EditorData,
+  type EditorLayout,
+} from './format';
 
 const graph: WorkflowGraph = {
   nodes: [
     { id: 'start', type: 'manual_trigger', config: {} },
-    { id: 'check', type: 'branch', label: 'Big deal?', config: { rule: { '>': [{ var: 'steps.start.amount' }, 5] } } },
-    { id: 'tell', type: 'notify_team', label: 'Tell the team', config: { message: 'Big one: {{steps.start.amount}}' } },
+    {
+      id: 'check',
+      type: 'branch',
+      label: 'Big deal?',
+      config: { rule: { '>': [{ var: 'steps.start.amount' }, 5] } },
+    },
+    {
+      id: 'tell',
+      type: 'notify_team',
+      label: 'Tell the team',
+      config: { message: 'Big one: {{steps.start.amount}}' },
+    },
   ],
   edges: [
     { id: 'e1', sourceNodeId: 'start', targetNodeId: 'check' },
-    { id: 'e2', sourceNodeId: 'check', targetNodeId: 'tell', sourceHandle: 'true' },
+    {
+      id: 'e2',
+      sourceNodeId: 'check',
+      targetNodeId: 'tell',
+      sourceHandle: 'true',
+    },
   ],
 };
 
 const layout: EditorLayout = {
   direction: 'DOWN',
-  positions: { start: { x: 0, y: 0 }, check: { x: 0, y: 120 }, tell: { x: 40, y: 240 } },
+  positions: {
+    start: { x: 0, y: 0 },
+    check: { x: 0, y: 120 },
+    tell: { x: 40, y: 240 },
+  },
 };
 
 describe('toEditorData', () => {
@@ -31,16 +55,27 @@ describe('toEditorData', () => {
       data: {
         type: 'notify_team',
         icon: 'Bell',
-        properties: { label: 'Tell the team', message: 'Big one: {{steps.start.amount}}' },
+        properties: {
+          label: 'Tell the team',
+          message: 'Big one: {{steps.start.amount}}',
+        },
       },
     });
-    expect(data.edges[1]).toMatchObject({ id: 'e2', source: 'check', target: 'tell', sourceHandle: 'true' });
+    expect(data.edges[1]).toMatchObject({
+      id: 'e2',
+      source: 'check',
+      target: 'tell',
+      sourceHandle: 'true',
+    });
   });
 });
 
 describe('fromEditorData', () => {
   it('round trips the stored graph and layout without loss', () => {
-    expect(fromEditorData(toEditorData(graph, layout))).toEqual({ graph, layout });
+    expect(fromEditorData(toEditorData(graph, layout))).toEqual({
+      graph,
+      layout,
+    });
   });
 
   it('lifts label out of properties, drops vendor description, validation state and empty handles', () => {
@@ -61,7 +96,14 @@ describe('fromEditorData', () => {
               description: 'Short summary',
               prompt: 'Summarise {{steps.t.dealId}}',
               output: 'text',
-              errors: [{ keyword: 'required', instancePath: '', schemaPath: '#/required', schema: undefined }],
+              errors: [
+                {
+                  keyword: 'required',
+                  instancePath: '',
+                  schemaPath: '#/required',
+                  schema: undefined,
+                },
+              ],
               customErrors: [],
             },
           },
@@ -70,10 +112,22 @@ describe('fromEditorData', () => {
           id: 't',
           type: 'node',
           position: { x: 0, y: 0 },
-          data: { type: 'event_trigger', icon: 'Lightning', properties: { eventType: 'deal.created' } },
+          data: {
+            type: 'event_trigger',
+            icon: 'Lightning',
+            properties: { eventType: 'deal.created' },
+          },
         },
       ],
-      edges: [{ id: 'e', source: 't', target: 'n1', sourceHandle: null, type: 'labelEdge' }],
+      edges: [
+        {
+          id: 'e',
+          source: 't',
+          target: 'n1',
+          sourceHandle: null,
+          type: 'labelEdge',
+        },
+      ],
     };
 
     expect(fromEditorData(saved)).toEqual({
@@ -85,16 +139,26 @@ describe('fromEditorData', () => {
             label: 'Summarise',
             config: { prompt: 'Summarise {{steps.t.dealId}}', output: 'text' },
           },
-          { id: 't', type: 'event_trigger', config: { eventType: 'deal.created' } },
+          {
+            id: 't',
+            type: 'event_trigger',
+            config: { eventType: 'deal.created' },
+          },
         ],
         edges: [{ id: 'e', sourceNodeId: 't', targetNodeId: 'n1' }],
       },
-      layout: { direction: 'RIGHT', positions: { n1: { x: 10, y: 20 }, t: { x: 0, y: 0 } } },
+      layout: {
+        direction: 'RIGHT',
+        positions: { n1: { x: 10, y: 20 }, t: { x: 0, y: 0 } },
+      },
     });
   });
 
   it('leaves a node without a stored position unplaced and keeps it unplaced on save', () => {
-    const unplaced: EditorLayout = { direction: 'RIGHT', positions: { start: { x: 0, y: 0 } } };
+    const unplaced: EditorLayout = {
+      direction: 'RIGHT',
+      positions: { start: { x: 0, y: 0 } },
+    };
     const data = toEditorData(graph, unplaced);
 
     expect(data.nodes[1]).not.toHaveProperty('position');
@@ -112,14 +176,22 @@ describe('fromEditorData', () => {
           data: {
             type: 'create_todo',
             icon: 'ListChecks',
-            properties: { title: 'Call', assignees: { kind: 'deal_managers' }, dueInDays: undefined, dealId: null },
+            properties: {
+              title: 'Call',
+              assignees: { kind: 'deal_managers' },
+              dueInDays: undefined,
+              dealId: null,
+            },
           },
         },
       ],
       edges: [],
     };
 
-    expect(fromEditorData(saved).graph.nodes[0]!.config).toEqual({ title: 'Call', assignees: { kind: 'deal_managers' } });
+    expect(fromEditorData(saved).graph.nodes[0]!.config).toEqual({
+      title: 'Call',
+      assignees: { kind: 'deal_managers' },
+    });
   });
 
   it('drops cleared values at every depth and keeps real nulls below the top level', () => {
@@ -133,7 +205,14 @@ describe('fromEditorData', () => {
           data: {
             type: 'create_todo',
             icon: 'ListChecks',
-            properties: { title: 'Call', assignees: { kind: 'members', userIds: ['u1', undefined], note: undefined } },
+            properties: {
+              title: 'Call',
+              assignees: {
+                kind: 'members',
+                userIds: ['u1', undefined],
+                note: undefined,
+              },
+            },
           },
         },
         {
@@ -141,14 +220,20 @@ describe('fromEditorData', () => {
           data: {
             type: 'branch',
             icon: 'ArrowsSplit',
-            properties: { rule: { and: [{ '==': [{ var: 'steps.t.x' }, null] }, undefined] } },
+            properties: {
+              rule: {
+                and: [{ '==': [{ var: 'steps.t.x' }, null] }, undefined],
+              },
+            },
           },
         },
       ],
       edges: [],
     };
 
-    expect(fromEditorData(saved).graph.nodes.map((node) => node.config)).toEqual([
+    expect(
+      fromEditorData(saved).graph.nodes.map((node) => node.config),
+    ).toEqual([
       { title: 'Call', assignees: { kind: 'members', userIds: ['u1'] } },
       { rule: { and: [{ '==': [{ var: 'steps.t.x' }, null] }] } },
     ]);
@@ -159,7 +244,13 @@ describe('fromEditorData', () => {
       name: '',
       globalVariables: {},
       layoutDirection: 'RIGHT',
-      nodes: [{ id: 'x', position: { x: 0, y: 0 }, data: { type: 'http_request', icon: 'Globe', properties: {} } }],
+      nodes: [
+        {
+          id: 'x',
+          position: { x: 0, y: 0 },
+          data: { type: 'http_request', icon: 'Globe', properties: {} },
+        },
+      ],
       edges: [],
     };
 

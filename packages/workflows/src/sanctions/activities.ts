@@ -40,7 +40,9 @@ export async function loadLatestScreeningList({
 }: {
   importId: string;
 }): Promise<void> {
-  await loadScreeningList(importId, await (await download(CSL_URL)).text(), () =>
-    Context.current().heartbeat(),
+  await loadScreeningList(
+    importId,
+    await (await download(CSL_URL)).text(),
+    () => Context.current().heartbeat(),
   );
 }

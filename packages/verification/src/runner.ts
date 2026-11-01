@@ -17,9 +17,7 @@ export interface RunnableCheck<TInput> {
   gather(ctx: GatherContext): Promise<TInput>;
 }
 
-export type Notifier = (
-  input: TriggerNotificationInput,
-) => Promise<unknown>;
+export type Notifier = (input: TriggerNotificationInput) => Promise<unknown>;
 
 export interface RunVerificationOptions {
   client: SupabaseClient<Database>;
@@ -42,7 +40,15 @@ function isActionable(finding: ReconciliationFinding): boolean {
 export async function runVerification(
   options: RunVerificationOptions,
 ): Promise<RunVerificationResult> {
-  const { client, dealId, trigger, runnableChecks, notify, period, skipReason } = options;
+  const {
+    client,
+    dealId,
+    trigger,
+    runnableChecks,
+    notify,
+    period,
+    skipReason,
+  } = options;
 
   const { data: deal, error: dealError } = await client
     .from('deal')

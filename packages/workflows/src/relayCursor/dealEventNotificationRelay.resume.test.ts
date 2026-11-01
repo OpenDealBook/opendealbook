@@ -34,7 +34,9 @@ const temporal = vi.hoisted(() => {
   }
   const retrying =
     (maximumAttempts: number) =>
-    <T extends Record<string, (input: never) => Promise<unknown>>>(activities: T) =>
+    <T extends Record<string, (input: never) => Promise<unknown>>>(
+      activities: T,
+    ) =>
       Object.fromEntries(
         Object.entries(activities).map(([name, activity]) => [
           name,
@@ -58,29 +60,32 @@ vi.mock('@temporalio/workflow', () => ({
   ActivityFailure: temporal.ActivityFailure,
   proxyActivities: (options: { retry?: { maximumAttempts?: number } }) =>
     temporal.retrying(options.retry?.maximumAttempts ?? 100)({
-    loadRelayCursor: async (name: string) => savedCursors.get(name) ?? null,
-    startRelayCursorAtLatest: async (name: string) => {
-      const latest = Math.max(...events.map((event) => event.globalSeq));
-      savedCursors.set(name, latest);
-      return latest;
-    },
-    saveRelayCursor: async (input: { name: string; lastGlobalSeq: number }) => {
-      savedCursors.set(input.name, input.lastGlobalSeq);
-    },
-    fetchDealNotificationEvents: async (input: { afterGlobalSeq: number }) =>
-      events.filter((event) => event.globalSeq > input.afterGlobalSeq),
-    notifyDealEvent: async (input: { globalSeq: number }) => {
-      notifyInputs.push(input);
-      attempts.set(input.globalSeq, (attempts.get(input.globalSeq) ?? 0) + 1);
-      if (failing.has(input.globalSeq)) {
-        throw new Error(`Cannot coerce event ${input.globalSeq}`);
-      }
-      notified.push(input.globalSeq);
-    },
-    recordRelayFailedEvent: async (input: unknown) => {
-      setAside.push(input);
-    },
-  }),
+      loadRelayCursor: async (name: string) => savedCursors.get(name) ?? null,
+      startRelayCursorAtLatest: async (name: string) => {
+        const latest = Math.max(...events.map((event) => event.globalSeq));
+        savedCursors.set(name, latest);
+        return latest;
+      },
+      saveRelayCursor: async (input: {
+        name: string;
+        lastGlobalSeq: number;
+      }) => {
+        savedCursors.set(input.name, input.lastGlobalSeq);
+      },
+      fetchDealNotificationEvents: async (input: { afterGlobalSeq: number }) =>
+        events.filter((event) => event.globalSeq > input.afterGlobalSeq),
+      notifyDealEvent: async (input: { globalSeq: number }) => {
+        notifyInputs.push(input);
+        attempts.set(input.globalSeq, (attempts.get(input.globalSeq) ?? 0) + 1);
+        if (failing.has(input.globalSeq)) {
+          throw new Error(`Cannot coerce event ${input.globalSeq}`);
+        }
+        notified.push(input.globalSeq);
+      },
+      recordRelayFailedEvent: async (input: unknown) => {
+        setAside.push(input);
+      },
+    }),
   sleep: async () => {},
   continueAsNew: async () => {
     throw new ContinuedAsNew();
@@ -101,13 +106,17 @@ describe('deal event notification relay after a restart', () => {
   it('resumes after the saved position instead of replaying from the start', async () => {
     savedCursors.set(DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID, 2);
 
-    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
+    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(
+      ContinuedAsNew,
+    );
 
     expect(notified).toEqual([3, 4]);
   });
 
   it('on its first start notifies nothing already in the log', async () => {
-    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
+    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(
+      ContinuedAsNew,
+    );
 
     expect(notified).toEqual([]);
   });
@@ -115,7 +124,9 @@ describe('deal event notification relay after a restart', () => {
   it('saves the position reached by the processed batch', async () => {
     savedCursors.set(DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID, 1);
 
-    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
+    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(
+      ContinuedAsNew,
+    );
 
     expect(savedCursors.get(DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID)).toBe(4);
   });
@@ -130,7 +141,9 @@ describe('deal event notification relay after a restart', () => {
       extendsTo: '2026-12-15',
     });
 
-    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
+    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(
+      ContinuedAsNew,
+    );
 
     expect(notifyInputs).toEqual([
       expect.objectContaining({
@@ -145,7 +158,9 @@ describe('deal event notification relay after a restart', () => {
     savedCursors.set(DEAL_EVENT_NOTIFICATION_RELAY_WORKFLOW_ID, 1);
     failing.add(3);
 
-    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(ContinuedAsNew);
+    await expect(dealEventNotificationRelay()).rejects.toBeInstanceOf(
+      ContinuedAsNew,
+    );
 
     expect(attempts.get(3)).toBe(5);
     expect(notified).toEqual([2, 4]);

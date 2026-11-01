@@ -9,9 +9,15 @@ vi.mock('@opentelemetry/sdk-node', () => ({
   metrics: { PeriodicExportingMetricReader: vi.fn() },
   logs: { BatchLogRecordProcessor: vi.fn() },
 }));
-vi.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({ OTLPTraceExporter: vi.fn() }));
-vi.mock('@opentelemetry/exporter-metrics-otlp-proto', () => ({ OTLPMetricExporter: vi.fn() }));
-vi.mock('@opentelemetry/exporter-logs-otlp-proto', () => ({ OTLPLogExporter: vi.fn() }));
+vi.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
+  OTLPTraceExporter: vi.fn(),
+}));
+vi.mock('@opentelemetry/exporter-metrics-otlp-proto', () => ({
+  OTLPMetricExporter: vi.fn(),
+}));
+vi.mock('@opentelemetry/exporter-logs-otlp-proto', () => ({
+  OTLPLogExporter: vi.fn(),
+}));
 
 import { setupOtel } from './observability';
 

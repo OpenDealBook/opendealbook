@@ -69,7 +69,10 @@ describe('NextStep', () => {
         deadlines={[]}
         items={[
           { title: 'Send the lease', due_at: '2026-11-01T00:00:00+00:00' },
-          { title: 'Send the tax returns', due_at: '2026-10-10T00:00:00+00:00' },
+          {
+            title: 'Send the tax returns',
+            due_at: '2026-10-10T00:00:00+00:00',
+          },
         ]}
         today={'2026-10-19'}
       />,
@@ -87,8 +90,12 @@ describe('NextStep', () => {
 
   it('says nothing is needed when nothing waits on the seller', () => {
     const html = renderToStaticMarkup(
-      <NextStep questions={[]} deadlines={[]} items={[]}
-        today={'2026-10-19'} />,
+      <NextStep
+        questions={[]}
+        deadlines={[]}
+        items={[]}
+        today={'2026-10-19'}
+      />,
     );
 
     expect(html).toContain('Next step');

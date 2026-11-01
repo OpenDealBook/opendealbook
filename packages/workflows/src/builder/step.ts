@@ -21,7 +21,11 @@ export interface StepDefinition<
   configSchema: z.ZodType<Config>;
   inputSchema: z.ZodType<Input>;
   outputSchema: z.ZodType<Output>;
-  run(args: { context: StepContext; config: Config; input: Input }): Promise<Output>;
+  run(args: {
+    context: StepContext;
+    config: Config;
+    input: Input;
+  }): Promise<Output>;
 }
 
 export function defineStep<

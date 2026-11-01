@@ -140,7 +140,9 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
       'thread-reply',
     );
     expect(await statusOf(id)).toBe('replied');
-    expect(await suppressions()).toEqual([{ email: 'owner@target.test', reason: 'replied' }]);
+    expect(await suppressions()).toEqual([
+      { email: 'owner@target.test', reason: 'replied' },
+    ]);
   });
 
   it('stops the sequence and suppresses the target when someone else answers in the thread', async () => {
@@ -150,7 +152,9 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
     await syncOutreachReplies();
 
     expect(await statusOf(id)).toBe('replied');
-    expect(await suppressions()).toEqual([{ email: 'owner@target.test', reason: 'replied' }]);
+    expect(await suppressions()).toEqual([
+      { email: 'owner@target.test', reason: 'replied' },
+    ]);
   });
 
   it('marks a finished sequence replied when the reply arrives after the last step', async () => {
@@ -160,7 +164,9 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
     await syncOutreachReplies();
 
     expect(await statusOf(id)).toBe('replied');
-    expect(await suppressions()).toEqual([{ email: 'late@target.test', reason: 'replied' }]);
+    expect(await suppressions()).toEqual([
+      { email: 'late@target.test', reason: 'replied' },
+    ]);
   });
 
   it('stops checking a finished sequence once its last touch is more than 30 days old', async () => {
@@ -174,13 +180,22 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
 
     await syncOutreachReplies();
 
-    expect(mailbox.listThreadMessages).not.toHaveBeenCalledWith(expect.anything(), 'thread-stale');
+    expect(mailbox.listThreadMessages).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'thread-stale',
+    );
     expect(await statusOf(id)).toBe('sent');
   });
 
   it('marks a finished sequence bounced when the bounce arrives after the last step', async () => {
-    const id = await sentTo('lategone@target.test', 'thread-late-bounce', 'sent');
-    mailbox.listThreadMessages.mockResolvedValue(thread('mailer-daemon@googlemail.com'));
+    const id = await sentTo(
+      'lategone@target.test',
+      'thread-late-bounce',
+      'sent',
+    );
+    mailbox.listThreadMessages.mockResolvedValue(
+      thread('mailer-daemon@googlemail.com'),
+    );
 
     await syncOutreachReplies();
 
@@ -189,17 +204,23 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
 
   it('stops the sequence and suppresses the address when the send bounces', async () => {
     const id = await sentTo('gone@target.test', 'thread-bounce');
-    mailbox.listThreadMessages.mockResolvedValue(thread('mailer-daemon@googlemail.com'));
+    mailbox.listThreadMessages.mockResolvedValue(
+      thread('mailer-daemon@googlemail.com'),
+    );
 
     await syncOutreachReplies();
 
     expect(await statusOf(id)).toBe('bounced');
-    expect(await suppressions()).toEqual([{ email: 'gone@target.test', reason: 'bounce' }]);
+    expect(await suppressions()).toEqual([
+      { email: 'gone@target.test', reason: 'bounce' },
+    ]);
   });
 
   it('treats a postmaster delivery report as a bounce', async () => {
     const id = await sentTo('gone@target.test', 'thread-ndr');
-    mailbox.listThreadMessages.mockResolvedValue(thread('postmaster@contoso.onmicrosoft.com'));
+    mailbox.listThreadMessages.mockResolvedValue(
+      thread('postmaster@contoso.onmicrosoft.com'),
+    );
 
     await syncOutreachReplies();
 
@@ -215,13 +236,19 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
     await syncOutreachReplies();
 
     expect(await statusOf(id)).toBe('replied');
-    expect(await suppressions()).toEqual([{ email: 'both@target.test', reason: 'replied' }]);
+    expect(await suppressions()).toEqual([
+      { email: 'both@target.test', reason: 'replied' },
+    ]);
   });
 
   it('never counts a team member writing in the thread as a reply', async () => {
-    const { data: member } = await account.admin.auth.admin.getUserById(account.userId);
+    const { data: member } = await account.admin.auth.admin.getUserById(
+      account.userId,
+    );
     const id = await sentTo('owner@target.test', 'thread-teammate');
-    mailbox.listThreadMessages.mockResolvedValue(thread(member.user!.email!.toUpperCase()));
+    mailbox.listThreadMessages.mockResolvedValue(
+      thread(member.user!.email!.toUpperCase()),
+    );
 
     await syncOutreachReplies();
 
@@ -229,23 +256,34 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
   });
 
   it('reads a thread only through the mailbox that sent it', async () => {
-    await sentTo('owner@target.test', 'thread-old-mailbox', 'queued', SENT_AT, 'former@odb.test');
+    await sentTo(
+      'owner@target.test',
+      'thread-old-mailbox',
+      'queued',
+      SENT_AT,
+      'former@odb.test',
+    );
     mailbox.listThreadMessages.mockResolvedValue(thread('owner@target.test'));
 
     await syncOutreachReplies();
 
-    expect(mailbox.listThreadMessages).not.toHaveBeenCalledWith(expect.anything(), 'thread-old-mailbox');
+    expect(mailbox.listThreadMessages).not.toHaveBeenCalledWith(
+      expect.anything(),
+      'thread-old-mailbox',
+    );
   });
 
   it('skips a thread that is gone and checks the rest', async () => {
     await sentTo('gone@target.test', 'thread-gone');
     const id = await sentTo('next@target.test', 'thread-next');
-    mailbox.listThreadMessages.mockImplementation(async (_connection: unknown, threadId: string) => {
-      if (threadId === 'thread-gone') {
-        throw new mailbox.MailboxRequestFailed(404, 'Thread read');
-      }
-      return thread('next@target.test');
-    });
+    mailbox.listThreadMessages.mockImplementation(
+      async (_connection: unknown, threadId: string) => {
+        if (threadId === 'thread-gone') {
+          throw new mailbox.MailboxRequestFailed(404, 'Thread read');
+        }
+        return thread('next@target.test');
+      },
+    );
 
     await syncOutreachReplies();
 
@@ -254,12 +292,16 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
 
   it('keeps going past a team whose sync fails', async () => {
     await sentTo('owner@target.test', 'thread-broken');
-    mailbox.listThreadMessages.mockRejectedValue(new Error('provider exploded'));
+    mailbox.listThreadMessages.mockRejectedValue(
+      new Error('provider exploded'),
+    );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await expect(syncOutreachReplies()).resolves.toBeUndefined();
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining(account.accountId));
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(account.accountId),
+    );
     warn.mockRestore();
   });
 
@@ -269,7 +311,10 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
 
     await syncOutreachReplies();
 
-    expect(mailbox.listThreadMessages).not.toHaveBeenCalledWith(expect.anything(), null);
+    expect(mailbox.listThreadMessages).not.toHaveBeenCalledWith(
+      expect.anything(),
+      null,
+    );
     expect(await statusOf(id)).toBe('queued');
   });
 
@@ -290,12 +335,16 @@ describe('syncOutreachReplies (integration)', { timeout: 120_000 }, () => {
     await syncOutreachReplies();
     await syncOutreachReplies();
 
-    expect(await suppressions()).toEqual([{ email: 'owner@target.test', reason: 'replied' }]);
+    expect(await suppressions()).toEqual([
+      { email: 'owner@target.test', reason: 'replied' },
+    ]);
   });
 
   it('skips a team whose mailbox denies read access', async () => {
     const id = await sentTo('owner@target.test', 'thread-denied');
-    mailbox.listThreadMessages.mockRejectedValue(new mailbox.MailboxAccessDenied('denied'));
+    mailbox.listThreadMessages.mockRejectedValue(
+      new mailbox.MailboxAccessDenied('denied'),
+    );
 
     await syncOutreachReplies();
 

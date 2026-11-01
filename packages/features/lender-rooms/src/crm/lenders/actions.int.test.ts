@@ -2,9 +2,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
-
 import type { Database } from '@odb/supabase';
+import { turnTeamBillingOn } from '@odb/supabase/test-support/team-billing';
 
 const caller = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -153,7 +152,11 @@ async function savedContact(id: string) {
   return data;
 }
 
-function newLender(host: string, name = 'First Bank', accountId = teamAccountId) {
+function newLender(
+  host: string,
+  name = 'First Bank',
+  accountId = teamAccountId,
+) {
   return unwrap(
     addLender({
       accountId,
@@ -389,7 +392,9 @@ describe('clearing optional fields', () => {
       }),
     );
 
-    await unwrap(editLenderContact({ contactId: id, email: null, phone: null }));
+    await unwrap(
+      editLenderContact({ contactId: id, email: null, phone: null }),
+    );
 
     expect(await savedContact(id)).toMatchObject({ email: null, phone: null });
   });
@@ -499,7 +504,9 @@ describe('a team in billing read-only lock', () => {
     );
     await admin
       .from('accounts')
-      .update({ trial_ends_at: new Date(Date.now() - 86_400_000).toISOString() })
+      .update({
+        trial_ends_at: new Date(Date.now() - 86_400_000).toISOString(),
+      })
       .eq('id', lockedTeamAccountId)
       .throwOnError();
 

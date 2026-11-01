@@ -36,7 +36,11 @@ export function fakeAdminClient(team: FakeTeam) {
   return {
     from: (table: string) =>
       table === 'llm_endpoint'
-        ? { select: () => ({ eq: () => ({ maybeSingle: () => settled(team.endpoint) }) }) }
+        ? {
+            select: () => ({
+              eq: () => ({ maybeSingle: () => settled(team.endpoint) }),
+            }),
+          }
         : {
             update: (row: Record<string, unknown>) => ({
               eq: (_column: string, id: string) => {

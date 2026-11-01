@@ -1,14 +1,18 @@
 import { expect, type Page } from '@playwright/test';
 
-import { randomUUID } from 'node:crypto';
-
 import type { TestUser } from './auth';
 import { llm } from './stand-ins';
 import { teamIdOf } from './workflows';
 
+import { randomUUID } from 'node:crypto';
+
 export async function connectTeamAi(
   page: Page,
-  { user, teamSlug, reply }: { user: TestUser; teamSlug: string; reply: object },
+  {
+    user,
+    teamSlug,
+    reply,
+  }: { user: TestUser; teamSlug: string; reply: object },
 ) {
   const model = `team-ai-${randomUUID()}`;
   await llm.connectTeam(user, await teamIdOf(teamSlug), model);

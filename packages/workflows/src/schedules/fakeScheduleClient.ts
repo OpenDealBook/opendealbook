@@ -7,7 +7,9 @@ import {
 } from '@temporalio/client';
 
 export function fakeScheduleClient(existing: ScheduleOptions[] = []) {
-  const schedules = new Map(existing.map((options) => [options.scheduleId, options]));
+  const schedules = new Map(
+    existing.map((options) => [options.scheduleId, options]),
+  );
 
   const client = {
     schedule: {
@@ -21,7 +23,9 @@ export function fakeScheduleClient(existing: ScheduleOptions[] = []) {
         update: async (
           updateFn: (previous: ScheduleDescription) => ScheduleUpdateOptions,
         ) => {
-          const previous = schedules.get(scheduleId) as unknown as ScheduleDescription;
+          const previous = schedules.get(
+            scheduleId,
+          ) as unknown as ScheduleDescription;
           schedules.set(scheduleId, { scheduleId, ...updateFn(previous) });
         },
       }),
@@ -34,5 +38,10 @@ export function fakeScheduleClient(existing: ScheduleOptions[] = []) {
 export const staleSchedule: ScheduleOptions = {
   scheduleId: 'stale',
   spec: { intervals: [{ every: '7d' }] },
-  action: { type: 'startWorkflow', workflowType: 'stale', taskQueue: 'stale', args: [] },
+  action: {
+    type: 'startWorkflow',
+    workflowType: 'stale',
+    taskQueue: 'stale',
+    args: [],
+  },
 };

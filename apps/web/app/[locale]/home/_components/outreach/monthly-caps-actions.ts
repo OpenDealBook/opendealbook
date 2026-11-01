@@ -10,12 +10,8 @@ import { resumeCappedRuns } from '@odb/workflows/builder/client';
 import { saveOutreachSetting } from './save-outreach-setting';
 
 const NEEDS_DEALS_MANAGE = 'Changing caps needs deals.manage';
-const CAP_RANGE ='Caps must be between 0 and 100,000';
-const monthlyCap = z
-  .number()
-  .int()
-  .min(0, CAP_RANGE)
-  .max(100000, CAP_RANGE);
+const CAP_RANGE = 'Caps must be between 0 and 100,000';
+const monthlyCap = z.number().int().min(0, CAP_RANGE).max(100000, CAP_RANGE);
 
 async function requireDealManager(userId: string, accountId: string) {
   const { data: canManage } = await getSupabaseServerClient()

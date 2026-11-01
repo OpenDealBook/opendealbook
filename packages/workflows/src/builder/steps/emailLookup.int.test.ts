@@ -1,20 +1,26 @@
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
-
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { fakeAiProvider } from '../../../test-support/fake-ai-provider';
-import { provisionAccount, type IntegrationAccount } from '../../../test-support/integration-harness';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../../test-support/integration-harness';
 import { CapReached } from '../caps';
 import { emailLookup } from './emailLookup';
+
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 
 const network = vi.hoisted(() => ({ trustedFakeUrl: '' }));
 
 vi.mock('../publicUrl', async (importOriginal) => {
-  const { publicAddressOf } = await importOriginal<typeof import('../publicUrl')>();
+  const { publicAddressOf } =
+    await importOriginal<typeof import('../publicUrl')>();
   return {
     publicAddressOf: async (url: string) =>
-      url.startsWith(network.trustedFakeUrl) ? { address: '127.0.0.1', family: 4 } : publicAddressOf(url),
+      url.startsWith(network.trustedFakeUrl)
+        ? { address: '127.0.0.1', family: 4 }
+        : publicAddressOf(url),
   };
 });
 
@@ -52,7 +58,10 @@ async function pointProviderAt(baseUrl: string) {
 async function setLookupCap(cap: number) {
   await owner.admin
     .from('outreach_setting')
-    .upsert({ account_id: owner.accountId, daily_cap: 10, lookup_monthly_cap: cap }, { onConflict: 'account_id' })
+    .upsert(
+      { account_id: owner.accountId, daily_cap: 10, lookup_monthly_cap: cap },
+      { onConflict: 'account_id' },
+    )
     .throwOnError();
 }
 
@@ -62,14 +71,23 @@ beforeAll(async () => {
   network.trustedFakeUrl = apify.baseUrl;
   const { data: firm } = await owner.admin
     .from('firm')
-    .insert({ account_id: owner.accountId, name: 'Rowan Fixture Plumbing', website: 'https://rowanfixtureplumbing.example' })
+    .insert({
+      account_id: owner.accountId,
+      name: 'Rowan Fixture Plumbing',
+      website: 'https://rowanfixtureplumbing.example',
+    })
     .select('id')
     .single()
     .throwOnError();
   firmId = firm.id;
   await owner.admin
     .from('contact')
-    .insert({ account_id: owner.accountId, firm_id: firmId, name: 'Known Owner', email: 'OWNER@RowanFixturePlumbing.example' })
+    .insert({
+      account_id: owner.accountId,
+      firm_id: firmId,
+      name: 'Known Owner',
+      email: 'OWNER@RowanFixturePlumbing.example',
+    })
     .throwOnError();
 });
 
@@ -79,7 +97,9 @@ async function firmContacts() {
     .select('name, email, source')
     .eq('firm_id', firmId)
     .throwOnError();
-  return data.sort((a: { email: string }, b: { email: string }) => a.email.toLowerCase().localeCompare(b.email.toLowerCase()));
+  return data.sort((a: { email: string }, b: { email: string }) =>
+    a.email.toLowerCase().localeCompare(b.email.toLowerCase()),
+  );
 }
 
 afterAll(async () => {
@@ -120,7 +140,13 @@ describe('email_lookup step (integration)', () => {
   it("runs the team's actor on the firm website, records the paid lookup and keeps the emails for this team", async () => {
     await setLookupCap(5);
     apify.reply.body = [
-      { url: 'https://rowanfixtureplumbing.example', emails: ['Owner@RowanFixturePlumbing.example', 'office@rowanfixtureplumbing.example'] },
+      {
+        url: 'https://rowanfixtureplumbing.example',
+        emails: [
+          'Owner@RowanFixturePlumbing.example',
+          'office@rowanfixtureplumbing.example',
+        ],
+      },
       {
         url: 'https://rowanfixtureplumbing.example/contact',
         emails: [
@@ -148,9 +174,15 @@ describe('email_lookup step (integration)', () => {
       ],
     });
     expect(apify.received).toHaveLength(1);
-    expect(apify.received[0]!.path).toBe('/v1/acts/acme~site-contacts/run-sync-get-dataset-items');
-    expect(apify.received[0]!.headers.authorization).toBe('Bearer apify-team-key');
-    expect(apify.received[0]!.body).toEqual({ startUrls: [{ url: 'https://rowanfixtureplumbing.example' }] });
+    expect(apify.received[0]!.path).toBe(
+      '/v1/acts/acme~site-contacts/run-sync-get-dataset-items',
+    );
+    expect(apify.received[0]!.headers.authorization).toBe(
+      'Bearer apify-team-key',
+    );
+    expect(apify.received[0]!.body).toEqual({
+      startUrls: [{ url: 'https://rowanfixtureplumbing.example' }],
+    });
     expect(await lookups()).toEqual([
       {
         kind: 'email_lookup',
@@ -168,16 +200,48 @@ describe('email_lookup step (integration)', () => {
       .order('email')
       .throwOnError();
     expect(emails).toEqual([
-      { account_id: owner.accountId, email: 'info@rowanfixtureplumbing.example', provider: 'apify' },
-      { account_id: owner.accountId, email: 'office@rowanfixtureplumbing.example', provider: 'apify' },
-      { account_id: owner.accountId, email: 'owner@rowanfixtureplumbing.example', provider: 'apify' },
-      { account_id: owner.accountId, email: 'sales@mail.rowanfixtureplumbing.example', provider: 'apify' },
+      {
+        account_id: owner.accountId,
+        email: 'info@rowanfixtureplumbing.example',
+        provider: 'apify',
+      },
+      {
+        account_id: owner.accountId,
+        email: 'office@rowanfixtureplumbing.example',
+        provider: 'apify',
+      },
+      {
+        account_id: owner.accountId,
+        email: 'owner@rowanfixtureplumbing.example',
+        provider: 'apify',
+      },
+      {
+        account_id: owner.accountId,
+        email: 'sales@mail.rowanfixtureplumbing.example',
+        provider: 'apify',
+      },
     ]);
     expect(await firmContacts()).toEqual([
-      { name: null, email: 'info@rowanfixtureplumbing.example', source: 'email_lookup' },
-      { name: null, email: 'office@rowanfixtureplumbing.example', source: 'email_lookup' },
-      { name: 'Known Owner', email: 'OWNER@RowanFixturePlumbing.example', source: 'manual' },
-      { name: null, email: 'sales@mail.rowanfixtureplumbing.example', source: 'email_lookup' },
+      {
+        name: null,
+        email: 'info@rowanfixtureplumbing.example',
+        source: 'email_lookup',
+      },
+      {
+        name: null,
+        email: 'office@rowanfixtureplumbing.example',
+        source: 'email_lookup',
+      },
+      {
+        name: 'Known Owner',
+        email: 'OWNER@RowanFixturePlumbing.example',
+        source: 'manual',
+      },
+      {
+        name: null,
+        email: 'sales@mail.rowanfixtureplumbing.example',
+        source: 'email_lookup',
+      },
     ]);
   });
 
@@ -200,11 +264,23 @@ describe('email_lookup step (integration)', () => {
 
   it("records not found when the actor finds no emails at the firm's own domain", async () => {
     apify.reply.body = [
-      { url: 'https://rowanfixtureplumbing.example', emails: ['noreply@rowanfixtureplumbing.example', 'owner@othersite.example'] },
+      {
+        url: 'https://rowanfixtureplumbing.example',
+        emails: [
+          'noreply@rowanfixtureplumbing.example',
+          'owner@othersite.example',
+        ],
+      },
     ];
 
-    expect(await lookUp('run-1:emails:1')).toEqual({ outcome: 'not_found', emails: [] });
-    expect((await lookups())[1]).toMatchObject({ outcome: 'not_found', result: apify.reply.body });
+    expect(await lookUp('run-1:emails:1')).toEqual({
+      outcome: 'not_found',
+      emails: [],
+    });
+    expect((await lookups())[1]).toMatchObject({
+      outcome: 'not_found',
+      result: apify.reply.body,
+    });
   });
 
   it('fails at once, spending nothing, when the firm has no website', async () => {
@@ -218,11 +294,18 @@ describe('email_lookup step (integration)', () => {
 
     await expect(
       emailLookup.execute({
-        context: { accountId: owner.accountId, runId: 'run-1', idempotencyKey: 'run-1:emails:offline' },
+        context: {
+          accountId: owner.accountId,
+          runId: 'run-1',
+          idempotencyKey: 'run-1:emails:offline',
+        },
         config: { firmId: firm.id },
         input: {},
       }),
-    ).rejects.toMatchObject({ nonRetryable: true, message: 'This firm has no website to look up' });
+    ).rejects.toMatchObject({
+      nonRetryable: true,
+      message: 'This firm has no website to look up',
+    });
     expect(apify.received).toEqual([]);
     expect(await lookups()).toHaveLength(2);
   });
@@ -231,18 +314,26 @@ describe('email_lookup step (integration)', () => {
     apify.reply.status = 502;
     apify.reply.body = { error: { type: 'upstream', message: 'Bad gateway' } };
 
-    const failure = await lookUp('run-1:emails:2').catch((error: unknown) => error);
+    const failure = await lookUp('run-1:emails:2').catch(
+      (error: unknown) => error,
+    );
 
     expect(failure).toBeInstanceOf(Error);
     expect(failure).not.toMatchObject({ nonRetryable: true });
     expect((await lookups())[2]).toMatchObject({
       outcome: 'failed',
-      result: { status: 502, body: { error: { type: 'upstream', message: 'Bad gateway' } } },
+      result: {
+        status: 502,
+        body: { error: { type: 'upstream', message: 'Bad gateway' } },
+      },
     });
 
     apify.reply.status = 200;
     apify.reply.body = [{ emails: ['owner@rowanfixtureplumbing.example'] }];
-    expect(await lookUp('run-1:emails:2')).toEqual({ outcome: 'found', emails: ['owner@rowanfixtureplumbing.example'] });
+    expect(await lookUp('run-1:emails:2')).toEqual({
+      outcome: 'found',
+      emails: ['owner@rowanfixtureplumbing.example'],
+    });
     expect(await lookups()).toHaveLength(3);
   });
 
@@ -264,42 +355,64 @@ describe('email_lookup step (integration)', () => {
   it('rejects, keeping the lookup failed and storing no emails, when the actor answers in an unexpected shape', async () => {
     apify.reply.status = 200;
     apify.reply.body = { data: 'unexpected' };
-    const emailsBefore = await owner.admin.from('firm_email').select('email').eq('firm_id', firmId).throwOnError();
+    const emailsBefore = await owner.admin
+      .from('firm_email')
+      .select('email')
+      .eq('firm_id', firmId)
+      .throwOnError();
 
-    const failure = await lookUp('run-1:emails:4').catch((error: unknown) => error);
+    const failure = await lookUp('run-1:emails:4').catch(
+      (error: unknown) => error,
+    );
 
     expect(failure).toBeInstanceOf(Error);
     expect(failure).not.toMatchObject({ nonRetryable: true });
-    expect((await lookups())[4]).toMatchObject({ outcome: 'failed', result: {} });
-    const emailsAfter = await owner.admin.from('firm_email').select('email').eq('firm_id', firmId).throwOnError();
+    expect((await lookups())[4]).toMatchObject({
+      outcome: 'failed',
+      result: {},
+    });
+    const emailsAfter = await owner.admin
+      .from('firm_email')
+      .select('email')
+      .eq('firm_id', firmId)
+      .throwOnError();
     expect(emailsAfter.data).toEqual(emailsBefore.data);
   });
 
   it.each([
     [200, true],
     [503, false],
-  ])('records a failed lookup when the provider answers %i with something that is not JSON, failing at once: %s', async (status, failsAtOnce) => {
-    const server = createServer((_request, response) => {
-      response.writeHead(status, { 'content-type': 'text/html' });
-      response.end('<html>gateway</html>');
-    });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v2`;
-    network.trustedFakeUrl = baseUrl;
-    await pointProviderAt(baseUrl);
+  ])(
+    'records a failed lookup when the provider answers %i with something that is not JSON, failing at once: %s',
+    async (status, failsAtOnce) => {
+      const server = createServer((_request, response) => {
+        response.writeHead(status, { 'content-type': 'text/html' });
+        response.end('<html>gateway</html>');
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, '127.0.0.1', resolve),
+      );
+      const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v2`;
+      network.trustedFakeUrl = baseUrl;
+      await pointProviderAt(baseUrl);
 
-    const failure = await lookUp(`run-1:emails:html-${status}`).catch((error: unknown) => error);
+      const failure = await lookUp(`run-1:emails:html-${status}`).catch(
+        (error: unknown) => error,
+      );
 
-    server.close();
-    network.trustedFakeUrl = apify.baseUrl;
-    await pointProviderAt(apify.baseUrl);
-    expect(failure).toBeInstanceOf(Error);
-    expect((failure as { nonRetryable?: boolean }).nonRetryable === true).toBe(failsAtOnce);
-    expect((await lookups()).at(-1)).toMatchObject({
-      outcome: 'failed',
-      result: { status, text: '<html>gateway</html>' },
-    });
-  });
+      server.close();
+      network.trustedFakeUrl = apify.baseUrl;
+      await pointProviderAt(apify.baseUrl);
+      expect(failure).toBeInstanceOf(Error);
+      expect(
+        (failure as { nonRetryable?: boolean }).nonRetryable === true,
+      ).toBe(failsAtOnce);
+      expect((await lookups()).at(-1)).toMatchObject({
+        outcome: 'failed',
+        result: { status, text: '<html>gateway</html>' },
+      });
+    },
+  );
 
   it('refuses at once to call a provider address that is not public', async () => {
     await pointProviderAt('https://10.0.0.8/v2');
@@ -316,7 +429,11 @@ describe('email_lookup step (integration)', () => {
   async function firmAt(website: string) {
     const { data: firm } = await owner.admin
       .from('firm')
-      .insert({ account_id: owner.accountId, name: `Firm at ${website}`, website })
+      .insert({
+        account_id: owner.accountId,
+        name: `Firm at ${website}`,
+        website,
+      })
       .select('id')
       .single()
       .throwOnError();
@@ -336,13 +453,25 @@ describe('email_lookup step (integration)', () => {
     apify.reply.status = 200;
     apify.reply.body = [
       {
-        emails: ['owner@harbourjoinery-fixture.co.uk', 'sales@shop.harbourjoinery-fixture.co.uk', 'someone@otherjoinery-fixture.co.uk'],
+        emails: [
+          'owner@harbourjoinery-fixture.co.uk',
+          'sales@shop.harbourjoinery-fixture.co.uk',
+          'someone@otherjoinery-fixture.co.uk',
+        ],
       },
     ];
 
-    expect(await lookUpFirm('run-1:emails:co-uk', await firmAt('https://www.harbourjoinery-fixture.co.uk'))).toEqual({
+    expect(
+      await lookUpFirm(
+        'run-1:emails:co-uk',
+        await firmAt('https://www.harbourjoinery-fixture.co.uk'),
+      ),
+    ).toEqual({
       outcome: 'found',
-      emails: ['owner@harbourjoinery-fixture.co.uk', 'sales@shop.harbourjoinery-fixture.co.uk'],
+      emails: [
+        'owner@harbourjoinery-fixture.co.uk',
+        'sales@shop.harbourjoinery-fixture.co.uk',
+      ],
     });
   });
 
@@ -350,22 +479,34 @@ describe('email_lookup step (integration)', () => {
     apify.received.length = 0;
     apify.reply.body = [{ emails: ['owner@tinianroofing.example'] }];
 
-    expect(await lookUpFirm('run-1:emails:bare', await firmAt('tinianroofing.example'))).toEqual({
+    expect(
+      await lookUpFirm(
+        'run-1:emails:bare',
+        await firmAt('tinianroofing.example'),
+      ),
+    ).toEqual({
       outcome: 'found',
       emails: ['owner@tinianroofing.example'],
     });
-    expect(apify.received[0]!.body).toEqual({ startUrls: [{ url: 'https://tinianroofing.example' }] });
+    expect(apify.received[0]!.body).toEqual({
+      startUrls: [{ url: 'https://tinianroofing.example' }],
+    });
   });
 
   it('lets the step retry when the provider is rate limited', async () => {
     apify.reply.status = 429;
     apify.reply.body = { error: { type: 'rate-limit-exceeded' } };
 
-    const failure = await lookUp('run-1:emails:429').catch((error: unknown) => error);
+    const failure = await lookUp('run-1:emails:429').catch(
+      (error: unknown) => error,
+    );
 
     expect(failure).toBeInstanceOf(Error);
     expect(failure).not.toMatchObject({ nonRetryable: true });
-    expect((await lookups()).at(-1)).toMatchObject({ outcome: 'failed', result: { status: 429 } });
+    expect((await lookups()).at(-1)).toMatchObject({
+      outcome: 'failed',
+      result: { status: 429 },
+    });
     apify.reply.status = 200;
   });
 

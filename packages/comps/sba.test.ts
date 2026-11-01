@@ -42,19 +42,34 @@ const fiveOhFour: Record<string, string> = {
 describe('deriveSbaPrice', () => {
   it('divides 7(a) GrossApproval by the loan-to-price ratio', () => {
     expect(
-      deriveSbaPrice({ program: '7a', grossApproval: 850_000, thirdPartyDollars: null, ratio: 0.85 }),
+      deriveSbaPrice({
+        program: '7a',
+        grossApproval: 850_000,
+        thirdPartyDollars: null,
+        ratio: 0.85,
+      }),
     ).toBe(1_000_000);
   });
 
   it('adds ThirdPartyDollars to 504 GrossApproval (debenture-only)', () => {
     expect(
-      deriveSbaPrice({ program: '504', grossApproval: 800_000, thirdPartyDollars: 1_000_000, ratio: 0.85 }),
+      deriveSbaPrice({
+        program: '504',
+        grossApproval: 800_000,
+        thirdPartyDollars: 1_000_000,
+        ratio: 0.85,
+      }),
     ).toBe(1_800_000);
   });
 
   it('skips a 504 loan when ThirdPartyDollars is absent', () => {
     expect(
-      deriveSbaPrice({ program: '504', grossApproval: 800_000, thirdPartyDollars: null, ratio: 0.85 }),
+      deriveSbaPrice({
+        program: '504',
+        grossApproval: 800_000,
+        thirdPartyDollars: null,
+        ratio: 0.85,
+      }),
     ).toBeNull();
   });
 
@@ -69,11 +84,15 @@ describe('sbaUpsertKey', () => {
   });
 
   it('changes when any keyed field changes', () => {
-    expect(sbaUpsertKey(sevenA)).not.toBe(sbaUpsertKey({ ...sevenA, GrossApproval: '$850,001' }));
+    expect(sbaUpsertKey(sevenA)).not.toBe(
+      sbaUpsertKey({ ...sevenA, GrossApproval: '$850,001' }),
+    );
   });
 
   it('ignores fields outside the key', () => {
-    expect(sbaUpsertKey(sevenA)).toBe(sbaUpsertKey({ ...sevenA, BankName: 'Other Bank' }));
+    expect(sbaUpsertKey(sevenA)).toBe(
+      sbaUpsertKey({ ...sevenA, BankName: 'Other Bank' }),
+    );
   });
 });
 
@@ -111,31 +130,45 @@ describe('mapSbaRow', () => {
   });
 
   it('drops a 504 row that has no ThirdPartyDollars', () => {
-    expect(mapSbaRow({ ...fiveOhFour, ThirdPartyDollars: '' }, { ratio: 0.85 })).toBeNull();
+    expect(
+      mapSbaRow({ ...fiveOhFour, ThirdPartyDollars: '' }, { ratio: 0.85 }),
+    ).toBeNull();
   });
 
   it('flags a franchise when a franchise name is present', () => {
-    const facts = mapSbaRow({ ...sevenA, FranchiseName: 'Padgett' }, { ratio: 0.85 });
+    const facts = mapSbaRow(
+      { ...sevenA, FranchiseName: 'Padgett' },
+      { ratio: 0.85 },
+    );
     expect(facts!.franchiseFlag).toBe(true);
   });
 });
 
 describe('mapSbaRows', () => {
   it('filters to the tenant NAICS union and drops the rest', () => {
-    const rows = mapSbaRows([sevenA, fiveOhFour], { naicsCodes: ['541211'], ratio: 0.85 });
+    const rows = mapSbaRows([sevenA, fiveOhFour], {
+      naicsCodes: ['541211'],
+      ratio: 0.85,
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0]!.naicsCode).toBe('541211');
   });
 
   it('produces no comps when the NAICS union is empty', () => {
-    expect(mapSbaRows([sevenA, fiveOhFour], { naicsCodes: [], ratio: 0.85 })).toHaveLength(0);
+    expect(
+      mapSbaRows([sevenA, fiveOhFour], { naicsCodes: [], ratio: 0.85 }),
+    ).toHaveLength(0);
   });
 });
 
 describe('unionNaics', () => {
   it('unions and de-duplicates NAICS codes across deal boxes', () => {
     expect(
-      unionNaics([{ naics: ['541211', '541219'] }, { naics: ['541211'] }, {}]).sort(),
+      unionNaics([
+        { naics: ['541211', '541219'] },
+        { naics: ['541211'] },
+        {},
+      ]).sort(),
     ).toEqual(['541211', '541219']);
   });
 });

@@ -28,10 +28,6 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
-    "@temporalio/activity": "catalog:",
-    "@temporalio/client": "catalog:",
-    "@temporalio/common": "catalog:",
-    "@temporalio/workflow": "catalog:",
     "@odb/comps": "workspace:*",
     "@odb/deal-timeline": "workspace:*",
     "@odb/email-templates": "workspace:*",
@@ -43,6 +39,10 @@
     "@odb/seller-rooms": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/verification": "workspace:*",
+    "@temporalio/activity": "catalog:",
+    "@temporalio/client": "catalog:",
+    "@temporalio/common": "catalog:",
+    "@temporalio/workflow": "catalog:",
     "fflate": "0.8.2",
     "papaparse": "catalog:",
     "tldts": "7.4.18",
@@ -50,8 +50,8 @@
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
-    "@temporalio/worker": "catalog:",
     "@supabase/supabase-js": "catalog:",
+    "@temporalio/worker": "catalog:",
     "@types/node": "catalog:",
     "@types/papaparse": "catalog:",
     "vitest": "catalog:"

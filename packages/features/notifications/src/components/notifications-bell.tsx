@@ -83,9 +83,12 @@ export function NotificationsBell({
               >
                 <span
                   aria-hidden
-                  className={cn('bg-primary mt-1.5 size-2 shrink-0 rounded-full', {
-                    invisible: notification.read,
-                  })}
+                  className={cn(
+                    'bg-primary mt-1.5 size-2 shrink-0 rounded-full',
+                    {
+                      invisible: notification.read,
+                    },
+                  )}
                 />
 
                 <div className="min-w-0 flex-1">
@@ -108,7 +111,10 @@ export function NotificationsBell({
                     {notification.dealName && (
                       <span className="truncate">{notification.dealName}</span>
                     )}
-                    <time dateTime={notification.createdAt} className="shrink-0">
+                    <time
+                      dateTime={notification.createdAt}
+                      className="shrink-0"
+                    >
                       {notificationAge(notification.createdAt, now)}
                     </time>
                   </p>

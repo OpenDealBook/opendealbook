@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { provisionAccount, type IntegrationAccount } from '../../../test-support/integration-harness';
+import {
+  provisionAccount,
+  type IntegrationAccount,
+} from '../../../test-support/integration-harness';
 import { enrollSequence } from './enrollSequence';
 
 let owner: IntegrationAccount;
@@ -15,7 +18,12 @@ async function firmWithContact(name: string, email: string): Promise<string> {
     .throwOnError();
   await owner.admin
     .from('contact')
-    .insert({ account_id: owner.accountId, firm_id: firm.id, name: `${name} Owner`, email })
+    .insert({
+      account_id: owner.accountId,
+      firm_id: firm.id,
+      name: `${name} Owner`,
+      email,
+    })
     .throwOnError();
   return firm.id;
 }
@@ -23,20 +31,34 @@ async function firmWithContact(name: string, email: string): Promise<string> {
 async function approve(firmId: string): Promise<string> {
   const { data: verdict } = await owner.admin
     .from('firm_verdict')
-    .insert({ account_id: owner.accountId, firm_id: firmId, fit: true, reasons: ['fits'], model: 'test' })
+    .insert({
+      account_id: owner.accountId,
+      firm_id: firmId,
+      fit: true,
+      reasons: ['fits'],
+      model: 'test',
+    })
     .select('id')
     .single()
     .throwOnError();
   await owner.admin
     .from('firm_verdict_approval')
-    .insert({ verdict_id: verdict.id, account_id: owner.accountId, approved_by: owner.userId })
+    .insert({
+      verdict_id: verdict.id,
+      account_id: owner.accountId,
+      approved_by: owner.userId,
+    })
     .throwOnError();
   return verdict.id;
 }
 
 function enroll(firmId: string, idempotencyKey: string, sequence = sequenceId) {
   return enrollSequence.execute({
-    context: { accountId: owner.accountId, runId: crypto.randomUUID(), idempotencyKey },
+    context: {
+      accountId: owner.accountId,
+      runId: crypto.randomUUID(),
+      idempotencyKey,
+    },
     config: { firmId, sequenceId: sequence },
     input: {},
   });
@@ -70,7 +92,10 @@ afterAll(async () => {
 
 describe('enroll_sequence', () => {
   it('queues an approved firm in the sequence at its contact email', async () => {
-    const firmId = await firmWithContact('Approved Plumbing', 'owner@approved.test');
+    const firmId = await firmWithContact(
+      'Approved Plumbing',
+      'owner@approved.test',
+    );
     await approve(firmId);
 
     const { enrollmentId } = await enroll(firmId, 'run-a:seq:0');
@@ -87,11 +112,16 @@ describe('enroll_sequence', () => {
   });
 
   it('holds an unapproved firm until a deal manager approves it', async () => {
-    const firmId = await firmWithContact('Waiting Roofing', 'owner@waiting.test');
+    const firmId = await firmWithContact(
+      'Waiting Roofing',
+      'owner@waiting.test',
+    );
 
     const { enrollmentId } = await enroll(firmId, 'run-b:seq:0');
 
-    expect(await enrollmentsOf(firmId)).toMatchObject([{ id: enrollmentId, status: 'held' }]);
+    expect(await enrollmentsOf(firmId)).toMatchObject([
+      { id: enrollmentId, status: 'held' },
+    ]);
   });
 
   it('enrolls once when the step runs again with the same key', async () => {
@@ -114,7 +144,11 @@ describe('enroll_sequence', () => {
       .throwOnError();
     await owner.admin
       .from('contact')
-      .insert({ account_id: owner.accountId, firm_id: firm.id, name: 'No Email Owner' })
+      .insert({
+        account_id: owner.accountId,
+        firm_id: firm.id,
+        name: 'No Email Owner',
+      })
       .throwOnError();
 
     await expect(enroll(firm.id, 'run-d:seq:0')).rejects.toMatchObject({
@@ -129,7 +163,12 @@ describe('enroll_sequence', () => {
     const verdictId = await approve(firmId);
     await owner.admin
       .from('firm_verdict_revocation')
-      .insert({ verdict_id: verdictId, account_id: owner.accountId, revoked_by: owner.userId, reason: 'sold already' })
+      .insert({
+        verdict_id: verdictId,
+        account_id: owner.accountId,
+        revoked_by: owner.userId,
+        reason: 'sold already',
+      })
       .throwOnError();
 
     await expect(enroll(firmId, 'run-e:seq:0')).rejects.toMatchObject({
@@ -140,7 +179,10 @@ describe('enroll_sequence', () => {
   });
 
   it('returns the existing enrollment when the firm is already in the sequence', async () => {
-    const firmId = await firmWithContact('Again Landscaping', 'owner@again.test');
+    const firmId = await firmWithContact(
+      'Again Landscaping',
+      'owner@again.test',
+    );
     await approve(firmId);
 
     const first = await enroll(firmId, 'run-f:seq:0');
@@ -171,7 +213,12 @@ describe('enroll_sequence', () => {
     const firmId = await firmWithContact('Elder Glazing', 'first@elder.test');
     await owner.admin
       .from('contact')
-      .insert({ account_id: owner.accountId, firm_id: firmId, name: 'Later Owner', email: 'later@elder.test' })
+      .insert({
+        account_id: owner.accountId,
+        firm_id: firmId,
+        name: 'Later Owner',
+        email: 'later@elder.test',
+      })
       .throwOnError();
     await owner.admin
       .from('contact')
@@ -182,14 +229,23 @@ describe('enroll_sequence', () => {
 
     await enroll(firmId, 'run-m:seq:0');
 
-    expect(await enrollmentsOf(firmId)).toMatchObject([{ target_email: 'first@elder.test' }]);
+    expect(await enrollmentsOf(firmId)).toMatchObject([
+      { target_email: 'first@elder.test' },
+    ]);
   });
 
   it('starts a new enrollment when the earlier one was stopped', async () => {
-    const firmId = await firmWithContact('Restarted Fencing', 'owner@restarted.test');
+    const firmId = await firmWithContact(
+      'Restarted Fencing',
+      'owner@restarted.test',
+    );
     await approve(firmId);
     const first = await enroll(firmId, 'run-i:seq:0');
-    await owner.admin.from('outreach_enrollment').update({ status: 'stopped' }).eq('id', first.enrollmentId).throwOnError();
+    await owner.admin
+      .from('outreach_enrollment')
+      .update({ status: 'stopped' })
+      .eq('id', first.enrollmentId)
+      .throwOnError();
 
     const second = await enroll(firmId, 'run-i:seq:0');
 
@@ -204,20 +260,28 @@ describe('enroll_sequence', () => {
     const firmId = await firmWithContact('Racing Tile', 'owner@racing.test');
     await approve(firmId);
 
-    const [first, second] = await Promise.all([enroll(firmId, 'run-j:seq:0'), enroll(firmId, 'run-k:seq:0')]);
+    const [first, second] = await Promise.all([
+      enroll(firmId, 'run-j:seq:0'),
+      enroll(firmId, 'run-k:seq:0'),
+    ]);
 
     expect(second).toEqual(first);
     expect(await enrollmentsOf(firmId)).toHaveLength(1);
   });
 
   it.each([
-    ['another team', async () => (await otherTeamSequence())],
+    ['another team', async () => await otherTeamSequence()],
     ['nowhere', async () => crypto.randomUUID()],
     ['not an id', async () => 'default-letter-email-email'],
   ])('refuses a sequence from %s', async (_where, sequence) => {
-    const firmId = await firmWithContact(`Lost Sequence ${crypto.randomUUID().slice(0, 6)}`, 'owner@lost.test');
+    const firmId = await firmWithContact(
+      `Lost Sequence ${crypto.randomUUID().slice(0, 6)}`,
+      'owner@lost.test',
+    );
 
-    await expect(enroll(firmId, `run-l:${crypto.randomUUID()}`, await sequence())).rejects.toMatchObject({
+    await expect(
+      enroll(firmId, `run-l:${crypto.randomUUID()}`, await sequence()),
+    ).rejects.toMatchObject({
       message: 'That sequence is not on this team',
       nonRetryable: true,
     });

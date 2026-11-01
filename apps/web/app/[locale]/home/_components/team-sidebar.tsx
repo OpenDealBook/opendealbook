@@ -97,7 +97,9 @@ function NavGroupLinks({
           key={link.path}
           href={link.path}
           onClick={onNavigate}
-          className={'hover:bg-muted flex min-h-11 items-center rounded-md px-3 text-sm'}
+          className={
+            'hover:bg-muted flex min-h-11 items-center rounded-md px-3 text-sm'
+          }
         >
           {link.label}
         </Link>
@@ -141,7 +143,9 @@ export function TeamSidebar(props: TeamNavigationProps) {
         Skip to content
       </a>
       <aside
-        className={'hidden w-64 shrink-0 flex-col gap-6 border-r p-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto'}
+        className={
+          'hidden w-64 shrink-0 flex-col gap-6 border-r p-4 lg:sticky lg:top-0 lg:flex lg:h-screen lg:overflow-y-auto'
+        }
       >
         <TeamNavigation {...props} />
       </aside>

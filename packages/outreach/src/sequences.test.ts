@@ -11,7 +11,11 @@ describe('DEFAULT_OUTREACH_SEQUENCES', () => {
 
     expect(starter?.enabled).toBe(false);
     expect(
-      starter?.steps.map(({ ordinal, delayDays, channel }) => ({ ordinal, delayDays, channel })),
+      starter?.steps.map(({ ordinal, delayDays, channel }) => ({
+        ordinal,
+        delayDays,
+        channel,
+      })),
     ).toEqual([
       { ordinal: 1, delayDays: 0, channel: 'letter' },
       { ordinal: 2, delayDays: 7, channel: 'email' },
@@ -28,17 +32,24 @@ describe('DEFAULT_OUTREACH_SEQUENCES', () => {
   });
 
   it('reads naturally when the recipient has no name', () => {
-    const rendered = DEFAULT_OUTREACH_SEQUENCES.flatMap((sequence) => sequence.steps).map((step) =>
+    const rendered = DEFAULT_OUTREACH_SEQUENCES.flatMap(
+      (sequence) => sequence.steps,
+    ).map((step) =>
       renderTemplate(step.body, {
         recipient: { email: 'owner@firm.test' },
         firm: { name: 'Acme HVAC' },
-        dealBox: dealBoxMergeFields({ industries: 'HVAC', revenueRange: '$1,000,000' }),
+        dealBox: dealBoxMergeFields({
+          industries: 'HVAC',
+          revenueRange: '$1,000,000',
+        }),
         sender: { name: 'Jordan Buyer', company: 'Beacon Partners' },
       }),
     );
 
     for (const body of rendered) {
-      expect(body.split('\n')[0]).toMatch(/^(Hi there,|Dear owner of Acme HVAC,)$/);
+      expect(body.split('\n')[0]).toMatch(
+        /^(Hi there,|Dear owner of Acme HVAC,)$/,
+      );
       expect(body).not.toMatch(/ ,|  /);
     }
   });
@@ -56,19 +67,25 @@ describe('DEFAULT_OUTREACH_SEQUENCES', () => {
         .join('\n');
 
     const empty = render({});
-    expect(empty).toContain('acquire a business, and Acme HVAC keeps coming up');
+    expect(empty).toContain(
+      'acquire a business, and Acme HVAC keeps coming up',
+    );
     expect(empty).toContain('acquire a business.');
     expect(empty).not.toMatch(/  |around|in revenue/);
 
     const full = render({ industries: 'HVAC', revenueRange: '$1,000,000' });
-    expect(full).toContain('acquire a HVAC business around $1,000,000 in revenue, and Acme HVAC');
-    expect(full).toContain('acquire a HVAC business around $1,000,000 in revenue.');
+    expect(full).toContain(
+      'acquire a HVAC business around $1,000,000 in revenue, and Acme HVAC',
+    );
+    expect(full).toContain(
+      'acquire a HVAC business around $1,000,000 in revenue.',
+    );
   });
 
   it('never fakes a reply in a subject, since follow-ups thread under the first email', () => {
-    const subjects = DEFAULT_OUTREACH_SEQUENCES.flatMap((sequence) => sequence.steps).flatMap((step) =>
-      step.channel === 'email' ? [step.subject] : [],
-    );
+    const subjects = DEFAULT_OUTREACH_SEQUENCES.flatMap(
+      (sequence) => sequence.steps,
+    ).flatMap((step) => (step.channel === 'email' ? [step.subject] : []));
 
     expect(subjects.filter((subject) => /^re:/i.test(subject))).toEqual([]);
   });

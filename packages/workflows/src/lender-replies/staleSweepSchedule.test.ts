@@ -1,8 +1,10 @@
 import type { Client } from '@temporalio/client';
-
 import { describe, expect, it, vi } from 'vitest';
 
-import { fakeScheduleClient, staleSchedule } from '../schedules/fakeScheduleClient';
+import {
+  fakeScheduleClient,
+  staleSchedule,
+} from '../schedules/fakeScheduleClient';
 import { ensureLenderOutreachStaleSweepSchedule } from './staleSweepSchedule';
 
 describe('ensureLenderOutreachStaleSweepSchedule', () => {
@@ -26,6 +28,8 @@ describe('ensureLenderOutreachStaleSweepSchedule', () => {
 
     await ensureLenderOutreachStaleSweepSchedule(client);
 
-    expect(schedules.get('lender-outreach-stale-sweep')?.spec).toEqual({ intervals: [{ every: '15m' }] });
+    expect(schedules.get('lender-outreach-stale-sweep')?.spec).toEqual({
+      intervals: [{ every: '15m' }],
+    });
   });
 });

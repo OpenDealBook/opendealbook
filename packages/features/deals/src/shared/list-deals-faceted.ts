@@ -168,7 +168,11 @@ export interface DealFacetedRow {
     target_on: string | null;
     actual_on: string | null;
   }[];
-  checklist_item: { status: string; due_at: string | null; removed_at: string | null }[];
+  checklist_item: {
+    status: string;
+    due_at: string | null;
+    removed_at: string | null;
+  }[];
   deal_event: { created_at: string }[];
 }
 
@@ -203,7 +207,11 @@ function resolutionBucket(resolution: string | null): DealResolution {
   return resolution as DealResolution;
 }
 
-function groupOf(resolution: string | null, stage: string, archivedAt: string | null): DealListGroup {
+function groupOf(
+  resolution: string | null,
+  stage: string,
+  archivedAt: string | null,
+): DealListGroup {
   if (archivedAt !== null) {
     return 'archived';
   }
@@ -217,17 +225,25 @@ function groupOf(resolution: string | null, stage: string, archivedAt: string | 
 }
 
 function currentOfferPrice(offers: DealFacetedRow['offer']): number | null {
-  const live = offers.find((offer) => !DEAD_OFFER_STATUSES.includes(offer.status));
+  const live = offers.find(
+    (offer) => !DEAD_OFFER_STATUSES.includes(offer.status),
+  );
   if (live === undefined) {
     return null;
   }
-  return live.offer_version.find((version) => version.id === live.current_version_id)!
-    .purchase_price;
+  return live.offer_version.find(
+    (version) => version.id === live.current_version_id,
+  )!.purchase_price;
 }
 
-function nextMilestone(milestones: DealFacetedRow['deal_milestone']): NextMilestone | null {
+function nextMilestone(
+  milestones: DealFacetedRow['deal_milestone'],
+): NextMilestone | null {
   const upcoming = milestones
-    .filter((milestone) => milestone.actual_on === null && milestone.target_on !== null)
+    .filter(
+      (milestone) =>
+        milestone.actual_on === null && milestone.target_on !== null,
+    )
     .sort((a, b) => a.target_on!.localeCompare(b.target_on!));
   if (upcoming.length === 0) {
     return null;
@@ -236,11 +252,15 @@ function nextMilestone(milestones: DealFacetedRow['deal_milestone']): NextMilest
   return { kind: next.kind, label: next.label, targetOn: next.target_on! };
 }
 
-function locationLabel(location: { city: string | null; region: string | null } | null): string | null {
+function locationLabel(
+  location: { city: string | null; region: string | null } | null,
+): string | null {
   if (location === null) {
     return null;
   }
-  const parts = [location.city, location.region].filter((part): part is string => Boolean(part));
+  const parts = [location.city, location.region].filter(
+    (part): part is string => Boolean(part),
+  );
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
@@ -254,7 +274,9 @@ export function mapDealRow(
   const yourOffer = currentOfferPrice(row.offer);
   const today = now.slice(0, 10);
   const openItems = row.checklist_item.filter(
-    (item) => item.removed_at === null && !SETTLED_CHECKLIST_STATUSES.includes(item.status),
+    (item) =>
+      item.removed_at === null &&
+      !SETTLED_CHECKLIST_STATUSES.includes(item.status),
   );
 
   return {
@@ -263,7 +285,9 @@ export function mapDealRow(
     isExample: row.firm.name.startsWith(EXAMPLE_TAG),
     nextMilestone: nextMilestone(row.deal_milestone),
     openItems: openItems.length,
-    overdueItems: openItems.filter((item) => item.due_at !== null && item.due_at.slice(0, 10) < today).length,
+    overdueItems: openItems.filter(
+      (item) => item.due_at !== null && item.due_at.slice(0, 10) < today,
+    ).length,
     lastActivityAt: row.deal_event[0]!.created_at,
     stage: row.stage,
     stageLabel: row.pipeline_stage?.label ?? null,
@@ -317,10 +341,16 @@ function inRange(
   if (value === null) {
     return includeUndisclosed;
   }
-  return (min === undefined || value >= min) && (max === undefined || value <= max);
+  return (
+    (min === undefined || value >= min) && (max === undefined || value <= max)
+  );
 }
 
-function matches(item: DealListItem, f: DealListFilters, skip: FacetKey | null): boolean {
+function matches(
+  item: DealListItem,
+  f: DealListFilters,
+  skip: FacetKey | null,
+): boolean {
   if (skip !== 'archived' && f.archived !== true && item.archivedAt !== null) {
     return false;
   }
@@ -331,12 +361,16 @@ function matches(item: DealListItem, f: DealListFilters, skip: FacetKey | null):
     return false;
   }
   if (skip !== 'resolution') {
-    if (f.resolution?.length && !f.resolution.includes(resolutionBucket(item.resolution))) {
+    if (
+      f.resolution?.length &&
+      !f.resolution.includes(resolutionBucket(item.resolution))
+    ) {
       return false;
     }
     if (
       f.resolutionReasons?.length &&
-      (item.resolutionReason === null || !f.resolutionReasons.includes(item.resolutionReason))
+      (item.resolutionReason === null ||
+        !f.resolutionReasons.includes(item.resolutionReason))
     ) {
       return false;
     }
@@ -358,13 +392,32 @@ function matches(item: DealListItem, f: DealListFilters, skip: FacetKey | null):
       return false;
     }
   }
-  if (skip !== 'asking' && !inRange(item.askingPrice, f.askingMin, f.askingMax, f.askingIncludeUndisclosed === true)) {
+  if (
+    skip !== 'asking' &&
+    !inRange(
+      item.askingPrice,
+      f.askingMin,
+      f.askingMax,
+      f.askingIncludeUndisclosed === true,
+    )
+  ) {
     return false;
   }
-  if (skip !== 'revenue' && !inRange(item.revenue, f.revenueMin, f.revenueMax, f.revenueIncludeUndisclosed === true)) {
+  if (
+    skip !== 'revenue' &&
+    !inRange(
+      item.revenue,
+      f.revenueMin,
+      f.revenueMax,
+      f.revenueIncludeUndisclosed === true,
+    )
+  ) {
     return false;
   }
-  if (skip !== 'sde' && !inRange(item.sde, f.sdeMin, f.sdeMax, f.sdeIncludeUndisclosed === true)) {
+  if (
+    skip !== 'sde' &&
+    !inRange(item.sde, f.sdeMin, f.sdeMax, f.sdeIncludeUndisclosed === true)
+  ) {
     return false;
   }
   if (!inRange(item.multiple, f.multipleMin, f.multipleMax, false)) {
@@ -385,7 +438,10 @@ function matches(item: DealListItem, f: DealListFilters, skip: FacetKey | null):
   return true;
 }
 
-function tally(items: DealListItem[], value: (item: DealListItem) => string | null): FacetCount[] {
+function tally(
+  items: DealListItem[],
+  value: (item: DealListItem) => string | null,
+): FacetCount[] {
   const counts = new Map<string, number>();
   for (const item of items) {
     const key = value(item);
@@ -396,7 +452,10 @@ function tally(items: DealListItem[], value: (item: DealListItem) => string | nu
   return [...counts].map(([value, count]) => ({ value, count }));
 }
 
-function rangeOf(items: DealListItem[], value: (item: DealListItem) => number | null): RangeBound {
+function rangeOf(
+  items: DealListItem[],
+  value: (item: DealListItem) => number | null,
+): RangeBound {
   const values = items.map(value).filter((v): v is number => v !== null);
   if (values.length === 0) {
     return { min: null, max: null };
@@ -404,7 +463,11 @@ function rangeOf(items: DealListItem[], value: (item: DealListItem) => number | 
   return { min: Math.min(...values), max: Math.max(...values) };
 }
 
-function compareNullable(a: number | null, b: number | null, direction: 'asc' | 'desc'): number {
+function compareNullable(
+  a: number | null,
+  b: number | null,
+  direction: 'asc' | 'desc',
+): number {
   if (a === null && b === null) {
     return 0;
   }
@@ -417,12 +480,18 @@ function compareNullable(a: number | null, b: number | null, direction: 'asc' | 
   return direction === 'asc' ? a - b : b - a;
 }
 
-function sortKey(item: DealListItem, sort: DealSort): { value: number | null; direction: 'asc' | 'desc' } {
+function sortKey(
+  item: DealListItem,
+  sort: DealSort,
+): { value: number | null; direction: 'asc' | 'desc' } {
   switch (sort) {
     case 'stage':
       return { value: item.stageSortOrder, direction: 'asc' };
     case 'created':
-      return { value: item.createdAt === null ? null : Date.parse(item.createdAt), direction: 'desc' };
+      return {
+        value: item.createdAt === null ? null : Date.parse(item.createdAt),
+        direction: 'desc',
+      };
     case 'asking_price':
       return { value: item.askingPrice, direction: 'desc' };
     case 'revenue':
@@ -436,7 +505,10 @@ function sortKey(item: DealListItem, sort: DealSort): { value: number | null; di
     case 'days_in_stage':
       return { value: item.daysInStage, direction: 'desc' };
     case 'updated':
-      return { value: item.updatedAt === null ? null : Date.parse(item.updatedAt), direction: 'desc' };
+      return {
+        value: item.updatedAt === null ? null : Date.parse(item.updatedAt),
+        direction: 'desc',
+      };
   }
 }
 
@@ -456,7 +528,10 @@ function clampLimit(limit: number | undefined): number {
   return Math.min(limit, MAX_LIMIT);
 }
 
-export function buildDealListResult(candidates: DealListItem[], params: BuildParams): DealListResult {
+export function buildDealListResult(
+  candidates: DealListItem[],
+  params: BuildParams,
+): DealListResult {
   const { filters } = params;
   const sort = params.sort ?? 'updated';
   const limit = clampLimit(params.limit);
@@ -464,12 +539,19 @@ export function buildDealListResult(candidates: DealListItem[], params: BuildPar
   const matched = candidates.filter((item) => matches(item, filters, null));
   const sorted = sortItems(matched, sort);
 
-  const start = params.cursor === undefined ? 0 : sorted.findIndex((item) => item.id === params.cursor) + 1;
+  const start =
+    params.cursor === undefined
+      ? 0
+      : sorted.findIndex((item) => item.id === params.cursor) + 1;
   const page = sorted.slice(start, start + limit);
-  const nextCursor = start + limit < sorted.length ? page[page.length - 1]!.id : null;
+  const nextCursor =
+    start + limit < sorted.length ? page[page.length - 1]!.id : null;
 
   const facetCounts: DealListFacetCounts = {
-    stage: tally(candidates.filter((item) => matches(item, filters, 'stage')), (item) => item.stage),
+    stage: tally(
+      candidates.filter((item) => matches(item, filters, 'stage')),
+      (item) => item.stage,
+    ),
     resolution: tally(
       candidates.filter((item) => matches(item, filters, 'resolution')),
       (item) => resolutionBucket(item.resolution),
@@ -478,18 +560,39 @@ export function buildDealListResult(candidates: DealListItem[], params: BuildPar
       candidates.filter((item) => matches(item, filters, 'listingStatus')),
       (item) => item.listingStatus,
     ),
-    industry: tally(candidates.filter((item) => matches(item, filters, 'industry')), (item) => item.industryId),
-    location: tally(candidates.filter((item) => matches(item, filters, 'location')), (item) => item.locationId),
+    industry: tally(
+      candidates.filter((item) => matches(item, filters, 'industry')),
+      (item) => item.industryId,
+    ),
+    location: tally(
+      candidates.filter((item) => matches(item, filters, 'location')),
+      (item) => item.locationId,
+    ),
     group: tally(matched, (item) => item.group),
-    starred: candidates.filter((item) => matches(item, filters, 'starred') && item.starred).length,
-    archived: candidates.filter((item) => matches(item, filters, 'archived') && item.archivedAt !== null).length,
-    examples: candidates.filter((item) => matches(item, filters, 'examples') && item.isExample).length,
+    starred: candidates.filter(
+      (item) => matches(item, filters, 'starred') && item.starred,
+    ).length,
+    archived: candidates.filter(
+      (item) => matches(item, filters, 'archived') && item.archivedAt !== null,
+    ).length,
+    examples: candidates.filter(
+      (item) => matches(item, filters, 'examples') && item.isExample,
+    ).length,
   };
 
   const ranges: DealListRanges = {
-    askingPrice: rangeOf(candidates.filter((item) => matches(item, filters, 'asking')), (item) => item.askingPrice),
-    revenue: rangeOf(candidates.filter((item) => matches(item, filters, 'revenue')), (item) => item.revenue),
-    sde: rangeOf(candidates.filter((item) => matches(item, filters, 'sde')), (item) => item.sde),
+    askingPrice: rangeOf(
+      candidates.filter((item) => matches(item, filters, 'asking')),
+      (item) => item.askingPrice,
+    ),
+    revenue: rangeOf(
+      candidates.filter((item) => matches(item, filters, 'revenue')),
+      (item) => item.revenue,
+    ),
+    sde: rangeOf(
+      candidates.filter((item) => matches(item, filters, 'sde')),
+      (item) => item.sde,
+    ),
   };
 
   return { items: page, facetCounts, ranges, nextCursor };
@@ -504,7 +607,8 @@ export async function listDealsFaceted(
 
   const auth = await client.auth.getUser();
   const currentUserId = auth.data.user?.id ?? null;
-  const owner = filters.owner === 'mine' ? currentUserId ?? undefined : filters.owner;
+  const owner =
+    filters.owner === 'mine' ? (currentUserId ?? undefined) : filters.owner;
 
   let query = client
     .from('deal')
@@ -514,7 +618,10 @@ export async function listDealsFaceted(
     .limit(1, { referencedTable: 'deal_event' });
 
   if (filters.q) {
-    query = query.textSearch('search_tsv', filters.q, { type: 'websearch', config: 'english' });
+    query = query.textSearch('search_tsv', filters.q, {
+      type: 'websearch',
+      config: 'english',
+    });
   }
 
   const { data, error } = await query;
@@ -523,7 +630,9 @@ export async function listDealsFaceted(
     throw error;
   }
 
-  const candidates = (data as unknown as DealFacetedRow[]).map((row) => mapDealRow(row, currentUserId, now));
+  const candidates = (data as unknown as DealFacetedRow[]).map((row) =>
+    mapDealRow(row, currentUserId, now),
+  );
 
   return buildDealListResult(candidates, {
     filters: { ...filters, owner },

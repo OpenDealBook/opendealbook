@@ -4,7 +4,8 @@ import type { Database } from '@odb/supabase';
 
 const SIGN_IN_PATH = '/auth/sign-in';
 
-export const TEAM_READ_ONLY = 'This team is read-only until billing is updated.';
+export const TEAM_READ_ONLY =
+  'This team is read-only until billing is updated.';
 
 type RequireUserResult = { data: User } | { error: string; redirectTo: string };
 

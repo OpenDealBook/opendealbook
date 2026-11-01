@@ -5,7 +5,9 @@ export function awaitsUnknownSend(
   return (
     ['queued', 'held'].includes(enrollment.status) &&
     unknownSends.some(
-      (send) => send.enrollment_id === enrollment.id && send.step_id === enrollment.current_step,
+      (send) =>
+        send.enrollment_id === enrollment.id &&
+        send.step_id === enrollment.current_step,
     )
   );
 }

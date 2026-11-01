@@ -60,7 +60,9 @@ export const WORKSHEET_FIELD_CATALOG: Record<
 
 export type WorksheetRowData = Record<string, string | number | null>;
 
-function numberOrNull(value: string | number | null | undefined): number | null {
+function numberOrNull(
+  value: string | number | null | undefined,
+): number | null {
   if (value === null || value === undefined) {
     return null;
   }
@@ -68,7 +70,10 @@ function numberOrNull(value: string | number | null | undefined): number | null 
   return Number(value);
 }
 
-function divide(numerator: number | null, denominator: number | null): number | null {
+function divide(
+  numerator: number | null,
+  denominator: number | null,
+): number | null {
   if (numerator === null || denominator === null || denominator === 0) {
     return null;
   }

@@ -10,7 +10,9 @@ const team = vi.hoisted(() => ({
 }));
 
 vi.mock('@odb/supabase/admin', () => {
-  const settled = (data: unknown) => ({ throwOnError: async () => ({ data, error: null }) });
+  const settled = (data: unknown) => ({
+    throwOnError: async () => ({ data, error: null }),
+  });
   return {
     getSupabaseServerAdminClient: () => ({
       from: () => ({
@@ -140,7 +142,9 @@ describe('buildDocumentExtractionChecks', () => {
         },
       ],
     });
-    collaborators.extractFigure.mockResolvedValueOnce(100000).mockResolvedValueOnce(98000);
+    collaborators.extractFigure
+      .mockResolvedValueOnce(100000)
+      .mockResolvedValueOnce(98000);
 
     const checks = await buildDocumentExtractionChecks({
       client: client as never,
@@ -172,7 +176,9 @@ describe('buildDocumentExtractionChecks', () => {
     const { client } = makeClient({
       documents: [{ id: 'd_w2', name: 'W-2 2024.pdf', storage_path: 'p/w2' }],
     });
-    collaborators.extractMarkdown.mockResolvedValue('Employee Priya Okafor, wages 100000');
+    collaborators.extractMarkdown.mockResolvedValue(
+      'Employee Priya Okafor, wages 100000',
+    );
     collaborators.extractFigure.mockResolvedValue(100000);
 
     const checks = await buildDocumentExtractionChecks({
@@ -180,10 +186,16 @@ describe('buildDocumentExtractionChecks', () => {
       dealId: 'deal1',
       docling: { baseUrl: 'http://docling.test', apiKey: 'x' },
     });
-    await checks.find((c) => c.check.key === 'payroll_tax_vs_w2')!.gather({ dealId: 'deal1', period: '2024' });
+    await checks
+      .find((c) => c.check.key === 'payroll_tax_vs_w2')!
+      .gather({ dealId: 'deal1', period: '2024' });
 
     expect(collaborators.extractFigure).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 'acct1', model: 'gpt-4o-mini', apiKey: 'sk-vault' }),
+      expect.objectContaining({
+        accountId: 'acct1',
+        model: 'gpt-4o-mini',
+        apiKey: 'sk-vault',
+      }),
       'deal1',
       expect.any(String),
       'Employee Priya Okafor, wages 100000',

@@ -171,9 +171,7 @@ async function noticeToApprovers(updateId: string, authorId: string) {
   const [{ data: update }, { data: author }] = await Promise.all([
     admin
       .from('deal_update')
-      .select(
-        'account_id, deal_id, subject, accounts(slug), deal(firm(name))',
-      )
+      .select('account_id, deal_id, subject, accounts(slug), deal(firm(name))')
       .eq('id', updateId)
       .single()
       .throwOnError(),

@@ -18,18 +18,29 @@ import {
 } from './workflow-editor-canvas';
 
 type Rendered = {
-  initialNodes: { id: string; position: { x: number; y: number }; data: { type: string; properties: { label?: string } } }[];
+  initialNodes: {
+    id: string;
+    position: { x: number; y: number };
+    data: { type: string; properties: { label?: string } };
+  }[];
   nodeTemplates: Record<string, ComponentType<Record<string, unknown>>>;
-  jsonForm: { renderers: { renderer: ComponentType<Record<string, unknown>> }[] };
+  jsonForm: {
+    renderers: { renderer: ComponentType<Record<string, unknown>> }[];
+  };
 };
 
 const vendor = vi.hoisted(() => ({
   root: null as Rendered | null,
   store: null as unknown,
-  selection: null as { node: { id: string } | null; edge: { id: string } | null } | null,
+  selection: null as {
+    node: { id: string } | null;
+    edge: { id: string } | null;
+  } | null,
   panel: null as Record<string, unknown> | null,
   handle: null as EditorCanvasHandle | null,
-  storedNodes: null as { id: string; position: { x: number; y: number } }[] | null,
+  storedNodes: null as
+    | { id: string; position: { x: number; y: number } }[]
+    | null,
 }));
 
 vi.mock('@workflowbuilder/sdk/style.css', () => ({}));
@@ -103,11 +114,16 @@ vi.mock('@workflowbuilder/sdk', () => {
 
 const palette = [
   { type: 'manual_trigger', properties: {} },
-  { type: 'ask_ai', properties: { answer: { type: 'string', label: 'answer' } } },
-  ...['branch', 'loop', 'approval', 'decision_model', 'notify_team'].map((type) => ({
-    type,
-    properties: {},
-  })),
+  {
+    type: 'ask_ai',
+    properties: { answer: { type: 'string', label: 'answer' } },
+  },
+  ...['branch', 'loop', 'approval', 'decision_model', 'notify_team'].map(
+    (type) => ({
+      type,
+      properties: {},
+    }),
+  ),
 ].map((item) => ({
   type: item.type,
   schema: { type: 'object', properties: {} },
@@ -118,7 +134,12 @@ const palette = [
 const graph: Draft['graph'] = {
   nodes: [
     { id: 'start', type: 'manual_trigger', config: {} },
-    { id: 'ask', type: 'ask_ai', label: 'Score the deal', config: { prompt: 'Score it' } },
+    {
+      id: 'ask',
+      type: 'ask_ai',
+      label: 'Score the deal',
+      config: { prompt: 'Score it' },
+    },
     { id: 'check', type: 'branch', config: { rule: { '==': [1, 1] } } },
     { id: 'each', type: 'loop', config: { items: [] } },
     { id: 'ok', type: 'approval', config: { prompt: 'Go?' } },
@@ -159,7 +180,9 @@ async function open(
   );
   await settle();
   await vi.waitFor(() =>
-    expect(vendor.root ?? document.querySelector('[role="alert"]')).toBeTruthy(),
+    expect(
+      vendor.root ?? document.querySelector('[role="alert"]'),
+    ).toBeTruthy(),
   );
 }
 
@@ -187,10 +210,22 @@ it('gives each step its named outlets and triggers no inlet', async () => {
 
   expect(handlesOf('start')).toEqual(['source:']);
   expect(handlesOf('tell')).toEqual(['target:', 'source:']);
-  expect(handlesOf('check')).toEqual(['target:', 'source:true', 'source:false']);
+  expect(handlesOf('check')).toEqual([
+    'target:',
+    'source:true',
+    'source:false',
+  ]);
   expect(handlesOf('each')).toEqual(['target:', 'source:each', 'source:done']);
-  expect(handlesOf('ok')).toEqual(['target:', 'source:approved', 'source:rejected']);
-  expect(handlesOf('firm')).toEqual(['target:', 'source:approved', 'source:rejected']);
+  expect(handlesOf('ok')).toEqual([
+    'target:',
+    'source:approved',
+    'source:rejected',
+  ]);
+  expect(handlesOf('firm')).toEqual([
+    'target:',
+    'source:approved',
+    'source:rejected',
+  ]);
 });
 
 it('shows a label when set and the friendly type name otherwise', async () => {
@@ -218,7 +253,10 @@ it('keeps saved positions when every node has one', async () => {
 });
 
 it('places only the nodes without a saved position on load', async () => {
-  await open({ direction: 'RIGHT', positions: { start: { x: 5000, y: 7000 } } });
+  await open({
+    direction: 'RIGHT',
+    positions: { start: { x: 5000, y: 7000 } },
+  });
 
   const position = (id: string) =>
     vendor.root!.initialNodes.find((node) => node.id === id)!.position;
@@ -263,7 +301,9 @@ it('tidies nodes the canvas has not measured yet', async () => {
   expect(vendor.storedNodes!.map((node) => node.id)).toEqual(
     graph.nodes.map((node) => node.id),
   );
-  expect(vendor.storedNodes!.every((node) => Number.isFinite(node.position.x))).toBe(true);
+  expect(
+    vendor.storedNodes!.every((node) => Number.isFinite(node.position.x)),
+  ).toBe(true);
 });
 
 it('shows no properties for a selected arrow, so arrows get no label', async () => {

@@ -1,11 +1,19 @@
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
-
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { fakeAiProvider, openAiReply } from '../../test-support/fake-ai-provider';
-import { aiJson, completeWithTeamAi, pinnedGet, teamAiAddressOf } from './aiClient';
+import {
+  fakeAiProvider,
+  openAiReply,
+} from '../../test-support/fake-ai-provider';
+import {
+  aiJson,
+  completeWithTeamAi,
+  pinnedGet,
+  teamAiAddressOf,
+} from './aiClient';
 import { publicAddressOf } from './publicUrl';
+
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 
 let close: (() => void) | undefined;
 
@@ -27,17 +35,29 @@ describe('completeWithTeamAi', () => {
     const fake = await provider(openAiReply('Looks like a fit.'));
 
     const completion = await completeWithTeamAi(
-      { provider: 'openai_compatible', model: 'llama-3', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      {
+        provider: 'openai_compatible',
+        model: 'llama-3',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
       'Is this a fit?',
       LOOPBACK_FAKE,
     );
 
-    expect(completion).toEqual({ text: 'Looks like a fit.', promptTokens: 12, completionTokens: 5 });
+    expect(completion).toEqual({
+      text: 'Looks like a fit.',
+      promptTokens: 12,
+      completionTokens: 5,
+    });
     expect(fake.received).toMatchObject([
       {
         path: '/v1/chat/completions',
         headers: { authorization: 'Bearer sk-team' },
-        body: { model: 'llama-3', messages: [{ role: 'user', content: 'Is this a fit?' }] },
+        body: {
+          model: 'llama-3',
+          messages: [{ role: 'user', content: 'Is this a fit?' }],
+        },
       },
     ]);
   });
@@ -52,17 +72,29 @@ describe('completeWithTeamAi', () => {
     });
 
     const completion = await completeWithTeamAi(
-      { provider: 'anthropic', model: 'claude-x', baseUrl: fake.baseUrl, apiKey: 'sk-ant' },
+      {
+        provider: 'anthropic',
+        model: 'claude-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-ant',
+      },
       'Is this a fit?',
       LOOPBACK_FAKE,
     );
 
-    expect(completion).toEqual({ text: 'Not a fit.', promptTokens: 30, completionTokens: 4 });
+    expect(completion).toEqual({
+      text: 'Not a fit.',
+      promptTokens: 30,
+      completionTokens: 4,
+    });
     expect(fake.received).toMatchObject([
       {
         path: '/v1/messages',
         headers: { 'x-api-key': 'sk-ant', 'anthropic-version': '2023-06-01' },
-        body: { model: 'claude-x', messages: [{ role: 'user', content: 'Is this a fit?' }] },
+        body: {
+          model: 'claude-x',
+          messages: [{ role: 'user', content: 'Is this a fit?' }],
+        },
       },
     ]);
   });
@@ -71,7 +103,12 @@ describe('completeWithTeamAi', () => {
     const fake = await provider(openAiReply('{}'));
 
     await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      {
+        provider: 'openai',
+        model: 'gpt-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
       'The memo',
       LOOPBACK_FAKE,
       { system: 'Reply as JSON' },
@@ -86,11 +123,19 @@ describe('completeWithTeamAi', () => {
   it("sends a system prompt in Anthropic's system field", async () => {
     const fake = await provider({
       status: 200,
-      body: { content: [{ type: 'text', text: '{}' }], usage: { input_tokens: 1, output_tokens: 1 } },
+      body: {
+        content: [{ type: 'text', text: '{}' }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
     });
 
     await completeWithTeamAi(
-      { provider: 'anthropic', model: 'claude-x', baseUrl: fake.baseUrl, apiKey: 'sk-ant' },
+      {
+        provider: 'anthropic',
+        model: 'claude-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-ant',
+      },
       'The memo',
       LOOPBACK_FAKE,
       { system: 'Reply as JSON' },
@@ -106,7 +151,12 @@ describe('completeWithTeamAi', () => {
     const fake = await provider(openAiReply('{}'));
 
     await completeWithTeamAi(
-      { provider: 'openai_compatible', model: 'llama-3', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      {
+        provider: 'openai_compatible',
+        model: 'llama-3',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
       'The memo',
       LOOPBACK_FAKE,
       { json: true, temperature: 0, maxTokens: 256 },
@@ -122,37 +172,64 @@ describe('completeWithTeamAi', () => {
   it('gives Anthropic the temperature and token limit, with no JSON mode it lacks', async () => {
     const fake = await provider({
       status: 200,
-      body: { content: [{ type: 'text', text: '{}' }], usage: { input_tokens: 1, output_tokens: 1 } },
+      body: {
+        content: [{ type: 'text', text: '{}' }],
+        usage: { input_tokens: 1, output_tokens: 1 },
+      },
     });
 
     await completeWithTeamAi(
-      { provider: 'anthropic', model: 'claude-x', baseUrl: fake.baseUrl, apiKey: 'sk-ant' },
+      {
+        provider: 'anthropic',
+        model: 'claude-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-ant',
+      },
       'The memo',
       LOOPBACK_FAKE,
       { json: true, temperature: 0.1, maxTokens: 1024 },
     );
 
-    expect(fake.received[0]!.body).toMatchObject({ temperature: 0.1, max_tokens: 1024 });
+    expect(fake.received[0]!.body).toMatchObject({
+      temperature: 0.1,
+      max_tokens: 1024,
+    });
     expect(fake.received[0]!.body).not.toHaveProperty('response_format');
   });
 
   it("fails at once on a refused call, naming only the provider's status", async () => {
-    const fake = await provider({ status: 401, body: { error: { message: 'bad key sk-wrong' } } });
+    const fake = await provider({
+      status: 401,
+      body: { error: { message: 'bad key sk-wrong' } },
+    });
 
     const failure = await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: fake.baseUrl, apiKey: 'sk-wrong' },
+      {
+        provider: 'openai',
+        model: 'gpt-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-wrong',
+      },
       'Hi',
       LOOPBACK_FAKE,
     ).catch((error: unknown) => error);
 
-    expect(failure).toMatchObject({ message: 'The AI provider answered 401', nonRetryable: true });
+    expect(failure).toMatchObject({
+      message: 'The AI provider answered 401',
+      nonRetryable: true,
+    });
   });
 
   it('fails retryably when the provider has a server error', async () => {
     const fake = await provider({ status: 503, body: { error: 'overloaded' } });
 
     const failure = await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      {
+        provider: 'openai',
+        model: 'gpt-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
       'Hi',
       LOOPBACK_FAKE,
     ).catch((error: unknown) => error);
@@ -169,12 +246,20 @@ describe('completeWithTeamAi', () => {
     });
 
     const failure = await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      {
+        provider: 'openai',
+        model: 'gpt-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
       'Hi',
       LOOPBACK_FAKE,
     ).catch((error: unknown) => error);
 
-    expect(failure).toMatchObject({ message: 'The AI provider answered 302', nonRetryable: true });
+    expect(failure).toMatchObject({
+      message: 'The AI provider answered 302',
+      nonRetryable: true,
+    });
     expect(fake.received).toHaveLength(1);
   });
 
@@ -208,7 +293,12 @@ describe('completeWithTeamAi', () => {
     const started = Date.now();
 
     const failure = await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: fake.baseUrl, apiKey: 'sk-team' },
+      {
+        provider: 'openai',
+        model: 'gpt-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
       'Hi',
       { ...LOOPBACK_FAKE, signal: cancelled.signal },
     ).catch((error: unknown) => error);
@@ -220,32 +310,51 @@ describe('completeWithTeamAi', () => {
   it.each([
     ['ENOTFOUND', true],
     ['EAI_AGAIN', false],
-  ])('fails the call when DNS reports %s, at once only when the host does not exist', async (code, failsAtOnce) => {
-    const failing = async () => {
-      throw Object.assign(new Error(`getaddrinfo ${code}`), { code });
-    };
+  ])(
+    'fails the call when DNS reports %s, at once only when the host does not exist',
+    async (code, failsAtOnce) => {
+      const failing = async () => {
+        throw Object.assign(new Error(`getaddrinfo ${code}`), { code });
+      };
 
-    const failure = await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: 'https://models.example.com/v1', apiKey: 'sk' },
-      'Hi',
-      { connectTo: (url) => publicAddressOf(url, failing) },
-    ).catch((error: unknown) => error);
+      const failure = await completeWithTeamAi(
+        {
+          provider: 'openai',
+          model: 'gpt-x',
+          baseUrl: 'https://models.example.com/v1',
+          apiKey: 'sk',
+        },
+        'Hi',
+        { connectTo: (url) => publicAddressOf(url, failing) },
+      ).catch((error: unknown) => error);
 
-    expect(failure).toMatchObject({ message: "We couldn't find that address. Check the base URL." });
-    expect((failure as { nonRetryable?: boolean }).nonRetryable === true).toBe(failsAtOnce);
-  });
+      expect(failure).toMatchObject({
+        message: "We couldn't find that address. Check the base URL.",
+      });
+      expect(
+        (failure as { nonRetryable?: boolean }).nonRetryable === true,
+      ).toBe(failsAtOnce);
+    },
+  );
 
   it('fails at once when the provider answers success with something that is not JSON', async () => {
     const server = createServer((_request, response) => {
       response.writeHead(200, { 'content-type': 'text/html' });
       response.end('<html>gateway</html>');
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
     close = () => server.close();
     const { port } = server.address() as AddressInfo;
 
     const failure = await completeWithTeamAi(
-      { provider: 'openai', model: 'gpt-x', baseUrl: `http://127.0.0.1:${port}/v1`, apiKey: 'sk' },
+      {
+        provider: 'openai',
+        model: 'gpt-x',
+        baseUrl: `http://127.0.0.1:${port}/v1`,
+        apiKey: 'sk',
+      },
       'Hi',
       LOOPBACK_FAKE,
     ).catch((error: unknown) => error);
@@ -261,11 +370,17 @@ describe('pinnedGet', () => {
   it('sends a GET with the given headers to the vetted address and returns the status and body text', async () => {
     const seen: { method?: string; url?: string; token?: string } = {};
     const server = createServer((request, response) => {
-      Object.assign(seen, { method: request.method, url: request.url, token: request.headers.authorization });
+      Object.assign(seen, {
+        method: request.method,
+        url: request.url,
+        token: request.headers.authorization,
+      });
       response.writeHead(418, { 'content-type': 'text/plain' });
       response.end('short and stout');
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, '127.0.0.1', resolve),
+    );
     close = () => server.close();
     const { port } = server.address() as AddressInfo;
 
@@ -276,7 +391,11 @@ describe('pinnedGet', () => {
     );
 
     expect(response).toEqual({ status: 418, text: 'short and stout' });
-    expect(seen).toEqual({ method: 'GET', url: '/api/search/?q=party', token: 'Token cl-key' });
+    expect(seen).toEqual({
+      method: 'GET',
+      url: '/api/search/?q=party',
+      token: 'Token cl-key',
+    });
   });
 
   it('connects to a vetted public host when the request carries a query string', async () => {
@@ -297,7 +416,9 @@ describe('pinnedGet', () => {
   });
 
   it('refuses at once to call an address that is not public', async () => {
-    await expect(pinnedGet('https://10.0.0.8/api', {}, { timeoutMs: 1_000 })).rejects.toMatchObject({
+    await expect(
+      pinnedGet('https://10.0.0.8/api', {}, { timeoutMs: 1_000 }),
+    ).rejects.toMatchObject({
       nonRetryable: true,
       message: 'Use a public HTTPS base URL',
     });
@@ -321,18 +442,25 @@ describe('teamAiAddressOf', () => {
   });
 
   it('refuses a private address', async () => {
-    expect(await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions')).toBeNull();
+    expect(
+      await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions'),
+    ).toBeNull();
   });
 
-  it.each(['local', 'e2e'])('reaches a private address when private AI URLs are allowed on a %s stack', async (stack) => {
-    process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
-    process.env.ODB_STACK = stack;
+  it.each(['local', 'e2e'])(
+    'reaches a private address when private AI URLs are allowed on a %s stack',
+    async (stack) => {
+      process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
+      process.env.ODB_STACK = stack;
 
-    expect(await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions')).toEqual({
-      address: '127.0.0.1',
-      family: 4,
-    });
-  });
+      expect(
+        await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions'),
+      ).toEqual({
+        address: '127.0.0.1',
+        family: 4,
+      });
+    },
+  );
 
   it.each([
     ['an unmarked', {}],
@@ -340,6 +468,8 @@ describe('teamAiAddressOf', () => {
   ])('ignores the private AI URL flag on %s stack', async (_stack, marker) => {
     Object.assign(process.env, { ODB_ALLOW_PRIVATE_AI_URL: '1' }, marker);
 
-    expect(await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions')).toBeNull();
+    expect(
+      await teamAiAddressOf('http://127.0.0.1:4510/v1/chat/completions'),
+    ).toBeNull();
   });
 });

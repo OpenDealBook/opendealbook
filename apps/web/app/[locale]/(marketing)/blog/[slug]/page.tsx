@@ -61,9 +61,7 @@ export default async function BlogPostPage({
     '@type': 'BlogPosting',
     headline: post.title,
     datePublished: post.publishedAt,
-    author: post.author
-      ? { '@type': 'Person', name: post.author }
-      : undefined,
+    author: post.author ? { '@type': 'Person', name: post.author } : undefined,
     image: post.cover ? `${appConfig.url}${post.cover}` : undefined,
   };
 
@@ -97,7 +95,11 @@ export default async function BlogPostPage({
       </header>
 
       {post.cover ? (
-        <div className={'relative mt-8 aspect-[16/9] w-full overflow-hidden rounded-lg'}>
+        <div
+          className={
+            'relative mt-8 aspect-[16/9] w-full overflow-hidden rounded-lg'
+          }
+        >
           <Image
             src={post.cover}
             alt={post.title}

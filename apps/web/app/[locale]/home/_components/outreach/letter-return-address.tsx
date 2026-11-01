@@ -34,7 +34,13 @@ export function LetterReturnAddress({
 }) {
   const { refusal, pending, run } = useRefusableAction();
   const [values, setValues] = useState<ReturnAddress>(
-    address ?? { name: '', addressLine1: '', city: '', state: '', postalCode: '' },
+    address ?? {
+      name: '',
+      addressLine1: '',
+      city: '',
+      state: '',
+      postalCode: '',
+    },
   );
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -58,7 +64,9 @@ export function LetterReturnAddress({
               id={`letter-return-${key}`}
               required
               value={values[key]}
-              onChange={(event) => setValues({ ...values, [key]: event.target.value })}
+              onChange={(event) =>
+                setValues({ ...values, [key]: event.target.value })
+              }
             />
           </div>
         ))}

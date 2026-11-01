@@ -12,7 +12,10 @@ import {
 import { readFileSync } from 'node:fs';
 
 const { entries } = parseCsl(
-  readFileSync(new URL('./fixtures/consolidated.json', import.meta.url), 'utf8'),
+  readFileSync(
+    new URL('./fixtures/consolidated.json', import.meta.url),
+    'utf8',
+  ),
 );
 
 const listed = (name: string, entry_type: string | null) => ({
@@ -26,15 +29,25 @@ const listed = (name: string, entry_type: string | null) => ({
   source_url: 'https://csl.test/sdn',
   raw: {} as ScreenedEntry['raw'],
 });
-const business = (name: string) => ({ key: 'seller', name, kind: 'business' as const });
-const person = (name: string) => ({ key: 'owner', name, kind: 'person' as const });
+const business = (name: string) => ({
+  key: 'seller',
+  name,
+  kind: 'business' as const,
+});
+const person = (name: string) => ({
+  key: 'owner',
+  name,
+  kind: 'person' as const,
+});
 const scores = (subject: ScreeningSubject, entry: ScreenedEntry) =>
   matchSubjects([subject], [entry]).map((candidate) => candidate.score);
 
 describe('screeningScore', () => {
   it('ignores word order, case, punctuation and legal suffixes', () => {
     expect(screeningScore('Vladimir Putin', 'PUTIN, Vladimir')).toBe(1);
-    expect(screeningScore('Huawei Technologies', 'Huawei Technologies Co., Ltd.')).toBe(1);
+    expect(
+      screeningScore('Huawei Technologies', 'Huawei Technologies Co., Ltd.'),
+    ).toBe(1);
   });
 
   it('folds accents instead of dropping them', () => {
@@ -58,7 +71,10 @@ describe('screeningScore', () => {
 describe('matchSubjects', () => {
   it('reports the list entry and the name that matched a subject', () => {
     expect(
-      matchSubjects([{ key: 'owner-1', name: 'Vladimir Putin', kind: 'person' }], entries),
+      matchSubjects(
+        [{ key: 'owner-1', name: 'Vladimir Putin', kind: 'person' }],
+        entries,
+      ),
     ).toEqual([
       {
         subjectKey: 'owner-1',
@@ -79,24 +95,29 @@ describe('matchSubjects', () => {
   });
 
   it('does not screen subjects against vessels or aircraft', () => {
-    expect(matchSubjects([{ key: 'seller', name: 'Mar Azul', kind: 'business' }], entries)).toEqual(
-      [],
-    );
+    expect(
+      matchSubjects(
+        [{ key: 'seller', name: 'Mar Azul', kind: 'business' }],
+        entries,
+      ),
+    ).toEqual([]);
   });
 
   it('screens untyped list entries', () => {
     expect(
-      matchSubjects([{ key: 'seller', name: 'Huawei Technologies', kind: 'business' }], entries).map(
-        (candidate) => [candidate.listName, candidate.entryType],
-      ),
+      matchSubjects(
+        [{ key: 'seller', name: 'Huawei Technologies', kind: 'business' }],
+        entries,
+      ).map((candidate) => [candidate.listName, candidate.entryType]),
     ).toEqual([['Entity List (EL) - Bureau of Industry and Security', null]]);
   });
 
   it('reports a cross-listed entity once per list', () => {
     expect(
-      matchSubjects([{ key: 'seller', name: 'Rosselkhozbank', kind: 'business' }], entries).map(
-        (candidate) => candidate.listName,
-      ),
+      matchSubjects(
+        [{ key: 'seller', name: 'Rosselkhozbank', kind: 'business' }],
+        entries,
+      ).map((candidate) => candidate.listName),
     ).toEqual([
       'Non-SDN Menu-Based Sanctions List (NS-MBS List) - Treasury Department',
       'Sectoral Sanctions Identifications List (SSI) - Treasury Department',
@@ -117,8 +138,12 @@ describe('matchSubjects', () => {
 
   describe('foreign legal forms', () => {
     it('ignores them before or after a business name screened against an entity', () => {
-      expect(scores(business('Sberbank'), listed('JSC SBERBANK', 'entity'))).toEqual([1]);
-      expect(scores(business('Gazprom Neft'), listed('Gazprom Neft OAO', 'entity'))).toEqual([1]);
+      expect(
+        scores(business('Sberbank'), listed('JSC SBERBANK', 'entity')),
+      ).toEqual([1]);
+      expect(
+        scores(business('Gazprom Neft'), listed('Gazprom Neft OAO', 'entity')),
+      ).toEqual([1]);
       expect(
         scores(
           business('Russian Agricultural Bank'),
@@ -128,30 +153,38 @@ describe('matchSubjects', () => {
     });
 
     it('ignores them for a business screened against an untyped entry', () => {
-      expect(scores(business('Harrow Werke'), listed('Harrow Werke GmbH', null))).toEqual([1]);
+      expect(
+        scores(business('Harrow Werke'), listed('Harrow Werke GmbH', null)),
+      ).toEqual([1]);
     });
 
     it('keeps them in the name of a person subject', () => {
       expect(scores(person('Ag Petrov'), listed('PETROV', null))).toEqual([]);
     });
-
   });
 
   it('screens a person only against individuals and untyped entries', () => {
     expect(scores(person('Petrov'), listed('PETROV', 'entity'))).toEqual([]);
-    expect(scores(person('Petrov'), listed('PETROV', 'individual'))).toEqual([1]);
+    expect(scores(person('Petrov'), listed('PETROV', 'individual'))).toEqual([
+      1,
+    ]);
     expect(scores(person('Petrov'), listed('PETROV', null))).toEqual([1]);
   });
 
   it('screens a business only against entities and untyped entries', () => {
-    expect(scores(business('Petrov'), listed('PETROV', 'individual'))).toEqual([]);
+    expect(scores(business('Petrov'), listed('PETROV', 'individual'))).toEqual(
+      [],
+    );
     expect(scores(business('Petrov'), listed('PETROV', 'entity'))).toEqual([1]);
     expect(scores(business('Petrov'), listed('PETROV', null))).toEqual([1]);
   });
 
   it('reports nothing under the threshold', () => {
     expect(
-      matchSubjects([{ key: 'seller', name: 'Bank of Russia', kind: 'business' }], entries),
+      matchSubjects(
+        [{ key: 'seller', name: 'Bank of Russia', kind: 'business' }],
+        entries,
+      ),
     ).toEqual([]);
   });
 });

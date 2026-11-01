@@ -47,7 +47,10 @@ export function listens(port: number): Probe {
 }
 
 const required: [name: string, probe: Probe][] = [
-  [`Supabase API at ${SUPABASE_URL}`, responds(`${SUPABASE_URL}/auth/v1/health`, ok)],
+  [
+    `Supabase API at ${SUPABASE_URL}`,
+    responds(`${SUPABASE_URL}/auth/v1/health`, ok),
+  ],
   [
     'Supabase email confirmations (apps/web/supabase/config.toml enable_confirmations = true, applied by a Supabase restart)',
     responds(`${SUPABASE_URL}/auth/v1/settings`, async (response) => {

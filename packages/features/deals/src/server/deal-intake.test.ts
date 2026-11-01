@@ -72,7 +72,10 @@ describe('extractDealIntake', () => {
       expect(input.prompt).toContain(field);
     }
 
-    expect(draft).toEqual({ ok: true, value: dealIntakeDraftSchema.parse(FIXTURE) });
+    expect(draft).toEqual({
+      ok: true,
+      value: dealIntakeDraftSchema.parse(FIXTURE),
+    });
   });
 
   it('rejects a draft whose shape does not match the intake schema', async () => {

@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const TEAM_ID = '00000000-0000-4000-8000-000000000001';
 const RESUME_STUCK = "Saved, but paused runs couldn't be resumed; try again";
-const CAPS = { letterMonthlyCap: 40, lookupMonthlyCap: 200, aiMonthlyCap: 1000 };
+const CAPS = {
+  letterMonthlyCap: 40,
+  lookupMonthlyCap: 200,
+  aiMonthlyCap: 1000,
+};
 
 const world = vi.hoisted(() => ({
   events: [] as string[],
@@ -85,9 +89,8 @@ vi.mock('@odb/workflows/builder/client', () => ({
   },
 }));
 
-const { saveMonthlyCapsAction, retryResumeCappedRunsAction } = await import(
-  './monthly-caps-actions'
-);
+const { saveMonthlyCapsAction, retryResumeCappedRunsAction } =
+  await import('./monthly-caps-actions');
 
 beforeEach(() => {
   world.events = [];
@@ -146,15 +149,21 @@ describe('saving the monthly caps', () => {
     { ...CAPS, letterMonthlyCap: -1 },
     { ...CAPS, lookupMonthlyCap: 100001 },
     { ...CAPS, aiMonthlyCap: 100001 },
-  ])('refuses caps outside 0 to 100,000 and writes nothing (%o)', async (caps) => {
-    const result = await saveMonthlyCapsAction({ accountId: TEAM_ID, ...caps });
+  ])(
+    'refuses caps outside 0 to 100,000 and writes nothing (%o)',
+    async (caps) => {
+      const result = await saveMonthlyCapsAction({
+        accountId: TEAM_ID,
+        ...caps,
+      });
 
-    expect(result).toEqual({
-      ok: false,
-      refusal: 'Caps must be between 0 and 100,000',
-    });
-    expect(world.events).toEqual([]);
-  });
+      expect(result).toEqual({
+        ok: false,
+        refusal: 'Caps must be between 0 and 100,000',
+      });
+      expect(world.events).toEqual([]);
+    },
+  );
 
   it('accepts caps of exactly 0 and 100,000', async () => {
     const result = await saveMonthlyCapsAction({

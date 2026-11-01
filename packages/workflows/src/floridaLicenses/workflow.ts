@@ -3,7 +3,9 @@ import { proxyActivities, uuid4 } from '@temporalio/workflow';
 import type * as activities from '../activities';
 import { runFloridaLicenseImport } from './importFloridaLicenses';
 
-const { startFloridaLicenseImport, failFloridaLicenseImport } = proxyActivities<typeof activities>({
+const { startFloridaLicenseImport, failFloridaLicenseImport } = proxyActivities<
+  typeof activities
+>({
   startToCloseTimeout: '5 minutes',
   retry: { maximumAttempts: 3 },
 });
