@@ -1,6 +1,6 @@
 name: ci
 
-# Runs the fast gate (typecheck, lint, unit tests) on every push to main and
+# Runs the fast gate (format, typecheck, lint, unit tests) on every push to main and
 # every PR targeting main, so regressions are caught before the image build.
 #
 # The e2e suite, package *.int.test.ts integration tests, and the pgTAP database
@@ -37,6 +37,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm run format
 
       - name: Typecheck, lint, and test
         run: pnpm turbo run typecheck lint test --filter='!e2e'
