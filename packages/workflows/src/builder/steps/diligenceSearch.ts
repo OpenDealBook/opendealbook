@@ -3,18 +3,48 @@ import { z } from 'zod';
 import type { Database, Json } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import { checkBaselayer, type BaselayerCheck } from '../../diligence/sources/baselayer';
+import type { BrokerRecord } from '../../diligence/sources/broker';
 import { type CourtCandidate, searchFederalCourts } from '../../diligence/sources/courts';
+import { type LicenseCandidate, searchLicenses } from '../../diligence/sources/licenses';
+import { checkMiddesk } from '../../diligence/sources/middesk';
 import { type NewsCandidate, searchNews } from '../../diligence/sources/news';
 import { diligenceSubjects, type DiligenceSubject } from '../../diligence/subjects';
 import type { ScreeningCandidate } from '../../sanctions/match';
 import { screenSubjects } from '../../sanctions/screenSubjects';
 import { uuidFromKey } from '../../uuidFromKey';
 import { NODE_CONFIG_SCHEMAS } from '../graph';
+import { PollAgain } from '../pollAgain';
+import { providerKey } from '../providerKeys';
 import { defineStep } from '../step';
 
 type Source = Database['public']['Enums']['diligence_source'];
 
-type Candidate = CourtCandidate | NewsCandidate | ScreeningCandidate;
+type Broker = BrokerRecord['source'];
+
+type CourtRecordCandidate = Omit<BrokerRecord, 'source' | 'raw'> & {
+  source: 'court_records';
+  broker: Broker;
+  subjectKey: string;
+  raw: Json;
+};
+
+type Candidate = CourtCandidate | NewsCandidate | ScreeningCandidate | LicenseCandidate | CourtRecordCandidate;
+
+const BROKER_NAME: Record<Broker, string> = { baselayer: 'Baselayer', middesk: 'Middesk' };
+
+const COURT_RECORD_KIND: Record<BrokerRecord['kind'], string> = {
+  ucc: 'UCC filing',
+  tax_lien: 'Tax lien',
+  judgment_lien: 'Judgment lien',
+  litigation: 'Lawsuit',
+  bankruptcy: 'Bankruptcy',
+  unknown: 'Court record',
+};
+
+const BROKER_POLL_MS = 5 * 60 * 1000;
+const BROKER_GIVE_UP_MS = 24 * 60 * 60 * 1000;
+const BROKER_CLAIM_STALE_MS = 2 * 60 * 1000;
 
 type Search = { skipped: string } | { candidates: Candidate[] };
 
@@ -56,7 +86,39 @@ function findingOf(candidate: Candidate) {
         source_url: candidate.url,
         occurred_on: null,
       };
+    case 'licenses':
+      return {
+        source: 'licenses' as const,
+        identity: JSON.stringify([candidate.registry, candidate.licenseNumber, candidate.licenseType, candidate.licenseeName]),
+        title: `${candidate.licenseType ?? 'License'} from ${candidate.registry}`,
+        summary: [
+          `Licensed to ${candidate.licenseeName}`,
+          candidate.licenseNumber && `number ${candidate.licenseNumber}`,
+          candidate.status,
+          candidate.expiresOn && `expires ${candidate.expiresOn}`,
+        ]
+          .filter(Boolean)
+          .join('; '),
+        source_url: null,
+        occurred_on: null,
+      };
+    case 'court_records':
+      return {
+        source: 'court_records' as const,
+        identity: JSON.stringify([candidate.broker, candidate.kind, candidate.jurisdiction, candidate.reference]),
+        title: candidate.title || COURT_RECORD_KIND[candidate.kind],
+        summary: [COURT_RECORD_KIND[candidate.kind], candidate.jurisdiction, candidate.reference].filter(Boolean).join('; '),
+        source_url: null,
+        occurred_on: candidate.filedOn,
+      };
   }
+}
+
+function valueOf<Value>(lane: PromiseSettledResult<Value>): Value {
+  if (lane.status === 'rejected') {
+    throw lane.reason;
+  }
+  return lane.value;
 }
 
 export const diligenceSearch = defineStep({
@@ -66,7 +128,13 @@ export const diligenceSearch = defineStep({
   inputSchema: z.object({}),
   outputSchema: z.object({
     runId: z.string(),
-    skipped: z.object({ courts: z.string().optional(), news: z.string().optional(), sanctions: z.string().optional() }),
+    skipped: z.object({
+      courts: z.string().optional(),
+      news: z.string().optional(),
+      sanctions: z.string().optional(),
+      licenses: z.array(z.string()).optional(),
+      court_records: z.string().optional(),
+    }),
   }),
   async run({ context, config }) {
     const admin = getSupabaseServerAdminClient();
@@ -82,22 +150,15 @@ export const diligenceSearch = defineStep({
       .throwOnError();
     const { data: checks } = await admin
       .from('diligence_search_check')
-      .select('source, subject_key')
+      .select('source, subject_key, notes')
       .eq('run_id', runId)
       .throwOnError();
     const searched = new Set(checks.map((check) => `${check.source}:${check.subject_key}`));
     const unsearched = (source: Source) => deal.subjects.filter((subject) => !searched.has(`${source}:${subject.key}`));
     const subjectByKey = new Map(deal.subjects.map((subject) => [subject.key, subject]));
 
-    async function searchAndRecord(source: Source, subjects: DiligenceSubject[], search: (subjects: DiligenceSubject[]) => Promise<Search>) {
-      if (subjects.length === 0) {
-        return undefined;
-      }
-      const result = await search(subjects);
-      if ('skipped' in result) {
-        return result.skipped;
-      }
-      const findings = result.candidates.map((candidate) => {
+    async function recordFindings(candidates: Candidate[]) {
+      const findings = candidates.map((candidate) => {
         const subject = subjectByKey.get(candidate.subjectKey)!;
         const { identity, ...finding } = findingOf(candidate);
         return {
@@ -111,6 +172,17 @@ export const diligenceSearch = defineStep({
         };
       });
       await admin.from('diligence_finding').upsert(findings, { onConflict: 'id', ignoreDuplicates: true }).throwOnError();
+    }
+
+    async function searchAndRecord(source: Source, subjects: DiligenceSubject[], search: (subjects: DiligenceSubject[]) => Promise<Search>) {
+      if (subjects.length === 0) {
+        return undefined;
+      }
+      const result = await search(subjects);
+      if ('skipped' in result) {
+        return result.skipped;
+      }
+      await recordFindings(result.candidates);
       await admin
         .from('diligence_search_check')
         .upsert(
@@ -119,6 +191,109 @@ export const diligenceSearch = defineStep({
         )
         .throwOnError();
       return undefined;
+    }
+
+    async function searchAndRecordLicenses(business: DiligenceSubject) {
+      const search = await searchLicenses({ business, state: deal.state, signal: context.signal });
+      await recordFindings(search.candidates);
+      await admin
+        .from('diligence_search_check')
+        .upsert(
+          { run_id: runId, source: 'licenses', subject_key: business.key, notes: search.notChecked },
+          { onConflict: 'run_id,source,subject_key', ignoreDuplicates: true },
+        )
+        .throwOnError();
+      return search.notChecked;
+    }
+
+    async function checkCourtRecords([business]: DiligenceSubject[]): Promise<Search> {
+      const key = await providerKey(context.accountId, 'court_records');
+      if (!key) {
+        return { skipped: 'Connect a court records broker to search state court cases, liens and UCC filings' };
+      }
+      const broker = BROKER_NAME[key.provider];
+      const brokerCheck = { run_id: runId, subject_key: business!.key };
+      const currentCheck = { ...brokerCheck, broker: key.provider };
+      const freshCheck = { broker: key.provider, state: key.provider === 'baselayer' ? { step: 'search' } : {} };
+      await admin
+        .from('diligence_broker_check')
+        .upsert({ ...brokerCheck, ...freshCheck }, { onConflict: 'run_id,subject_key', ignoreDuplicates: true })
+        .throwOnError();
+      const { data: seen } = await admin
+        .from('diligence_broker_check')
+        .select('broker, started_at')
+        .match(brokerCheck)
+        .single()
+        .throwOnError();
+      const pollAgain = () => new PollAgain(new Date(Date.now() + BROKER_POLL_MS));
+      let startedAt = seen.started_at;
+      if (seen.broker !== key.provider) {
+        startedAt = new Date().toISOString();
+        const { data: restarted } = await admin
+          .from('diligence_broker_check')
+          .update({ ...freshCheck, started_at: startedAt, claimed_at: null })
+          .match({ ...brokerCheck, broker: seen.broker })
+          .select('run_id')
+          .throwOnError();
+        if (restarted.length === 0) {
+          throw pollAgain();
+        }
+      }
+      const firm = { name: business!.name, city: deal.city, state: deal.state };
+      const checkBaselayerFromLastStep = async () => {
+        const staleClaim = new Date(Date.now() - BROKER_CLAIM_STALE_MS).toISOString();
+        const {
+          data: [claim],
+        } = await admin
+          .from('diligence_broker_check')
+          .update({ claimed_at: new Date().toISOString() })
+          .match(currentCheck)
+          .or(`claimed_at.is.null,claimed_at.lt."${staleClaim}"`)
+          .select('state')
+          .throwOnError();
+        if (!claim) {
+          return { status: 'waiting' as const };
+        }
+        const outcome = await checkBaselayer({ credentials: key, firm, check: claim.state as BaselayerCheck, signal: context.signal });
+        await admin
+          .from('diligence_broker_check')
+          .update({ claimed_at: null, ...(outcome.status === 'pending' && { state: outcome.check }) })
+          .match(currentCheck)
+          .throwOnError();
+        return outcome;
+      };
+      const outcome =
+        key.provider === 'baselayer'
+          ? await checkBaselayerFromLastStep()
+          : await checkMiddesk({ credentials: key, accountId: context.accountId, firmId: deal.firmId, firm, signal: context.signal });
+      const { data: stillCurrent } = await admin.from('diligence_broker_check').select('run_id').match(currentCheck).throwOnError();
+      if (stillCurrent.length === 0) {
+        throw pollAgain();
+      }
+      switch (outcome.status) {
+        case 'done':
+          return {
+            candidates: outcome.records.map(({ source, raw, ...record }) => ({
+              ...record,
+              raw: raw as Json,
+              source: 'court_records' as const,
+              broker: source,
+              subjectKey: business!.key,
+            })),
+          };
+        case 'refused':
+          return { skipped: `The ${broker} key was refused; reconnect it` };
+        case 'no_match':
+          return { skipped: 'Broker found no matching business' };
+        case 'not_checked':
+          return { skipped: `${broker} could not search court records for this business` };
+        case 'pending':
+        case 'waiting':
+          if (Date.now() - Date.parse(startedAt) >= BROKER_GIVE_UP_MS) {
+            return { skipped: `${broker} did not finish within 24 hours` };
+          }
+          throw pollAgain();
+      }
     }
 
     const lanes = await Promise.allSettled([
@@ -149,13 +324,28 @@ export const diligenceSearch = defineStep({
         }),
       ),
       searchAndRecord('sanctions', unsearched('sanctions'), screenSubjects),
+      (async () => {
+        const businesses = deal.subjects.filter(
+          (subject) => subject.kind === 'business' && (config.searchAllNames || subject.sources.includes('firm')),
+        );
+        const notChecked = new Set<string>();
+        for (const business of businesses) {
+          const finished = checks.find((check) => check.source === 'licenses' && check.subject_key === business.key);
+          const notes = finished ? finished.notes! : await searchAndRecordLicenses(business);
+          notes.forEach((note) => notChecked.add(note));
+        }
+        return notChecked.size > 0 ? [...notChecked] : undefined;
+      })(),
+      searchAndRecord(
+        'court_records',
+        unsearched('court_records').filter((subject) => subject.kind === 'business' && subject.sources.includes('firm')),
+        checkCourtRecords,
+      ),
     ]);
-    const [courts, news, sanctions] = lanes.map((lane) => {
-      if (lane.status === 'rejected') {
-        throw lane.reason;
-      }
-      return lane.value;
-    });
-    return { runId, skipped: { courts, news, sanctions } };
+    const [courts, news, sanctions, licenses, courtRecords] = lanes;
+    return {
+      runId,
+      skipped: { courts: valueOf(courts), news: valueOf(news), sanctions: valueOf(sanctions), licenses: valueOf(licenses), court_records: valueOf(courtRecords) },
+    };
   },
 });

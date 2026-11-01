@@ -34,11 +34,15 @@ const RATING_CHUNK_SIZE = 50;
 
 const NOT_A_RED_KIND = 'only open civil suits and appeals, recent bankruptcies and exact sanctions matches are red';
 
+const LAPSED_LICENSE_STATUSES = new Set(['expired', 'revoked', 'suspended', 'inactive']);
+
 const DETAIL_FIELDS: Record<Finding['source'], string[]> = {
   courts: ['kind', 'court', 'docketNumber', 'filedOn', 'terminatedOn', 'natureOfSuit'],
   sanctions: ['score', 'listName', 'entryType', 'countries', 'altNames', 'programs'],
   reviews: ['stars'],
   news: [],
+  licenses: ['registry', 'licenseNumber', 'licenseType', 'status', 'expiresOn'],
+  court_records: ['kind', 'jurisdiction', 'filedOn', 'open', 'reference'],
 };
 
 const RED_RULES = [
@@ -143,6 +147,7 @@ function summaryPrompt(state: string | null, subjects: DiligenceSubject[], findi
       }),
     ),
     '',
+    'Findings with source "court_records" are unverified Beta data from a court records broker.',
     'Write a short paragraph for the deal team. Name subjects only by their placeholders.',
     'Answer with JSON only, in this shape:',
     '{"summary": "the paragraph"}',
@@ -151,6 +156,9 @@ function summaryPrompt(state: string | null, subjects: DiligenceSubject[], findi
 
 function redRule(finding: Finding, today: Date): RedRule {
   const raw = finding.raw as { score?: number; kind?: string | null; filedOn?: string | null; terminatedOn?: string | null };
+  if (finding.source === 'court_records') {
+    return { holds: false, why: 'court records broker results are unverified Beta data' };
+  }
   if (finding.source === 'sanctions') {
     return raw.score === 1 ? { holds: true, rule: 'an exact sanctions name match' } : { holds: false, why: 'the name match is not exact' };
   }
@@ -170,9 +178,18 @@ function redRule(finding: Finding, today: Date): RedRule {
   return { holds: false, why: NOT_A_RED_KIND };
 }
 
+function lapsedLicenseStatus(finding: Finding): string | null {
+  const status = (finding.raw as { status?: string | null }).status?.trim().toLowerCase();
+  return finding.source === 'licenses' && status && LAPSED_LICENSE_STATUSES.has(status) ? status : null;
+}
+
 function judged(finding: Finding, rating: Rating, today: Date): { severity: Severity; reason: string } {
   if (!rating.tied) {
     return { severity: 'amber', reason: `Possible match, review. ${rating.reason}` };
+  }
+  const lapsed = lapsedLicenseStatus(finding);
+  if (rating.severity === 'green' && lapsed) {
+    return { severity: 'amber', reason: `${rating.reason} Raised to amber: the license is ${lapsed}.` };
   }
   const rule = redRule(finding, today);
   if (rating.severity === 'red' && !rule.holds) {

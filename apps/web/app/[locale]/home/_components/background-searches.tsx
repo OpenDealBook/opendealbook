@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { plainDate } from '@odb/shared/utils';
 import type { Enums, Tables } from '@odb/supabase';
+import { Badge } from '@odb/ui/badge';
 import { UNFINISHED_RUN_STATUSES } from '@odb/workflows/builder/client';
 
 import { WorkflowRunStatus, workflowTime } from './workflow-run-status';
@@ -26,7 +27,7 @@ export interface BackgroundSearch {
   status: Enums<'workflow_run_status'>;
   error: string | null;
   started_at: string;
-  skipped: string[];
+  skipped: (string | string[])[];
   report: Pick<Tables<'diligence_report'>, 'summary' | 'created_at'> | null;
   findings: BackgroundFinding[];
 }
@@ -66,6 +67,8 @@ const SOURCES: Record<Enums<'diligence_source'>, string> = {
   sanctions: 'Sanctions',
   news: 'News',
   reviews: 'Reviews',
+  licenses: 'Licenses',
+  court_records: 'State court and lien records',
 };
 
 function when(timestamp: string) {
@@ -152,6 +155,8 @@ export function BackgroundSearches({
 }
 
 function SearchReport({ search }: { search: BackgroundSearch }) {
+  const skipped = [...new Set(search.skipped.flat())];
+
   return (
     <div className={'flex flex-col gap-8'}>
       <div className={'flex flex-col gap-4'}>
@@ -168,11 +173,11 @@ function SearchReport({ search }: { search: BackgroundSearch }) {
               : 'The search is still in progress. Reload the page to see the report once it is written.'}
           </p>
         )}
-        {search.skipped.length > 0 ? (
+        {skipped.length > 0 ? (
           <div className={'bg-muted/50 rounded-md px-4 py-3 text-sm'}>
             <p className={'font-medium'}>Not searched</p>
             <ul className={'text-muted-foreground mt-1 list-disc pl-5'}>
-              {search.skipped.map((reason) => (
+              {skipped.map((reason) => (
                 <li key={reason}>{reason}</li>
               ))}
             </ul>
@@ -194,6 +199,12 @@ function SearchReport({ search }: { search: BackgroundSearch }) {
             <h3 className={'text-base font-semibold'}>
               {group.label} ({findings.length})
             </h3>
+            {findings.some((finding) => finding.source === 'court_records') ? (
+              <p className={'text-muted-foreground text-sm'}>
+                Broker results are not yet verified against live Baselayer and
+                Middesk accounts.
+              </p>
+            ) : null}
             <ul className={'flex flex-col gap-5'}>
               {findings.map((finding) => (
                 <li key={finding.id} className={'flex flex-col gap-1'}>
@@ -211,7 +222,14 @@ function SearchReport({ search }: { search: BackgroundSearch }) {
                     <span>
                       {finding.subject_name}, {finding.subject_kind}
                     </span>
-                    <span>{SOURCES[finding.source]}</span>
+                    <span>
+                      {SOURCES[finding.source]}
+                      {finding.source === 'court_records' ? (
+                        <Badge variant={'outline'} className={'ml-2'}>
+                          Beta
+                        </Badge>
+                      ) : null}
+                    </span>
                     {finding.occurred_on ? (
                       <span>{plainDate(finding.occurred_on)}</span>
                     ) : null}
@@ -221,16 +239,18 @@ function SearchReport({ search }: { search: BackgroundSearch }) {
                       {finding.severity_reason}
                     </p>
                   ) : null}
-                  <a
-                    href={finding.source_url}
-                    target={'_blank'}
-                    rel={'noopener noreferrer'}
-                    className={
-                      'self-start text-sm underline underline-offset-4'
-                    }
-                  >
-                    View source
-                  </a>
+                  {finding.source_url ? (
+                    <a
+                      href={finding.source_url}
+                      target={'_blank'}
+                      rel={'noopener noreferrer'}
+                      className={
+                        'self-start text-sm underline underline-offset-4'
+                      }
+                    >
+                      View source
+                    </a>
+                  ) : null}
                 </li>
               ))}
             </ul>

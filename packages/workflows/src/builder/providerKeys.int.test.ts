@@ -67,4 +67,21 @@ describe('providerKey', () => {
       baseUrl: 'https://www.courtlistener.com/api/rest/v4',
     });
   });
+
+  it("returns the team's court records broker with its key and base URL once connected", async () => {
+    await owner.user
+      .rpc('save_provider_credential', {
+        p_account_id: owner.accountId,
+        p_kind: 'court_records',
+        p_api_key: 'bl-team-key',
+        p_provider: 'baselayer',
+      })
+      .throwOnError();
+
+    expect(await providerKey(owner.accountId, 'court_records')).toEqual({
+      apiKey: 'bl-team-key',
+      provider: 'baselayer',
+      baseUrl: 'https://api.baselayer.com',
+    });
+  });
 });

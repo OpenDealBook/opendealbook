@@ -5321,6 +5321,41 @@ export type Database = {
           },
         ]
       }
+      diligence_broker_check: {
+        Row: {
+          broker: string
+          claimed_at: string | null
+          run_id: string
+          started_at: string
+          state: Json
+          subject_key: string
+        }
+        Insert: {
+          broker: string
+          claimed_at?: string | null
+          run_id: string
+          started_at?: string
+          state?: Json
+          subject_key: string
+        }
+        Update: {
+          broker?: string
+          claimed_at?: string | null
+          run_id?: string
+          started_at?: string
+          state?: Json
+          subject_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diligence_broker_check_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "diligence_run"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diligence_finding: {
         Row: {
           account_id: string
@@ -5333,7 +5368,7 @@ export type Database = {
           severity: Database["public"]["Enums"]["diligence_severity"] | null
           severity_reason: string | null
           source: Database["public"]["Enums"]["diligence_source"]
-          source_url: string
+          source_url: string | null
           subject_key: string
           subject_kind: Database["public"]["Enums"]["diligence_subject_kind"]
           subject_name: string
@@ -5351,7 +5386,7 @@ export type Database = {
           severity?: Database["public"]["Enums"]["diligence_severity"] | null
           severity_reason?: string | null
           source: Database["public"]["Enums"]["diligence_source"]
-          source_url: string
+          source_url?: string | null
           subject_key: string
           subject_kind: Database["public"]["Enums"]["diligence_subject_kind"]
           subject_name: string
@@ -5369,7 +5404,7 @@ export type Database = {
           severity?: Database["public"]["Enums"]["diligence_severity"] | null
           severity_reason?: string | null
           source?: Database["public"]["Enums"]["diligence_source"]
-          source_url?: string
+          source_url?: string | null
           subject_key?: string
           subject_kind?: Database["public"]["Enums"]["diligence_subject_kind"]
           subject_name?: string
@@ -5548,16 +5583,19 @@ export type Database = {
       }
       diligence_search_check: {
         Row: {
+          notes: string[] | null
           run_id: string
           source: Database["public"]["Enums"]["diligence_source"]
           subject_key: string
         }
         Insert: {
+          notes?: string[] | null
           run_id: string
           source: Database["public"]["Enums"]["diligence_source"]
           subject_key: string
         }
         Update: {
+          notes?: string[] | null
           run_id?: string
           source?: Database["public"]["Enums"]["diligence_source"]
           subject_key?: string
@@ -15251,7 +15289,13 @@ export type Database = {
         | "marketing_effectiveness"
       diligence_name_spelling: "source_priority" | "newest_record"
       diligence_severity: "red" | "amber" | "green"
-      diligence_source: "courts" | "sanctions" | "news" | "reviews"
+      diligence_source:
+        | "courts"
+        | "sanctions"
+        | "news"
+        | "reviews"
+        | "licenses"
+        | "court_records"
       diligence_subject_kind: "business" | "person"
       discovery_counterparty_type: "owner" | "broker"
       discovery_financing_stance: "yes" | "no" | "unsure"
@@ -15647,7 +15691,14 @@ export const Constants = {
       ],
       diligence_name_spelling: ["source_priority", "newest_record"],
       diligence_severity: ["red", "amber", "green"],
-      diligence_source: ["courts", "sanctions", "news", "reviews"],
+      diligence_source: [
+        "courts",
+        "sanctions",
+        "news",
+        "reviews",
+        "licenses",
+        "court_records",
+      ],
       diligence_subject_kind: ["business", "person"],
       discovery_counterparty_type: ["owner", "broker"],
       discovery_financing_stance: ["yes", "no", "unsure"],

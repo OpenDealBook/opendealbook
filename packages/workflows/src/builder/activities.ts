@@ -29,6 +29,7 @@ import {
 } from './graph';
 import { noticeDealManagers } from './managerNotice';
 import { DECISION_NODE_TYPES, HEARTBEAT_NODE_TYPES } from './nodeKinds';
+import { PollAgain } from './pollAgain';
 import { stepRegistry } from './registry';
 import { evaluateRule } from './rules';
 import { teamTimezone } from './team-timezone';
@@ -458,7 +459,7 @@ async function finishStep(
   return true;
 }
 
-type WaitingOn = 'timer' | 'decision' | 'cap';
+type WaitingOn = 'timer' | 'decision' | 'cap' | 'poll';
 
 async function parkStep(
   stepRunId: string,
@@ -633,6 +634,12 @@ export async function executeWorkflowStep(
   try {
     output = await runInstantNode({ ...input, idempotencyKey });
   } catch (error) {
+    if (error instanceof PollAgain) {
+      const until = error.resumeAt.toISOString();
+      return (await parkStep(stepRun.id, 'poll', { wake_at: until }))
+        ? { kind: 'waiting', until }
+        : settledElsewhere(input.node, stepRun.id, input.input, input.steps);
+    }
     if (!(error instanceof CapReached)) {
       throw error;
     }

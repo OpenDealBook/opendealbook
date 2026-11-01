@@ -46,7 +46,7 @@ export default async function TeamDealBackgroundPage({
     error: run.error,
     started_at: run.started_at,
     skipped: run.search_steps.flatMap((step) =>
-      Object.values(step.skipped as Record<string, string>),
+      Object.values(step.skipped as Record<string, string | string[]>),
     ),
     report: run.diligence_run[0]?.diligence_report[0] ?? null,
     findings: run.diligence_run[0]?.diligence_finding ?? [],

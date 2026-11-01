@@ -396,7 +396,8 @@ create trigger refuse_reopening_finished_run
 
 -- One row per step execution, keyed by idempotency_key; every retry reuses it and counts attempt on.
 -- wake_at is when a waiting step wakes, and waiting_on says what it waits for:
--- a timer, a person's decision, or room under a monthly cap. iteration_path is
+-- a timer, a person's decision, room under a monthly cap, or the next poll of a
+-- slow source that the step reruns to check again. iteration_path is
 -- its item index in each enclosing loop, outermost first, and empty outside loops.
 create table if not exists public.workflow_step_run (
   id uuid primary key default gen_random_uuid(),
@@ -417,7 +418,7 @@ create table if not exists public.workflow_step_run (
   foreign key (run_id, account_id) references public.workflow_run (id, account_id) on delete cascade,
   unique (id, account_id),
   check ((status in ('succeeded', 'failed', 'cancelled')) = (finished_at is not null)),
-  constraint workflow_step_run_waiting_on_kind check (waiting_on in ('timer', 'decision', 'cap')),
+  constraint workflow_step_run_waiting_on_kind check (waiting_on in ('timer', 'decision', 'cap', 'poll')),
   constraint workflow_step_run_waiting_on_only_waiting check (waiting_on is null or status = 'waiting')
 );
 

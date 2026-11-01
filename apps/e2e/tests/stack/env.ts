@@ -41,6 +41,7 @@ export function workersEnv(novuApiKey: string): Record<string, string> {
     SUPABASE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY,
     NANGO_HOST: STAND_INS.nango,
     NANGO_SECRET_KEY,
+    LICENSE_REGISTRY_URL: STAND_INS.licenses,
     TRIAL_DRIP_FROM_EMAIL: `${SENDER.name} <${SENDER.address}>`,
     SELLER_DELIVERY_FROM_EMAIL: `${SENDER.name} <${SENDER.address}>`,
   };

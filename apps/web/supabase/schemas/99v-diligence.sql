@@ -8,7 +8,7 @@
 
 create type public.diligence_subject_kind as enum ('business', 'person');
 
-create type public.diligence_source as enum ('courts', 'sanctions', 'news', 'reviews');
+create type public.diligence_source as enum ('courts', 'sanctions', 'news', 'reviews', 'licenses', 'court_records');
 
 create type public.diligence_severity as enum ('red', 'amber', 'green');
 
@@ -34,7 +34,7 @@ create table if not exists public.diligence_finding (
   severity public.diligence_severity,
   title text not null,
   summary text not null,
-  source_url text not null,
+  source_url text,
   occurred_on date,
   raw jsonb not null,
   created_at timestamptz not null default now(),
@@ -55,11 +55,28 @@ create table if not exists public.diligence_report (
 
 -- One row per source and subject a run has finished searching, written after
 -- that search's findings, so a retried run skips what it already paid for.
+-- notes keeps what a license search could not check, for the run's later polls.
 create table if not exists public.diligence_search_check (
   run_id uuid not null references public.diligence_run (id) on delete cascade,
   source public.diligence_source not null,
   subject_key text not null,
+  notes text[],
   primary key (run_id, source, subject_key)
+);
+
+-- A court records broker answers over hours, so a run parks between polls.
+-- One row per run and subject keeps what the next poll resumes from, and
+-- started_at, the run's first broker check, is when its 24 hour limit starts;
+-- switching brokers mid-run starts the check over. claimed_at marks a poll that
+-- may be paying for a broker search, so a rerun within 2 minutes waits.
+create table if not exists public.diligence_broker_check (
+  run_id uuid not null references public.diligence_run (id) on delete cascade,
+  subject_key text not null,
+  broker text not null check (broker in ('baselayer', 'middesk')),
+  state jsonb not null default '{}',
+  started_at timestamptz not null default now(),
+  claimed_at timestamptz,
+  primary key (run_id, subject_key)
 );
 
 create index ix_diligence_run_deal on public.diligence_run (deal_id);
@@ -69,6 +86,7 @@ alter table public.diligence_run enable row level security;
 alter table public.diligence_finding enable row level security;
 alter table public.diligence_report enable row level security;
 alter table public.diligence_search_check enable row level security;
+alter table public.diligence_broker_check enable row level security;
 
 revoke all on public.diligence_run from anon, authenticated, service_role;
 grant select on public.diligence_run to authenticated;
@@ -85,6 +103,9 @@ grant select, insert on public.diligence_report to service_role;
 
 revoke all on public.diligence_search_check from anon, authenticated, service_role;
 grant select, insert on public.diligence_search_check to service_role;
+
+revoke all on public.diligence_broker_check from anon, authenticated, service_role;
+grant select, insert, update (broker, state, started_at, claimed_at) on public.diligence_broker_check to service_role;
 
 create policy diligence_run_read on public.diligence_run
   for select to authenticated

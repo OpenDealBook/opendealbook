@@ -272,6 +272,7 @@ import {
 } from './client';
 import { CourtListenerLimit } from '../diligence/sources/courts';
 import { CapReached, recordAiCallUsage, reserveAiCall } from './caps';
+import { PollAgain } from './pollAgain';
 import type { WorkflowGraph } from './graph';
 import { runPublishedWorkflow } from './workflow';
 
@@ -2829,6 +2830,56 @@ describe('a monthly cap (integration)', () => {
 
     await runPublishedWorkflow({ runId });
 
+    expect(await runStatus(runId)).toBe('succeeded');
+  });
+});
+
+describe('a step that asks to be checked again later (integration)', () => {
+  it('parks the step waiting until the time it asked for, sends no pause notice, then runs the step again', async () => {
+    const minutes = 5 * 60 * 1000;
+    const checkAt = new Date(Date.now() + minutes);
+    searchFailures.push(new PollAgain(checkAt));
+    await publish({
+      nodes: [
+        trigger,
+        { id: 'search', type: 'diligence_search', config: { dealId: crypto.randomUUID() } },
+        notify('after', 'After the search'),
+      ],
+      edges: [edge('start', 'search'), edge('search', 'after')],
+    } as unknown as WorkflowGraph);
+    const { runId } = await runManually();
+    const parked: unknown[] = [];
+    temporal.onSleep = async () => {
+      parked.push(
+        (
+          await owner.admin
+            .from('workflow_step_run')
+            .select('status, waiting_on, wake_at')
+            .eq('idempotency_key', `${runId}:search:0`)
+            .single()
+            .throwOnError()
+        ).data,
+        await runStatus(runId),
+      );
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    const [step, status] = parked as [{ wake_at: string }, string];
+    expect(step).toMatchObject({ status: 'waiting', waiting_on: 'poll' });
+    expect(Date.parse(step.wake_at)).toBe(checkAt.getTime());
+    expect(status).toBe('waiting');
+    expect(temporal.slept).toHaveLength(1);
+    expect(Math.abs(temporal.slept[0]! - minutes)).toBeLessThan(60_000);
+    const { data: paused } = await owner.admin
+      .from('notifications')
+      .select('body')
+      .eq('account_id', teamId)
+      .ilike('body', '%paused%')
+      .throwOnError();
+    expect(paused).toEqual([]);
+    expect(await stepRow(runId, 'search')).toMatchObject({ status: 'succeeded', output: { runId: 'a7000000-0000-4000-8000-0000000000d1' } });
+    expect(await notificationCounts('After the search')).toEqual({ [owner.userId]: 1, [managerId]: 1 });
     expect(await runStatus(runId)).toBe('succeeded');
   });
 });

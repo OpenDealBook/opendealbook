@@ -126,7 +126,7 @@ async function getJson<Body>(url: string, body: z.ZodType<Body>, signal: AbortSi
   const response = await fetch(url, {
     signal: AbortSignal.any([AbortSignal.timeout(REQUEST_TIMEOUT_MS), ...(signal ? [signal] : [])]),
   });
-  if (response.status >= 400 && response.status < 500) {
+  if (response.status >= 400 && response.status < 500 && response.status !== 429) {
     throw ApplicationFailure.nonRetryable(`${new URL(url).host} answered ${response.status}`);
   }
   if (!response.ok) {
@@ -335,9 +335,14 @@ async function searchState(
     : searchFloridaSnapshot(business);
 }
 
+function registryUrls(): LicenseRegistryUrls {
+  const standIn = process.env.LICENSE_REGISTRY_URL;
+  return standIn ? { NPPES: standIn, TX: standIn, IL: standIn, CO: standIn, CT: standIn, WA: standIn } : LICENSE_REGISTRY_URLS;
+}
+
 export async function searchLicenses(
   { business, state, signal }: { business: Business; state: string | null; signal?: AbortSignal },
-  urls: LicenseRegistryUrls = LICENSE_REGISTRY_URLS,
+  urls: LicenseRegistryUrls = registryUrls(),
 ): Promise<{ candidates: LicenseCandidate[]; notChecked: string[] }> {
   if (state === null) {
     return { candidates: [], notChecked: ['License data is not available for a business with no state'] };

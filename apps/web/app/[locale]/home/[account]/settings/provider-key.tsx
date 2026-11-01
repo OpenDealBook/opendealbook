@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import {
   Card,
@@ -85,8 +86,20 @@ export function ProviderKeySetting({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>
+          {title}
+          {kind === 'court_records' ? (
+            <Badge variant={'outline'} className={'ml-2'}>
+              Beta
+            </Badge>
+          ) : null}
+        </CardTitle>
         <CardDescription>{description}</CardDescription>
+        {kind === 'court_records' ? (
+          <p className={'text-muted-foreground text-sm'}>
+            Broker results are not yet verified against live Baselayer and Middesk accounts.
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent>
         {canManage ? (

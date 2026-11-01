@@ -35,7 +35,7 @@ let provider: Awaited<ReturnType<typeof fakeAiProvider>>;
 
 type FindingSeed = {
   subject: 'business' | 'person';
-  source: 'courts' | 'sanctions' | 'news' | 'reviews';
+  source: 'courts' | 'sanctions' | 'news' | 'reviews' | 'licenses' | 'court_records';
   title: string;
   summary: string;
   raw: Record<string, unknown>;
@@ -200,6 +200,22 @@ const sanctionsHit = (score: number): FindingSeed => ({
   summary: `Matched Ana Delgado at ${score * 100}%; programs SDGT`,
   raw: { score, entryType: 'individual', countries: ['US'], altNames: ['A. Delgado'], programs: ['SDGT'] },
 });
+
+const brokerSuit: FindingSeed = {
+  subject: 'business',
+  source: 'court_records',
+  title: 'Harbour Supply v. Rowan Plumbing LLC',
+  summary: 'Multnomah County Circuit Court; open litigation',
+  raw: { kind: 'litigation', reference: '21CV04412', jurisdiction: 'OR', filedOn: '2021-03-04', open: true },
+};
+
+const lapsedLicense: FindingSeed = {
+  subject: 'business',
+  source: 'licenses',
+  title: 'Rowan Plumbing LLC, plumbing contractor license',
+  summary: 'Oregon CCB',
+  raw: { registry: 'Oregon CCB', licenseNumber: 'CCB-20417', licenseType: 'Plumbing contractor', status: 'Expired', expiresOn: '2025-08-31' },
+};
 
 const quietNews: FindingSeed = {
   subject: 'business',
@@ -439,6 +455,68 @@ describe('diligence_report with an AI provider', () => {
       ['amber', 'Fine Raised to amber: an open appeal.'],
       ['amber', 'Fine Raised to amber: an exact sanctions name match.'],
     ]);
+  });
+
+  it('never keeps a court records broker finding red while the broker is Beta, and says why', async () => {
+    const { runId, ids } = await diligenceRun([brokerSuit]);
+    aiAnswers('Broker found a suit.', [{ severity: 'red', tied: true }]);
+
+    await report(runId);
+
+    expect(await rated(ids)).toEqual([
+      ['amber', 'One line Downgraded from red: court records broker results are unverified Beta data.'],
+    ]);
+  });
+
+  it('raises a green license finding to amber when the license is expired, revoked, suspended or inactive, and never keeps one red', async () => {
+    const withStatus = (status: string): FindingSeed => ({ ...lapsedLicense, raw: { ...lapsedLicense.raw, status } });
+    const { runId, ids } = await diligenceRun([
+      withStatus('EXPIRED'),
+      withStatus(' Revoked '),
+      withStatus('suspended'),
+      withStatus('Inactive'),
+      withStatus('Active'),
+      withStatus('Expired'),
+    ]);
+    aiAnswers('License concerns.', [
+      { severity: 'green', tied: true },
+      { severity: 'green', tied: true },
+      { severity: 'green', tied: true },
+      { severity: 'green', tied: true },
+      { severity: 'green', tied: true },
+      { severity: 'red', tied: true },
+    ]);
+
+    await report(runId);
+
+    expect(await rated(ids)).toEqual([
+      ['amber', 'One line Raised to amber: the license is expired.'],
+      ['amber', 'One line Raised to amber: the license is revoked.'],
+      ['amber', 'One line Raised to amber: the license is suspended.'],
+      ['amber', 'One line Raised to amber: the license is inactive.'],
+      ['green', 'One line'],
+      ['amber', 'One line Downgraded from red: only open civil suits and appeals, recent bankruptcies and exact sanctions matches are red.'],
+    ]);
+  });
+
+  it('shows the AI license details and tells the summary that court records findings are unverified Beta data', async () => {
+    const { runId } = await diligenceRun([lapsedLicense, brokerSuit]);
+    aiAnswers('Two concerns.', [
+      { severity: 'amber', tied: true },
+      { severity: 'amber', tied: true },
+    ]);
+    provider.received.length = 0;
+
+    await report(runId);
+
+    const [ratingPrompt, summaryPrompt] = provider.received.map(promptOf);
+    expect(ratingPrompt).toContain(
+      '"details":{"registry":"Oregon CCB","licenseNumber":"CCB-20417","licenseType":"Plumbing contractor","status":"Expired","expiresOn":"2025-08-31"}',
+    );
+    expect(ratingPrompt).toContain(
+      '"details":{"kind":"litigation","jurisdiction":"OR","filedOn":"2021-03-04","open":true,"reference":"21CV04412"}',
+    );
+    expect(summaryPrompt).toContain('Findings with source "court_records" are unverified Beta data from a court records broker.');
   });
 
   it('keeps DBA names, partial business names and short surnames away from the AI', async () => {

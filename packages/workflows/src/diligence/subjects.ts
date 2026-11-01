@@ -92,9 +92,10 @@ async function publicRecords(businessId: string) {
       .order('fetched_at', newestFirst)
       .throwOnError(),
   ]);
+  const mailingAddress = firstMailingAddress({ registries, ppp, sba, form5500 });
   return {
-    state:
-      firstMailingAddress({ registries, ppp, sba, form5500 })?.state ?? null,
+    state: mailingAddress?.state ?? null,
+    city: mailingAddress?.city ?? null,
     businesses: [
       {
         name: business.name,
@@ -138,7 +139,7 @@ export async function diligenceSubjects(accountId: string, dealId: string) {
     admin
       .from('deal')
       .select(
-        'account:account_id (diligence_name_spelling), firm:firm_id (id, name, state, public_business_id, owner_names, updated_at)',
+        'account:account_id (diligence_name_spelling), firm:firm_id (id, name, city, state, public_business_id, owner_names, updated_at)',
       )
       .eq('id', id)
       .eq('account_id', accountId)
@@ -158,13 +159,14 @@ export async function diligenceSubjects(accountId: string, dealId: string) {
       .throwOnError(),
     firm.public_business_id
       ? publicRecords(firm.public_business_id)
-      : { state: null, businesses: [], officers: [] },
+      : { state: null, city: null, businesses: [], officers: [] },
   ]);
 
   return {
     dealId,
     firmId: firm.id,
     state: firm.state?.toUpperCase() ?? records.state,
+    city: firm.city || records.city,
     subjects: [
       ...subjectsOf('business', spelling, [
         { name: firm.name, source: 'firm', at: firm.updated_at },

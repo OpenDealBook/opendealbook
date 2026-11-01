@@ -11,7 +11,11 @@ export function providerKey(
   kind: 'email_lookup',
 ): Promise<(ProviderKey & { actorId: string }) | null>;
 export function providerKey(accountId: string, kind: 'letters' | 'courts'): Promise<ProviderKey | null>;
-export async function providerKey(accountId: string, kind: 'email_lookup' | 'letters' | 'courts') {
+export function providerKey(
+  accountId: string,
+  kind: 'court_records',
+): Promise<(ProviderKey & { provider: 'baselayer' | 'middesk' }) | null>;
+export async function providerKey(accountId: string, kind: 'email_lookup' | 'letters' | 'courts' | 'court_records') {
   const { data } = await getSupabaseServerAdminClient()
     .rpc('provider_key', { p_account_id: accountId, p_kind: kind })
     .maybeSingle()

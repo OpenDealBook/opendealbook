@@ -245,6 +245,21 @@ describe('the court records broker setting', () => {
     expect(container.textContent).toContain('Saving replaces the saved Middesk key.');
   });
 
+  it('labels the brokers as beta because their results are unverified against live accounts', async () => {
+    await render({ kind: 'court_records', current: null, canManage: false });
+
+    expect(container.querySelector('[data-slot=card-title]')!.textContent).toContain('Beta');
+    expect(container.textContent).toContain(
+      'Broker results are not yet verified against live Baselayer and Middesk accounts.',
+    );
+  });
+
+  it.each(['email_lookup', 'letters', 'courts'] as const)('shows no beta label on the %s card', async (kind) => {
+    await render({ kind, current: null, canManage: true });
+
+    expect(container.textContent).not.toContain('Beta');
+  });
+
   it('shows other members which broker is connected', async () => {
     await render({ kind: 'court_records', current: { actorId: null, provider: 'baselayer' }, canManage: false });
 

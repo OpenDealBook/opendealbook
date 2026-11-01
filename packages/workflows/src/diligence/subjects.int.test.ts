@@ -211,6 +211,7 @@ describe('diligenceSubjects (integration)', () => {
       dealId,
       firmId,
       state: 'MP',
+      city: 'AUSTIN',
       subjects: [
         {
           key: 'business:harbor fixture plumbing',
@@ -268,6 +269,7 @@ describe('diligenceSubjects (integration)', () => {
       dealId,
       firmId,
       state: null,
+      city: null,
       subjects: [
         {
           key: 'business:referral landscaping',
@@ -422,6 +424,25 @@ describe('diligenceSubjects (integration)', () => {
     expect(await stateOf(fromRegistry)).toBe('CT');
     expect(await stateOf(fromOlderLoan)).toBe('IA');
     expect(await stateOf(nowhere)).toBeNull();
+  });
+
+  it("uses the firm's city, falling back to the city of the mailing address prepare_firm would pick", async () => {
+    const fromRegistry = await seedBusiness('Registry City Co');
+    await seedRegistry(fromRegistry, {
+      mailing_address_line1: '1 Main St',
+      mailing_city: 'Hartford',
+      mailing_state: 'CT',
+      mailing_postal_code: '06103',
+    });
+    const cityOf = async (firm: Record<string, unknown>) => {
+      const { dealId } = await seedFirmDeal(owner, { name: 'Firm With A City', ...firm });
+      return (await diligenceSubjects(owner.accountId, dealId)).city;
+    };
+
+    expect(await cityOf({ city: 'Stamford', public_business_id: fromRegistry })).toBe('Stamford');
+    expect(await cityOf({ public_business_id: fromRegistry })).toBe('HARTFORD');
+    expect(await cityOf({ city: '', public_business_id: fromRegistry })).toBe('HARTFORD');
+    expect(await cityOf({})).toBeNull();
   });
 
   it("shows each name in its newest record's spelling when the team chooses newest record", async () => {

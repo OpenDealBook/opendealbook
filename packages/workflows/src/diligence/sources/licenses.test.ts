@@ -258,13 +258,15 @@ describe('searchLicenses when a registry fails', () => {
   }
 
   it.each([
-    { registry: 'the state set', path: '/resource/7358-krk7.json' },
-    { registry: 'NPPES', path: '/api/' },
-  ])('fails the search so the run retries when $registry answers 503', async ({ path }) => {
+    { registry: 'the state set', path: '/resource/7358-krk7.json', status: 503 },
+    { registry: 'NPPES', path: '/api/', status: 503 },
+    { registry: 'the state set', path: '/resource/7358-krk7.json', status: 429 },
+    { registry: 'NPPES', path: '/api/', status: 429 },
+  ])('fails the search so the run retries when $registry answers $status', async ({ path, status }) => {
     registries.reply = (requested, query) =>
-      requested === path ? { status: 503, body: { message: 'unavailable' } } : defaultReply(requested, query);
+      requested === path ? { status, body: { message: 'unavailable' } } : defaultReply(requested, query);
 
-    expect((await retryableFailureOf(search('TX'))).message).toMatch(/answered 503/);
+    expect((await retryableFailureOf(search('TX'))).message).toMatch(new RegExp(`answered ${status}`));
   });
 
   it('fails the search so the run retries when a registry cannot be reached', async () => {

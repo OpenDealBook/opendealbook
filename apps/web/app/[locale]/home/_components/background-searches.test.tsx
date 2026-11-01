@@ -205,3 +205,86 @@ it('names the sources the search skipped', () => {
     'Connect an email lookup provider to search news',
   ]);
 });
+
+it('names every note a source left, including each from a list', () => {
+  render([
+    search({
+      skipped: [
+        [
+          'License data is not available for NV',
+          'License data for FL was not checked: too many licenses share this name',
+        ],
+        'Connect a court records broker to search state court cases, liens and UCC filings',
+      ],
+    }),
+  ]);
+
+  expect(
+    [...document.querySelectorAll('li')].map((item) => item.textContent),
+  ).toEqual([
+    'License data is not available for NV',
+    'License data for FL was not checked: too many licenses share this name',
+    'Connect a court records broker to search state court cases, liens and UCC filings',
+  ]);
+});
+
+it('labels license and court records findings, marks each court records finding Beta, notes once per section that broker results are unverified and offers no source link when there is none', () => {
+  const note =
+    'Broker results are not yet verified against live Baselayer and Middesk accounts.';
+  render([
+    search({
+      findings: [
+        finding({
+          id: 'l',
+          severity: 'amber',
+          source: 'licenses',
+          title: 'Contractor license expired',
+          source_url: null,
+        }),
+        finding({
+          id: 'c1',
+          severity: 'green',
+          source: 'court_records',
+          title: 'UCC filing by Harbour Supply',
+          source_url: null,
+        }),
+        finding({
+          id: 'c2',
+          severity: 'green',
+          source: 'court_records',
+          title: 'Tax lien released',
+          source_url: null,
+        }),
+      ],
+    }),
+  ]);
+
+  const amber = document.querySelector('[data-severity="amber"]')!.textContent;
+  expect(amber).toContain('Licenses');
+  expect(amber).not.toContain('Beta');
+  expect(amber).not.toContain(note);
+
+  const green = document.querySelector('[data-severity="green"]')!.textContent;
+  expect(green.split(note)).toHaveLength(2);
+  expect(green.indexOf(note)).toBeLessThan(
+    green.indexOf('UCC filing by Harbour Supply'),
+  );
+  expect(green.match(/State court and lien recordsBeta/g)).toHaveLength(2);
+
+  expect(pageText()).not.toContain('View source');
+});
+
+it('shows a note left more than once only once', () => {
+  render([
+    search({
+      skipped: [
+        ['License data is not available for NV'],
+        'License data is not available for NV',
+      ],
+    }),
+  ]);
+
+  expect(
+    [...document.querySelectorAll('li')].map((item) => item.textContent),
+  ).toEqual(['License data is not available for NV']);
+});
