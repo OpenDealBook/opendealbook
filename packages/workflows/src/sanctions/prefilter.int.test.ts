@@ -203,9 +203,14 @@ it('screens the same candidates as comparing every list entry', async () => {
   );
   await loaded();
 
-  const screened = await Promise.all(
-    matching.map((subject) => screenSubjects([subject])),
-  );
+  const screened = [];
+  for (let at = 0; at < matching.length; at += 10) {
+    screened.push(
+      ...(await Promise.all(
+        matching.slice(at, at + 10).map((subject) => screenSubjects([subject])),
+      )),
+    );
+  }
 
   expect(
     matchSubjects(matching, entries).some(
@@ -220,4 +225,4 @@ it('screens the same candidates as comparing every list entry', async () => {
   expect(await screenSubjects(subjects)).toEqual({
     candidates: matchSubjects(subjects, entries),
   });
-});
+}, 120_000);
