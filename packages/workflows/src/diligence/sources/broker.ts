@@ -1,6 +1,6 @@
 import { ApplicationFailure } from '@temporalio/common';
 
-import { pinnedGet, pinnedPost } from '../../builder/aiClient';
+import { pinnedGet, pinnedPost, teamAiAddressOf } from '../../builder/aiClient';
 import { parsedJson } from '../../builder/teamAi';
 
 const BROKER_TIMEOUT_MS = 60_000;
@@ -39,7 +39,7 @@ export async function brokerJson(
   broker: string,
   request: { url: string; headers: Record<string, string>; body?: unknown; signal?: AbortSignal },
 ): Promise<unknown> {
-  const connection = { timeoutMs: BROKER_TIMEOUT_MS, signal: request.signal };
+  const connection = { connectTo: teamAiAddressOf, timeoutMs: BROKER_TIMEOUT_MS, signal: request.signal };
   const response =
     request.body === undefined
       ? await pinnedGet(request.url, request.headers, connection)

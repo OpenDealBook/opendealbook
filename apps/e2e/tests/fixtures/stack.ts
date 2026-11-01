@@ -29,6 +29,7 @@ export const STAND_INS = {
   stripe: `http://localhost:${STAND_IN_PORT + 2}`,
   gmail: `http://localhost:${STAND_IN_PORT + 3}`,
   licenses: `http://localhost:${STAND_IN_PORT + 4}`,
+  middesk: `http://localhost:${STAND_IN_PORT + 5}`,
 } as const;
 
 export const DOCUMENSO_WEBHOOK_SECRET =

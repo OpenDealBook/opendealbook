@@ -3,6 +3,7 @@ import { gmailStandIn } from './gmail';
 import { serve } from './http';
 import { licenseRegistryStandIn } from './licenses';
 import { llmStandIn } from './llm';
+import { middeskStandIn } from './middesk';
 import { nangoStandIn } from './nango';
 import { stripeStandIn } from './stripe';
 
@@ -12,6 +13,7 @@ export async function startStandIns(): Promise<() => Promise<void>> {
     serve(STAND_INS.nango, nangoStandIn()),
     serve(STAND_INS.gmail, gmailStandIn()),
     serve(STAND_INS.licenses, licenseRegistryStandIn()),
+    serve(STAND_INS.middesk, middeskStandIn()),
     serve(
       STAND_INS.stripe,
       stripeStandIn({
