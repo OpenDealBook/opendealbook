@@ -621,7 +621,7 @@ describe('duplicateCalcVersion', () => {
     const copy = mocks.insertSpy.mock.calls.find(
       ([table]) => table === 'calc_version',
     );
-    expect((copy?.[1] as { name: string }).name).toBe('Copy of Base case');
+    expect(copy?.[1]).toMatchObject({ name: 'Copy of Base case' });
 
     const fundingCopy = mocks.insertSpy.mock.calls.find(
       ([table]) => table === 'funding_source',

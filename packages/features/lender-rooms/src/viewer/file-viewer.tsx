@@ -137,6 +137,7 @@ function ImagePreview({ fileName, src }: { fileName: string; src: string }) {
     <NoPreview reason="unsupported" />
   ) : (
     <div className="flex h-full items-center justify-center p-6">
+      {/* oxlint-disable-next-line nextjs/no-img-element -- private deal document must render unaltered and must not be cached by the optimizer */}
       <img
         src={src}
         alt={fileName}

@@ -19,6 +19,7 @@ export function ItemFocus() {
     const item = isItemAnchor(anchor)
       ? document.getElementById(anchor)
       : undefined;
+    // oxlint-disable-next-line react/set-state-in-effect -- reads the DOM after commit
     setMissing(item === null);
 
     if (item) {

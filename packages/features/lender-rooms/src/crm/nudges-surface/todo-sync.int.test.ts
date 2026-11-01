@@ -51,6 +51,7 @@ async function whileRecordingRoomFails(
   const db = new pg.Client({ connectionString: DB_URL });
   await db.connect();
   const name = `test_fail_${roomId.replaceAll('-', '_')}`;
+  let failure: { error: unknown } | undefined;
   try {
     await db.query(`create sequence public.${name}`);
     await db.query(
@@ -67,7 +68,10 @@ async function whileRecordingRoomFails(
        when (new.aggregate_id = '${roomId}') execute function public.${name}()`,
     );
     await run();
-  } finally {
+  } catch (error) {
+    failure = { error };
+  }
+  try {
     for (let attempt = 1; ; attempt++) {
       try {
         await db.query(`drop trigger if exists ${name} on public.deal_event`);
@@ -81,6 +85,11 @@ async function whileRecordingRoomFails(
     await db.query(`drop function if exists public.${name}()`);
     await db.query(`drop sequence if exists public.${name}`);
     await db.end();
+  } catch (error) {
+    failure ??= { error };
+  }
+  if (failure) {
+    throw failure.error;
   }
 }
 

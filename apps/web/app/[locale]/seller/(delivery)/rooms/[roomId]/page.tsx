@@ -79,6 +79,7 @@ export default async function SellerRoomPage({
     <main className={'flex flex-col gap-4'}>
       <header className={'flex items-center gap-3'}>
         {room.team_picture_url ? (
+          // oxlint-disable-next-line nextjs/no-img-element -- signed team picture from private storage
           <img
             src={room.team_picture_url}
             alt={''}

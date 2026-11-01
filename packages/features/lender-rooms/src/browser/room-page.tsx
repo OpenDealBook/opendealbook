@@ -67,6 +67,7 @@ export async function RoomPage({
             }
           >
             {logoUrl ? (
+              // oxlint-disable-next-line nextjs/no-img-element -- signed brand logo from private storage
               <img
                 src={logoUrl}
                 alt={''}

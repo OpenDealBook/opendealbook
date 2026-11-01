@@ -147,9 +147,10 @@ describe('saveWorksheetRow (integration)', () => {
       .eq('worksheet_type', 'retention_plan')
       .order('sort_order', { ascending: true });
 
-    expect(rows).toHaveLength(2);
-    expect((rows?.[0]?.data as Record<string, unknown>).employee).toBe('Sam');
-    expect((rows?.[1]?.data as Record<string, unknown>).employee).toBe('Jane');
+    expect(rows).toMatchObject([
+      { data: { employee: 'Sam' } },
+      { data: { employee: 'Jane' } },
+    ]);
   });
 
   it('is not readable by a user outside the buyer account', async () => {

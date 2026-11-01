@@ -10,6 +10,7 @@ export function LenderLogo({
   className?: string;
 }) {
   return (
+    // oxlint-disable-next-line nextjs/no-img-element -- signed brand logo from private storage
     <img
       src={logoUrl}
       alt={`${name} logo`}

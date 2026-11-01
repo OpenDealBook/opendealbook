@@ -169,6 +169,7 @@ export function BuyerProfileForm({ accountId, initial }: BuyerProfileFormProps) 
         </CardHeader>
         <CardContent className={'flex flex-col gap-4'}>
           {preview ? (
+            // oxlint-disable-next-line nextjs/no-img-element -- blob preview cannot be optimized
             <img
               src={preview}
               alt={'Buyer profile'}

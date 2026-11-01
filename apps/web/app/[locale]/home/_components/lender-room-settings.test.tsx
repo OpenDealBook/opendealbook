@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -360,11 +360,13 @@ describe('people in a room', () => {
     function RoomAfterRefresh() {
       const [shown, setShown] = useState(members);
 
-      fakeServer.onRefresh = () =>
-        setShown([
-          ...members,
-          { ...members[1]!, id: 'member-3', email: 'lee@firstbank.com' },
-        ]);
+      useEffect(() => {
+        fakeServer.onRefresh = () =>
+          setShown([
+            ...members,
+            { ...members[1]!, id: 'member-3', email: 'lee@firstbank.com' },
+          ]);
+      }, []);
 
       return <LenderRoomPeople roomId={ROOM} members={shown} removed={[]} />;
     }

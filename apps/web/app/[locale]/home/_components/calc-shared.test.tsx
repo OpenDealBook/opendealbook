@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, useLayoutEffect, useState } from 'react';
+import { act, useEffect, useLayoutEffect, useState } from 'react';
 
 import { afterEach, expect, it, vi } from 'vitest';
 
@@ -21,7 +21,9 @@ function EditorThatClicksHomeAsSoonAsTheEditPaints(props: {
   clicked: (event: MouseEvent) => void;
 }) {
   const [dirty, setDirty] = useState(false);
-  edit = () => setDirty(true);
+  useEffect(() => {
+    edit = () => setDirty(true);
+  }, []);
 
   useLayoutEffect(() => {
     if (!dirty) {
