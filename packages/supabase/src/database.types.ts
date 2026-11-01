@@ -12026,6 +12026,7 @@ export type Database = {
         Row: {
           business_id: string | null
           entity_number: string
+          entity_type: string | null
           fetched_at: string
           formation_date: string | null
           id: string
@@ -12035,6 +12036,10 @@ export type Database = {
           mailing_postal_code: string | null
           mailing_state: string | null
           name: string
+          principal_address_line1: string | null
+          principal_city: string | null
+          principal_postal_code: string | null
+          principal_state: string | null
           registered_agent: string | null
           source: Database["public"]["Enums"]["registry_source"]
           source_id: string | null
@@ -12044,6 +12049,7 @@ export type Database = {
         Insert: {
           business_id?: string | null
           entity_number: string
+          entity_type?: string | null
           fetched_at: string
           formation_date?: string | null
           id?: string
@@ -12053,6 +12059,10 @@ export type Database = {
           mailing_postal_code?: string | null
           mailing_state?: string | null
           name: string
+          principal_address_line1?: string | null
+          principal_city?: string | null
+          principal_postal_code?: string | null
+          principal_state?: string | null
           registered_agent?: string | null
           source: Database["public"]["Enums"]["registry_source"]
           source_id?: string | null
@@ -12062,6 +12072,7 @@ export type Database = {
         Update: {
           business_id?: string | null
           entity_number?: string
+          entity_type?: string | null
           fetched_at?: string
           formation_date?: string | null
           id?: string
@@ -12071,6 +12082,10 @@ export type Database = {
           mailing_postal_code?: string | null
           mailing_state?: string | null
           name?: string
+          principal_address_line1?: string | null
+          principal_city?: string | null
+          principal_postal_code?: string | null
+          principal_state?: string | null
           registered_agent?: string | null
           source?: Database["public"]["Enums"]["registry_source"]
           source_id?: string | null

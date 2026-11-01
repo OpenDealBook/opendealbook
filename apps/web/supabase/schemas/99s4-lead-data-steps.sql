@@ -120,8 +120,14 @@ begin
     left join lateral (
       select located.city, located.state
       from (
-        select 1 as rank, g.mailing_city as city, g.mailing_state as state, g.fetched_at::date as recorded_on
+        select 1 as rank,
+          case when principal.listed then g.principal_city else g.mailing_city end as city,
+          case when principal.listed then g.principal_state else g.mailing_state end as state,
+          g.fetched_at::date as recorded_on
         from public.state_registry_entity g
+        cross join lateral (
+          select concat(g.principal_address_line1, g.principal_city, g.principal_state, g.principal_postal_code) <> '' as listed
+        ) principal
         where g.business_id = p.business_id and g.state <> 'NY'
         union all
         select 2, x.city, x.state, x.approved_on from public.ppp_loan x where x.business_id = p.business_id

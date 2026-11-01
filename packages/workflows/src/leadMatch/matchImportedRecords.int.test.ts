@@ -654,6 +654,37 @@ describe('matchImportedRecords', () => {
     });
   });
 
+  it('matches a registry entity by its principal address when it has no mailing address', async () => {
+    const { admin } = pipelineTeam;
+    const registryImport = await newImport(admin, 'state_registry');
+    await admin
+      .from('state_registry_entity')
+      .insert({
+        state: 'CO',
+        entity_number: `${runTag}-reg-principal`,
+        import_id: registryImport,
+        name: 'Lakeside Dental Care, PLLC',
+        principal_address_line1: '40 Shore Rd',
+        principal_postal_code: postal,
+        source: 'bulk_file',
+        fetched_at: new Date().toISOString(),
+      })
+      .throwOnError();
+
+    await matchImportedRecords({
+      source: 'state_registry',
+      importId: registryImport,
+    });
+
+    const { data: registry } = await admin
+      .from('state_registry_entity')
+      .select('business_id')
+      .eq('entity_number', `${runTag}-reg-principal`)
+      .single()
+      .throwOnError();
+    expect(registry).toEqual({ business_id: dentalId });
+  });
+
   it('pages through an import larger than one batch', async () => {
     const { admin } = pipelineTeam;
     const bulkImport = await newImport(admin, 'ppp');

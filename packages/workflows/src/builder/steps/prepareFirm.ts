@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import {
+  REGISTRY_ADDRESS_COLUMNS,
+  registryAddress,
+  type RegistryAddressColumns,
+} from '../../leadImports/registryAddress';
 import { NODE_CONFIG_SCHEMAS } from '../graph';
 import { defineStep } from '../step';
 import { askTeamAi } from '../teamAi';
@@ -41,13 +46,6 @@ function cleanAddress(address: Address): Address {
   };
 }
 
-type RegistryAddress = {
-  mailing_address_line1: string | null;
-  mailing_city: string | null;
-  mailing_state: string | null;
-  mailing_postal_code: string | null;
-};
-
 type RecordAddress = {
   address_line1: string | null;
   city: string | null;
@@ -55,25 +53,20 @@ type RecordAddress = {
   postal_code: string | null;
 };
 
-export function firstMailingAddress({
+export function firstBusinessAddress({
   registries,
   ppp,
   sba,
   form5500,
 }: {
-  registries: RegistryAddress[];
+  registries: RegistryAddressColumns[];
   ppp: RecordAddress[];
   sba: RecordAddress[];
   form5500: RecordAddress[];
 }): Address | null {
   return (
     [
-      ...registries.map((registry) => ({
-        line1: registry.mailing_address_line1,
-        city: registry.mailing_city,
-        state: registry.mailing_state,
-        postalCode: registry.mailing_postal_code,
-      })),
+      ...registries.map(registryAddress),
       ...[...ppp, ...sba, ...form5500].map((record) => ({
         line1: record.address_line1,
         city: record.city,
@@ -108,7 +101,7 @@ async function publicRecords(businessId: string) {
     admin
       .from('state_registry_entity')
       .select(
-        'state, name, status, formation_date, mailing_address_line1, mailing_city, mailing_state, mailing_postal_code, state_registry_officer (title)',
+        `state, name, status, formation_date, ${REGISTRY_ADDRESS_COLUMNS}, state_registry_officer (title)`,
       )
       .eq('business_id', businessId)
       .order('fetched_at', { ascending: false })
@@ -188,7 +181,7 @@ export const prepareFirm = defineStep({
 
     const foundAddress = existingAddress
       ? null
-      : firstMailingAddress({ registries, ppp, sba, form5500 });
+      : firstBusinessAddress({ registries, ppp, sba, form5500 });
 
     const profile = await askTeamAi({
       accountId: context.accountId,

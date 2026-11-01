@@ -15,12 +15,24 @@ interface OfficerColumns {
   title:
     | { text: string }
     | { field: string; blank?: string; separator?: string };
-  unless?: RowMatch;
+  when?: RowMatch;
 }
 
 interface Status {
   columns: string[];
   read: (reader: RecordReader) => string | null;
+}
+
+interface Address {
+  line1: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+}
+
+interface AddressSource {
+  columns: string[];
+  read: (reader: RecordReader) => Address | null;
 }
 
 interface CommonAdapter {
@@ -41,13 +53,9 @@ export interface EntityAdapter extends CommonAdapter {
   status?: Status;
   activeOnly?: true;
   formationDate?: { field: string; format: 'mdy' | 'ymd' };
-  address?: {
-    line1: string;
-    city: string;
-    state: string;
-    zip: string;
-    when?: RowMatch;
-  };
+  entityType?: { field: string; labels?: Record<string, string> };
+  principalAddress?: AddressSource;
+  mailingAddress?: AddressSource;
 }
 
 export interface DetailAdapter extends CommonAdapter {
@@ -86,10 +94,136 @@ const statusField = (field: string): Status => ({
   read: (reader) => reader.text(field),
 });
 
+const addressColumns = (columns: {
+  line1: string;
+  city: string;
+  state: string;
+  zip: string;
+  when?: RowMatch;
+}): AddressSource => ({
+  columns: [
+    columns.line1,
+    columns.city,
+    columns.state,
+    columns.zip,
+    ...matchColumns(columns.when),
+  ],
+  read: (reader) =>
+    matches(reader, columns.when)
+      ? {
+          line1: reader.text(columns.line1),
+          city: reader.text(columns.city),
+          state: reader.text(columns.state),
+          postalCode: reader.text(columns.zip),
+        }
+      : null,
+});
+
+const CONNECTICUT_MAILING_ADDRESS = 'Mailing_Address';
+
+// Joined as "street , unit ,city ,state ,country ,zip"; the street may hold commas.
+const CONNECTICUT_MAILING: AddressSource = {
+  columns: [CONNECTICUT_MAILING_ADDRESS],
+  read: (reader) => {
+    const parts = (reader.text(CONNECTICUT_MAILING_ADDRESS) ?? '')
+      .split(',')
+      .map((part) => part.trim());
+    const [unit, city, state, , postalCode] = parts.slice(-5);
+    return {
+      line1: [...parts.slice(0, -5), unit].filter(Boolean).join(', ') || null,
+      city: city || null,
+      state: state || null,
+      postalCode: postalCode || null,
+    };
+  },
+};
+
 const LISTED_AS_ACTIVE: Status = { columns: [], read: () => 'active' };
 
 const TEXAS_SOS_STATUS = 'SOS Status Code';
 const TEXAS_RIGHT_TO_TRANSACT = 'Right to Transact Business Code';
+
+const TEXAS_ENTITY_TYPES: Record<string, string> = {
+  AB: 'TEXAS BUSINESS ASSOC',
+  AC: 'FRGN BUSINESS ASSOC',
+  AF: 'FOREIGN PROFESSIONAL ASSOCIATION',
+  AP: 'TEXAS PROFESSIONAL ASSOCIATION',
+  AR: 'OTHER ASSOCIATION',
+  C: 'CORPORATION',
+  CF: 'FOREIGN PROFIT CORPORATION',
+  CI: 'FOREIGN LMTD LIAB CO - OOS',
+  CL: 'TEXAS LIMITED LIABILITY COMPANY',
+  CM: 'FOREIGN NON-PROFIT CORP - OOS',
+  CN: 'TEXAS NON-PROFIT CORPORATION',
+  CP: 'TEXAS PROFESSIONAL CORPORATION',
+  CR: 'TEXAS INSURANCE CORPORATION',
+  CS: 'FOREIGN INSURANCE CORP - OOS',
+  CT: 'TEXAS PROFIT CORPORATION',
+  CU: 'FOREIGN PROFESSIONAL CORPORATION',
+  CW: 'TEXAS RAILROAD CORPORATION',
+  CX: 'FOREIGN RAILROAD CORPORATION',
+  DC: 'REGISTERED DATA CENTER',
+  ES: 'ESTATE',
+  FA: 'FINANCIAL INSTITUTION - STATE SAVINGS & LOAN - OOS',
+  FB: 'FINANCIAL INSTITUTION - STATE SAVINGS BANK - TX',
+  FC: 'FINANCIAL INSTITUTION - FEDERAL CREDIT UNION',
+  FD: 'FINANCIAL INSTITUTION - STATE SAVINGS & LOAN - TX',
+  FE: 'FINANCIAL INSTITUTION - FEDERAL SAVINGS & LOAN - TX',
+  FF: 'FINANCIAL INSTITUTION - FEDERAL BANK - TX',
+  FG: 'FINANCIAL INSTITUTION - FEDERAL SAVINGS BANK - TX',
+  FH: 'FINANCIAL INSTITUTION - STATE SAVINGS BANK - OOS',
+  FI: 'FINANCIAL INSTITUTION - STATE CREDIT UNION - TX',
+  FJ: 'FINANCIAL INSTITUTION - FEDERAL BANK - OOS',
+  FK: 'FINANCIAL INSTITUTION - FEDERAL SAVINGS BANK - OOS',
+  FL: 'FINANCIAL INSTITUTION - STATE LIMITED BANK ASSOC',
+  FM: 'FINANCIAL INSTITUTION - TRUST COMPANY',
+  FN: 'FINANCIAL INSTITUTION - FEDERAL SAVINGS & LOAN - OOS',
+  FO: 'FINANCIAL INSTITUTION - STATE BANK - OOS',
+  FP: 'FINANCIAL INSTITUTION',
+  FR: 'FINANCIAL INSTITUTION - FOREIGN COUNTRY BANK',
+  FS: 'FINANCIAL INSTITUTION - STATE BANK - TX',
+  FT: 'FINANCIAL INSTITUTION - STATE CREDIT UNION - OOS',
+  GC: 'CITY',
+  GD: 'FEDERAL AGENCY',
+  GF: 'STATE AGENCY - OOS',
+  GJ: 'JUNIOR COLLEGE',
+  GL: 'LOCAL OFFICIAL',
+  GM: 'MASS TRANSIT',
+  GO: 'COUNTY',
+  GP: 'SPECIAL PURPOSE DISTRICT',
+  GR: 'RAPID TRANSIT',
+  GS: 'SCHOOL DISTRICT',
+  GT: 'STATE AGENCY - TX',
+  GU: 'STATE COLLEGE/UNIVERSITY',
+  GY: 'COMMUNITY COLLEGE',
+  HF: 'FRGN HOLDING COMPANY',
+  HS: 'HISTORIC STRUCTURE',
+  IS: 'INDIVIDUAL - SOLE OWNER',
+  J: 'JOINT VENTURE',
+  L: 'LIMITED (LIABILITY) COMPANY',
+  M: 'LIMITED (LIABILITY) PARTNERSHIP',
+  O: 'OTHER',
+  P: 'GENERAL PARTNERSHIP',
+  PB: 'BUS GENERAL PRTNSHP',
+  PF: 'FRGN LIMITED PRTNSHP',
+  PI: 'IND GENERAL PRTNSHP',
+  PL: 'TX LIMITED PRTNSHP',
+  PO: 'OIL & GAS SPECIAL',
+  PV: 'TEXAS JOINT VENTURE',
+  PW: 'FRGN JOINT VENTURE',
+  PX: 'TX LLP REGISTRATION',
+  PY: 'FRGN LLP REGISTRATION',
+  PZ: 'IND SUCCESSOR PRTSHP',
+  S: 'SOLE PROPRIETORSHIP',
+  SF: 'FRGN JOINT STOCK CO',
+  ST: 'TEXAS JOINT STOCK CO',
+  TF: 'FOREIGN BUSINESS TRUST',
+  TH: 'TX RL EST INV TRST',
+  TI: 'FOREIGN REAL ESTATE INVESTMENT TRUST',
+  TR: 'TRUST',
+  UF: 'UNKNOWN - FRANCHISE',
+  UK: 'UNKNOWN',
+};
 
 const TEXAS_INACTIVE_SOS: Record<string, string> = {
   D: 'dissolved',
@@ -129,19 +263,14 @@ const TEXAS_STATUS: Status = {
 
 const OREGON_ROW_TYPE = 'Associated Name Type';
 const OREGON_PERSON = ['First Name', 'Middle Name', 'Last Name', 'Suffix'];
-const OREGON_PEOPLE: OfficerColumns = {
-  name: [...OREGON_PERSON, 'Entity of Record Name'],
-  title: { field: OREGON_ROW_TYPE },
-  unless: {
-    field: OREGON_ROW_TYPE,
-    is: [
-      'REGISTERED AGENT',
-      'PRINCIPAL PLACE OF BUSINESS',
-      'MAILING ADDRESS',
-      'RECORDS OFFICE',
-    ],
-  },
-};
+const oregonAddress = (rowType: string) =>
+  addressColumns({
+    line1: 'Address',
+    city: 'City',
+    state: 'State',
+    zip: 'Zip',
+    when: { field: OREGON_ROW_TYPE, is: [rowType] },
+  });
 const OREGON_SKIP: RowMatch = {
   field: 'Entity Type',
   is: ['ASSUMED BUSINESS NAME'],
@@ -155,6 +284,13 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
     entityNumber: 'DOS ID',
     name: 'Current Entity Name',
     formationDate: { field: 'Initial DOS Filing Date', format: 'mdy' },
+    entityType: { field: 'Entity Type' },
+    principalAddress: addressColumns({
+      line1: 'Location Address 1',
+      city: 'Location City',
+      state: 'Location State',
+      zip: 'Location Zip',
+    }),
     registeredAgent: { name: ['Registered Agent Name'] },
     officers: [{ name: ['CEO Name'], title: { text: 'CEO' } }],
   },
@@ -175,12 +311,19 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
         'agentorganizationname',
       ],
     },
-    address: {
+    entityType: { field: 'entitytype' },
+    principalAddress: addressColumns({
       line1: 'principaladdress1',
       city: 'principalcity',
       state: 'principalstate',
       zip: 'principalzipcode',
-    },
+    }),
+    mailingAddress: addressColumns({
+      line1: 'mailingaddress1',
+      city: 'mailingcity',
+      state: 'mailingstate',
+      zip: 'mailingzipcode',
+    }),
     officers: [],
   },
   {
@@ -190,6 +333,13 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
     entityNumber: 'Filing Number',
     name: 'Business Name',
     formationDate: { field: 'Creation Date', format: 'mdy' },
+    entityType: { field: 'Type of Business Registration' },
+    principalAddress: addressColumns({
+      line1: 'Address Line 1',
+      city: 'City',
+      state: 'State',
+      zip: 'Zip',
+    }),
     officers: [
       {
         name: ['First Name', 'Middle Name', 'Last Name'],
@@ -206,12 +356,14 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
     name: 'Name',
     status: statusField('Status'),
     formationDate: { field: 'Date_Registration', format: 'mdy' },
-    address: {
+    entityType: { field: 'Business_Type' },
+    principalAddress: addressColumns({
       line1: 'Business_Street',
       city: 'Business_City',
       state: 'Business_State',
       zip: 'Business_ZIP',
-    },
+    }),
+    mailingAddress: CONNECTICUT_MAILING,
     officers: [],
   },
   {
@@ -242,12 +394,16 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
     name: 'Taxpayer Name',
     status: TEXAS_STATUS,
     formationDate: { field: 'SOS Charter Date', format: 'mdy' },
-    address: {
+    entityType: {
+      field: 'Taxpayer Organizational Type',
+      labels: TEXAS_ENTITY_TYPES,
+    },
+    mailingAddress: addressColumns({
       line1: 'Taxpayer Address',
       city: 'Taxpayer City',
       state: 'Taxpayer State',
       zip: 'Taxpayer Zip',
-    },
+    }),
     officers: [],
   },
   {
@@ -269,12 +425,13 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
     activeOnly: true,
     formationDate: { field: 'effective_date', format: 'ymd' },
     registeredAgent: { name: ['registered_agent'] },
-    address: {
+    entityType: { field: 'corporation_type' },
+    principalAddress: addressColumns({
       line1: 'ho_address_1',
       city: 'ho_city',
       state: 'ho_state',
       zip: 'ho_zip',
-    },
+    }),
     officers: [],
   },
   {
@@ -286,12 +443,13 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
     status: statusField('ENTITY_STATUS'),
     formationDate: { field: 'EFFECTIVE_DATE', format: 'ymd' },
     registeredAgent: { name: ['RA_NAME'] },
-    address: {
+    entityType: { field: 'MODELTYPE' },
+    principalAddress: addressColumns({
       line1: 'BUSNIESS_ADDRESS_LINE1',
       city: 'BUSINESS_CITY',
       state: 'BUSINESS_STATE',
       zip: 'ZIPCODE',
-    },
+    }),
     officers: [],
   },
   {
@@ -310,22 +468,16 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
       otherwise: OREGON_PERSON,
       when: { field: OREGON_ROW_TYPE, is: ['REGISTERED AGENT'] },
     },
-    address: {
-      line1: 'Address',
-      city: 'City',
-      state: 'State',
-      zip: 'Zip',
-      when: { field: OREGON_ROW_TYPE, is: ['PRINCIPAL PLACE OF BUSINESS'] },
-    },
-    officers: [OREGON_PEOPLE],
-  },
-  {
-    dataset: 'OR officers',
-    state: 'OR',
-    url: socrata('data.oregon.gov', 'esjy-u4fc'),
-    skip: OREGON_SKIP,
-    attach: 'Registry Number',
-    officers: [OREGON_PEOPLE],
+    entityType: { field: 'Entity Type' },
+    principalAddress: oregonAddress('PRINCIPAL PLACE OF BUSINESS'),
+    mailingAddress: oregonAddress('MAILING ADDRESS'),
+    officers: [
+      {
+        name: [...OREGON_PERSON, 'Entity of Record Name'],
+        title: { text: 'Authorized Representative' },
+        when: { field: OREGON_ROW_TYPE, is: ['AUTHORIZED REPRESENTATIVE'] },
+      },
+    ],
   },
 ];
 
@@ -355,6 +507,15 @@ function formationDate(
     : reader.isoDate(date.field);
 }
 
+function entityType(
+  reader: RecordReader,
+  type: EntityAdapter['entityType'],
+): string | null {
+  if (!type) return null;
+  const value = reader.text(type.field);
+  return value !== null && type.labels ? (type.labels[value] ?? value) : value;
+}
+
 function registeredAgent(
   reader: RecordReader,
   adapter: RegistryAdapter,
@@ -379,9 +540,9 @@ function titles(
 }
 
 function officers(reader: RecordReader, adapter: RegistryAdapter): Officer[] {
-  return adapter.officers.flatMap(({ name, title, unless }) => {
+  return adapter.officers.flatMap(({ name, title, when }) => {
     const officer = joined(reader, name);
-    if (officer === null || (unless && matches(reader, unless))) return [];
+    if (officer === null || !matches(reader, when)) return [];
     return titles(reader, title).map((text) => ({
       name: officer,
       title: text,
@@ -392,10 +553,8 @@ function officers(reader: RecordReader, adapter: RegistryAdapter): Officer[] {
 export function parseRegistry(adapter: EntityAdapter) {
   return (reader: RecordReader): RegistryEntry | null => {
     if (skipped(reader, adapter)) return null;
-    const address =
-      adapter.address && matches(reader, adapter.address.when)
-        ? adapter.address
-        : undefined;
+    const principal = adapter.principalAddress?.read(reader) ?? null;
+    const mailing = adapter.mailingAddress?.read(reader) ?? null;
     return {
       entity: {
         state: adapter.state,
@@ -405,10 +564,15 @@ export function parseRegistry(adapter: EntityAdapter) {
         status: adapter.status ? adapter.status.read(reader) : null,
         formation_date: formationDate(reader, adapter.formationDate),
         registered_agent: registeredAgent(reader, adapter),
-        mailing_address_line1: address ? reader.text(address.line1) : null,
-        mailing_city: address ? reader.text(address.city) : null,
-        mailing_state: address ? reader.text(address.state) : null,
-        mailing_postal_code: address ? reader.text(address.zip) : null,
+        entity_type: entityType(reader, adapter.entityType),
+        principal_address_line1: principal?.line1 ?? null,
+        principal_city: principal?.city ?? null,
+        principal_state: principal?.state ?? null,
+        principal_postal_code: principal?.postalCode ?? null,
+        mailing_address_line1: mailing?.line1 ?? null,
+        mailing_city: mailing?.city ?? null,
+        mailing_state: mailing?.state ?? null,
+        mailing_postal_code: mailing?.postalCode ?? null,
       },
       officers: officers(reader, adapter),
     };
@@ -441,10 +605,10 @@ export function registryColumns(adapter: RegistryAdapter): string[] {
           ...matchColumns(adapter.registeredAgent.when),
         ]
       : []),
-    ...adapter.officers.flatMap(({ name, title, unless }) => [
+    ...adapter.officers.flatMap(({ name, title, when }) => [
       ...name,
       ...('field' in title ? [title.field] : []),
-      ...matchColumns(unless),
+      ...matchColumns(when),
     ]),
   ];
   if ('attach' in adapter) return [adapter.attach, ...shared];
@@ -454,15 +618,9 @@ export function registryColumns(adapter: RegistryAdapter): string[] {
     ...(adapter.sourceId ? [adapter.sourceId] : []),
     ...(adapter.status?.columns ?? []),
     ...(adapter.formationDate ? [adapter.formationDate.field] : []),
-    ...(adapter.address
-      ? [
-          adapter.address.line1,
-          adapter.address.city,
-          adapter.address.state,
-          adapter.address.zip,
-          ...matchColumns(adapter.address.when),
-        ]
-      : []),
+    ...(adapter.entityType ? [adapter.entityType.field] : []),
+    ...(adapter.principalAddress?.columns ?? []),
+    ...(adapter.mailingAddress?.columns ?? []),
     ...shared,
   ];
 }
@@ -473,7 +631,16 @@ export function suppliedFields(adapter: EntityAdapter): string[] {
     ...(adapter.status ? ['status'] : []),
     ...(adapter.formationDate ? ['formation_date'] : []),
     ...(adapter.registeredAgent ? ['registered_agent'] : []),
-    ...(adapter.address
+    ...(adapter.entityType ? ['entity_type'] : []),
+    ...(adapter.principalAddress
+      ? [
+          'principal_address_line1',
+          'principal_city',
+          'principal_state',
+          'principal_postal_code',
+        ]
+      : []),
+    ...(adapter.mailingAddress
       ? [
           'mailing_address_line1',
           'mailing_city',

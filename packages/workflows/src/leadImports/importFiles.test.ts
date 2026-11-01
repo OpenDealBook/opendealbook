@@ -183,7 +183,7 @@ describe('importFiles', () => {
         registry('CT'),
         registry('CT principals', 'CT'),
         registry('OR'),
-        registry('OR officers', 'OR'),
+        registry('OR details', 'OR'),
         registry('IA'),
         registry('NY'),
         registry('NY officers', 'NY'),
@@ -214,7 +214,7 @@ describe('importFiles', () => {
       },
       {
         importId: 'import-4',
-        url: 'https://registry.test/OR officers.csv',
+        url: 'https://registry.test/OR details.csv',
         reason: 'OR did not load in this run',
       },
     ]);

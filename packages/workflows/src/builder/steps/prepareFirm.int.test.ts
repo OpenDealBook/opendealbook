@@ -213,6 +213,32 @@ describe('prepare_firm step (integration)', () => {
     expect(count).toBe(1);
   });
 
+  it('writes the registry principal address when the registry has only a principal address', async () => {
+    const firmId = await seedFirm('Peak Fixture Roofing', {
+      registry: {
+        principal_address_line1: '12 Sample Ave',
+        principal_city: 'Denver',
+        principal_state: 'CO',
+        principal_postal_code: '80202',
+      },
+      ppp: {
+        address_line1: '99 Other St',
+        city: 'Garapan',
+        state: 'MP',
+        postal_code: '96950',
+      },
+    });
+
+    expect(await prepare('run-1:prepare:principal', firmId)).toMatchObject({
+      mailingAddress: {
+        line1: '12 SAMPLE AVE',
+        city: 'DENVER',
+        state: 'CO',
+        postalCode: '80202',
+      },
+    });
+  });
+
   it('converges to the same prepared firm when the step is retried', async () => {
     const firmId = await seedFirm('Tinian Electric', {
       registry: {

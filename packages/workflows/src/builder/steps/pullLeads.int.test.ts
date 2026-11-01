@@ -463,7 +463,7 @@ describe('pull_leads step (integration)', () => {
     expect(firms).toEqual([{ id: known.id, name: 'Known Cabinetry' }]);
   });
 
-  it("fills a new firm's city and state from the business's newest record that has them, registry first", async () => {
+  it("fills a new firm's city and state from the business's newest record that has them, registry first, its principal address over its mailing address", async () => {
     const registered = await seedBusiness({ name: 'Registered Tile', ...fits });
     await owner.admin
       .from('state_registry_entity')
@@ -474,6 +474,20 @@ describe('pull_leads step (integration)', () => {
       .from('ppp_loan')
       .update({ city: 'Garapan' })
       .eq('business_id', registered)
+      .throwOnError();
+    const bothAddresses = await seedBusiness({
+      name: 'Both Addresses Tile',
+      ...fits,
+    });
+    await owner.admin
+      .from('state_registry_entity')
+      .update({
+        principal_city: 'Denver',
+        principal_state: 'CO',
+        mailing_city: 'Saipan',
+        mailing_state: 'MP',
+      })
+      .eq('business_id', bothAddresses)
       .throwOnError();
     const loanOnly = await seedBusiness({ name: 'Loan Only Tile', ...fits });
     await owner.admin
@@ -504,11 +518,12 @@ describe('pull_leads step (integration)', () => {
       .from('firm')
       .select('public_business_id, city, state')
       .eq('account_id', owner.accountId)
-      .in('public_business_id', [registered, loanOnly])
+      .in('public_business_id', [registered, bothAddresses, loanOnly])
       .throwOnError();
     expect(firms).toEqual(
       expect.arrayContaining([
         { public_business_id: registered, city: 'Saipan', state: 'MP' },
+        { public_business_id: bothAddresses, city: 'Denver', state: 'CO' },
         { public_business_id: loanOnly, city: 'Tinian', state: 'MP' },
       ]),
     );

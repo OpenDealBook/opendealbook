@@ -1,7 +1,8 @@
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
-import { firstMailingAddress } from '../builder/steps/prepareFirm';
+import { firstBusinessAddress } from '../builder/steps/prepareFirm';
 import { teamRow } from '../builder/teamRow';
+import { REGISTRY_ADDRESS_COLUMNS } from '../leadImports/registryAddress';
 
 type SubjectKind = 'business' | 'person';
 
@@ -86,13 +87,13 @@ async function publicRecords(businessId: string) {
     admin
       .from('state_registry_entity')
       .select(
-        'name, fetched_at, mailing_address_line1, mailing_city, mailing_state, mailing_postal_code, state_registry_officer (name)',
+        `name, fetched_at, ${REGISTRY_ADDRESS_COLUMNS}, state_registry_officer (name)`,
       )
       .eq('business_id', businessId)
       .order('fetched_at', newestFirst)
       .throwOnError(),
   ]);
-  const mailingAddress = firstMailingAddress({
+  const mailingAddress = firstBusinessAddress({
     registries,
     ppp,
     sba,

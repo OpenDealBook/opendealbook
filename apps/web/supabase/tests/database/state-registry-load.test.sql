@@ -3,6 +3,11 @@ select no_plan();
 
 select tests.create_user('srl_reader');
 
+select has_index(
+  'public', 'state_registry_entity', 'ix_state_registry_entity_import', array['import_id'],
+  'deleting an import finds the registry entities it loaded through an index'
+);
+
 insert into public.lead_import (id, source, filename, status, rows_read, created_at)
 values
   ('e7000000-0000-0000-0000-0000000000a1', 'state_registry', 'srl-zz', 'succeeded', 10, now() - interval '7 days'),
@@ -11,8 +16,9 @@ values
   ('e7000000-0000-0000-0000-0000000000a4', 'state_registry', 'srl-xx', 'running', 0, now());
 
 create temporary table every_field as
-select array['source_id', 'status', 'formation_date', 'registered_agent', 'mailing_address_line1',
-             'mailing_city', 'mailing_state', 'mailing_postal_code'] as fields;
+select array['source_id', 'status', 'formation_date', 'registered_agent', 'entity_type',
+             'principal_address_line1', 'principal_city', 'principal_state', 'principal_postal_code',
+             'mailing_address_line1', 'mailing_city', 'mailing_state', 'mailing_postal_code'] as fields;
 
 select is(
   (select count(*)::int from public.upsert_state_registry_entities(
@@ -124,6 +130,37 @@ select results_eq(
   $$ select registered_agent, mailing_city from public.state_registry_entity where state = 'XX' and entity_number = 'srl-4' $$,
   $$ values ('Sample Agents Inc', 'Mystic') $$,
   'a newer import leaves alone the fields its file does not carry'
+);
+
+select public.upsert_state_registry_entities(
+  '[{"state": "XX", "entity_number": "srl-9", "import_id": "e7000000-0000-0000-0000-0000000000a1",
+     "name": "Two Address LLC", "entity_type": "Domestic Limited Liability Company",
+     "principal_address_line1": "1 Sample St", "principal_city": "Bend", "principal_state": "OR",
+     "principal_postal_code": "97702", "mailing_address_line1": "PO Box 1", "mailing_city": "Bend",
+     "mailing_state": "OR", "mailing_postal_code": "97701", "source": "bulk_file", "fetched_at": "2026-10-18"}]'::jsonb,
+  (select fields from every_field)
+);
+
+select results_eq(
+  $$ select entity_type, principal_address_line1, principal_city, principal_state, principal_postal_code,
+            mailing_address_line1, mailing_city, mailing_state, mailing_postal_code
+     from public.state_registry_entity where state = 'XX' and entity_number = 'srl-9' $$,
+  $$ values ('Domestic Limited Liability Company', '1 Sample St', 'Bend', 'OR', '97702',
+             'PO Box 1', 'Bend', 'OR', '97701') $$,
+  'an entity keeps its type and its principal and mailing addresses apart'
+);
+
+select public.upsert_state_registry_entities(
+  '[{"state": "XX", "entity_number": "srl-9", "import_id": "e7000000-0000-0000-0000-0000000000a4",
+     "name": "Two Address LLC", "source": "bulk_file", "fetched_at": "2026-10-25"}]'::jsonb,
+  array['entity_type', 'principal_address_line1', 'principal_city', 'principal_state', 'principal_postal_code']
+);
+
+select results_eq(
+  $$ select entity_type, principal_address_line1, principal_postal_code, mailing_address_line1, mailing_postal_code
+     from public.state_registry_entity where state = 'XX' and entity_number = 'srl-9' $$,
+  $$ values (null::text, null::text, null::text, 'PO Box 1', '97701') $$,
+  'a newer import clears the type and principal address it supplies blank and keeps the mailing address it does not carry'
 );
 
 select is(

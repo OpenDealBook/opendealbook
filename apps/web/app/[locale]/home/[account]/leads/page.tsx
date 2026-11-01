@@ -10,6 +10,10 @@ import {
 } from '../../_components/match-review-list';
 import { loadTeamWorkspace } from '../layout';
 import { decideMatchReview } from './match-review-actions';
+import {
+  REGISTRY_LOCATION_COLUMNS,
+  registryLocation,
+} from './registry-location';
 
 const PAGE_SIZE = 50;
 
@@ -18,7 +22,7 @@ function place(city: string | null, state: string | null): string | null {
 }
 
 const REVIEW_COLUMNS =
-  'id, reason, score, public_business(name, ein), ppp_loan(borrower_name, city, state), sba_loan(program, borrower_name, city, state), form_5500_filing(sponsor_name, city, state, ein), state_registry_entity(name, mailing_city, mailing_state)';
+  `id, reason, score, public_business(name, ein), ppp_loan(borrower_name, city, state), sba_loan(program, borrower_name, city, state), form_5500_filing(sponsor_name, city, state, ein), state_registry_entity(name, ${REGISTRY_LOCATION_COLUMNS})` as const;
 
 function pendingReviews(accountId: string) {
   return getSupabaseServerClient()
@@ -57,11 +61,12 @@ function recordOf(review: PendingReview) {
     };
   }
   const entity = review.state_registry_entity!;
+  const { city, state } = registryLocation(entity);
 
   return {
     source: 'state_registry' as const,
     recordName: entity.name,
-    recordLocation: place(entity.mailing_city, entity.mailing_state),
+    recordLocation: place(city, state),
   };
 }
 

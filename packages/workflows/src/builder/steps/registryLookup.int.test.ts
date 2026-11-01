@@ -9,7 +9,9 @@ import { registryLookup } from './registryLookup';
 let owner: IntegrationAccount;
 let outsider: IntegrationAccount;
 let businessId: string;
+let principalBusinessId: string;
 let firmId: string;
+let principalFirmId: string;
 let unregisteredFirmId: string;
 let outsiderFirmId: string;
 
@@ -37,6 +39,28 @@ beforeAll(async () => {
     .single()
     .throwOnError();
   businessId = business.id;
+  const { data: principalBusiness } = await owner.admin
+    .from('public_business')
+    .insert({ name: 'Peak Fixture Roofing LLC' })
+    .select('id')
+    .single()
+    .throwOnError();
+  principalBusinessId = principalBusiness.id;
+  await owner.admin
+    .from('state_registry_entity')
+    .insert({
+      state: 'CO',
+      entity_number: `reg-${crypto.randomUUID()}`,
+      business_id: principalBusinessId,
+      name: 'Peak Fixture Roofing LLC',
+      principal_address_line1: '12 Sample Ave',
+      principal_city: 'Denver',
+      principal_state: 'CO',
+      principal_postal_code: '80202',
+      source: 'bulk_file',
+      fetched_at: '2026-09-30T00:00:00Z',
+    })
+    .throwOnError();
   const { data: entity } = await owner.admin
     .from('state_registry_entity')
     .insert({
@@ -78,6 +102,11 @@ beforeAll(async () => {
         public_business_id: businessId,
       },
       { account_id: owner.accountId, name: 'Unregistered Painting' },
+      {
+        account_id: owner.accountId,
+        name: 'Peak Fixture Roofing',
+        public_business_id: principalBusinessId,
+      },
     ])
     .select('id, name')
     .throwOnError();
@@ -86,6 +115,9 @@ beforeAll(async () => {
   )!.id;
   unregisteredFirmId = firms.data.find(
     (firm: { name: string }) => firm.name === 'Unregistered Painting',
+  )!.id;
+  principalFirmId = firms.data.find(
+    (firm: { name: string }) => firm.name === 'Peak Fixture Roofing',
   )!.id;
   const { data: outsiderFirm } = await outsider.admin
     .from('firm')
@@ -108,8 +140,11 @@ afterAll(async () => {
   await owner.admin
     .from('state_registry_entity')
     .delete()
-    .eq('business_id', businessId);
-  await owner.admin.from('public_business').delete().eq('id', businessId);
+    .in('business_id', [businessId, principalBusinessId]);
+  await owner.admin
+    .from('public_business')
+    .delete()
+    .in('id', [businessId, principalBusinessId]);
   await Promise.all([owner.cleanup(), outsider.cleanup()]);
 });
 
@@ -136,6 +171,20 @@ describe('registry_lookup step (integration)', () => {
       formationDate: '2009-04-01',
       status: 'Active - Good Standing',
       asOf: '2026-09-30T00:00:00+00:00',
+    });
+  });
+
+  it('returns the principal address of a registry record that has only a principal address', async () => {
+    expect(await lookUp({ firmId: principalFirmId })).toMatchObject({
+      found: true,
+      entity: {
+        mailingAddress: {
+          line1: '12 Sample Ave',
+          city: 'Denver',
+          state: 'CO',
+          postalCode: '80202',
+        },
+      },
     });
   });
 

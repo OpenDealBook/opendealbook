@@ -87,7 +87,7 @@ async function oregonEntities() {
   const { data } = await admin
     .from('state_registry_entity')
     .select(
-      'entity_number, status, registered_agent, mailing_address_line1, mailing_postal_code, state_registry_officer(name, title)',
+      'entity_number, status, registered_agent, entity_type, principal_address_line1, principal_postal_code, mailing_address_line1, mailing_postal_code, state_registry_officer(name, title)',
     )
     .eq('state', 'OR')
     .in('entity_number', OR_ENTITIES)
@@ -597,7 +597,7 @@ describe('lead file loads', () => {
     ).toEqual({ skipped: false });
   });
 
-  it('gathers each Oregon business from its rows, taking the principal place of business and the registered agent whichever comes first', async () => {
+  it('gathers each Oregon business from its rows, taking its type, the principal place of business, the mailing address and the registered agent whichever comes first', async () => {
     const { second } = await importTwice(
       oregon('registry_or.csv', '2026-10-18'),
     );
@@ -612,74 +612,28 @@ describe('lead file loads', () => {
         entity_number: '100001',
         status: 'active',
         registered_agent: 'CASEY Q FICTIONAL',
-        mailing_address_line1: '12 SAMPLE LN',
-        mailing_postal_code: '97702',
+        entity_type: 'DOMESTIC LIMITED LIABILITY COMPANY',
+        principal_address_line1: '12 SAMPLE LN',
+        principal_postal_code: '97702',
+        mailing_address_line1: 'PO BOX 1',
+        mailing_postal_code: '97701',
         state_registry_officer: [],
       },
       {
         entity_number: '200002',
         status: 'active',
         registered_agent: 'SAMPLE REGISTERED AGENTS INC',
-        mailing_address_line1: '40 SAMPLE ST',
-        mailing_postal_code: '97401',
+        entity_type: 'DOMESTIC BUSINESS CORPORATION',
+        principal_address_line1: '40 SAMPLE ST',
+        principal_postal_code: '97401',
+        mailing_address_line1: null,
+        mailing_postal_code: null,
         state_registry_officer: [],
       },
     ]);
   });
 
-  it('attaches Oregon officers, people or companies, to businesses already listed, creating none and counting the rest', async () => {
-    await importOnce(oregon('registry_or.csv', '2026-10-18'));
-
-    const { importId } = await importTwice(
-      fixtureFile(
-        { kind: 'state_registry', dataset: 'OR officers' },
-        'registry_or_officers.csv',
-        '2026-10-01',
-      ),
-    );
-
-    const entities = await oregonEntities();
-    expect(entities.map((entity) => entity.entity_number)).toEqual([
-      '100001',
-      '200002',
-    ]);
-    expect(entities[0]!.state_registry_officer).toEqual(
-      expect.arrayContaining([
-        { name: 'CASEY Q FICTIONAL', title: 'MEMBER' },
-        { name: 'RILEY EXAMPLE JR', title: 'MANAGER' },
-        { name: 'SAMPLE ORCHARD HOLDINGS LLC', title: 'MEMBER' },
-      ]),
-    );
-    expect(entities[0]!.state_registry_officer).toHaveLength(5);
-    expect(await unmatched(importId)).toBe(2);
-
-    await importTwice(
-      fixtureFile(
-        { kind: 'state_registry', dataset: 'OR officers' },
-        'registry_or_officers_departed.csv',
-        '2026-11-01',
-      ),
-    );
-
-    expect(
-      (await oregonEntities())[0]!.state_registry_officer.map(
-        (officer) => officer.name,
-      ),
-    ).toEqual(expect.not.arrayContaining(['RILEY EXAMPLE JR']));
-    expect((await oregonEntities())[0]!.state_registry_officer).toHaveLength(4);
-
-    await importTwice(
-      fixtureFile(
-        { kind: 'state_registry', dataset: 'OR officers' },
-        'registry_or_officers_listed_only.csv',
-        '2026-12-01',
-      ),
-    );
-
-    expect((await oregonEntities())[0]!.state_registry_officer).toEqual([]);
-  });
-
-  it('marks an Oregon business missing from the latest file as no longer listed, clears the agent the later file leaves blank, keeps authorized representatives as officers while listed, and restores it when it is listed again', async () => {
+  it('marks an Oregon business missing from the latest file as no longer listed, clears the agent the later file leaves blank, keeps its authorized representatives while listed, and restores it when it is listed again', async () => {
     await importSnapshot('OR', 'registry_or.csv', '2026-10-18');
 
     await importSnapshot('OR', 'registry_or_relisted.csv', '2026-10-25');
@@ -701,8 +655,8 @@ describe('lead file loads', () => {
         a.name.localeCompare(b.name),
       ),
     ).toEqual([
-      { name: 'PAT SAMPLE', title: 'AUTHORIZED REPRESENTATIVE' },
-      { name: 'ROBIN EXAMPLE', title: 'AUTHORIZED REPRESENTATIVE' },
+      { name: 'PAT SAMPLE', title: 'Authorized Representative' },
+      { name: 'ROBIN EXAMPLE', title: 'Authorized Representative' },
     ]);
 
     await importSnapshot('OR', 'registry_or.csv', '2026-11-01');

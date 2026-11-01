@@ -411,6 +411,20 @@ describe('diligenceSubjects (integration)', () => {
       approved_on: '2021-01-01',
     });
 
+    const fromPrincipal = await seedBusiness('Principal Address Co');
+    await seedRegistry(fromPrincipal, {
+      principal_address_line1: '12 Sample Ave',
+      principal_city: 'Denver',
+      principal_state: 'CO',
+      principal_postal_code: '80202',
+    });
+    await seedPpp(fromPrincipal, {
+      address_line1: '6 Loan St',
+      city: 'Austin',
+      state: 'TX',
+      postal_code: '78701',
+    });
+
     const nowhere = await seedBusiness('No Address Co');
     await seedPpp(nowhere, { address_line1: '5 Loan St', state: 'TX' });
 
@@ -423,6 +437,7 @@ describe('diligenceSubjects (integration)', () => {
     };
     expect(await stateOf(fromRegistry)).toBe('CT');
     expect(await stateOf(fromOlderLoan)).toBe('IA');
+    expect(await stateOf(fromPrincipal)).toBe('CO');
     expect(await stateOf(nowhere)).toBeNull();
   });
 

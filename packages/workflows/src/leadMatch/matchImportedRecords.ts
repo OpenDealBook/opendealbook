@@ -3,6 +3,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import {
+  REGISTRY_ADDRESS_COLUMNS,
+  registryAddress,
+  type RegistryAddressColumns,
+} from '../leadImports/registryAddress';
 import { bestCandidate, matchBlock, matchKey, matchOutcome } from './matcher';
 
 interface SourceShape {
@@ -10,18 +15,31 @@ interface SourceShape {
   key: string;
   reviewColumn: string;
   name: string;
-  addressLine1: string;
-  postalCode: string;
+  addressColumns: string;
+  address: (row: SourceRow) => MatchAddress;
   ein?: string;
 }
+
+type SourceRow = Pick<SourceRecord, 'key' | 'name' | 'ein'> &
+  Record<'address_line1' | 'postal_code', string | null> &
+  RegistryAddressColumns;
+
+type MatchAddress = Pick<SourceRecord, 'addressLine1' | 'postalCode'>;
+
+const RECORD_ADDRESS = {
+  addressColumns: 'address_line1, postal_code',
+  address: (row: SourceRow) => ({
+    addressLine1: row.address_line1,
+    postalCode: row.postal_code,
+  }),
+};
 
 const PPP: SourceShape = {
   table: 'ppp_loan',
   key: 'loan_number',
   reviewColumn: 'ppp_loan_number',
   name: 'borrower_name',
-  addressLine1: 'address_line1',
-  postalCode: 'postal_code',
+  ...RECORD_ADDRESS,
 };
 
 const SBA: SourceShape = {
@@ -29,8 +47,7 @@ const SBA: SourceShape = {
   key: 'id',
   reviewColumn: 'sba_loan_id',
   name: 'borrower_name',
-  addressLine1: 'address_line1',
-  postalCode: 'postal_code',
+  ...RECORD_ADDRESS,
 };
 
 const SOURCES: Record<Enums<'lead_source'>, SourceShape> = {
@@ -42,8 +59,7 @@ const SOURCES: Record<Enums<'lead_source'>, SourceShape> = {
     key: 'ack_id',
     reviewColumn: 'form_5500_ack_id',
     name: 'sponsor_name',
-    addressLine1: 'address_line1',
-    postalCode: 'postal_code',
+    ...RECORD_ADDRESS,
     ein: 'ein',
   },
   state_registry: {
@@ -51,8 +67,11 @@ const SOURCES: Record<Enums<'lead_source'>, SourceShape> = {
     key: 'id',
     reviewColumn: 'registry_entity_id',
     name: 'name',
-    addressLine1: 'mailing_address_line1',
-    postalCode: 'mailing_postal_code',
+    addressColumns: REGISTRY_ADDRESS_COLUMNS,
+    address: (row) => {
+      const { line1, postalCode } = registryAddress(row);
+      return { addressLine1: line1, postalCode };
+    },
   },
 };
 
@@ -78,8 +97,7 @@ export async function matchImportedRecords({
   const columns = [
     `key:${shape.key}`,
     `name:${shape.name}`,
-    `addressLine1:${shape.addressLine1}`,
-    `postalCode:${shape.postalCode}`,
+    shape.addressColumns,
     ...(shape.ein ? [`ein:${shape.ein}`] : []),
   ].join(', ');
 
@@ -94,7 +112,14 @@ export async function matchImportedRecords({
     const { data: page } = await (
       after === null ? firstPage : firstPage.gt(shape.key, after)
     ).throwOnError();
-    const records = page as unknown as SourceRecord[];
+    const records = (page as unknown as SourceRow[]).map(
+      (row): SourceRecord => ({
+        key: row.key,
+        name: row.name,
+        ein: row.ein,
+        ...shape.address(row),
+      }),
+    );
 
     for (const record of records) {
       await matchRecord(db, shape, record);

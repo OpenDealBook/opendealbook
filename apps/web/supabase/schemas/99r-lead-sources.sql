@@ -106,6 +106,11 @@ create table if not exists public.state_registry_entity (
   fetched_at timestamptz not null,
   import_id uuid references public.lead_import (id) on delete set null,
   source_id text,
+  entity_type text,
+  principal_address_line1 text,
+  principal_city text,
+  principal_state text,
+  principal_postal_code text,
   unique (state, entity_number)
 );
 
@@ -124,6 +129,7 @@ create index ix_sba_loan_business on public.sba_loan (business_id);
 create index ix_form_5500_filing_business on public.form_5500_filing (business_id);
 create index ix_form_5500_filing_ein on public.form_5500_filing (ein);
 create index ix_state_registry_entity_business on public.state_registry_entity (business_id);
+create index ix_state_registry_entity_import on public.state_registry_entity (import_id);
 create unique index ux_state_registry_entity_source_id on public.state_registry_entity (state, source_id);
 create index ix_state_registry_officer_entity on public.state_registry_officer (entity_id);
 create index ix_public_business_match_key_prefix on public.public_business (match_key text_pattern_ops);
@@ -220,12 +226,14 @@ create or replace function public.upsert_state_registry_entities(p_rows jsonb, p
   )
   insert into public.state_registry_entity as e (
     state, entity_number, source_id, import_id, name, status, formation_date,
-    registered_agent, mailing_address_line1, mailing_city, mailing_state,
+    registered_agent, entity_type, principal_address_line1, principal_city, principal_state,
+    principal_postal_code, mailing_address_line1, mailing_city, mailing_state,
     mailing_postal_code, source, fetched_at
   )
   select
     r.state, r.entity_number, r.source_id, r.import_id, r.name, r.status, r.formation_date,
-    r.registered_agent, r.mailing_address_line1, r.mailing_city, r.mailing_state,
+    r.registered_agent, r.entity_type, r.principal_address_line1, r.principal_city, r.principal_state,
+    r.principal_postal_code, r.mailing_address_line1, r.mailing_city, r.mailing_state,
     r.mailing_postal_code, r.source, r.fetched_at
   from accepted r
   on conflict (state, entity_number) do update set
@@ -237,6 +245,16 @@ create or replace function public.upsert_state_registry_entities(p_rows jsonb, p
       then coalesce(excluded.formation_date, e.formation_date) else excluded.formation_date end,
     registered_agent = case when e.import_id = excluded.import_id or not 'registered_agent' = any (p_supplied)
       then coalesce(excluded.registered_agent, e.registered_agent) else excluded.registered_agent end,
+    entity_type = case when e.import_id = excluded.import_id or not 'entity_type' = any (p_supplied)
+      then coalesce(excluded.entity_type, e.entity_type) else excluded.entity_type end,
+    principal_address_line1 = case when e.import_id = excluded.import_id or not 'principal_address_line1' = any (p_supplied)
+      then coalesce(excluded.principal_address_line1, e.principal_address_line1) else excluded.principal_address_line1 end,
+    principal_city = case when e.import_id = excluded.import_id or not 'principal_city' = any (p_supplied)
+      then coalesce(excluded.principal_city, e.principal_city) else excluded.principal_city end,
+    principal_state = case when e.import_id = excluded.import_id or not 'principal_state' = any (p_supplied)
+      then coalesce(excluded.principal_state, e.principal_state) else excluded.principal_state end,
+    principal_postal_code = case when e.import_id = excluded.import_id or not 'principal_postal_code' = any (p_supplied)
+      then coalesce(excluded.principal_postal_code, e.principal_postal_code) else excluded.principal_postal_code end,
     mailing_address_line1 = case when e.import_id = excluded.import_id or not 'mailing_address_line1' = any (p_supplied)
       then coalesce(excluded.mailing_address_line1, e.mailing_address_line1) else excluded.mailing_address_line1 end,
     mailing_city = case when e.import_id = excluded.import_id or not 'mailing_city' = any (p_supplied)

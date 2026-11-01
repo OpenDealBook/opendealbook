@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import {
+  REGISTRY_ADDRESS_COLUMNS,
+  registryAddress,
+} from '../../leadImports/registryAddress';
 import { NODE_CONFIG_SCHEMAS } from '../graph';
 import { defineStep } from '../step';
 import { teamRow } from '../teamRow';
@@ -55,7 +59,7 @@ export const registryLookup = defineStep({
     const { data: entity } = await getSupabaseServerAdminClient()
       .from('state_registry_entity')
       .select(
-        'state, entity_number, name, status, formation_date, registered_agent, mailing_address_line1, mailing_city, mailing_state, mailing_postal_code, fetched_at, state_registry_officer (name, title)',
+        `state, entity_number, name, status, formation_date, registered_agent, ${REGISTRY_ADDRESS_COLUMNS}, fetched_at, state_registry_officer (name, title)`,
       )
       .eq('business_id', firm.public_business_id)
       .order('fetched_at', { ascending: false })
@@ -73,12 +77,7 @@ export const registryLookup = defineStep({
         entityNumber: entity.entity_number,
         name: entity.name,
         registeredAgent: entity.registered_agent,
-        mailingAddress: {
-          line1: entity.mailing_address_line1,
-          city: entity.mailing_city,
-          state: entity.mailing_state,
-          postalCode: entity.mailing_postal_code,
-        },
+        mailingAddress: registryAddress(entity),
       },
       officers: entity.state_registry_officer,
       formationDate: entity.formation_date,

@@ -48,7 +48,7 @@ async function parseFixture<T>(
 }
 
 describe('New York registry file', () => {
-  it('maps each corporation with its CEO as an officer and no address, since the file holds only process and agent addresses', async () => {
+  it('maps each corporation with its type, its CEO as an officer and its physical location as the principal address, leaving the process address out of mailing', async () => {
     const { entries, rejected } = await parseFixture(
       entityParser('NY'),
       'registry_ny.csv',
@@ -64,6 +64,11 @@ describe('New York registry file', () => {
           status: null,
           formation_date: '2013-06-27',
           registered_agent: 'SAMPLE AGENTS LLC',
+          entity_type: 'DOMESTIC BUSINESS CORPORATION',
+          principal_address_line1: '5 SAMPLE PLAZA',
+          principal_city: 'MOUNT VERNON',
+          principal_state: 'NY',
+          principal_postal_code: '10552',
           mailing_address_line1: null,
           mailing_city: null,
           mailing_state: null,
@@ -84,7 +89,7 @@ describe('New York registry file', () => {
 });
 
 describe('Colorado registry file', () => {
-  it('keeps the raw status and joins the agent name parts', async () => {
+  it('keeps the raw status and type, joins the agent name parts and keeps the principal and mailing addresses apart', async () => {
     const { entries } = await parseFixture(
       entityParser('CO'),
       'registry_co.csv',
@@ -99,10 +104,15 @@ describe('Colorado registry file', () => {
         status: 'Delinquent',
         formation_date: '1987-11-13',
         registered_agent: 'Robin Q Fictional',
-        mailing_address_line1: '12 Sample Ave',
+        entity_type: 'DLLC',
+        principal_address_line1: '12 Sample Ave',
+        principal_city: 'Denver',
+        principal_state: 'CO',
+        principal_postal_code: '80202',
+        mailing_address_line1: 'PO Box 7',
         mailing_city: 'Denver',
         mailing_state: 'CO',
-        mailing_postal_code: '80202',
+        mailing_postal_code: '80201',
       },
       expect.objectContaining({
         entity_number: '20001000002',
@@ -113,7 +123,7 @@ describe('Colorado registry file', () => {
 });
 
 describe('Pennsylvania registry file', () => {
-  it('reads each officer row with its title, keeps the leading zeros of the filing number, and takes no registered-office address', async () => {
+  it('reads each officer row with its title, keeps the leading zeros of the filing number and the type, and takes its street address as the principal address', async () => {
     const { entries } = await parseFixture(
       entityParser('PA'),
       'registry_pa.csv',
@@ -125,6 +135,11 @@ describe('Pennsylvania registry file', () => {
           entity_number: '0006306940',
           status: null,
           formation_date: '2015-10-07',
+          entity_type: 'Domestic Business Corporation',
+          principal_address_line1: '4 Sample Rd',
+          principal_city: 'Erie',
+          principal_state: 'PA',
+          principal_postal_code: '16501',
           mailing_address_line1: null,
           mailing_city: null,
           mailing_state: null,
@@ -141,7 +156,7 @@ describe('Pennsylvania registry file', () => {
 });
 
 describe('Connecticut registry file', () => {
-  it('maps the business master record', async () => {
+  it('maps the business master record, its business address as principal and its joined mailing address split into parts', async () => {
     const { entries } = await parseFixture(
       entityParser('CT'),
       'registry_ct.csv',
@@ -157,7 +172,12 @@ describe('Connecticut registry file', () => {
           status: 'Active',
           formation_date: '2012-03-14',
           registered_agent: null,
-          mailing_address_line1: '9 Sample St',
+          entity_type: 'LLC',
+          principal_address_line1: '9 Sample St',
+          principal_city: 'Mystic',
+          principal_state: 'CT',
+          principal_postal_code: '06355',
+          mailing_address_line1: 'PO Box 12, Unit 3',
           mailing_city: 'Mystic',
           mailing_state: 'CT',
           mailing_postal_code: '06355',
@@ -165,6 +185,48 @@ describe('Connecticut registry file', () => {
         officers: [],
       },
     ]);
+  });
+});
+
+describe('Connecticut joined mailing address', () => {
+  it('keeps the unit on the first address line after the street', () => {
+    const entity = entityParser('CT')(
+      new RecordReader({
+        Name: 'Harbor Light Bakery LLC',
+        AccountNumber: '1000001',
+        Mailing_Address:
+          '100 Sample Rd, Suite 4 , 2nd Floor ,Hartford ,CT ,United States ,06103',
+      }),
+    )!.entity;
+
+    expect([
+      entity.mailing_address_line1,
+      entity.mailing_city,
+      entity.mailing_state,
+      entity.mailing_postal_code,
+    ]).toEqual([
+      '100 Sample Rd, Suite 4, 2nd Floor',
+      'Hartford',
+      'CT',
+      '06103',
+    ]);
+  });
+
+  it('stores no mailing address when every part of the joined address is blank', () => {
+    const entity = entityParser('CT')(
+      new RecordReader({
+        Name: 'Harbor Light Bakery LLC',
+        AccountNumber: '1000001',
+        Mailing_Address: ', , , , ,',
+      }),
+    )!.entity;
+
+    expect([
+      entity.mailing_address_line1,
+      entity.mailing_city,
+      entity.mailing_state,
+      entity.mailing_postal_code,
+    ]).toEqual([null, null, null, null]);
   });
 });
 
@@ -197,6 +259,11 @@ describe('Texas franchise tax file', () => {
       status: 'active',
       formation_date: '2026-08-21',
       registered_agent: null,
+      entity_type: 'TEXAS LIMITED LIABILITY COMPANY',
+      principal_address_line1: null,
+      principal_city: null,
+      principal_state: null,
+      principal_postal_code: null,
       mailing_address_line1: '77 SAMPLE DR',
       mailing_city: 'AUSTIN',
       mailing_state: 'TX',
@@ -241,6 +308,20 @@ describe('Texas franchise tax file', () => {
   );
 });
 
+describe('Texas organizational type', () => {
+  it('keeps a code the record layout does not list as it is', () => {
+    expect(
+      entityParser('TX')(
+        new RecordReader({
+          'Secretary of State (SOS) or COA File Number': '0800000009',
+          'Taxpayer Name': 'SAMPLE CO',
+          'Taxpayer Organizational Type': 'QQ',
+        }),
+      )!.entity.entity_type,
+    ).toBe('QQ');
+  });
+});
+
 describe('District of Columbia registry file', () => {
   it('reads a file that starts with a byte order mark and a timestamped date', async () => {
     const { entries } = await parseFixture(
@@ -257,10 +338,15 @@ describe('District of Columbia registry file', () => {
         status: 'Active - In Good Standing',
         formation_date: '2023-12-22',
         registered_agent: 'Sample Agent Services',
-        mailing_address_line1: '1 Sample St NW',
-        mailing_city: 'Washington',
-        mailing_state: 'DC',
-        mailing_postal_code: '20001',
+        entity_type: 'Domestic Limited Liability Company',
+        principal_address_line1: '1 Sample St NW',
+        principal_city: 'Washington',
+        principal_state: 'DC',
+        principal_postal_code: '20001',
+        mailing_address_line1: null,
+        mailing_city: null,
+        mailing_state: null,
+        mailing_postal_code: null,
       },
     ]);
   });
@@ -284,10 +370,15 @@ describe('Iowa registry file', () => {
           status: 'active',
           formation_date: '2004-05-17',
           registered_agent: 'Morgan Fictional',
-          mailing_address_line1: '88 Sample Rd',
-          mailing_city: 'Ames',
-          mailing_state: 'IA',
-          mailing_postal_code: '50014',
+          entity_type: 'Domestic Profit',
+          principal_address_line1: '88 Sample Rd',
+          principal_city: 'Ames',
+          principal_state: 'IA',
+          principal_postal_code: '50014',
+          mailing_address_line1: null,
+          mailing_city: null,
+          mailing_state: null,
+          mailing_postal_code: null,
         },
         officers: [],
       },
@@ -316,7 +407,7 @@ describe('Iowa registry file', () => {
 });
 
 describe('Oregon active businesses file', () => {
-  it('takes the address from the principal place of business row and the agent from the registered agent row, skipping assumed business names', async () => {
+  it('takes each address from its own row type and the agent from the registered agent row, skipping assumed business names', async () => {
     const { entries } = await parseFixture(
       entityParser('OR'),
       'registry_or.csv',
@@ -331,10 +422,15 @@ describe('Oregon active businesses file', () => {
         status: 'active',
         formation_date: '2019-05-17',
         registered_agent: null,
-        mailing_address_line1: null,
-        mailing_city: null,
-        mailing_state: null,
-        mailing_postal_code: null,
+        entity_type: 'DOMESTIC LIMITED LIABILITY COMPANY',
+        principal_address_line1: null,
+        principal_city: null,
+        principal_state: null,
+        principal_postal_code: null,
+        mailing_address_line1: 'PO BOX 1',
+        mailing_city: 'BEND',
+        mailing_state: 'OR',
+        mailing_postal_code: '97701',
       },
       officers: [],
     });
@@ -342,15 +438,15 @@ describe('Oregon active businesses file', () => {
       entries.map(({ entity }) => [
         entity.entity_number,
         entity.registered_agent,
+        entity.principal_address_line1,
         entity.mailing_address_line1,
-        entity.mailing_postal_code,
       ]),
     ).toEqual([
-      ['100001', null, null, null],
-      ['100001', null, '12 SAMPLE LN', '97702'],
+      ['100001', null, null, 'PO BOX 1'],
+      ['100001', null, '12 SAMPLE LN', null],
       ['100001', 'CASEY Q FICTIONAL', null, null],
       ['200002', 'SAMPLE REGISTERED AGENTS INC', null, null],
-      ['200002', null, '40 SAMPLE ST', '97401'],
+      ['200002', null, '40 SAMPLE ST', null],
     ]);
   });
 });
@@ -373,7 +469,7 @@ describe('Oregon registered agent', () => {
 });
 
 describe('Oregon authorized representatives', () => {
-  it('reads an authorized representative row of the active businesses file as an officer, person or company', () => {
+  it('reads an authorized representative row of the active businesses file as an Authorized Representative, person or company', () => {
     const parse = entityParser('OR');
     const row = (names: Record<string, string>) =>
       parse(
@@ -386,47 +482,15 @@ describe('Oregon authorized representatives', () => {
       )!.officers;
 
     expect(row({ 'First Name': 'PAT', 'Last Name': 'SAMPLE' })).toEqual([
-      { name: 'PAT SAMPLE', title: 'AUTHORIZED REPRESENTATIVE' },
+      { name: 'PAT SAMPLE', title: 'Authorized Representative' },
     ]);
     expect(
       row({ 'Entity of Record Name': 'SAMPLE ORCHARD HOLDINGS LLC' }),
     ).toEqual([
       {
         name: 'SAMPLE ORCHARD HOLDINGS LLC',
-        title: 'AUTHORIZED REPRESENTATIVE',
+        title: 'Authorized Representative',
       },
-    ]);
-  });
-});
-
-describe('Oregon new businesses file', () => {
-  it('reads every people role, people or companies, lists the business on every other row, and skips assumed business names', async () => {
-    const { entries } = await parseFixture(
-      detailParser('OR officers'),
-      'registry_or_officers.csv',
-    );
-
-    expect(
-      entries.map(({ source_id, officers }) => [source_id, officers]),
-    ).toEqual([
-      [
-        '100001',
-        [
-          {
-            name: 'CASEY Q FICTIONAL',
-            title: 'INDIVIDUAL WITH DIRECT KNOWLEDGE',
-          },
-        ],
-      ],
-      ['100001', [{ name: 'CASEY Q FICTIONAL', title: 'MEMBER' }]],
-      ['100001', [{ name: 'RILEY EXAMPLE JR', title: 'MANAGER' }]],
-      ['100001', [{ name: 'SAMPLE ORCHARD HOLDINGS LLC', title: 'MEMBER' }]],
-      ['100001', [{ name: 'PAT SAMPLE', title: 'REGISTRANT' }]],
-      ['100001', []],
-      ['100001', []],
-      ['100001', []],
-      ['500005', [{ name: 'JESSE EXAMPLE', title: 'MANAGER' }]],
-      ['500005', [{ name: 'JORDAN EXAMPLE', title: 'MEMBER' }]],
     ]);
   });
 });
@@ -509,7 +573,6 @@ describe('registry columns', () => {
     ['DC', 'registry_dc.csv', false],
     ['IA', 'registry_ia.zip', true],
     ['OR', 'registry_or.csv', false],
-    ['OR officers', 'registry_or_officers.csv', false],
     ['CT principals', 'registry_ct_principals.csv', false],
     ['CT agents', 'registry_ct_agents.csv', false],
   ] as const)(
@@ -538,7 +601,6 @@ describe('registry files', () => {
     ).toEqual([
       ['CT principals', 'CT'],
       ['CT agents', 'CT'],
-      ['OR officers', 'OR'],
     ]);
   });
 });
