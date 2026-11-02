@@ -1647,12 +1647,16 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       'exec',
       `${process.env.COMPOSE_PROJECT_NAME ?? 'opendealbook'}-temporal-1`,
       'temporal',
-      'schedule',
-      'trigger',
+      'workflow',
+      'execute',
       '--address',
       'temporal:7233',
-      '--schedule-id',
-      'milestone-overdue-notice',
+      '--type',
+      'notifyOverdueMilestonesDaily',
+      '--task-queue',
+      'opendealbook',
+      '--workflow-id',
+      `milestone-overdue-e2e-${Date.now()}`,
     ]);
     const ownerId = await db.userIdByEmail(team.email);
     const notice = await db.waitForRow<{ body: string }>(

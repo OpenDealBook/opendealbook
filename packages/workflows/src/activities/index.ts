@@ -107,7 +107,7 @@ export {
   loadFloridaLicenses,
   startFloridaLicenseImport,
 } from '../floridaLicenses/activities';
-export { notifyOverdueMilestones } from '@odb/deal-timeline/overdue.ts';
+export { notifyOverdueMilestones } from '../schedules/milestoneOverdueActivity';
 export { deliverDocumentToSeller } from '../sellerDelivery/activities';
 export {
   deliverDealUpdate,

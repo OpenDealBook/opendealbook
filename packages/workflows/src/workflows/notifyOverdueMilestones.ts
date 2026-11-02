@@ -4,6 +4,7 @@ import type * as activities from '../activities';
 
 const { notifyOverdueMilestones } = proxyActivities<typeof activities>({
   startToCloseTimeout: '30 minutes',
+  heartbeatTimeout: '30 seconds',
 });
 
 export async function notifyOverdueMilestonesDaily(): Promise<void> {
