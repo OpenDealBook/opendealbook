@@ -21,6 +21,7 @@ interface OfficerColumns {
 interface Status {
   columns: string[];
   read: (reader: RecordReader) => string | null;
+  mostRestrictiveFirst?: string[];
 }
 
 interface Address {
@@ -42,20 +43,31 @@ interface CommonAdapter {
   zipped?: boolean;
   published?: { url: string; date: (metadata: unknown) => string };
   skip?: RowMatch;
-  registeredAgent?: { name: string[]; otherwise?: string[]; when?: RowMatch };
+  registeredAgent?: {
+    name: string[];
+    otherwise?: string[];
+    when?: RowMatch;
+    vacant?: string[];
+  };
   officers: OfficerColumns[];
+  status?: Status;
+  principalAddress?: AddressSource;
+  filing?: string[];
 }
 
 export interface EntityAdapter extends CommonAdapter {
   entityNumber: string;
   sourceId?: string;
   name: string;
-  status?: Status;
   activeOnly?: true;
-  formationDate?: { field: string; format: 'mdy' | 'ymd' };
+  formationDate?: {
+    field: string;
+    format: 'mdy' | 'ymd';
+    placeholder?: string;
+  };
   entityType?: { field: string; labels?: Record<string, string> };
-  principalAddress?: AddressSource;
   mailingAddress?: AddressSource;
+  alias?: string;
 }
 
 export interface DetailAdapter extends CommonAdapter {
@@ -77,17 +89,44 @@ type Officer = {
 export interface RegistryEntry {
   entity: RegistryEntity;
   officers: Officer[];
+  filing?: string;
 }
+
+type DetailPart = 'agent' | 'officers' | 'status' | 'principal';
 
 export type RegistryDetail = {
   source_id: string;
   registered_agent: string | null;
+  registered_agent_vacant: boolean;
   officers: Officer[];
+  status: string | null;
+  principal_address_line1: string | null;
+  principal_city: string | null;
+  principal_state: string | null;
+  principal_postal_code: string | null;
   rows: number;
+  filed?: Record<DetailPart, string>;
 };
 
 const socrata = (domain: string, id: string) =>
   `https://${domain}/api/views/${id}/rows.csv?accessType=DOWNLOAD`;
+
+const nyFilingHistory = (
+  id: string,
+  query: { $select: string; $where: string },
+) =>
+  `https://data.ny.gov/resource/${id}.csv?${new URLSearchParams({
+    $order: 'corpid_num,date_filed,film_num',
+    ...query,
+    $limit: '100000000',
+  })}`;
+
+const NY_FILING = ['date_filed', 'film_num'];
+
+const nyAddressType = (code: string): RowMatch => ({
+  field: 'addr_type',
+  is: [code],
+});
 
 const statusField = (field: string): Status => ({
   columns: [field],
@@ -280,19 +319,63 @@ const REGISTRY_ADAPTERS: RegistryAdapter[] = [
   {
     dataset: 'NY',
     state: 'NY',
-    url: socrata('data.ny.gov', 'n9v6-gdp6'),
-    entityNumber: 'DOS ID',
-    name: 'Current Entity Name',
-    formationDate: { field: 'Initial DOS Filing Date', format: 'mdy' },
-    entityType: { field: 'Entity Type' },
-    principalAddress: addressColumns({
-      line1: 'Location Address 1',
-      city: 'Location City',
-      state: 'Location State',
-      zip: 'Location Zip',
+    url: nyFilingHistory('63wc-4exh', {
+      $select: 'corpid_num,date_filed,film_num,entitytype,corp_name,fict_name',
+      $where: 'corpid_num IS NOT NULL AND corp_name IS NOT NULL',
     }),
-    registeredAgent: { name: ['Registered Agent Name'] },
-    officers: [{ name: ['CEO Name'], title: { text: 'CEO' } }],
+    entityNumber: 'corpid_num',
+    sourceId: 'corpid_num',
+    name: 'corp_name',
+    alias: 'fict_name',
+    filing: NY_FILING,
+    formationDate: {
+      field: 'date_filed',
+      format: 'ymd',
+      placeholder: '1900-01-01',
+    },
+    entityType: { field: 'entitytype' },
+    officers: [],
+  },
+  {
+    dataset: 'NY status',
+    state: 'NY',
+    url: nyFilingHistory('3gg2-jgnp', {
+      $select: 'corpid_num,date_filed,film_num,status',
+      $where: 'corpid_num IS NOT NULL AND status IS NOT NULL',
+    }),
+    attach: 'corpid_num',
+    filing: NY_FILING,
+    status: {
+      ...statusField('status'),
+      mostRestrictiveFirst: ['inactive', 'discontinued', 'suspended', 'active'],
+    },
+    officers: [],
+  },
+  {
+    dataset: 'NY addresses',
+    state: 'NY',
+    url: nyFilingHistory('2tms-hftb', {
+      $select:
+        'corpid_num,date_filed,film_num,addr_type,name,addr1,city,state,zip5',
+      $where: 'corpid_num IS NOT NULL AND addr_type IN (2, 3, 4)',
+    }),
+    attach: 'corpid_num',
+    filing: NY_FILING,
+    registeredAgent: {
+      name: ['name'],
+      when: nyAddressType('2'),
+      vacant: ['REGISTERED AGENT REVOKED', 'REGISTERED AGENT RESIGNED'],
+    },
+    officers: [
+      { name: ['name'], title: { text: 'CEO' }, when: nyAddressType('3') },
+    ],
+    principalAddress: addressColumns({
+      line1: 'addr1',
+      city: 'city',
+      state: 'state',
+      zip: 'zip5',
+      when: nyAddressType('4'),
+    }),
   },
   {
     dataset: 'CO',
@@ -502,9 +585,17 @@ function formationDate(
   date: EntityAdapter['formationDate'],
 ): string | null {
   if (!date) return null;
-  return date.format === 'mdy'
-    ? reader.usDate(date.field)
-    : reader.isoDate(date.field);
+  const parsed =
+    date.format === 'mdy'
+      ? reader.usDate(date.field)
+      : reader.isoDate(date.field);
+  return parsed === date.placeholder ? null : parsed;
+}
+
+function filing(reader: RecordReader, adapter: RegistryAdapter) {
+  return adapter.filing
+    ? adapter.filing.map((field) => reader.text(field) ?? '').join(' ')
+    : null;
 }
 
 function entityType(
@@ -516,7 +607,7 @@ function entityType(
   return value !== null && type.labels ? (type.labels[value] ?? value) : value;
 }
 
-function registeredAgent(
+function namedAgent(
   reader: RecordReader,
   adapter: RegistryAdapter,
 ): string | null {
@@ -526,6 +617,21 @@ function registeredAgent(
     joined(reader, agent.name) ??
     (agent.otherwise ? joined(reader, agent.otherwise) : null)
   );
+}
+
+function agentVacant(reader: RecordReader, adapter: RegistryAdapter) {
+  const named = namedAgent(reader, adapter);
+  return (
+    named !== null &&
+    (adapter.registeredAgent?.vacant ?? []).includes(named.toUpperCase())
+  );
+}
+
+function registeredAgent(
+  reader: RecordReader,
+  adapter: RegistryAdapter,
+): string | null {
+  return agentVacant(reader, adapter) ? null : namedAgent(reader, adapter);
 }
 
 function titles(
@@ -555,6 +661,8 @@ export function parseRegistry(adapter: EntityAdapter) {
     if (skipped(reader, adapter)) return null;
     const principal = adapter.principalAddress?.read(reader) ?? null;
     const mailing = adapter.mailingAddress?.read(reader) ?? null;
+    const alias = adapter.alias ? reader.text(adapter.alias) : null;
+    const filed = filing(reader, adapter);
     return {
       entity: {
         state: adapter.state,
@@ -573,8 +681,10 @@ export function parseRegistry(adapter: EntityAdapter) {
         mailing_city: mailing?.city ?? null,
         mailing_state: mailing?.state ?? null,
         mailing_postal_code: mailing?.postalCode ?? null,
+        ...(alias === null ? {} : { aliases: [alias] }),
       },
       officers: officers(reader, adapter),
+      ...(filed === null ? {} : { filing: filed }),
     };
   };
 }
@@ -582,11 +692,29 @@ export function parseRegistry(adapter: EntityAdapter) {
 export function parseRegistryDetail(adapter: DetailAdapter) {
   return (reader: RecordReader): RegistryDetail | null => {
     if (skipped(reader, adapter)) return null;
+    const principal = adapter.principalAddress?.read(reader) ?? null;
+    const filed = filing(reader, adapter);
     return {
       source_id: reader.required(adapter.attach),
       registered_agent: registeredAgent(reader, adapter),
+      registered_agent_vacant: agentVacant(reader, adapter),
       officers: officers(reader, adapter),
+      status: adapter.status ? adapter.status.read(reader) : null,
+      principal_address_line1: principal?.line1 ?? null,
+      principal_city: principal?.city ?? null,
+      principal_state: principal?.state ?? null,
+      principal_postal_code: principal?.postalCode ?? null,
       rows: 1,
+      ...(filed === null
+        ? {}
+        : {
+            filed: {
+              agent: filed,
+              officers: filed,
+              status: filed,
+              principal: filed,
+            },
+          }),
     };
   };
 }
@@ -611,16 +739,22 @@ export function registryColumns(adapter: RegistryAdapter): string[] {
       ...matchColumns(when),
     ]),
   ];
-  if ('attach' in adapter) return [adapter.attach, ...shared];
+  const statusAndPrincipal = [
+    ...(adapter.filing ?? []),
+    ...(adapter.status?.columns ?? []),
+    ...(adapter.principalAddress?.columns ?? []),
+  ];
+  if ('attach' in adapter)
+    return [adapter.attach, ...statusAndPrincipal, ...shared];
   return [
     adapter.entityNumber,
     adapter.name,
     ...(adapter.sourceId ? [adapter.sourceId] : []),
-    ...(adapter.status?.columns ?? []),
+    ...statusAndPrincipal,
     ...(adapter.formationDate ? [adapter.formationDate.field] : []),
     ...(adapter.entityType ? [adapter.entityType.field] : []),
-    ...(adapter.principalAddress?.columns ?? []),
     ...(adapter.mailingAddress?.columns ?? []),
+    ...(adapter.alias ? [adapter.alias] : []),
     ...shared,
   ];
 }
@@ -632,6 +766,7 @@ export function suppliedFields(adapter: EntityAdapter): string[] {
     ...(adapter.formationDate ? ['formation_date'] : []),
     ...(adapter.registeredAgent ? ['registered_agent'] : []),
     ...(adapter.entityType ? ['entity_type'] : []),
+    ...(adapter.alias ? ['aliases'] : []),
     ...(adapter.principalAddress
       ? [
           'principal_address_line1',
@@ -671,4 +806,117 @@ export function registryFiles(): Extract<
         }
       : {}),
   }));
+}
+
+function coalesced<T extends object>(earlier: T, later: T): T {
+  return {
+    ...earlier,
+    ...Object.fromEntries(
+      Object.entries(later).filter(([, value]) => value !== null),
+    ),
+  };
+}
+
+const FILINGS = new Intl.Collator('en', { numeric: true });
+
+function laterIsNewer(earlier?: string, later?: string): number {
+  return earlier === undefined || later === undefined
+    ? 1
+    : FILINGS.compare(later, earlier);
+}
+
+const earliest = (...dates: (string | null | undefined)[]) =>
+  dates.filter((date) => date != null).sort()[0] ?? null;
+
+export function mergeRegistryEntry(
+  earlier: RegistryEntry,
+  later: RegistryEntry,
+): RegistryEntry {
+  const [older, newer] =
+    laterIsNewer(earlier.filing, later.filing) >= 0
+      ? [earlier, later]
+      : [later, earlier];
+  return {
+    ...newer,
+    entity: {
+      ...coalesced(older.entity, newer.entity),
+      formation_date: earliest(
+        older.entity.formation_date,
+        newer.entity.formation_date,
+      ),
+    },
+    officers: [...earlier.officers, ...later.officers],
+  };
+}
+
+const principalAddress = (row: RegistryDetail) => ({
+  principal_address_line1: row.principal_address_line1,
+  principal_city: row.principal_city,
+  principal_state: row.principal_state,
+  principal_postal_code: row.principal_postal_code,
+});
+
+const SUPPLIES: Record<DetailPart, (row: RegistryDetail) => boolean> = {
+  agent: (row) => row.registered_agent !== null || row.registered_agent_vacant,
+  officers: (row) => row.officers.length > 0,
+  status: (row) => row.status !== null,
+  principal: (row) =>
+    Object.values(principalAddress(row)).some((part) => part !== null),
+};
+
+export function mergeRegistryDetail(adapter: DetailAdapter) {
+  const restrictiveness = (row: RegistryDetail) => {
+    const rank = (adapter.status?.mostRestrictiveFirst ?? []).indexOf(
+      row.status?.toLowerCase() ?? '',
+    );
+    return rank === -1 ? Infinity : rank;
+  };
+  return (earlier: RegistryDetail, later: RegistryDetail): RegistryDetail => {
+    const order = (part: DetailPart) =>
+      !SUPPLIES[part](later)
+        ? -1
+        : !SUPPLIES[part](earlier)
+          ? 1
+          : laterIsNewer(earlier.filed?.[part], later.filed?.[part]);
+    const tied = (part: DetailPart) => order(part) === 0;
+    const newer = (part: DetailPart) => (order(part) >= 0 ? later : earlier);
+    const agents = [
+      ...new Set(
+        [earlier.registered_agent, later.registered_agent].filter(
+          (name) => name !== null,
+        ),
+      ),
+    ];
+    const filed = (
+      older: Record<DetailPart, string>,
+      newest: Record<DetailPart, string>,
+    ) => ({
+      agent: (order('agent') >= 0 ? newest : older).agent,
+      officers: (order('officers') >= 0 ? newest : older).officers,
+      status: (order('status') >= 0 ? newest : older).status,
+      principal: (order('principal') >= 0 ? newest : older).principal,
+    });
+    return {
+      source_id: earlier.source_id,
+      registered_agent: tied('agent')
+        ? agents.join('; ') || null
+        : newer('agent').registered_agent,
+      registered_agent_vacant: tied('agent')
+        ? agents.length === 0
+        : newer('agent').registered_agent_vacant,
+      officers:
+        tied('officers') || later.filed === undefined
+          ? [...earlier.officers, ...later.officers]
+          : newer('officers').officers,
+      status:
+        tied('status') && restrictiveness(earlier) < restrictiveness(later)
+          ? earlier.status
+          : newer('status').status,
+      ...principalAddress(newer('principal')),
+      rows: earlier.rows + later.rows,
+      ...(earlier.filed && later.filed
+        ? { filed: filed(earlier.filed, later.filed) }
+        : {}),
+    };
+  };
 }

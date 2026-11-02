@@ -113,14 +113,16 @@ export function matchOutcome(score: number): MatchOutcome {
 }
 
 export function bestCandidate<Candidate extends { id: string; name: string }>(
-  name: string,
+  names: string[],
   candidates: Candidate[],
 ): (Candidate & { score: number }) | null {
   return (
     candidates
       .map((candidate) => ({
         ...candidate,
-        score: nameSimilarity(name, candidate.name),
+        score: Math.max(
+          ...names.map((name) => nameSimilarity(name, candidate.name)),
+        ),
       }))
       .sort(
         (higher, lower) =>

@@ -18,9 +18,10 @@ interface SourceShape {
   addressColumns: string;
   address: (row: SourceRow) => MatchAddress;
   ein?: string;
+  aliases?: string;
 }
 
-type SourceRow = Pick<SourceRecord, 'key' | 'name' | 'ein'> &
+type SourceRow = Pick<SourceRecord, 'key' | 'name' | 'ein' | 'aliases'> &
   Record<'address_line1' | 'postal_code', string | null> &
   RegistryAddressColumns;
 
@@ -67,6 +68,7 @@ const SOURCES: Record<Enums<'lead_source'>, SourceShape> = {
     key: 'id',
     reviewColumn: 'registry_entity_id',
     name: 'name',
+    aliases: 'aliases',
     addressColumns: REGISTRY_ADDRESS_COLUMNS,
     address: (row) => {
       const { line1, postalCode } = registryAddress(row);
@@ -83,6 +85,7 @@ interface SourceRecord {
   addressLine1: string | null;
   postalCode: string | null;
   ein?: string;
+  aliases?: string[];
 }
 
 export async function matchImportedRecords({
@@ -99,6 +102,7 @@ export async function matchImportedRecords({
     `name:${shape.name}`,
     shape.addressColumns,
     ...(shape.ein ? [`ein:${shape.ein}`] : []),
+    ...(shape.aliases ? [`aliases:${shape.aliases}`] : []),
   ].join(', ');
 
   let after: string | null = null;
@@ -117,6 +121,7 @@ export async function matchImportedRecords({
         key: row.key,
         name: row.name,
         ein: row.ein,
+        aliases: row.aliases,
         ...shape.address(row),
       }),
     );
@@ -172,7 +177,7 @@ async function matchRecord(
     .like('match_key', `${matchBlock(record)}%`)
     .throwOnError();
   const best = bestCandidate<{ id: string; name: string; ein: string | null }>(
-    record.name,
+    [record.name, ...(record.aliases ?? [])],
     candidates,
   );
   const outcome = best ? matchOutcome(best.score) : 'drop';

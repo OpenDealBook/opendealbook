@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { csvRecords, firstZipEntry } from './csv';
 import { RecordReader, RejectedRow } from './recordReader';
 import {
+  mergeRegistryDetail,
+  mergeRegistryEntry,
   parseRegistry,
   parseRegistryDetail,
   registryAdapter,
@@ -12,6 +14,15 @@ import {
 
 import { createReadStream, readFileSync } from 'node:fs';
 
+const UNSET_DETAILS = {
+  registered_agent_vacant: false,
+  status: null,
+  principal_address_line1: null,
+  principal_city: null,
+  principal_state: null,
+  principal_postal_code: null,
+};
+
 function entityParser(dataset: string) {
   const adapter = registryAdapter(dataset);
   if ('attach' in adapter) throw new Error(`${dataset} attaches details`);
@@ -19,10 +30,46 @@ function entityParser(dataset: string) {
 }
 
 function detailParser(dataset: string) {
+  return parseRegistryDetail(detailAdapter(dataset));
+}
+
+function detailAdapter(dataset: string) {
   const adapter = registryAdapter(dataset);
   if (!('attach' in adapter)) throw new Error(`${dataset} lists entities`);
-  return parseRegistryDetail(adapter);
+  return adapter;
 }
+
+function mergedNyEntity(rows: Record<string, string>[]) {
+  const adapter = registryAdapter('NY');
+  if ('attach' in adapter) throw new Error('NY attaches details');
+  return rows
+    .map((row) => parseRegistry(adapter)(new RecordReader(row))!)
+    .reduce(mergeRegistryEntry);
+}
+
+function mergedNyDetail(dataset: string, rows: Record<string, string>[]) {
+  const adapter = detailAdapter(dataset);
+  return rows
+    .map((row) => parseRegistryDetail(adapter)(new RecordReader(row))!)
+    .reduce(mergeRegistryDetail(adapter));
+}
+
+const nyAddress = (
+  date_filed: string,
+  addr_type: string,
+  name: string,
+  addr1 = '',
+) => ({
+  corpid_num: '9424185',
+  date_filed,
+  film_num: date_filed.replaceAll('-', ''),
+  addr_type,
+  name,
+  addr1,
+  city: '',
+  state: '',
+  zip5: '',
+});
 
 async function parseFixture<T>(
   parse: (reader: RecordReader) => T | null,
@@ -47,8 +94,8 @@ async function parseFixture<T>(
   return { entries, rejected };
 }
 
-describe('New York registry file', () => {
-  it('maps each corporation with its type, its CEO as an officer and its physical location as the principal address, leaving the process address out of mailing', async () => {
+describe('New York filings file', () => {
+  it('maps each filing to its entity, keyed by the DOS ID, with the filing date, type and name the filing carries, and its fictitious name as an alias only when it has one', async () => {
     const { entries, rejected } = await parseFixture(
       entityParser('NY'),
       'registry_ny.csv',
@@ -58,33 +105,243 @@ describe('New York registry file', () => {
       {
         entity: {
           state: 'NY',
-          entity_number: '9424185',
-          source_id: null,
-          name: 'MAPLE HOLLOW WINE & SPIRITS, INC.',
+          entity_number: '9072354',
+          source_id: '9072354',
+          name: 'GRAY HERON SEAFOOD CORP.',
           status: null,
-          formation_date: '2013-06-27',
-          registered_agent: 'SAMPLE AGENTS LLC',
+          formation_date: '2011-03-24',
+          registered_agent: null,
           entity_type: 'DOMESTIC BUSINESS CORPORATION',
-          principal_address_line1: '5 SAMPLE PLAZA',
-          principal_city: 'MOUNT VERNON',
-          principal_state: 'NY',
-          principal_postal_code: '10552',
+          principal_address_line1: null,
+          principal_city: null,
+          principal_state: null,
+          principal_postal_code: null,
           mailing_address_line1: null,
           mailing_city: null,
           mailing_state: null,
           mailing_postal_code: null,
         },
-        officers: [{ name: 'DANA FICTIONAL', title: 'CEO' }],
+        officers: [],
+        filing: '2011-03-24T00:00:00.000 110324000101',
       },
       {
         entity: expect.objectContaining({
-          entity_number: '9072354',
-          registered_agent: null,
+          entity_number: '9424185',
+          name: 'MAPLE HOLLOW WINE & SPIRITS, INC.',
+          formation_date: '2013-06-27',
+          aliases: ['MAPLE HOLLOW OF NEW YORK, INC.'],
         }),
         officers: [],
+        filing: '2013-06-27T00:00:00.000 130627000201',
+      },
+      {
+        entity: expect.not.objectContaining({ aliases: expect.anything() }),
+        officers: [],
+        filing: '2019-02-11T00:00:00.000 190211000301',
       },
     ]);
-    expect(rejected).toEqual(['DOS ID: ']);
+    expect(rejected).toEqual([]);
+  });
+
+  it('takes the name and type of the latest filing and the earliest real filing date as the formation date, whatever order the filings arrive in, ignoring the 1900-01-01 placeholder', () => {
+    const filing = (
+      date_filed: string,
+      film_num: string,
+      corp_name: string,
+      entitytype: string,
+    ) => ({
+      corpid_num: '9424185',
+      date_filed,
+      film_num,
+      entitytype,
+      corp_name,
+      fict_name: '',
+    });
+
+    const { entity } = mergedNyEntity([
+      filing('2013-06-27T00:00:00.000', '9', 'MAPLE HOLLOW, INC.', 'OLD TYPE'),
+      filing('2019-02-11T00:00:00.000', '10', 'MAPLE HOLLOW SPIRITS', 'NEW'),
+      filing('1900-01-01T00:00:00.000', '1', 'PLACEHOLDER NAME', 'OLDEST'),
+      filing('2019-02-11T00:00:00.000', '2', 'MAPLE HOLLOW TWO', 'MIDDLE'),
+    ]);
+
+    expect(entity).toMatchObject({
+      name: 'MAPLE HOLLOW SPIRITS',
+      entity_type: 'NEW',
+      formation_date: '2013-06-27',
+    });
+  });
+
+  it.each(['NY', 'NY status', 'NY addresses'])(
+    'reads the %s file grouped by DOS ID, so each entity merges within one batch',
+    (dataset) => {
+      const url = new URL(registryAdapter(dataset).url);
+
+      expect(url.searchParams.get('$order')).toMatch(/^corpid_num,/);
+    },
+  );
+});
+
+describe('New York status history file', () => {
+  it('keys each status row by the DOS ID and keeps the status as published', async () => {
+    const { entries } = await parseFixture(
+      detailParser('NY status'),
+      'registry_ny_status.csv',
+    );
+
+    expect(entries.map(({ source_id, status }) => [source_id, status])).toEqual(
+      [
+        ['9072354', 'Active'],
+        ['9072354', 'Active'],
+        ['9072354', 'Inactive'],
+        ['9424185', 'Active'],
+        ['9424185', 'Suspended'],
+        ['9999001', 'Active'],
+      ],
+    );
+    expect(entries[0]).toEqual({
+      source_id: '9072354',
+      registered_agent: null,
+      registered_agent_vacant: false,
+      officers: [],
+      status: 'Active',
+      principal_address_line1: null,
+      principal_city: null,
+      principal_state: null,
+      principal_postal_code: null,
+      rows: 1,
+      filed: {
+        agent: '2011-03-24T00:00:00.000 110324000101',
+        officers: '2011-03-24T00:00:00.000 110324000101',
+        status: '2011-03-24T00:00:00.000 110324000101',
+        principal: '2011-03-24T00:00:00.000 110324000101',
+      },
+    });
+  });
+
+  it.each([
+    [['Active', 'Suspended', 'Discontinued', 'InActive'], 'InActive'],
+    [['InActive', 'Discontinued', 'Suspended', 'Active'], 'InActive'],
+    [['Active', 'Suspended', 'DISCONTINUED'], 'DISCONTINUED'],
+    [['Discontinued', 'Suspended', 'Active'], 'Discontinued'],
+    [['Suspended', 'Active'], 'Suspended'],
+    [['Active', 'suspended'], 'suspended'],
+  ])(
+    'keeps the most restrictive of the statuses %j on the latest filing, ahead of an earlier filing that arrives after it',
+    (latest, expected) => {
+      const status = (date_filed: string, value: string) => ({
+        corpid_num: '9072354',
+        date_filed,
+        film_num: '1',
+        status: value,
+      });
+
+      const merged = mergedNyDetail('NY status', [
+        ...latest.map((value) => status('2016-07-01T00:00:00.000', value)),
+        status('2011-03-24T00:00:00.000', 'Inactive'),
+      ]);
+
+      expect(merged.status).toBe(expected);
+    },
+  );
+});
+
+describe('New York address file', () => {
+  it('takes the registered agent from type 2, the CEO from type 3 and the principal executive office from type 4, leaving the process address unused', async () => {
+    const { entries } = await parseFixture(
+      detailParser('NY addresses'),
+      'registry_ny_addresses.csv',
+    );
+
+    const none = {
+      registered_agent: null,
+      registered_agent_vacant: false,
+      officers: [],
+      status: null,
+      principal_address_line1: null,
+      principal_city: null,
+      principal_state: null,
+      principal_postal_code: null,
+      rows: 1,
+      filed: expect.anything(),
+    };
+    expect(entries.slice(0, 4)).toEqual([
+      { ...none, source_id: '9072354' },
+      { ...none, source_id: '9424185', registered_agent: 'SAMPLE AGENTS LLC' },
+      {
+        ...none,
+        source_id: '9424185',
+        officers: [{ name: 'DANA FICTIONAL', title: 'CEO' }],
+      },
+      {
+        ...none,
+        source_id: '9424185',
+        principal_address_line1: '23 SAMPLE PLACE',
+        principal_city: 'MOUNT VERNON',
+        principal_state: 'NY',
+        principal_postal_code: '10550',
+      },
+    ]);
+  });
+});
+
+describe('New York latest filing', () => {
+  it('keeps every CEO and every registered agent named on the latest filing and none from an earlier filing that arrives after it', () => {
+    const merged = mergedNyDetail('NY addresses', [
+      nyAddress('2019-02-11', '3', 'ROBIN EXAMPLE'),
+      nyAddress('2019-02-11', '2', 'SAMPLE AGENTS LLC'),
+      nyAddress('2019-02-11', '3', 'CASEY EXAMPLE'),
+      nyAddress('2019-02-11', '2', 'SECOND AGENTS INC'),
+      nyAddress('2013-06-27', '3', 'DANA FICTIONAL'),
+      nyAddress('2013-06-27', '2', 'OLD AGENTS LLC'),
+    ]);
+
+    expect(merged).toMatchObject({
+      registered_agent: 'SAMPLE AGENTS LLC; SECOND AGENTS INC',
+      registered_agent_vacant: false,
+      officers: [
+        { name: 'ROBIN EXAMPLE', title: 'CEO' },
+        { name: 'CASEY EXAMPLE', title: 'CEO' },
+      ],
+    });
+  });
+
+  it('keeps the principal executive office and a revoked agent of the latest filing over an earlier filing that arrives after it', () => {
+    const merged = mergedNyDetail('NY addresses', [
+      nyAddress('2021-04-01', '2', 'Registered Agent Revoked'),
+      nyAddress('2021-04-01', '4', 'MAPLE HOLLOW', '5 SAMPLE PLAZA'),
+      nyAddress('2013-06-27', '2', 'SAMPLE AGENTS LLC'),
+      nyAddress('2013-06-27', '4', 'MAPLE HOLLOW', '23 SAMPLE PLACE'),
+    ]);
+
+    expect(merged).toMatchObject({
+      registered_agent: null,
+      registered_agent_vacant: true,
+      principal_address_line1: '5 SAMPLE PLAZA',
+    });
+  });
+});
+
+describe('New York vacant registered agent', () => {
+  it.each([
+    'REGISTERED AGENT REVOKED',
+    'Registered Agent Revoked',
+    'REGISTERED AGENT RESIGNED',
+    'registered agent resigned',
+  ])('reads the placeholder %s as no current agent', (placeholder) => {
+    expect(
+      detailParser('NY addresses')(
+        new RecordReader({
+          corpid_num: '9424185',
+          addr_type: '2',
+          name: placeholder,
+          addr1: '',
+          city: '',
+          state: '',
+          zip5: '',
+        }),
+      ),
+    ).toMatchObject({ registered_agent: null, registered_agent_vacant: true });
   });
 });
 
@@ -507,6 +764,7 @@ describe('Connecticut principals file', () => {
         source_id: '001t000000sample1',
         registered_agent: null,
         officers: [{ name: 'Morgan Example', title: 'Principal' }],
+        ...UNSET_DETAILS,
         rows: 1,
       },
       {
@@ -516,12 +774,14 @@ describe('Connecticut principals file', () => {
           { name: 'Quinn Fictional', title: 'Officer' },
           { name: 'Quinn Fictional', title: 'Director' },
         ],
+        ...UNSET_DETAILS,
         rows: 1,
       },
       {
         source_id: '001t000000nobody9',
         registered_agent: null,
         officers: [{ name: 'Sky Sample', title: 'Director' }],
+        ...UNSET_DETAILS,
         rows: 1,
       },
     ]);
@@ -557,6 +817,7 @@ describe('Connecticut agents file', () => {
         source_id: '001t000000sample1',
         registered_agent: 'Sample Agent Services LLC',
         officers: [],
+        ...UNSET_DETAILS,
         rows: 1,
       },
     ]);
@@ -575,6 +836,8 @@ describe('registry columns', () => {
     ['OR', 'registry_or.csv', false],
     ['CT principals', 'registry_ct_principals.csv', false],
     ['CT agents', 'registry_ct_agents.csv', false],
+    ['NY status', 'registry_ny_status.csv', false],
+    ['NY addresses', 'registry_ny_addresses.csv', false],
   ] as const)(
     'finds every column the %s adapter reads in its file',
     async (dataset, name, zipped) => {
@@ -599,6 +862,8 @@ describe('registry files', () => {
         file.parent ? [[file.dataset, file.parent]] : [],
       ),
     ).toEqual([
+      ['NY status', 'NY'],
+      ['NY addresses', 'NY'],
       ['CT principals', 'CT'],
       ['CT agents', 'CT'],
     ]);

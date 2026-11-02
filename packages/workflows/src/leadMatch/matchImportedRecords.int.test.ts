@@ -685,6 +685,38 @@ describe('matchImportedRecords', () => {
     expect(registry).toEqual({ business_id: dentalId });
   });
 
+  it('matches a registry entity whose alias, not its name, matches a business at the same address', async () => {
+    const { admin } = pipelineTeam;
+    const registryImport = await newImport(admin, 'state_registry');
+    await admin
+      .from('state_registry_entity')
+      .insert({
+        state: 'NY',
+        entity_number: `${runTag}-reg-alias`,
+        import_id: registryImport,
+        name: 'Northwind Sample Holdings, Inc.',
+        aliases: ['Lakeside Dental Care, PLLC'],
+        principal_address_line1: '40 Shore Rd',
+        principal_postal_code: postal,
+        source: 'bulk_file',
+        fetched_at: new Date().toISOString(),
+      })
+      .throwOnError();
+
+    await matchImportedRecords({
+      source: 'state_registry',
+      importId: registryImport,
+    });
+
+    const { data: registry } = await admin
+      .from('state_registry_entity')
+      .select('business_id')
+      .eq('entity_number', `${runTag}-reg-alias`)
+      .single()
+      .throwOnError();
+    expect(registry).toEqual({ business_id: dentalId });
+  });
+
   it('pages through an import larger than one batch', async () => {
     const { admin } = pipelineTeam;
     const bulkImport = await newImport(admin, 'ppp');

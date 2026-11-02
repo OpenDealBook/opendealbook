@@ -42,10 +42,12 @@ describe('discoverLeadFiles', () => {
         'failure' in file ? file.failure : file.asOf,
       ]),
     ).toEqual([
-      [
-        'NY',
-        'HEAD https://data.ny.gov/api/views/n9v6-gdp6/rows.csv?accessType=DOWNLOAD answered 503',
-      ],
+      ...['NY', 'NY status', 'NY addresses'].map((dataset) => [
+        dataset,
+        expect.stringMatching(
+          /^HEAD https:\/\/data\.ny\.gov\/resource\/.* answered 503$/,
+        ),
+      ]),
       ['CO', '2026-10-25'],
       ['PA', 'Last-Modified is not a date: not a date'],
       ['CT', '2026-10-25'],

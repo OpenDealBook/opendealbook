@@ -207,6 +207,50 @@ select is_empty(
   'details for a source id no entity carries attach nothing'
 );
 
+select public.upsert_state_registry_entities(
+  '[{"state": "ZZ", "entity_number": "srl-history", "source_id": "src-history", "import_id": "e7000000-0000-0000-0000-0000000000a1",
+     "name": "History Sample Corp", "registered_agent": "Sample Agents Inc", "source": "bulk_file", "fetched_at": "2026-10-18"}]'::jsonb,
+  array['source_id']
+);
+select public.attach_state_registry_details('ZZ', 'ZZ history', 'e7000000-0000-0000-0000-0000000000a2',
+  '[{"source_id": "src-history", "registered_agent": null, "officers": [], "rows": 1, "status": "Inactive",
+     "principal_address_line1": "7 Sample Ave", "principal_city": "Albany", "principal_state": "NY",
+     "principal_postal_code": "12207"}]'::jsonb
+);
+select public.attach_state_registry_details('ZZ', 'ZZ principals', 'e7000000-0000-0000-0000-0000000000a2',
+  '[{"source_id": "src-history", "registered_agent": null, "officers": [{"name": "Morgan Example", "title": "Officer"}]}]'::jsonb
+);
+
+select results_eq(
+  $$ select status, registered_agent, principal_address_line1, principal_city, principal_state, principal_postal_code
+     from public.state_registry_entity where state = 'ZZ' and entity_number = 'srl-history' $$,
+  $$ values ('Inactive', 'Sample Agents Inc', '7 Sample Ave', 'Albany', 'NY', '12207') $$,
+  'details set the status and principal address, and a row without them keeps them'
+);
+
+select public.attach_state_registry_details('ZZ', 'ZZ history', 'e7000000-0000-0000-0000-0000000000a2',
+  '[{"source_id": "src-history", "registered_agent": null, "officers": [], "rows": 1,
+     "principal_address_line1": "9 Later Rd"}]'::jsonb
+);
+
+select results_eq(
+  $$ select principal_address_line1, principal_city, principal_state, principal_postal_code
+     from public.state_registry_entity where state = 'ZZ' and entity_number = 'srl-history' $$,
+  $$ values ('9 Later Rd', null::text, null::text, null::text) $$,
+  'a later principal address replaces the whole earlier one'
+);
+
+select public.attach_state_registry_details('ZZ', 'ZZ history', 'e7000000-0000-0000-0000-0000000000a2',
+  '[{"source_id": "src-history", "registered_agent": null, "registered_agent_vacant": true, "officers": [], "rows": 1}]'::jsonb
+);
+
+select results_eq(
+  $$ select registered_agent, status, principal_address_line1
+     from public.state_registry_entity where state = 'ZZ' and entity_number = 'srl-history' $$,
+  $$ values (null::text, 'Inactive', '9 Later Rd') $$,
+  'a detail row whose agent is vacant clears the agent and keeps the rest'
+);
+
 select public.replace_state_registry_officers('ZZ', 'e7000000-0000-0000-0000-0000000000a1',
   array[(select id from public.state_registry_entity where state = 'ZZ' and entity_number = 'srl-2')],
   jsonb_build_array(jsonb_build_object(
@@ -263,6 +307,49 @@ select results_eq(
 );
 
 select has_column('public', 'lead_import', 'rows_unmatched', 'an import counts the rows that matched no entity');
+
+select is_empty(
+  $$ select 1 from public.state_registry_officer where dataset = 'NY' $$,
+  'no officer row uses the retired New York dataset name'
+);
+
+select public.upsert_state_registry_entities(
+  '[{"state": "WW", "entity_number": "srl-alias", "import_id": "e7000000-0000-0000-0000-0000000000a1",
+     "name": "Sample Holdings, LLC", "aliases": ["Sample Holdings of NY, LLC"], "source": "bulk_file", "fetched_at": "2026-10-18"}]'::jsonb,
+  array['aliases']
+);
+select public.upsert_state_registry_entities(
+  '[{"state": "WW", "entity_number": "srl-alias", "import_id": "e7000000-0000-0000-0000-0000000000a1",
+     "name": "Sample Holdings, LLC", "source": "bulk_file", "fetched_at": "2026-10-18"}]'::jsonb,
+  array['aliases']
+);
+select is(
+  (select aliases from public.state_registry_entity where state = 'WW' and entity_number = 'srl-alias'),
+  array['Sample Holdings of NY, LLC'],
+  'a later batch of the same import without aliases keeps them'
+);
+
+select public.upsert_state_registry_entities(
+  '[{"state": "WW", "entity_number": "srl-alias", "import_id": "e7000000-0000-0000-0000-0000000000a2",
+     "name": "Sample Holdings, LLC", "source": "bulk_file", "fetched_at": "2026-10-25"}]'::jsonb,
+  array[]::text[]
+);
+select is(
+  (select aliases from public.state_registry_entity where state = 'WW' and entity_number = 'srl-alias'),
+  array['Sample Holdings of NY, LLC'],
+  'an import that does not supply aliases keeps them'
+);
+
+select public.upsert_state_registry_entities(
+  '[{"state": "WW", "entity_number": "srl-alias", "import_id": "e7000000-0000-0000-0000-0000000000a3",
+     "name": "Sample Holdings, LLC", "source": "bulk_file", "fetched_at": "2026-10-30"}]'::jsonb,
+  array['aliases']
+);
+select is(
+  (select aliases from public.state_registry_entity where state = 'WW' and entity_number = 'srl-alias'),
+  array[]::text[],
+  'a newer import that supplies aliases and lists none clears them'
+);
 
 select tests.login_as('srl_reader');
 

@@ -21,6 +21,8 @@ import {
   type EntityAdapter,
   type RegistryDetail,
   type RegistryEntry,
+  mergeRegistryDetail,
+  mergeRegistryEntry,
   parseRegistry,
   parseRegistryDetail,
   registryAdapter,
@@ -108,15 +110,6 @@ const form5500 = (
         .throwOnError(),
   );
 
-function coalesced<T extends object>(earlier: T, later: T): T {
-  return {
-    ...earlier,
-    ...Object.fromEntries(
-      Object.entries(later).filter(([, value]) => value !== null),
-    ),
-  };
-}
-
 const registryEntities = (
   adapter: EntityAdapter,
   asOf: string,
@@ -124,10 +117,7 @@ const registryEntities = (
   columns: registryColumns(adapter),
   parse: parseRegistry(adapter),
   key: (row) => row.entity.entity_number,
-  merge: (earlier, later) => ({
-    entity: coalesced(earlier.entity, later.entity),
-    officers: [...earlier.officers, ...later.officers],
-  }),
+  merge: mergeRegistryEntry,
   write: async (client, importId, rows) => {
     const { data: entities } = await client
       .rpc('upsert_state_registry_entities', {
@@ -187,12 +177,7 @@ const registryDetails = (
     columns: registryColumns(adapter),
     parse: parseRegistryDetail(adapter),
     key: (row) => row.source_id,
-    merge: (earlier, later) => ({
-      source_id: later.source_id,
-      registered_agent: later.registered_agent ?? earlier.registered_agent,
-      officers: [...earlier.officers, ...later.officers],
-      rows: earlier.rows + later.rows,
-    }),
+    merge: mergeRegistryDetail(adapter),
     write: async (client, importId, rows) => {
       const { data } = await client
         .rpc('attach_state_registry_details', {
@@ -292,13 +277,13 @@ async function loadRows<T>(
       if (row !== null) {
         const key = spec.key(row);
         const earlier = batch.get(key);
+        if (earlier === undefined && batch.size === BATCH_SIZE) await flush();
         batch.set(key, earlier && spec.merge ? spec.merge(earlier, row) : row);
       }
     } catch (error) {
       if (!(error instanceof RejectedRow)) throw error;
       counts.rows_rejected += 1;
     }
-    if (batch.size === BATCH_SIZE) await flush();
   }
   if (batch.size > 0) await flush();
   await spec.finish?.(client, importId, counts.rows_read);

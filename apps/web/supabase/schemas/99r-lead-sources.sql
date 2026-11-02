@@ -111,6 +111,7 @@ create table if not exists public.state_registry_entity (
   principal_city text,
   principal_state text,
   principal_postal_code text,
+  aliases text[] not null default '{}',
   unique (state, entity_number)
 );
 
@@ -228,13 +229,13 @@ create or replace function public.upsert_state_registry_entities(p_rows jsonb, p
     state, entity_number, source_id, import_id, name, status, formation_date,
     registered_agent, entity_type, principal_address_line1, principal_city, principal_state,
     principal_postal_code, mailing_address_line1, mailing_city, mailing_state,
-    mailing_postal_code, source, fetched_at
+    mailing_postal_code, aliases, source, fetched_at
   )
   select
     r.state, r.entity_number, r.source_id, r.import_id, r.name, r.status, r.formation_date,
     r.registered_agent, r.entity_type, r.principal_address_line1, r.principal_city, r.principal_state,
     r.principal_postal_code, r.mailing_address_line1, r.mailing_city, r.mailing_state,
-    r.mailing_postal_code, r.source, r.fetched_at
+    r.mailing_postal_code, coalesce(r.aliases, '{}'), r.source, r.fetched_at
   from accepted r
   on conflict (state, entity_number) do update set
     source_id = case when e.import_id = excluded.import_id or not 'source_id' = any (p_supplied)
@@ -263,6 +264,9 @@ create or replace function public.upsert_state_registry_entities(p_rows jsonb, p
       then coalesce(excluded.mailing_state, e.mailing_state) else excluded.mailing_state end,
     mailing_postal_code = case when e.import_id = excluded.import_id or not 'mailing_postal_code' = any (p_supplied)
       then coalesce(excluded.mailing_postal_code, e.mailing_postal_code) else excluded.mailing_postal_code end,
+    aliases = case when (e.import_id = excluded.import_id or not 'aliases' = any (p_supplied))
+        and cardinality(excluded.aliases) = 0
+      then e.aliases else excluded.aliases end,
     import_id = excluded.import_id,
     name = excluded.name,
     source = excluded.source,
@@ -306,11 +310,22 @@ create or replace function public.attach_state_registry_details(
   language sql
   set search_path = '' as $$
   update public.state_registry_entity e
-  set registered_agent = r.registered_agent
-  from jsonb_to_recordset(p_rows) as r (source_id text, registered_agent text)
+  set registered_agent = case when r.registered_agent_vacant then null else coalesce(r.registered_agent, e.registered_agent) end,
+    status = coalesce(r.status, e.status),
+    principal_address_line1 = case when r.has_principal then r.principal_address_line1 else e.principal_address_line1 end,
+    principal_city = case when r.has_principal then r.principal_city else e.principal_city end,
+    principal_state = case when r.has_principal then r.principal_state else e.principal_state end,
+    principal_postal_code = case when r.has_principal then r.principal_postal_code else e.principal_postal_code end
+  from (
+    select d.*, num_nonnulls(d.principal_address_line1, d.principal_city, d.principal_state, d.principal_postal_code) > 0 as has_principal
+    from jsonb_to_recordset(p_rows) as d (
+      source_id text, registered_agent text, registered_agent_vacant boolean, status text, principal_address_line1 text,
+      principal_city text, principal_state text, principal_postal_code text
+    )
+  ) r
   where e.state = p_state
     and e.source_id = r.source_id
-    and r.registered_agent is not null;
+    and (r.registered_agent is not null or r.registered_agent_vacant or r.status is not null or r.has_principal);
 
   select public.replace_state_registry_officers(
     p_dataset,

@@ -12107,6 +12107,7 @@ export type Database = {
       }
       state_registry_entity: {
         Row: {
+          aliases: string[]
           business_id: string | null
           entity_number: string
           entity_type: string | null
@@ -12130,6 +12131,7 @@ export type Database = {
           status: string | null
         }
         Insert: {
+          aliases?: string[]
           business_id?: string | null
           entity_number: string
           entity_type?: string | null
@@ -12153,6 +12155,7 @@ export type Database = {
           status?: string | null
         }
         Update: {
+          aliases?: string[]
           business_id?: string | null
           entity_number?: string
           entity_type?: string | null

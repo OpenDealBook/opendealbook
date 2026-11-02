@@ -156,23 +156,38 @@ describe('matchOutcome', () => {
 describe('bestCandidate', () => {
   it('picks the highest scoring business', () => {
     expect(
-      bestCandidate('Acme Plumbing', [
-        { id: 'b', name: 'Golden Dragon Restaurant' },
-        { id: 'a', name: 'Acme Plumbing LLC' },
-      ]),
+      bestCandidate(
+        ['Acme Plumbing'],
+        [
+          { id: 'b', name: 'Golden Dragon Restaurant' },
+          { id: 'a', name: 'Acme Plumbing LLC' },
+        ],
+      ),
     ).toEqual({ id: 'a', name: 'Acme Plumbing LLC', score: 1 });
   });
 
   it('breaks a tie by business id', () => {
     expect(
-      bestCandidate('Acme Plumbing', [
-        { id: 'z', name: 'Acme Plumbing Inc' },
-        { id: 'a', name: 'Acme Plumbing LLC' },
-      ]),
+      bestCandidate(
+        ['Acme Plumbing'],
+        [
+          { id: 'z', name: 'Acme Plumbing Inc' },
+          { id: 'a', name: 'Acme Plumbing LLC' },
+        ],
+      ),
+    ).toEqual({ id: 'a', name: 'Acme Plumbing LLC', score: 1 });
+  });
+
+  it('scores each business on the best of the names it is given', () => {
+    expect(
+      bestCandidate(
+        ['Northwind Sample Holdings Inc', 'Acme Plumbing'],
+        [{ id: 'a', name: 'Acme Plumbing LLC' }],
+      ),
     ).toEqual({ id: 'a', name: 'Acme Plumbing LLC', score: 1 });
   });
 
   it('is absent with no candidates', () => {
-    expect(bestCandidate('Acme Plumbing', [])).toBeNull();
+    expect(bestCandidate(['Acme Plumbing'], [])).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import type { LeadFile } from './files';
 import { loadLeadFile } from './load';
 
 import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,6 +67,9 @@ const ACK_IDS = [
 const OR_ENTITIES = ['100001', '200002', '300003', '400004', '500005'];
 const CT_ENTITIES = ['1000001', '1000002', '1000003', '1000004', '1000005'];
 const IA_ENTITIES = ['600101', '600102', '600103', '600104', '600105'];
+const PA_BATCH_ENTITIES = Array.from({ length: 1000 }, (_, index) =>
+  String(7700000000 + index),
+);
 const TX_ENTITIES = [
   '0800000101',
   '0800000102',
@@ -203,6 +207,13 @@ async function clear() {
     .delete()
     .eq('state', 'TX')
     .in('entity_number', TX_ENTITIES)
+    .throwOnError();
+  await admin
+    .from('state_registry_entity')
+    .delete()
+    .eq('state', 'PA')
+    .gte('entity_number', PA_BATCH_ENTITIES[0]!)
+    .lte('entity_number', PA_BATCH_ENTITIES.at(-1)!)
     .throwOnError();
   await admin
     .from('lead_import')
@@ -362,7 +373,7 @@ describe('lead file loads', () => {
     ]);
   });
 
-  it('loads registry entities and their officers once when the import is run again', async () => {
+  it('loads each New York entity once from its filings, with its latest name, its first filing date and its latest fictitious name as an alias, when the import is run again', async () => {
     const { importId, second } = await importTwice(
       fixtureFile(
         { kind: 'state_registry', dataset: 'NY' },
@@ -377,14 +388,14 @@ describe('lead file loads', () => {
       as_of: '2026-10-25',
       rows_read: 3,
       rows_written: 2,
-      rows_rejected: 1,
+      rows_rejected: 0,
       rows_with_nulled_fields: 0,
     });
 
     const { data: entities } = await admin
       .from('state_registry_entity')
       .select(
-        'entity_number, source, fetched_at, import_id, state_registry_officer(name, title)',
+        'entity_number, source_id, name, formation_date, aliases, source, fetched_at, import_id',
       )
       .eq('state', 'NY')
       .in('entity_number', NY_ENTITIES)
@@ -393,17 +404,23 @@ describe('lead file loads', () => {
     expect(entities).toEqual([
       {
         entity_number: '9072354',
+        source_id: '9072354',
+        name: 'GRAY HERON SEAFOOD CORP.',
+        formation_date: '2011-03-24',
+        aliases: [],
         source: 'bulk_file',
         fetched_at: '2026-10-25T00:00:00+00:00',
         import_id: importId,
-        state_registry_officer: [],
       },
       {
         entity_number: '9424185',
+        source_id: '9424185',
+        name: 'MAPLE HOLLOW SPIRITS, INC.',
+        formation_date: '2013-06-27',
+        aliases: ['MAPLE HOLLOW OF NEW YORK, INC.'],
         source: 'bulk_file',
         fetched_at: '2026-10-25T00:00:00+00:00',
         import_id: importId,
-        state_registry_officer: [{ name: 'DANA FICTIONAL', title: 'CEO' }],
       },
     ]);
   });
@@ -440,6 +457,47 @@ describe('lead file loads', () => {
     expect(entity.state_registry_officer).toHaveLength(2);
   });
 
+  it('keeps the rows of one registry entity that cross a batch boundary together, with its earliest formation date and its latest name', async () => {
+    const header =
+      'Business Name,Filing Number,Address Line 1,City,State,Zip,Type of Business Registration,Creation Date,Governor/Principal Officer,Last Name,Middle Name,First Name';
+    const row = (name: string, number: string, date: string, title: string) =>
+      `${name},${number},4 Sample Rd,Erie,PA,16501,Domestic Business Corporation,${date},${title},Fictional,,Avery`;
+    const last = PA_BATCH_ENTITIES.at(-1)!;
+    const csv = [
+      header,
+      ...PA_BATCH_ENTITIES.slice(0, -1).map((number) =>
+        row('Sample Filler Inc', number, '01/01/2020', 'President'),
+      ),
+      row('Old Sample Works Inc', last, '01/02/2001', 'President'),
+      row('New Sample Works Inc', last, '05/06/2009', 'Secretary'),
+    ].join('\n');
+    const file = fixtureFile(
+      { kind: 'state_registry', dataset: 'PA' },
+      'pa-batch-boundary',
+      '2026-10-20',
+    );
+    const importId = crypto.randomUUID();
+    await startLeadImport({ importId, file });
+
+    await loadLeadFile(importId, file, Readable.from([csv]), () => {});
+
+    const { data: entity } = await admin
+      .from('state_registry_entity')
+      .select('name, formation_date, state_registry_officer(name, title)')
+      .eq('state', 'PA')
+      .eq('entity_number', last)
+      .single()
+      .throwOnError();
+    expect(entity).toEqual({
+      name: 'New Sample Works Inc',
+      formation_date: '2001-01-02',
+      state_registry_officer: expect.arrayContaining([
+        { name: 'Avery Fictional', title: 'President' },
+        { name: 'Avery Fictional', title: 'Secretary' },
+      ]),
+    });
+  });
+
   it('removes a registry officer the newer file no longer lists for that entity', async () => {
     const pa = (fixture: string) =>
       fixtureFile(
@@ -463,27 +521,68 @@ describe('lead file loads', () => {
     ]);
   });
 
-  it('replaces a New York CEO the newer file no longer lists', async () => {
-    const ny = (fixture: string) =>
-      fixtureFile(
-        { kind: 'state_registry', dataset: 'NY' },
-        fixture,
-        '2026-10-30',
-      );
-    await importOnce(ny('registry_ny.csv'));
+  it('attaches each New York entity its latest status, registered agent, CEO and principal executive office, with Inactive winning a tie within one filing and no mailing address', async () => {
+    const ny = (dataset: string, fixture: string) =>
+      fixtureFile({ kind: 'state_registry', dataset }, fixture, '2026-10-30');
+    await importOnce(ny('NY', 'registry_ny.csv'));
 
-    await importTwice(ny('registry_ny_new_ceo.csv'));
+    const { importId: statusImport } = await importTwice(
+      ny('NY status', 'registry_ny_status.csv'),
+    );
+    await importTwice(ny('NY addresses', 'registry_ny_addresses.csv'));
+
+    expect(await unmatched(statusImport)).toBe(1);
+    const { data: entities } = await admin
+      .from('state_registry_entity')
+      .select(
+        'entity_number, status, registered_agent, principal_address_line1, principal_city, principal_state, principal_postal_code, mailing_address_line1, state_registry_officer(name, title)',
+      )
+      .eq('state', 'NY')
+      .in('entity_number', NY_ENTITIES)
+      .order('entity_number')
+      .throwOnError();
+    expect(entities).toEqual([
+      {
+        entity_number: '9072354',
+        status: 'Inactive',
+        registered_agent: null,
+        principal_address_line1: null,
+        principal_city: null,
+        principal_state: null,
+        principal_postal_code: null,
+        mailing_address_line1: null,
+        state_registry_officer: [],
+      },
+      {
+        entity_number: '9424185',
+        status: 'Suspended',
+        registered_agent: 'SAMPLE AGENTS LLC',
+        principal_address_line1: '5 SAMPLE PLAZA',
+        principal_city: 'MOUNT VERNON',
+        principal_state: 'NY',
+        principal_postal_code: '10552',
+        mailing_address_line1: null,
+        state_registry_officer: [{ name: 'ROBIN EXAMPLE', title: 'CEO' }],
+      },
+    ]);
+  });
+
+  it('clears a New York registered agent when the latest address row of a later file says the agent was revoked', async () => {
+    const ny = (dataset: string, fixture: string) =>
+      fixtureFile({ kind: 'state_registry', dataset }, fixture, '2026-10-31');
+    await importOnce(ny('NY', 'registry_ny.csv'));
+    await importOnce(ny('NY addresses', 'registry_ny_addresses.csv'));
+
+    await importTwice(ny('NY addresses', 'registry_ny_addresses_revoked.csv'));
 
     const { data: entity } = await admin
       .from('state_registry_entity')
-      .select('state_registry_officer(name, title)')
+      .select('registered_agent')
       .eq('state', 'NY')
       .eq('entity_number', '9424185')
       .single()
       .throwOnError();
-    expect(entity.state_registry_officer).toEqual([
-      { name: 'ROBIN EXAMPLE', title: 'CEO' },
-    ]);
+    expect(entity.registered_agent).toBeNull();
   });
 
   it('reports progress after each batch it writes', async () => {

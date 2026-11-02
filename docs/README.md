@@ -39,6 +39,8 @@ schema, not a wish list.
 - [Design system](design.md) - the token system, brand, type, spacing, radius, and
   elevation.
 - [Configuration](configuration.md) - what must be set to go live, keyed by feature.
+- [State registry sources](state-registry-sources.md) - business entity registry data
+  sources for all 50 states plus DC, the import decisions, and import status.
 
 ## Proposed specifications
 
