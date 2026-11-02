@@ -47,7 +47,7 @@ async function render() {
         caps={{
           letters: { cap: 40, used: 12 },
           lookups: { cap: 200, used: 3 },
-          ai: { cap: 0, used: 7 },
+          ai: { cap: 1000, used: 311.2, resetsAt: '2026-12-01T00:00:00.000Z' },
         }}
       />,
     );
@@ -95,28 +95,38 @@ afterEach(() => {
 });
 
 describe('the monthly caps setting', () => {
-  it("shows each kind's cap beside this month's usage", async () => {
+  it("shows each kind's cap beside this month's usage, AI in whole credits and dollars with its reset date", async () => {
     await render();
 
     expect(field('Letters per month').value).toBe('40');
     expect(field('Paid lookups per month').value).toBe('200');
-    expect(field('AI calls per month').value).toBe('0');
+    expect(field('AI credits per month').value).toBe('1000');
     expect(container.textContent).toContain('12 used this month');
     expect(container.textContent).toContain('3 used this month');
-    expect(container.textContent).toContain('7 used this month');
+    expect(container.textContent).toContain(
+      'Used 312 of 1,000 credits ($3.12), resets Dec 1',
+    );
+  });
+
+  it('says a credit is a cent of model spend, which calls are not counted, and that a call which may not fit what is left waits', async () => {
+    await render();
+
+    expect(container.textContent).toContain(
+      '1 credit is $0.01 of model spend on your own AI key. Calls to a model without a known price, or to an OpenAI-compatible endpoint without prices entered, are not counted. Each counted call holds the most it could cost until it finishes, so a call that might not fit in what is left waits for next month or a higher cap.',
+    );
   });
 
   it('saves the caps a deal manager enters', async () => {
     await render();
 
-    await type('AI calls per month', '500');
+    await type('AI credits per month', '500');
     await save();
 
     expect(server.save).toHaveBeenCalledWith({
       accountId: 'team-1',
       letterMonthlyCap: 40,
       lookupMonthlyCap: 200,
-      aiMonthlyCap: 500,
+      aiMonthlyCreditCap: 500,
     });
     expect(server.refresh).toHaveBeenCalled();
     expect(alertText()).toBeUndefined();

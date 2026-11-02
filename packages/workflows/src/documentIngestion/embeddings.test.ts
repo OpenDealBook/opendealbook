@@ -5,8 +5,11 @@ import { EMBEDDING_DIMENSIONS, embedTexts } from './embeddings';
 
 let provider: Awaited<ReturnType<typeof fakeAiProvider>>;
 
-async function serve(data: { index: number; embedding: number[] }[]) {
-  provider = await fakeAiProvider({ status: 200, body: { data } });
+async function serve(
+  data: { index: number; embedding: number[] }[],
+  usage?: { prompt_tokens: number },
+) {
+  provider = await fakeAiProvider({ status: 200, body: { data, usage } });
   return {
     baseUrl: provider.baseUrl,
     model: 'text-embedding-3-small',
@@ -32,7 +35,7 @@ describe('embedTexts', () => {
       { index: 0, embedding: Array(EMBEDDING_DIMENSIONS).fill(0.1) },
     ]);
 
-    const vectors = await embedTexts(endpoint, ['first', 'second']);
+    const { vectors } = await embedTexts(endpoint, ['first', 'second']);
 
     expect(vectors).toHaveLength(2);
     expect(vectors[0]![0]).toBe(0.1);
@@ -44,6 +47,33 @@ describe('embedTexts', () => {
         body: { model: 'text-embedding-3-small', input: ['first', 'second'] },
       },
     ]);
+  });
+
+  it("reports the provider's input token count", async () => {
+    const endpoint = await serve(
+      [{ index: 0, embedding: Array(EMBEDDING_DIMENSIONS).fill(0.1) }],
+      { prompt_tokens: 7 },
+    );
+
+    const { usage } = await embedTexts(endpoint, ['first']);
+
+    expect(usage).toEqual({
+      inputTokens: 7,
+      cachedInputTokens: 0,
+      cacheWriteTokens: 0,
+      outputTokens: 0,
+    });
+  });
+
+  it('estimates input tokens from the text length when the provider reports none', async () => {
+    const endpoint = await serve([
+      { index: 0, embedding: Array(EMBEDDING_DIMENSIONS).fill(0.1) },
+      { index: 1, embedding: Array(EMBEDDING_DIMENSIONS).fill(0.1) },
+    ]);
+
+    const { usage } = await embedTexts(endpoint, ['first', 'second chunk']);
+
+    expect(usage.inputTokens).toBe(Math.ceil('firstsecond chunk'.length / 4));
   });
 
   it('rejects when a model returns a vector whose dimension is not 1536', async () => {

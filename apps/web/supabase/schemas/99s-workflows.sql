@@ -790,25 +790,36 @@ $$;
 revoke all on function public.lookup_cap_reached(uuid) from public, anon, authenticated;
 grant execute on function public.lookup_cap_reached(uuid) to service_role;
 
-create or replace function public.ai_cap_reached(p_account_id uuid)
-  returns boolean
-  language sql stable security definer
+-- An AI call's cost in credits (1 credit = $0.01 on the team's own key). A
+-- row holds the call's worst-case estimate until settled_at, then its actual
+-- cost.
+alter table public.ai_call_log
+  add column credits numeric(12,4) not null default 0,
+  add column settled_at timestamptz;
+
+create or replace function public.ai_credits_used_this_month(p_account_id uuid)
+  returns numeric
+  language sql stable
   set search_path = '' as $$
-  select count(*) >= coalesce((select ai_monthly_cap from public.outreach_setting where account_id = p_account_id), 0)
+  select coalesce(sum(credits), 0)
   from public.ai_call_log
   where account_id = p_account_id
     and created_at >= date_trunc('month', now() at time zone 'utc') at time zone 'utc';
 $$;
 
-revoke all on function public.ai_cap_reached(uuid) from public, anon, authenticated;
-grant execute on function public.ai_cap_reached(uuid) to service_role;
+revoke all on function public.ai_credits_used_this_month(uuid) from public, anon;
+grant execute on function public.ai_credits_used_this_month(uuid) to authenticated, service_role;
 
--- Reserves one AI call against the team's monthly cap: under a per-team lock,
--- it logs the call unless the cap is reached, and returns the log row's id, or
--- null when the team is at its cap. Usage is filled in after the call.
+-- Reserves an AI call's estimated credits against the team's monthly cap:
+-- under a per-team lock, it logs the call holding the estimate unless that
+-- would pass the cap, and returns the log row's id, or null when it would. A
+-- call costing no credits (a model with no known price) is always logged. A
+-- hold left unsettled for over an hour belongs to a crashed worker, so it is
+-- released first and stops counting.
 create or replace function public.reserve_ai_call(
   p_account_id uuid,
   p_model text,
+  p_credits numeric,
   p_endpoint_id uuid default null,
   p_firm_id uuid default null,
   p_deal_id uuid default null
@@ -819,18 +830,25 @@ declare
   v_call_id uuid;
 begin
   perform pg_advisory_xact_lock(hashtextextended('ai_call_cap:' || p_account_id::text, 0));
-  if public.ai_cap_reached(p_account_id) then
+  update public.ai_call_log
+  set credits = 0, settled_at = now()
+  where account_id = p_account_id
+    and settled_at is null
+    and created_at < now() - interval '1 hour';
+  if p_credits > 0
+     and public.ai_credits_used_this_month(p_account_id) + p_credits
+     > coalesce((select ai_monthly_credit_cap from public.outreach_setting where account_id = p_account_id), 0) then
     return null;
   end if;
-  insert into public.ai_call_log (account_id, model, endpoint_id, firm_id, deal_id)
-  values (p_account_id, p_model, p_endpoint_id, p_firm_id, p_deal_id)
+  insert into public.ai_call_log (account_id, model, credits, endpoint_id, firm_id, deal_id)
+  values (p_account_id, p_model, p_credits, p_endpoint_id, p_firm_id, p_deal_id)
   returning id into v_call_id;
   return v_call_id;
 end;
 $$;
 
-revoke all on function public.reserve_ai_call(uuid, text, uuid, uuid, uuid) from public, anon, authenticated;
-grant execute on function public.reserve_ai_call(uuid, text, uuid, uuid, uuid) to service_role;
+revoke all on function public.reserve_ai_call(uuid, text, numeric, uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.reserve_ai_call(uuid, text, numeric, uuid, uuid, uuid) to service_role;
 
 -- Team-wide events that belong to no deal, such as a firm approval. Like
 -- deal_event, rows are appended by their source tables and read in global_seq

@@ -310,7 +310,7 @@ beforeAll(async () => {
     .insert({
       account_id: owner.accountId,
       daily_cap: 10,
-      ai_monthly_cap: 1000,
+      ai_monthly_credit_cap: 1000000,
     })
     .throwOnError();
   const { data: firm } = await owner.admin

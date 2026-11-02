@@ -48,7 +48,11 @@ beforeAll(async () => {
   provider = await fakeAiProvider(openAiReply('unused'));
   await owner.admin
     .from('outreach_setting')
-    .insert({ account_id: owner.accountId, daily_cap: 10, ai_monthly_cap: 100 })
+    .insert({
+      account_id: owner.accountId,
+      daily_cap: 10,
+      ai_monthly_credit_cap: 1000000,
+    })
     .throwOnError();
   await owner.user
     .rpc('save_llm_endpoint', {

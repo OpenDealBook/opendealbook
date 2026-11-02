@@ -26,7 +26,7 @@ create table if not exists public.outreach_setting (
   updated_by uuid references auth.users,
   letter_monthly_cap int not null default 0,
   lookup_monthly_cap int not null default 0,
-  ai_monthly_cap int not null default 0,
+  ai_monthly_credit_cap int not null default 0,
   letter_return_name text,
   letter_return_address_line1 text,
   letter_return_city text,

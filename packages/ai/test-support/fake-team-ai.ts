@@ -5,6 +5,9 @@ export interface FakeTeam {
     model: string | null;
     chat_model: string | null;
     base_url: string;
+    input_price_per_mtok: number | null;
+    cached_input_price_per_mtok: number | null;
+    output_price_per_mtok: number | null;
   };
   apiKey: string | null;
   capReached: boolean;
@@ -20,6 +23,9 @@ export function fakeTeam(): FakeTeam {
       model: 'text-embedding-3-small',
       chat_model: 'gpt-4o-mini',
       base_url: 'https://llm.example.com/v1',
+      input_price_per_mtok: null,
+      cached_input_price_per_mtok: null,
+      output_price_per_mtok: null,
     },
     apiKey: 'sk-vault',
     capReached: false,
@@ -45,7 +51,7 @@ export function fakeAdminClient(team: FakeTeam) {
             update: (row: Record<string, unknown>) => ({
               eq: (_column: string, id: string) => {
                 team.usage.push({ id, ...row });
-                return settled(null);
+                return { ...settled(null), is: () => settled(null) };
               },
             }),
           },

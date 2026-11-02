@@ -1,5 +1,6 @@
 import { ApplicationFailure } from '@temporalio/common';
 
+import { estimatedTokens, estimatedUsage, type Usage } from './modelPrices';
 import { AI_PROVIDER_TIMEOUT_MS } from './nodeKinds';
 import {
   AddressNotFound,
@@ -12,7 +13,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { isIP, type LookupFunction } from 'node:net';
 
-const ANTHROPIC_MAX_TOKENS = 4096;
+export const DEFAULT_MAX_TOKENS = 4096;
 
 export interface AiEndpoint {
   provider: 'openai' | 'anthropic' | 'openai_compatible';
@@ -23,8 +24,7 @@ export interface AiEndpoint {
 
 export interface AiCompletion {
   text: string;
-  promptTokens: number;
-  completionTokens: number;
+  usage: Usage;
 }
 
 interface Connection {
@@ -185,6 +185,8 @@ export async function completeWithTeamAi(
   { system, json, temperature, maxTokens }: AiRequest = {},
 ): Promise<AiCompletion> {
   const messages = [{ role: 'user', content: prompt }];
+  const replyUsage = (text: string): Usage =>
+    estimatedUsage((system ?? '') + prompt, estimatedTokens(text));
 
   if (endpoint.provider === 'anthropic') {
     const reply = (await postToAiProvider(
@@ -192,7 +194,7 @@ export async function completeWithTeamAi(
       { 'x-api-key': endpoint.apiKey, 'anthropic-version': '2023-06-01' },
       {
         model: endpoint.model,
-        max_tokens: maxTokens ?? ANTHROPIC_MAX_TOKENS,
+        max_tokens: maxTokens ?? DEFAULT_MAX_TOKENS,
         system,
         temperature,
         messages,
@@ -200,12 +202,24 @@ export async function completeWithTeamAi(
       overrides,
     )) as {
       content: { text: string }[];
-      usage: { input_tokens: number; output_tokens: number };
+      usage?: {
+        input_tokens: number;
+        output_tokens: number;
+        cache_read_input_tokens?: number;
+        cache_creation_input_tokens?: number;
+      };
     };
+    const text = reply.content.map((block) => block.text).join('');
     return {
-      text: reply.content.map((block) => block.text).join(''),
-      promptTokens: reply.usage.input_tokens,
-      completionTokens: reply.usage.output_tokens,
+      text,
+      usage: reply.usage
+        ? {
+            inputTokens: reply.usage.input_tokens,
+            cachedInputTokens: reply.usage.cache_read_input_tokens ?? 0,
+            cacheWriteTokens: reply.usage.cache_creation_input_tokens ?? 0,
+            outputTokens: reply.usage.output_tokens,
+          }
+        : replyUsage(text),
     };
   }
 
@@ -224,11 +238,24 @@ export async function completeWithTeamAi(
     overrides,
   )) as {
     choices: { message: { content: string } }[];
-    usage: { prompt_tokens: number; completion_tokens: number };
+    usage?: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+    };
   };
+  const text = reply.choices[0]!.message.content;
+  if (!reply.usage) {
+    return { text, usage: replyUsage(text) };
+  }
+  const cached = reply.usage.prompt_tokens_details?.cached_tokens ?? 0;
   return {
-    text: reply.choices[0]!.message.content,
-    promptTokens: reply.usage.prompt_tokens,
-    completionTokens: reply.usage.completion_tokens,
+    text,
+    usage: {
+      inputTokens: reply.usage.prompt_tokens - cached,
+      cachedInputTokens: cached,
+      cacheWriteTokens: 0,
+      outputTokens: reply.usage.completion_tokens,
+    },
   };
 }

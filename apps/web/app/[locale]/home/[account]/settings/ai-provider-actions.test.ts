@@ -79,6 +79,70 @@ describe('saving the team AI provider', () => {
     ]);
   });
 
+  it("saves an OpenAI-compatible endpoint's prices per million tokens", async () => {
+    await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai_compatible',
+      model: 'llama-3',
+      embeddingModel: '',
+      baseUrl: 'https://llm.example.test/v1',
+      apiKey: 'sk-x',
+      prices: { input: '0.5', cachedInput: '0', output: ' 1.25 ' },
+    });
+
+    expect(world.saved[0]).toMatchObject({
+      p_input_price_per_mtok: 0.5,
+      p_cached_input_price_per_mtok: 0,
+      p_output_price_per_mtok: 1.25,
+    });
+  });
+
+  it('saves no prices when all three are left empty', async () => {
+    await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai_compatible',
+      model: 'llama-3',
+      embeddingModel: '',
+      baseUrl: 'https://llm.example.test/v1',
+      apiKey: 'sk-x',
+      prices: { input: '', cachedInput: '', output: '' },
+    });
+
+    expect(world.saved[0]).toMatchObject({
+      p_input_price_per_mtok: undefined,
+      p_cached_input_price_per_mtok: undefined,
+      p_output_price_per_mtok: undefined,
+    });
+  });
+
+  it.each([
+    [
+      { input: '1', cachedInput: '', output: '1' },
+      'Enter all three prices, or leave them all empty',
+    ],
+    [
+      { input: '-1', cachedInput: '0', output: '1' },
+      'Prices must be numbers of 0 or more',
+    ],
+    [
+      { input: 'cheap', cachedInput: '0', output: '1' },
+      'Prices must be numbers of 0 or more',
+    ],
+  ])('refuses, saving nothing, prices %o', async (prices, refusal) => {
+    const result = await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai_compatible',
+      model: 'llama-3',
+      embeddingModel: '',
+      baseUrl: 'https://llm.example.test/v1',
+      apiKey: 'sk-x',
+      prices,
+    });
+
+    expect(result).toEqual({ ok: false, refusal });
+    expect(world.saved).toEqual([]);
+  });
+
   it('refuses, saving nothing, an embedding model for Anthropic', async () => {
     const result = await saveAiProviderAction({
       accountId: TEAM_ID,
@@ -235,6 +299,30 @@ describe('saving the team AI provider', () => {
       refusal: 'Enter the base URL of your endpoint',
     });
     expect(world.saved).toEqual([]);
+  });
+
+  it('refuses with the price rule when the database rejects the prices', async () => {
+    world.error = {
+      code: '23514',
+      message:
+        'new row for relation "llm_endpoint" violates check constraint "llm_endpoint_prices"',
+    };
+
+    const result = await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai_compatible',
+      model: 'llama-3',
+      embeddingModel: '',
+      baseUrl: 'https://llm.example.test/v1',
+      apiKey: 'sk-x',
+      prices: { input: '1', cachedInput: '1', output: '1' },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      refusal:
+        'Enter all three prices as numbers of 0 or more, or leave them all empty',
+    });
   });
 
   it('asks for a key when the team has none stored', async () => {

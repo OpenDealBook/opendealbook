@@ -19,11 +19,11 @@ export async function connectTeamAi(
   await llm.reply(model, JSON.stringify(reply));
 
   await page.goto(`/home/${teamSlug}/outreach`);
-  await page.getByLabel('AI calls per month').fill('10');
+  await page.getByLabel('AI credits per month').fill('10');
   await page.getByRole('button', { name: 'Save caps' }).click();
   await expect(async () => {
     await page.reload();
-    await expect(page.getByLabel('AI calls per month')).toHaveValue('10', {
+    await expect(page.getByLabel('AI credits per month')).toHaveValue('10', {
       timeout: 3000,
     });
   }).toPass({ timeout: 30 * 1000 });

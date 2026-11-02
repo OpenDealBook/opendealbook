@@ -113,7 +113,9 @@ async function loadTeamDetails(accountId: string) {
 async function loadAiEndpoint(accountId: string) {
   const { data: endpoint } = await getSupabaseServerClient()
     .from('llm_endpoint')
-    .select('provider, chat_model, model, base_url')
+    .select(
+      'provider, chat_model, model, base_url, input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok',
+    )
     .eq('account_id', accountId)
     .maybeSingle()
     .throwOnError();
@@ -124,6 +126,14 @@ async function loadAiEndpoint(accountId: string) {
       model: endpoint.chat_model!,
       embeddingModel: endpoint.model,
       baseUrl: endpoint.base_url!,
+      prices:
+        endpoint.input_price_per_mtok === null
+          ? null
+          : {
+              input: endpoint.input_price_per_mtok,
+              cachedInput: endpoint.cached_input_price_per_mtok!,
+              output: endpoint.output_price_per_mtok!,
+            },
     }
   );
 }

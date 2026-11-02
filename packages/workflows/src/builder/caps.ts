@@ -1,13 +1,22 @@
 import type { Json } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import type { Usage } from './modelPrices';
+
+export const AI_CREDITS_RUN_OUT = 'Not enough AI credits left this month';
+
 export class CapReached extends Error {
   constructor(
-    message = 'The monthly AI limit is reached',
+    message: string,
     readonly resumeAt?: Date,
   ) {
     super(message);
   }
+}
+
+function startOfNextUtcMonth(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
 }
 
 export async function reserveLookup(lookup: {
@@ -47,6 +56,7 @@ export async function reserveAiCall(
   accountId: string,
   call: {
     model: string;
+    credits: number;
     endpointId: string | null;
     firmId?: string;
     dealId?: string;
@@ -56,27 +66,34 @@ export async function reserveAiCall(
     .rpc('reserve_ai_call', {
       p_account_id: accountId,
       p_model: call.model,
+      p_credits: call.credits,
       p_endpoint_id: call.endpointId ?? undefined,
       p_firm_id: call.firmId,
       p_deal_id: call.dealId,
     })
     .throwOnError();
   if (callId === null) {
-    throw new CapReached();
+    throw new CapReached(AI_CREDITS_RUN_OUT, startOfNextUtcMonth());
   }
   return { callId };
 }
 
-export async function recordAiCallUsage(
+export async function settleAiCall(
   callId: string,
-  usage: { promptTokens: number | null; completionTokens: number | null },
+  usage: Usage | null,
+  credits: number,
 ): Promise<void> {
   await getSupabaseServerAdminClient()
     .from('ai_call_log')
     .update({
-      prompt_tokens: usage.promptTokens,
-      completion_tokens: usage.completionTokens,
+      prompt_tokens: usage
+        ? usage.inputTokens + usage.cachedInputTokens + usage.cacheWriteTokens
+        : null,
+      completion_tokens: usage?.outputTokens ?? null,
+      credits,
+      settled_at: new Date().toISOString(),
     })
     .eq('id', callId)
+    .is('settled_at', null)
     .throwOnError();
 }

@@ -42,7 +42,16 @@ interface Endpoint {
   model: string;
   embeddingModel: string | null;
   baseUrl: string;
+  prices: { input: number; cachedInput: number; output: number } | null;
 }
+
+const PRICE_FIELDS = {
+  input: 'Input price ($ per million tokens)',
+  cachedInput: 'Cached input price ($ per million tokens)',
+  output: 'Output price ($ per million tokens)',
+};
+
+type Prices = Record<keyof typeof PRICE_FIELDS, string>;
 
 export function AiProviderSetting({
   accountId,
@@ -63,6 +72,11 @@ export function AiProviderSetting({
   );
   const [baseUrl, setBaseUrl] = useState(current?.baseUrl ?? '');
   const [apiKey, setApiKey] = useState('');
+  const [prices, setPrices] = useState<Prices>({
+    input: String(current?.prices?.input ?? ''),
+    cachedInput: String(current?.prices?.cachedInput ?? ''),
+    output: String(current?.prices?.output ?? ''),
+  });
 
   return (
     <Card>
@@ -88,6 +102,7 @@ export function AiProviderSetting({
                     embeddingModel,
                     baseUrl,
                     apiKey,
+                    ...(provider === 'openai_compatible' ? { prices } : {}),
                   }),
                 () => setApiKey(''),
               );
@@ -152,6 +167,31 @@ export function AiProviderSetting({
                   onChange={(event) => setBaseUrl(event.target.value)}
                 />
               </Label>
+            ) : null}
+            {provider === 'openai_compatible' ? (
+              <div className={'flex flex-col gap-3'}>
+                {Object.entries(PRICE_FIELDS).map(([key, label]) => (
+                  <Label
+                    key={key}
+                    className={'flex flex-col items-start gap-1'}
+                  >
+                    {label}
+                    <Input
+                      aria-label={label}
+                      inputMode={'decimal'}
+                      value={prices[key as keyof Prices]}
+                      disabled={pending}
+                      onChange={(event) =>
+                        setPrices({ ...prices, [key]: event.target.value })
+                      }
+                    />
+                  </Label>
+                ))}
+                <span className={'text-muted-foreground text-xs'}>
+                  Enter prices to count this endpoint&apos;s calls against the
+                  monthly AI credits. Left empty, its calls are not counted.
+                </span>
+              </div>
             ) : null}
             <Label className={'flex flex-col items-start gap-1'}>
               API key

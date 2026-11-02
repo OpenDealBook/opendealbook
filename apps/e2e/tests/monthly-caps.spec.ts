@@ -18,10 +18,13 @@ test('monthly caps persist and a negative cap is not saved', async ({
     page.getByRole('heading', { name: 'Monthly caps' }),
   ).toBeVisible();
   await expect(page.getByText(/\d+ used this month/).first()).toBeVisible();
+  await expect(
+    page.getByText(/^Used 0 of 0 credits \(\$0\.00\), resets [A-Z][a-z]{2} 1$/),
+  ).toBeVisible();
 
   await page.getByLabel('Letters per month').fill('50');
   await page.getByLabel('Paid lookups per month').fill('20');
-  await page.getByLabel('AI calls per month').fill('10');
+  await page.getByLabel('AI credits per month').fill('10');
   await page.getByRole('button', { name: 'Save caps' }).click();
   await expect(async () => {
     await page.reload();
@@ -31,13 +34,13 @@ test('monthly caps persist and a negative cap is not saved', async ({
     await expect(page.getByLabel('Paid lookups per month')).toHaveValue('20', {
       timeout: 3000,
     });
-    await expect(page.getByLabel('AI calls per month')).toHaveValue('10', {
+    await expect(page.getByLabel('AI credits per month')).toHaveValue('10', {
       timeout: 3000,
     });
   }).toPass({ timeout: 30 * 1000 });
 
-  await page.getByLabel('AI calls per month').fill('-1');
+  await page.getByLabel('AI credits per month').fill('-1');
   await page.getByRole('button', { name: 'Save caps' }).click();
   await page.reload();
-  await expect(page.getByLabel('AI calls per month')).toHaveValue('10');
+  await expect(page.getByLabel('AI credits per month')).toHaveValue('10');
 });

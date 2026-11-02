@@ -46,7 +46,7 @@ select ok(not public.has_permission(tests.get_uid('wf_member'), tests.account_id
 insert into public.outreach_setting (account_id, daily_cap) values (tests.account_id('wf-co'), 10);
 
 select is(
-  (select row(lookup_monthly_cap, ai_monthly_cap)::text from public.outreach_setting
+  (select row(lookup_monthly_cap, ai_monthly_credit_cap)::text from public.outreach_setting
    where account_id = tests.account_id('wf-co')),
   '(0,0)',
   'lookup and AI monthly caps default to zero'

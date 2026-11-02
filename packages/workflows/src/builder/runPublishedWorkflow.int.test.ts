@@ -147,6 +147,7 @@ vi.mock('./registry', async (importOriginal) => {
             .throwOnError();
           await reserveAiCall(context.accountId, {
             model: endpoint.chat_model!,
+            credits: 1,
             endpointId: endpoint.id,
           });
           return {
@@ -164,6 +165,7 @@ vi.mock('./registry', async (importOriginal) => {
         async run({ context }) {
           await reserveAiCall(context.accountId, {
             model: 'test-model',
+            credits: 1,
             endpointId: null,
           });
           return { spent: true };
@@ -281,7 +283,7 @@ import type { WorkflowNode } from './graph';
 
 type NodeConfigValue = WorkflowNode['config'][string];
 import { CourtListenerLimit } from '../diligence/sources/courts';
-import { CapReached, recordAiCallUsage, reserveAiCall } from './caps';
+import { CapReached, reserveAiCall, settleAiCall } from './caps';
 import {
   aiProviderProblem,
   cancelRuns,
@@ -3162,7 +3164,7 @@ describe('a step waiting on a person (integration)', () => {
 
 describe('a monthly cap (integration)', () => {
   async function setCaps(caps: {
-    ai_monthly_cap?: number;
+    ai_monthly_credit_cap?: number;
     lookup_monthly_cap?: number;
   }) {
     await owner.admin
@@ -3175,10 +3177,10 @@ describe('a monthly cap (integration)', () => {
   }
 
   it('pauses the run before an AI call past the cap, tells the managers once, and resumes when the cap is raised', async () => {
-    await setCaps({ ai_monthly_cap: 1 });
+    await setCaps({ ai_monthly_credit_cap: 1 });
     await owner.admin
       .from('ai_call_log')
-      .insert({ account_id: teamId, model: 'test-model' })
+      .insert({ account_id: teamId, model: 'test-model', credits: 1 })
       .throwOnError();
     await publish({
       nodes: [trigger, spends, notify('after', 'After the AI step')],
@@ -3191,7 +3193,7 @@ describe('a monthly cap (integration)', () => {
       waits += 1;
       seen.push(await runStatus(runId));
       if (waits === 2) {
-        await setCaps({ ai_monthly_cap: 2 });
+        await setCaps({ ai_monthly_credit_cap: 2 });
         await resumeCappedRuns({ accountId: teamId });
       }
     };
@@ -3212,7 +3214,7 @@ describe('a monthly cap (integration)', () => {
     expect(await runStatus(runId)).toBe('succeeded');
     expect(
       await notificationCounts(
-        'Pipeline review reminder paused: the monthly AI limit is reached',
+        'Pipeline review reminder paused: Not enough AI credits left this month',
       ),
     ).toEqual({
       [owner.userId]: 1,
@@ -3222,6 +3224,52 @@ describe('a monthly cap (integration)', () => {
       [owner.userId]: 1,
       [managerId]: 1,
     });
+  });
+
+  it('wakes a run paused by the AI cap by itself at the start of the next UTC month', async () => {
+    await setCaps({ ai_monthly_credit_cap: 1 });
+    await owner.admin
+      .from('ai_call_log')
+      .insert({ account_id: teamId, model: 'test-model', credits: 1 })
+      .throwOnError();
+    await publish({
+      nodes: [trigger, spends, notify('after', 'After the AI step')],
+      edges: [edge('start', 'spend'), edge('spend', 'after')],
+    });
+    const { runId } = await runManually();
+    const parked: unknown[] = [];
+    temporal.onWait = async () => {
+      parked.push(
+        (
+          await owner.admin
+            .from('workflow_step_run')
+            .select('status, waiting_on, wake_at')
+            .eq('idempotency_key', `${runId}:spend:0`)
+            .single()
+            .throwOnError()
+        ).data,
+        await runStatus(runId),
+      );
+      await owner.admin
+        .from('ai_call_log')
+        .update({ created_at: '2000-01-01T00:00:00Z' })
+        .eq('account_id', teamId)
+        .throwOnError();
+    };
+
+    await runPublishedWorkflow({ runId });
+
+    const now = new Date();
+    const nextMonth = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+    const [step, status] = parked as [
+      { status: string; waiting_on: string; wake_at: string },
+      string,
+    ];
+    expect(status).toBe('paused_cap');
+    expect(step).toMatchObject({ status: 'waiting', waiting_on: 'cap' });
+    expect(Date.parse(step.wake_at)).toBe(nextMonth);
+    expect(temporal.signal).not.toHaveBeenCalled();
+    expect(await runStatus(runId)).toBe('succeeded');
   });
 
   it('pauses a background search an hour for the CourtListener limit, says why, and resumes by itself', async () => {
@@ -3287,6 +3335,33 @@ describe('a monthly cap (integration)', () => {
     });
   });
 
+  it("names a lookup cap pause by its own limit in the managers' notice", async () => {
+    searchFailures.push(new CapReached('The monthly lookup limit is reached'));
+    await publish({
+      nodes: [
+        trigger,
+        {
+          id: 'search',
+          type: 'diligence_search',
+          config: { dealId: crypto.randomUUID() },
+        },
+      ],
+      edges: [edge('start', 'search')],
+    } as unknown as WorkflowGraph);
+
+    const runId = await runToEnd();
+
+    expect(await runStatus(runId)).toBe('succeeded');
+    expect(
+      await notificationCounts(
+        'Pipeline review reminder paused: The monthly lookup limit is reached',
+      ),
+    ).toEqual({
+      [owner.userId]: 1,
+      [managerId]: 1,
+    });
+  });
+
   it('resumes at once when a timed pause is already over by the time the run parks', async () => {
     searchFailures.push(
       new CapReached(
@@ -3312,13 +3387,16 @@ describe('a monthly cap (integration)', () => {
     expect(await runStatus(runId)).toBe('succeeded');
   });
 
-  it('reserves AI calls atomically so two at once cannot pass a cap of one, then records usage', async () => {
-    await setCaps({ ai_monthly_cap: 1 });
+  it('reserves AI credits atomically so two calls that each fit alone cannot both pass the cap, then settles usage', async () => {
+    await setCaps({ ai_monthly_credit_cap: 10 });
+    const reserve = () =>
+      reserveAiCall(teamId, {
+        model: 'test-model',
+        credits: 6,
+        endpointId: null,
+      });
 
-    const outcomes = await Promise.allSettled([
-      reserveAiCall(teamId, { model: 'test-model', endpointId: null }),
-      reserveAiCall(teamId, { model: 'test-model', endpointId: null }),
-    ]);
+    const outcomes = await Promise.allSettled([reserve(), reserve()]);
 
     const reserved = outcomes.flatMap((outcome) =>
       outcome.status === 'fulfilled' ? [outcome.value] : [],
@@ -3330,22 +3408,33 @@ describe('a monthly cap (integration)', () => {
     expect(refused).toHaveLength(1);
     expect(refused[0]).toBeInstanceOf(CapReached);
 
-    await recordAiCallUsage(reserved[0]!.callId, {
-      promptTokens: 12,
-      completionTokens: 34,
-    });
+    await settleAiCall(
+      reserved[0]!.callId,
+      {
+        inputTokens: 10,
+        cachedInputTokens: 2,
+        cacheWriteTokens: 0,
+        outputTokens: 34,
+      },
+      0.5,
+    );
     const { data: logged } = await owner.admin
       .from('ai_call_log')
-      .select('model, prompt_tokens, completion_tokens')
+      .select('model, prompt_tokens, completion_tokens, credits')
       .eq('account_id', teamId)
       .throwOnError();
     expect(logged).toEqual([
-      { model: 'test-model', prompt_tokens: 12, completion_tokens: 34 },
+      {
+        model: 'test-model',
+        prompt_tokens: 12,
+        completion_tokens: 34,
+        credits: 0.5,
+      },
     ]);
   });
 
   it('keeps going when the pause notice fails', async () => {
-    await setCaps({ ai_monthly_cap: 0 });
+    await setCaps({ ai_monthly_credit_cap: 0 });
     await publish({
       nodes: [trigger, spends],
       edges: [edge('start', 'spend')],
@@ -3357,7 +3446,7 @@ describe('a monthly cap (integration)', () => {
       }
     };
     temporal.onWait = async () => {
-      await setCaps({ ai_monthly_cap: 5 });
+      await setCaps({ ai_monthly_credit_cap: 5 });
     };
 
     await runPublishedWorkflow({ runId });
@@ -3702,7 +3791,7 @@ describe('a workflow with AI steps (integration)', () => {
     await owner.admin
       .from('outreach_setting')
       .upsert(
-        { account_id: teamId, daily_cap: 20, ai_monthly_cap: 0 },
+        { account_id: teamId, daily_cap: 20, ai_monthly_credit_cap: 0 },
         { onConflict: 'account_id' },
       )
       .throwOnError();
@@ -3725,7 +3814,7 @@ describe('a workflow with AI steps (integration)', () => {
       if (waits === 1) {
         await owner.admin
           .from('outreach_setting')
-          .update({ ai_monthly_cap: 5 })
+          .update({ ai_monthly_credit_cap: 5 })
           .eq('account_id', teamId)
           .throwOnError();
       } else {

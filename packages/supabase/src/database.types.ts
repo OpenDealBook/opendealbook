@@ -470,36 +470,42 @@ export type Database = {
           completion_tokens: number | null
           created_at: string
           created_by: string | null
+          credits: number
           deal_id: string | null
           endpoint_id: string | null
           firm_id: string | null
           id: string
           model: string
           prompt_tokens: number | null
+          settled_at: string | null
         }
         Insert: {
           account_id: string
           completion_tokens?: number | null
           created_at?: string
           created_by?: string | null
+          credits?: number
           deal_id?: string | null
           endpoint_id?: string | null
           firm_id?: string | null
           id?: string
           model: string
           prompt_tokens?: number | null
+          settled_at?: string | null
         }
         Update: {
           account_id?: string
           completion_tokens?: number | null
           created_at?: string
           created_by?: string | null
+          credits?: number
           deal_id?: string | null
           endpoint_id?: string | null
           firm_id?: string | null
           id?: string
           model?: string
           prompt_tokens?: number | null
+          settled_at?: string | null
         }
         Relationships: [
           {
@@ -8574,11 +8580,14 @@ export type Database = {
           account_id: string
           api_key_secret_id: string | null
           base_url: string | null
+          cached_input_price_per_mtok: number | null
           chat_model: string | null
           created_at: string | null
           created_by: string | null
           id: string
+          input_price_per_mtok: number | null
           model: string | null
+          output_price_per_mtok: number | null
           provider: string
           updated_at: string | null
           updated_by: string | null
@@ -8587,11 +8596,14 @@ export type Database = {
           account_id: string
           api_key_secret_id?: string | null
           base_url?: string | null
+          cached_input_price_per_mtok?: number | null
           chat_model?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
+          input_price_per_mtok?: number | null
           model?: string | null
+          output_price_per_mtok?: number | null
           provider: string
           updated_at?: string | null
           updated_by?: string | null
@@ -8600,11 +8612,14 @@ export type Database = {
           account_id?: string
           api_key_secret_id?: string | null
           base_url?: string | null
+          cached_input_price_per_mtok?: number | null
           chat_model?: string | null
           created_at?: string | null
           created_by?: string | null
           id?: string
+          input_price_per_mtok?: number | null
           model?: string | null
+          output_price_per_mtok?: number | null
           provider?: string
           updated_at?: string | null
           updated_by?: string | null
@@ -9900,7 +9915,7 @@ export type Database = {
       outreach_setting: {
         Row: {
           account_id: string
-          ai_monthly_cap: number
+          ai_monthly_credit_cap: number
           created_at: string | null
           created_by: string | null
           daily_cap: number
@@ -9917,7 +9932,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
-          ai_monthly_cap?: number
+          ai_monthly_credit_cap?: number
           created_at?: string | null
           created_by?: string | null
           daily_cap: number
@@ -9934,7 +9949,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
-          ai_monthly_cap?: number
+          ai_monthly_credit_cap?: number
           created_at?: string | null
           created_by?: string | null
           daily_cap?: number
@@ -13536,7 +13551,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      ai_cap_reached: { Args: { p_account_id: string }; Returns: boolean }
+      ai_credits_used_this_month: {
+        Args: { p_account_id: string }
+        Returns: number
+      }
       analytics_broker_deal_flow_by_quarter: {
         Args: { p_account_id: string; p_include_revenue?: boolean }
         Returns: {
@@ -14619,6 +14637,7 @@ export type Database = {
       reserve_ai_call: {
         Args: {
           p_account_id: string
+          p_credits: number
           p_deal_id?: string
           p_endpoint_id?: string
           p_firm_id?: string
@@ -14650,8 +14669,11 @@ export type Database = {
           p_account_id: string
           p_api_key?: string
           p_base_url: string
+          p_cached_input_price_per_mtok?: number
           p_embedding_model?: string
+          p_input_price_per_mtok?: number
           p_model: string
+          p_output_price_per_mtok?: number
           p_provider: string
         }
         Returns: undefined

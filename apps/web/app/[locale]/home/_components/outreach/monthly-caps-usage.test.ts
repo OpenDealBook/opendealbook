@@ -9,13 +9,22 @@ const world = vi.hoisted(() => ({
   setting: null as null | {
     letter_monthly_cap: number;
     lookup_monthly_cap: number;
-    ai_monthly_cap: number;
+    ai_monthly_credit_cap: number;
   },
   rows: {} as Record<string, Row[]>,
+  aiCreditsUsed: {} as Record<string, number>,
 }));
 
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({
+    rpc: (name: string, args: { p_account_id: string }) => ({
+      throwOnError: async () => ({
+        data:
+          name === 'ai_credits_used_this_month'
+            ? (world.aiCreditsUsed[args.p_account_id] ?? 0)
+            : null,
+      }),
+    }),
     from: (table: string) => ({
       select: () => ({
         eq: (_column: string, accountId: string) => ({
@@ -47,9 +56,10 @@ beforeEach(() => {
   world.setting = {
     letter_monthly_cap: 40,
     lookup_monthly_cap: 200,
-    ai_monthly_cap: 1000,
+    ai_monthly_credit_cap: 1000,
   };
   world.rows = {};
+  world.aiCreditsUsed = {};
 });
 
 afterEach(() => {
@@ -57,7 +67,7 @@ afterEach(() => {
 });
 
 describe("this month's caps and usage", () => {
-  it("counts each kind's rows since the start of the UTC month, failed letters included", async () => {
+  it("counts letters and lookups since the start of the UTC month, failed letters included, and sums this month's AI credits", async () => {
     world.rows = {
       outreach_letter: [
         row('2026-10-01T00:00:00Z'),
@@ -71,13 +81,13 @@ describe("this month's caps and usage", () => {
         row('2026-10-04T00:00:00Z'),
         row('2026-09-15T00:00:00Z'),
       ],
-      ai_call_log: [row('2026-10-21T11:59:00Z'), row('2026-09-30T23:00:00Z')],
     };
+    world.aiCreditsUsed = { [TEAM_ID]: 311.2, [OTHER_TEAM_ID]: 50 };
 
     expect(await loadMonthlyCaps(TEAM_ID)).toEqual({
       letters: { cap: 40, used: 2 },
       lookups: { cap: 200, used: 3 },
-      ai: { cap: 1000, used: 1 },
+      ai: { cap: 1000, used: 311.2, resetsAt: '2026-11-01T00:00:00.000Z' },
     });
   });
 
@@ -87,7 +97,7 @@ describe("this month's caps and usage", () => {
     expect(await loadMonthlyCaps(TEAM_ID)).toEqual({
       letters: { cap: 0, used: 0 },
       lookups: { cap: 0, used: 0 },
-      ai: { cap: 0, used: 0 },
+      ai: { cap: 0, used: 0, resetsAt: '2026-11-01T00:00:00.000Z' },
     });
   });
 });

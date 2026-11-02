@@ -15,6 +15,8 @@ import {
 } from '@odb/workflows/team-ai';
 
 const NOT_PUBLIC = 'Use a public HTTPS base URL';
+const PRICE = /^\d+(\.\d+)?$/;
+const price = z.string().trim();
 
 const REFUSALS: Record<string, string> = {
   '42501': 'Changing the AI provider needs settings.manage',
@@ -22,7 +24,12 @@ const REFUSALS: Record<string, string> = {
   '22023': NOT_PUBLIC,
 };
 
-function refuseOrThrow(error: { code: string } | null) {
+function refuseOrThrow(error: { code: string; message: string } | null) {
+  if (error?.message.includes('llm_endpoint_prices')) {
+    throw new Refusal(
+      'Enter all three prices as numbers of 0 or more, or leave them all empty',
+    );
+  }
   if (error && REFUSALS[error.code]) {
     throw new Refusal(REFUSALS[error.code]!);
   }
@@ -38,7 +45,17 @@ function publicOrRefuse(baseUrl: string): Promise<boolean> {
 }
 
 export const saveAiProviderAction = refusableAction(
-  async ({ accountId, provider, model, embeddingModel, baseUrl, apiKey }) => {
+  async ({
+    accountId,
+    provider,
+    model,
+    embeddingModel,
+    baseUrl,
+    apiKey,
+    prices,
+  }) => {
+    const priced =
+      provider === 'openai_compatible' && prices?.input ? prices : undefined;
     if (
       provider === 'openai_compatible' &&
       !privateAiUrlsAllowed() &&
@@ -53,6 +70,9 @@ export const saveAiProviderAction = refusableAction(
       p_embedding_model: embeddingModel || undefined,
       p_base_url: baseUrl,
       p_api_key: apiKey || undefined,
+      p_input_price_per_mtok: priced && Number(priced.input),
+      p_cached_input_price_per_mtok: priced && Number(priced.cachedInput),
+      p_output_price_per_mtok: priced && Number(priced.output),
     });
 
     refuseOrThrow(error);
@@ -65,6 +85,9 @@ export const saveAiProviderAction = refusableAction(
       embeddingModel: z.string().trim(),
       baseUrl: z.string(),
       apiKey: z.string(),
+      prices: z
+        .object({ input: price, cachedInput: price, output: price })
+        .optional(),
     })
     .refine(
       (input) =>
@@ -75,6 +98,18 @@ export const saveAiProviderAction = refusableAction(
     .refine(
       (input) => input.provider !== 'anthropic' || !input.embeddingModel,
       ANTHROPIC_HAS_NO_EMBEDDINGS,
+    )
+    .refine(
+      ({ prices }) =>
+        !prices ||
+        new Set(Object.values(prices).map((value) => value === '')).size === 1,
+      'Enter all three prices, or leave them all empty',
+    )
+    .refine(
+      ({ prices }) =>
+        !prices ||
+        Object.values(prices).every((value) => !value || PRICE.test(value)),
+      'Prices must be numbers of 0 or more',
     ),
 );
 

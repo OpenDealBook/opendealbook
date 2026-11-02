@@ -1,4 +1,5 @@
 import { postToAiProvider } from '../builder/aiClient';
+import { estimatedUsage, type Usage } from '../builder/modelPrices';
 
 export const EMBEDDING_DIMENSIONS = 1536;
 
@@ -10,12 +11,13 @@ export interface EmbeddingEndpoint {
 
 interface EmbeddingResponse {
   data: { index: number; embedding: number[] }[];
+  usage?: { prompt_tokens: number };
 }
 
 export async function embedTexts(
   endpoint: EmbeddingEndpoint,
   inputs: string[],
-): Promise<number[][]> {
+): Promise<{ vectors: number[][]; usage: Usage }> {
   const payload = (await postToAiProvider(
     `${endpoint.baseUrl}/embeddings`,
     { authorization: `Bearer ${endpoint.apiKey}` },
@@ -34,5 +36,15 @@ export async function embedTexts(
     }
   }
 
-  return vectors;
+  return {
+    vectors,
+    usage: payload.usage
+      ? {
+          inputTokens: payload.usage.prompt_tokens,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 0,
+        }
+      : estimatedUsage(inputs.join(''), 0),
+  };
 }

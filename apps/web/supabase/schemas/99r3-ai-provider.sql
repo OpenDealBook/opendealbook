@@ -6,6 +6,8 @@
 -- saves for one team are serialized. A provider saved here names its chat model
 -- and, when the team gives one, the embedding model in llm_endpoint.model;
 -- Anthropic has no embeddings API, so an Anthropic provider takes none.
+-- An OpenAI-compatible endpoint may carry the team's own USD prices per
+-- million tokens, all three or none, which then price its AI credits.
 -- team_people_names lists every person the team knows, so prompts can be
 -- redacted before they leave.
 
@@ -54,13 +56,30 @@ begin
 end;
 $$;
 
+alter table public.llm_endpoint
+  add column input_price_per_mtok numeric,
+  add column cached_input_price_per_mtok numeric,
+  add column output_price_per_mtok numeric,
+  add constraint llm_endpoint_prices check (
+    num_nulls(input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok) = 3
+    or (provider = 'openai_compatible'
+      and num_nulls(input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok) = 0
+      and least(input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok) >= 0)
+  );
+
+grant select (input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok)
+  on public.llm_endpoint to authenticated;
+
 create or replace function public.save_llm_endpoint(
   p_account_id uuid,
   p_provider text,
   p_model text,
   p_base_url text,
   p_api_key text default null,
-  p_embedding_model text default null
+  p_embedding_model text default null,
+  p_input_price_per_mtok numeric default null,
+  p_cached_input_price_per_mtok numeric default null,
+  p_output_price_per_mtok numeric default null
 )
   returns void
   language plpgsql security definer
@@ -107,19 +126,28 @@ begin
     secret_id := vault.create_secret(p_api_key);
   end if;
 
-  insert into public.llm_endpoint (account_id, provider, chat_model, model, base_url, api_key_secret_id)
-  values (p_account_id, p_provider, p_model, p_embedding_model, base_url, secret_id)
+  insert into public.llm_endpoint (
+    account_id, provider, chat_model, model, base_url, api_key_secret_id,
+    input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok
+  )
+  values (
+    p_account_id, p_provider, p_model, p_embedding_model, base_url, secret_id,
+    p_input_price_per_mtok, p_cached_input_price_per_mtok, p_output_price_per_mtok
+  )
   on conflict (account_id) do update
     set provider = excluded.provider,
         chat_model = excluded.chat_model,
         model = excluded.model,
         base_url = excluded.base_url,
-        api_key_secret_id = excluded.api_key_secret_id;
+        api_key_secret_id = excluded.api_key_secret_id,
+        input_price_per_mtok = excluded.input_price_per_mtok,
+        cached_input_price_per_mtok = excluded.cached_input_price_per_mtok,
+        output_price_per_mtok = excluded.output_price_per_mtok;
 end;
 $$;
 
-revoke all on function public.save_llm_endpoint(uuid, text, text, text, text, text) from public, anon;
-grant execute on function public.save_llm_endpoint(uuid, text, text, text, text, text) to authenticated;
+revoke all on function public.save_llm_endpoint(uuid, text, text, text, text, text, numeric, numeric, numeric) from public, anon;
+grant execute on function public.save_llm_endpoint(uuid, text, text, text, text, text, numeric, numeric, numeric) to authenticated;
 
 create or replace function public.disconnect_llm_endpoint(p_account_id uuid)
   returns void

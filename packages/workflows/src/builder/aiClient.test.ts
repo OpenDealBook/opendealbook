@@ -47,8 +47,12 @@ describe('completeWithTeamAi', () => {
 
     expect(completion).toEqual({
       text: 'Looks like a fit.',
-      promptTokens: 12,
-      completionTokens: 5,
+      usage: {
+        inputTokens: 12,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 5,
+      },
     });
     expect(fake.received).toMatchObject([
       {
@@ -84,8 +88,12 @@ describe('completeWithTeamAi', () => {
 
     expect(completion).toEqual({
       text: 'Not a fit.',
-      promptTokens: 30,
-      completionTokens: 4,
+      usage: {
+        inputTokens: 30,
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: 4,
+      },
     });
     expect(fake.received).toMatchObject([
       {
@@ -97,6 +105,100 @@ describe('completeWithTeamAi', () => {
         },
       },
     ]);
+  });
+
+  it('splits cached prompt tokens out of an OpenAI prompt count', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        choices: [{ message: { content: 'Yes.' } }],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 5,
+          prompt_tokens_details: { cached_tokens: 60 },
+        },
+      },
+    });
+
+    const completion = await completeWithTeamAi(
+      {
+        provider: 'openai',
+        model: 'gpt-4o',
+        baseUrl: fake.baseUrl,
+        apiKey: 'k',
+      },
+      'Is this a fit?',
+      LOOPBACK_FAKE,
+    );
+
+    expect(completion.usage).toEqual({
+      inputTokens: 40,
+      cachedInputTokens: 60,
+      cacheWriteTokens: 0,
+      outputTokens: 5,
+    });
+  });
+
+  it('reads Anthropic cache reads and cache writes', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        content: [{ type: 'text', text: 'Yes.' }],
+        usage: {
+          input_tokens: 30,
+          output_tokens: 4,
+          cache_read_input_tokens: 200,
+          cache_creation_input_tokens: 50,
+        },
+      },
+    });
+
+    const completion = await completeWithTeamAi(
+      {
+        provider: 'anthropic',
+        model: 'claude-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'k',
+      },
+      'Is this a fit?',
+      LOOPBACK_FAKE,
+    );
+
+    expect(completion.usage).toEqual({
+      inputTokens: 30,
+      cachedInputTokens: 200,
+      cacheWriteTokens: 50,
+      outputTokens: 4,
+    });
+  });
+
+  it('estimates usage from the prompt and reply length when the reply has no usage block', async () => {
+    const fake = await provider({
+      status: 200,
+      body: { choices: [{ message: { content: 'Looks like a fit.' } }] },
+    });
+
+    const completion = await completeWithTeamAi(
+      {
+        provider: 'openai_compatible',
+        model: 'llama-3',
+        baseUrl: fake.baseUrl,
+        apiKey: 'k',
+      },
+      'Is this a fit?',
+      LOOPBACK_FAKE,
+      { system: 'Be brief' },
+    );
+
+    expect(completion).toEqual({
+      text: 'Looks like a fit.',
+      usage: {
+        inputTokens: Math.ceil(('Be brief' + 'Is this a fit?').length / 4),
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: Math.ceil('Looks like a fit.'.length / 4),
+      },
+    });
   });
 
   it('sends a system prompt as a system message to an OpenAI-compatible endpoint', async () => {

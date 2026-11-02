@@ -137,13 +137,19 @@ describe('answerDealQuestion', () => {
     expect(team.reserved).toEqual([]);
   });
 
-  it('counts the embedding and the answer against the AI cap, logged to the deal', async () => {
+  it('counts the embedding and the answer against the AI credit cap, logged to the deal and settled to the tokens used', async () => {
+    team.endpoint.input_price_per_mtok = 1;
+    team.endpoint.cached_input_price_per_mtok = 1;
+    team.endpoint.output_price_per_mtok = 2;
+
     await ask();
 
     expect(team.reserved).toEqual([
       expect.objectContaining({
         p_account_id: 'acct-1',
         p_model: 'text-embedding-3-small',
+        p_credits:
+          Math.ceil('Did Priya Okafor report revenue?'.length / 4) / 1e4,
         p_endpoint_id: 'endpoint-1',
         p_deal_id: 'deal-1',
       }),
@@ -155,8 +161,18 @@ describe('answerDealQuestion', () => {
       }),
     ]);
     expect(team.usage).toEqual([
-      { id: 'call-1', prompt_tokens: null, completion_tokens: null },
-      { id: 'call-2', prompt_tokens: 321, completion_tokens: 42 },
+      expect.objectContaining({
+        id: 'call-1',
+        prompt_tokens: 6,
+        completion_tokens: 0,
+        credits: 6 / 1e4,
+      }),
+      expect.objectContaining({
+        id: 'call-2',
+        prompt_tokens: 321,
+        completion_tokens: 42,
+        credits: (321 + 42 * 2) / 1e4,
+      }),
     ]);
   });
 

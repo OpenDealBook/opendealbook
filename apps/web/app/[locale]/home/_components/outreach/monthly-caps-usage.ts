@@ -5,7 +5,7 @@ export type MonthlyCap = { cap: number; used: number };
 export type MonthlyCapsUsage = {
   letters: MonthlyCap;
   lookups: MonthlyCap;
-  ai: MonthlyCap;
+  ai: MonthlyCap & { resetsAt: string };
 };
 
 export async function loadMonthlyCaps(
@@ -16,10 +16,11 @@ export async function loadMonthlyCaps(
   const monthStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
   ).toISOString();
+  const nextMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+  ).toISOString();
 
-  const usedThisMonth = async (
-    table: 'outreach_letter' | 'paid_lookup' | 'ai_call_log',
-  ) => {
+  const usedThisMonth = async (table: 'outreach_letter' | 'paid_lookup') => {
     const { count } = await client
       .from(table)
       .select('id', { count: 'exact', head: true })
@@ -33,17 +34,24 @@ export async function loadMonthlyCaps(
   const [{ data: setting }, letters, lookups, ai] = await Promise.all([
     client
       .from('outreach_setting')
-      .select('letter_monthly_cap, lookup_monthly_cap, ai_monthly_cap')
+      .select('letter_monthly_cap, lookup_monthly_cap, ai_monthly_credit_cap')
       .eq('account_id', accountId)
       .maybeSingle(),
     usedThisMonth('outreach_letter'),
     usedThisMonth('paid_lookup'),
-    usedThisMonth('ai_call_log'),
+    client
+      .rpc('ai_credits_used_this_month', { p_account_id: accountId })
+      .throwOnError()
+      .then(({ data }) => data!),
   ]);
 
   return {
     letters: { cap: setting?.letter_monthly_cap ?? 0, used: letters },
     lookups: { cap: setting?.lookup_monthly_cap ?? 0, used: lookups },
-    ai: { cap: setting?.ai_monthly_cap ?? 0, used: ai },
+    ai: {
+      cap: setting?.ai_monthly_credit_cap ?? 0,
+      used: ai,
+      resetsAt: nextMonthStart,
+    },
   };
 }

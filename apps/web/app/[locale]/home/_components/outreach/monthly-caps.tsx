@@ -11,7 +11,7 @@ import {
   retryResumeCappedRunsAction,
   saveMonthlyCapsAction,
 } from './monthly-caps-actions';
-import type { MonthlyCap, MonthlyCapsUsage } from './monthly-caps-usage';
+import type { MonthlyCapsUsage } from './monthly-caps-usage';
 
 export function MonthlyCaps({
   accountId,
@@ -38,7 +38,7 @@ export function MonthlyCaps({
           accountId,
           letterMonthlyCap: Number(letters),
           lookupMonthlyCap: Number(lookups),
-          aiMonthlyCap: Number(ai),
+          aiMonthlyCreditCap: Number(ai),
         }),
       showResumeError,
     );
@@ -50,24 +50,30 @@ export function MonthlyCaps({
         <CapField
           id={'letter-monthly-cap'}
           label={'Letters per month'}
-          usage={caps.letters}
+          usage={`${caps.letters.used} used this month`}
           value={letters}
           onChange={setLetters}
         />
         <CapField
           id={'lookup-monthly-cap'}
           label={'Paid lookups per month'}
-          usage={caps.lookups}
+          usage={`${caps.lookups.used} used this month`}
           value={lookups}
           onChange={setLookups}
         />
         <CapField
           id={'ai-monthly-cap'}
-          label={'AI calls per month'}
-          usage={caps.ai}
+          label={'AI credits per month'}
+          usage={aiUsage(caps.ai)}
           value={ai}
           onChange={setAi}
-        />
+        >
+          1 credit is $0.01 of model spend on your own AI key. Calls to a model
+          without a known price, or to an OpenAI-compatible endpoint without
+          prices entered, are not counted. Each counted call holds the most it
+          could cost until it finishes, so a call that might not fit in what is
+          left waits for next month or a higher cap.
+        </CapField>
       </div>
 
       {(refusal ?? resumeError) ? (
@@ -100,18 +106,36 @@ export function MonthlyCaps({
   );
 }
 
+const wholeNumber = new Intl.NumberFormat('en-US');
+const dollars = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+});
+const resetDay = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+
+function aiUsage({ cap, used, resetsAt }: MonthlyCapsUsage['ai']): string {
+  const usedCredits = Math.ceil(used);
+  return `Used ${wholeNumber.format(usedCredits)} of ${wholeNumber.format(cap)} credits (${dollars.format(usedCredits / 100)}), resets ${resetDay.format(new Date(resetsAt))}`;
+}
+
 function CapField({
   id,
   label,
   usage,
   value,
   onChange,
+  children,
 }: {
   id: string;
   label: string;
-  usage: MonthlyCap;
+  usage: string;
   value: string;
   onChange: (value: string) => void;
+  children?: React.ReactNode;
 }) {
   return (
     <div className={'flex flex-col gap-2'}>
@@ -125,9 +149,10 @@ function CapField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
-      <p className={'text-muted-foreground text-sm'}>
-        {usage.used} used this month
-      </p>
+      <p className={'text-muted-foreground text-sm'}>{usage}</p>
+      {children ? (
+        <p className={'text-muted-foreground text-xs'}>{children}</p>
+      ) : null}
     </div>
   );
 }

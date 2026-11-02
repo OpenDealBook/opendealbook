@@ -31,7 +31,7 @@ vi.mock('@odb/notifications/server', () => ({
 }));
 
 import { requestDealVerification, runDealVerification } from '../activities';
-import { CapReached } from '../builder/caps';
+import { AI_CREDITS_RUN_OUT, CapReached } from '../builder/caps';
 
 beforeEach(() => {
   state.runVerification.mockReset();
@@ -70,8 +70,8 @@ describe('runDealVerification', () => {
     const { skipReason } = state.runVerification.mock.calls[0]![0] as {
       skipReason: (error: unknown) => string | null;
     };
-    expect(skipReason(new CapReached())).toBe(
-      'The monthly AI limit is reached',
+    expect(skipReason(new CapReached(AI_CREDITS_RUN_OUT))).toBe(
+      AI_CREDITS_RUN_OUT,
     );
     expect(skipReason(new Error('boom'))).toBeNull();
   });

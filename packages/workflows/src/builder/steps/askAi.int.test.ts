@@ -70,7 +70,11 @@ beforeAll(async () => {
   network.trustedFakeUrl = provider.baseUrl;
   await owner.admin
     .from('outreach_setting')
-    .insert({ account_id: owner.accountId, daily_cap: 10, ai_monthly_cap: 100 })
+    .insert({
+      account_id: owner.accountId,
+      daily_cap: 10,
+      ai_monthly_credit_cap: 1000000,
+    })
     .throwOnError();
   await saveEndpoint('sk-first');
   await owner.admin
@@ -300,16 +304,25 @@ describe('ask_ai step (integration)', () => {
     },
   );
 
-  it('refuses without calling the provider once the team reaches its monthly AI cap', async () => {
+  it('refuses a priced call without calling the provider once the team reaches its monthly AI cap', async () => {
+    await owner.admin
+      .from('llm_endpoint')
+      .update({
+        input_price_per_mtok: 1,
+        cached_input_price_per_mtok: 1,
+        output_price_per_mtok: 1,
+      })
+      .eq('account_id', owner.accountId)
+      .throwOnError();
     await owner.admin
       .from('outreach_setting')
-      .update({ ai_monthly_cap: await callCount() })
+      .update({ ai_monthly_credit_cap: 0 })
       .eq('account_id', owner.accountId)
       .throwOnError();
     provider.received.length = 0;
 
     await expect(run('run-1:ask:7', { prompt: 'Hi' })).rejects.toThrow(
-      'The monthly AI limit is reached',
+      'Not enough AI credits left this month',
     );
     expect(provider.received).toEqual([]);
   });

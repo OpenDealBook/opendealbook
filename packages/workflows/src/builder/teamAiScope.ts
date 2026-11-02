@@ -5,8 +5,9 @@ import type { Database } from '@odb/supabase';
 import { resolveTeamAi, type TeamAi } from './teamAiKey';
 
 export { aiJson, privateAiUrlsAllowed } from './aiClient';
-export { CapReached } from './caps';
+export { AI_CREDITS_RUN_OUT, CapReached } from './caps';
 export { embedTexts } from '../documentIngestion/embeddings';
+export { estimatedUsage } from './modelPrices';
 export {
   ADD_EMBEDDING_MODEL,
   ANTHROPIC_HAS_NO_EMBEDDINGS,

@@ -210,7 +210,7 @@ export async function notifyRunFailed(input: { runId: string }): Promise<void> {
 export async function notifyRunPaused(input: {
   runId: string;
   pause: number;
-  reason?: string;
+  reason: string;
 }): Promise<void> {
   const { data: run } = await getSupabaseServerAdminClient()
     .from('workflow_run')
@@ -220,7 +220,7 @@ export async function notifyRunPaused(input: {
     .throwOnError();
   await noticeDealManagers({
     accountId: run.account_id,
-    message: `${run.workflow.name} paused: ${input.reason ?? 'the monthly AI limit is reached'}`,
+    message: `${run.workflow.name} paused: ${input.reason}`,
     path: runPath(run, input.runId),
     type: 'warning',
     event: RUN_PAUSED_NOTICE_EVENT,
@@ -289,7 +289,7 @@ export type StepResult =
     }
   | { kind: 'waiting'; until: string }
   | { kind: 'awaiting_decision'; stepRunId: string }
-  | { kind: 'capped'; until?: string; reason?: string }
+  | { kind: 'capped'; until?: string; reason: string }
   | { kind: 'run_cancelled' };
 
 const stepIoSchema = z.record(z.string(), z.json());
@@ -656,7 +656,7 @@ export async function executeWorkflowStep(
     }
     if (!error.resumeAt) {
       return (await parkStep(stepRun.id, 'cap'))
-        ? { kind: 'capped' }
+        ? { kind: 'capped', reason: error.message }
         : settledElsewhere(input.node, stepRun.id, input.input, input.steps);
     }
     const until = error.resumeAt.toISOString();

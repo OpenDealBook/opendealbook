@@ -5,6 +5,7 @@ import {
   ADD_EMBEDDING_MODEL,
   completeMetered,
   embedTexts,
+  estimatedUsage,
   meterTeamAiCall,
   resolveScopedTeamAi,
   TeamAiNotConnected,
@@ -80,11 +81,11 @@ export async function answerDealQuestion(
   const [embedding] = await meterTeamAiCall(
     embedder,
     { dealId: scope.dealId },
-    async () => ({
-      result: await embedTexts(embedder, [question]),
-      promptTokens: null,
-      completionTokens: null,
-    }),
+    estimatedUsage(question, 0),
+    async () => {
+      const embedded = await embedTexts(embedder, [question]);
+      return { result: embedded.vectors, usage: embedded.usage };
+    },
   );
 
   const { data: chunks, error: retrievalError } = await client.rpc(

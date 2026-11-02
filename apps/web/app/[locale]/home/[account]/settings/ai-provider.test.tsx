@@ -28,6 +28,7 @@ const CONNECTED = {
   model: 'claude-sonnet',
   embeddingModel: 'voyage-3' as string | null,
   baseUrl: 'https://api.anthropic.com/v1',
+  prices: null as { input: number; cachedInput: number; output: number } | null,
 };
 
 async function render(props: {
@@ -103,8 +104,53 @@ describe('the team AI provider setting', () => {
       embeddingModel: 'nomic-embed-text',
       baseUrl: 'https://llm.example.test/v1',
       apiKey: 'sk-new',
+      prices: { input: '', cachedInput: '', output: '' },
     });
     expect(field('API key')!.value).toBe('');
+  });
+
+  it("saves an OpenAI-compatible endpoint's own prices per million tokens", async () => {
+    await render({ current: null, canManage: true });
+
+    await type('Provider', 'openai_compatible');
+    await type('Input price ($ per million tokens)', '0.5');
+    await type('Cached input price ($ per million tokens)', '0');
+    await type('Output price ($ per million tokens)', '1.25');
+    await save();
+
+    expect(server.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prices: { input: '0.5', cachedInput: '0', output: '1.25' },
+      }),
+    );
+    expect(container.textContent).toContain(
+      "Enter prices to count this endpoint's calls against the monthly AI credits. Left empty, its calls are not counted.",
+    );
+  });
+
+  it('starts from the saved prices', async () => {
+    await render({
+      current: {
+        ...CONNECTED,
+        provider: 'openai_compatible',
+        prices: { input: 0.5, cachedInput: 0, output: 1.25 },
+      },
+      canManage: true,
+    });
+
+    expect(field('Input price ($ per million tokens)')!.value).toBe('0.5');
+    expect(field('Cached input price ($ per million tokens)')!.value).toBe('0');
+    expect(field('Output price ($ per million tokens)')!.value).toBe('1.25');
+  });
+
+  it('asks for prices only for an OpenAI-compatible endpoint, and sends none for another provider', async () => {
+    await render({ current: CONNECTED, canManage: true });
+
+    expect(field('Input price ($ per million tokens)')).toBeNull();
+
+    await save();
+
+    expect(server.save.mock.calls[0]![0]).not.toHaveProperty('prices');
   });
 
   it('starts from the saved embedding model', async () => {

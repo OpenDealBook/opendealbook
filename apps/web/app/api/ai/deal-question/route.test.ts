@@ -54,7 +54,11 @@ vi.mock('@odb/ai/server', () => ({
   answerDealQuestion: world.answerDealQuestion,
 }));
 
-import { CapReached, TeamAiNotConnected } from '@odb/workflows/team-ai';
+import {
+  AI_CREDITS_RUN_OUT,
+  CapReached,
+  TeamAiNotConnected,
+} from '@odb/workflows/team-ai';
 
 import { POST } from './route';
 
@@ -125,7 +129,7 @@ describe('POST /api/ai/deal-question', () => {
 
   it.each([
     [new TeamAiNotConnected(), 409, 'Connect an AI provider first'],
-    [new CapReached(), 429, 'The monthly AI limit is reached'],
+    [new CapReached(AI_CREDITS_RUN_OUT), 429, AI_CREDITS_RUN_OUT],
   ])(
     'tells the asker why the team cannot answer: %s',
     async (refusal, status, error) => {

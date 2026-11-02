@@ -122,7 +122,11 @@ describe('generateStructured', () => {
       }),
     ]);
     expect(team.usage).toEqual([
-      { id: 'call-1', prompt_tokens: 50, completion_tokens: 7 },
+      expect.objectContaining({
+        id: 'call-1',
+        prompt_tokens: 50,
+        completion_tokens: 7,
+      }),
     ]);
   });
 
@@ -151,7 +155,7 @@ describe('generateStructured', () => {
 
     expect(await generateStructured(input)).toEqual({
       ok: false,
-      reason: 'The monthly AI limit is reached',
+      reason: 'Not enough AI credits left this month',
     });
     expect(provider.received).toEqual([]);
   });

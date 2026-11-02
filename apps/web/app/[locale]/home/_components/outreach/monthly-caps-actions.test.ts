@@ -5,7 +5,7 @@ const RESUME_STUCK = "Saved, but paused runs couldn't be resumed; try again";
 const CAPS = {
   letterMonthlyCap: 40,
   lookupMonthlyCap: 200,
-  aiMonthlyCap: 1000,
+  aiMonthlyCreditCap: 1000,
 };
 
 const world = vi.hoisted(() => ({
@@ -52,7 +52,7 @@ vi.mock('@odb/supabase/server', () => ({
               return resolved({ data: [], error: null });
             }
             world.events.push(
-              `update ${table} letters=${patch.letter_monthly_cap} lookups=${patch.lookup_monthly_cap} ai=${patch.ai_monthly_cap} where ${column}=${value}`,
+              `update ${table} letters=${patch.letter_monthly_cap} lookups=${patch.lookup_monthly_cap} ai=${patch.ai_monthly_credit_cap} where ${column}=${value}`,
             );
             return resolved({ data: [{ account_id: value }], error: null });
           },
@@ -140,7 +140,7 @@ describe('saving the monthly caps', () => {
 
     expect(result).toEqual({ ok: true, value: { resumeError: null } });
     expect(world.events).toEqual([
-      `insert outreach_setting account_id=${TEAM_ID} daily_cap=25 max_touches=3 letter_monthly_cap=40 lookup_monthly_cap=200 ai_monthly_cap=1000`,
+      `insert outreach_setting account_id=${TEAM_ID} daily_cap=25 max_touches=3 letter_monthly_cap=40 lookup_monthly_cap=200 ai_monthly_credit_cap=1000`,
       `resume capped runs of ${TEAM_ID}`,
     ]);
   });
@@ -148,9 +148,8 @@ describe('saving the monthly caps', () => {
   it.each([
     { ...CAPS, letterMonthlyCap: -1 },
     { ...CAPS, lookupMonthlyCap: 100001 },
-    { ...CAPS, aiMonthlyCap: 100001 },
   ])(
-    'refuses caps outside 0 to 100,000 and writes nothing (%o)',
+    'refuses letter and lookup caps outside 0 to 100,000 and writes nothing (%o)',
     async (caps) => {
       const result = await saveMonthlyCapsAction({
         accountId: TEAM_ID,
@@ -165,12 +164,26 @@ describe('saving the monthly caps', () => {
     },
   );
 
-  it('accepts caps of exactly 0 and 100,000', async () => {
+  it('refuses an AI credit cap outside 0 to 10,000,000 and writes nothing', async () => {
+    const result = await saveMonthlyCapsAction({
+      ...CAPS,
+      accountId: TEAM_ID,
+      aiMonthlyCreditCap: 10000001,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      refusal: 'AI credits must be between 0 and 10,000,000',
+    });
+    expect(world.events).toEqual([]);
+  });
+
+  it('accepts caps of exactly 0, 100,000 and 10,000,000 AI credits', async () => {
     const result = await saveMonthlyCapsAction({
       accountId: TEAM_ID,
       letterMonthlyCap: 0,
       lookupMonthlyCap: 100000,
-      aiMonthlyCap: 100000,
+      aiMonthlyCreditCap: 10000000,
     });
 
     expect(result).toEqual({ ok: true, value: { resumeError: null } });

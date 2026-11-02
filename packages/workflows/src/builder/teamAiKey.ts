@@ -4,8 +4,16 @@ import {
   type AiEndpoint,
   type AiRequest,
   completeWithTeamAi,
+  DEFAULT_MAX_TOKENS,
 } from './aiClient';
-import { recordAiCallUsage, reserveAiCall } from './caps';
+import { reserveAiCall, settleAiCall } from './caps';
+import {
+  creditsFor,
+  estimatedUsage,
+  type ModelPrice,
+  priceOf,
+  type Usage,
+} from './modelPrices';
 
 export { CapReached } from './caps';
 
@@ -30,6 +38,7 @@ export interface TeamAi {
   model: string;
   baseUrl: string;
   apiKey: string;
+  price: ModelPrice | null;
 }
 
 export async function resolveTeamAi(
@@ -40,7 +49,9 @@ export async function resolveTeamAi(
   const [{ data: endpoint }, { data: apiKey }] = await Promise.all([
     admin
       .from('llm_endpoint')
-      .select('id, provider, model, chat_model, base_url')
+      .select(
+        'id, provider, model, chat_model, base_url, input_price_per_mtok, cached_input_price_per_mtok, output_price_per_mtok',
+      )
       .eq('account_id', accountId)
       .maybeSingle()
       .throwOnError(),
@@ -52,33 +63,46 @@ export async function resolveTeamAi(
   if (!endpoint || !model || !apiKey) {
     return null;
   }
+  const provider = endpoint.provider as AiEndpoint['provider'];
   return {
     accountId,
     endpointId: endpoint.id,
-    provider: endpoint.provider as AiEndpoint['provider'],
+    provider,
     model,
     baseUrl: endpoint.base_url!,
     apiKey,
+    price:
+      endpoint.input_price_per_mtok === null
+        ? priceOf(provider, model)
+        : {
+            inputPerMTok: endpoint.input_price_per_mtok,
+            cachedInputPerMTok: endpoint.cached_input_price_per_mtok!,
+            cacheWritePerMTok: endpoint.input_price_per_mtok,
+            outputPerMTok: endpoint.output_price_per_mtok!,
+          },
   } as TeamAi;
 }
 
 export async function meterTeamAiCall<T>(
   ai: TeamAi,
   call: { dealId?: string; firmId?: string },
-  request: () => Promise<{
-    result: T;
-    promptTokens: number | null;
-    completionTokens: number | null;
-  }>,
+  worstCase: Usage,
+  request: () => Promise<{ result: T; usage: Usage }>,
 ): Promise<T> {
+  const credits = (usage: Usage) =>
+    ai.price ? creditsFor(ai.price, usage) : 0;
   const { callId } = await reserveAiCall(ai.accountId, {
     model: ai.model,
+    credits: credits(worstCase),
     endpointId: ai.endpointId,
     dealId: call.dealId,
     firmId: call.firmId,
   });
-  const { result, ...usage } = await request();
-  await recordAiCallUsage(callId, usage);
+  const { result, usage } = await request().catch(async (error: unknown) => {
+    await settleAiCall(callId, null, 0);
+    throw error;
+  });
+  await settleAiCall(callId, usage, credits(usage));
   return result;
 }
 
@@ -88,7 +112,11 @@ export function completeMetered(
   prompt: string,
   request?: AiRequest,
 ): Promise<string> {
-  return meterTeamAiCall(ai, call, async () => {
+  const worstCase = estimatedUsage(
+    (request?.system ?? '') + prompt,
+    request?.maxTokens ?? DEFAULT_MAX_TOKENS,
+  );
+  return meterTeamAiCall(ai, call, worstCase, async () => {
     const completion = await completeWithTeamAi(
       {
         provider: ai.provider,
@@ -100,10 +128,6 @@ export function completeMetered(
       { signal: call.signal },
       request,
     );
-    return {
-      result: completion.text,
-      promptTokens: completion.promptTokens,
-      completionTokens: completion.completionTokens,
-    };
+    return { result: completion.text, usage: completion.usage };
   });
 }

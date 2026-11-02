@@ -10,7 +10,11 @@ import {
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
 import { CapReached } from './caps';
+import type { Usage } from './modelPrices';
 import { completeMetered, meterTeamAiCall, resolveTeamAi } from './teamAiKey';
+
+const TEAM_INPUT = 2;
+const TEAM_OUTPUT = 4;
 
 let team: IntegrationAccount;
 let unconnected: IntegrationAccount;
@@ -29,11 +33,18 @@ beforeAll(async () => {
       p_base_url: 'https://provider.example.com/v1',
       p_api_key: 'sk-vault',
       p_embedding_model: 'team-embed',
+      p_input_price_per_mtok: TEAM_INPUT,
+      p_cached_input_price_per_mtok: 1,
+      p_output_price_per_mtok: TEAM_OUTPUT,
     })
     .throwOnError();
   await team.admin
     .from('outreach_setting')
-    .insert({ account_id: team.accountId, daily_cap: 10, ai_monthly_cap: 100 })
+    .insert({
+      account_id: team.accountId,
+      daily_cap: 10,
+      ai_monthly_credit_cap: 10000,
+    })
     .throwOnError();
   await team.admin
     .from('contact')
@@ -55,9 +66,36 @@ afterAll(async () => {
 async function calls() {
   const { data } = await team.admin
     .from('ai_call_log')
-    .select('model, deal_id, prompt_tokens, completion_tokens')
+    .select(
+      'model, deal_id, prompt_tokens, completion_tokens, credits, settled_at',
+    )
     .eq('account_id', team.accountId)
     .order('created_at')
+    .throwOnError();
+  return data;
+}
+
+function usage(tokens: Partial<Usage>): Usage {
+  return {
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    cacheWriteTokens: 0,
+    outputTokens: 0,
+    ...tokens,
+  };
+}
+
+async function setCreditCap(credits: number) {
+  await team.admin
+    .from('outreach_setting')
+    .update({ ai_monthly_credit_cap: credits })
+    .eq('account_id', team.accountId)
+    .throwOnError();
+}
+
+async function creditsUsed() {
+  const { data } = await team.admin
+    .rpc('ai_credits_used_this_month', { p_account_id: team.accountId })
     .throwOnError();
   return data;
 }
@@ -95,24 +133,59 @@ describe('team AI key', () => {
     expect(await resolveTeamAi(team.accountId, 'embedding')).toBeNull();
   });
 
-  it('logs a metered call with its deal and tokens', async () => {
+  it('holds the worst-case estimate while the call runs, then settles the row to its actual cost', async () => {
     const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
+    let held: Awaited<ReturnType<typeof calls>> = [];
 
-    const answer = await meterTeamAiCall(ai, { dealId }, async () => ({
-      result: 'done',
-      promptTokens: 9,
-      completionTokens: 3,
-    }));
+    const answer = await meterTeamAiCall(
+      ai,
+      { dealId },
+      usage({ inputTokens: 100, outputTokens: 1000 }),
+      async () => {
+        held = await calls();
+        return {
+          result: 'done',
+          usage: usage({ inputTokens: 9, outputTokens: 3 }),
+        };
+      },
+    );
 
     expect(answer).toBe('done');
+    expect(held).toEqual([
+      expect.objectContaining({
+        credits: (100 * TEAM_INPUT + 1000 * TEAM_OUTPUT) / 1e4,
+        settled_at: null,
+      }),
+    ]);
     expect(await calls()).toEqual([
       {
         model: 'team-chat',
         deal_id: dealId,
         prompt_tokens: 9,
         completion_tokens: 3,
+        credits: (9 * TEAM_INPUT + 3 * TEAM_OUTPUT) / 1e4,
+        settled_at: expect.any(String),
       },
     ]);
+  });
+
+  it('settles a call the provider failed to 0 credits and passes the failure on', async () => {
+    const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
+    const before = await creditsUsed();
+
+    await expect(
+      meterTeamAiCall(ai, {}, usage({ outputTokens: 1000 }), async () => {
+        throw new Error('The AI provider answered 503');
+      }),
+    ).rejects.toThrow('The AI provider answered 503');
+
+    expect((await calls())!.at(-1)).toMatchObject({
+      credits: 0,
+      prompt_tokens: null,
+      completion_tokens: null,
+      settled_at: expect.any(String),
+    });
+    expect(await creditsUsed()).toBe(before);
   });
 
   it('completes a metered call with the prompt unchanged, team people included', async () => {
@@ -144,6 +217,8 @@ describe('team AI key', () => {
         deal_id: dealId,
         prompt_tokens: 12,
         completion_tokens: 5,
+        credits: (12 * TEAM_INPUT + 5 * TEAM_OUTPUT) / 1e4,
+        settled_at: expect.any(String),
       });
     } finally {
       provider.close();
@@ -152,21 +227,60 @@ describe('team AI key', () => {
     }
   });
 
-  it('refuses a call past the monthly AI cap without making it', async () => {
+  it('refuses a call whose estimate does not fit what is left, without making it, until next UTC month', async () => {
     const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
-    await team.admin
-      .from('outreach_setting')
-      .update({ ai_monthly_cap: (await calls())!.length })
-      .eq('account_id', team.accountId)
-      .throwOnError();
+    const estimate = usage({ outputTokens: 1000 });
+    const estimatedCredits = (1000 * TEAM_OUTPUT) / 1e4;
+    await setCreditCap(
+      Math.ceil((await creditsUsed())! + estimatedCredits) - 1,
+    );
     let made = false;
 
-    await expect(
-      meterTeamAiCall(ai, {}, async () => {
-        made = true;
-        return { result: null, promptTokens: null, completionTokens: null };
-      }),
-    ).rejects.toBeInstanceOf(CapReached);
+    const refusal = await meterTeamAiCall(ai, {}, estimate, async () => {
+      made = true;
+      return { result: null, usage: estimate };
+    }).catch((error: unknown) => error);
+
+    expect(refusal).toBeInstanceOf(CapReached);
+    expect((refusal as CapReached).message).toBe(
+      'Not enough AI credits left this month',
+    );
+    const now = new Date();
+    expect((refusal as CapReached).resumeAt).toEqual(
+      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
+    );
     expect(made).toBe(false);
+    await setCreditCap(10000);
+  });
+
+  it('makes a call to a model with no known price at no cost, even past the cap', async () => {
+    await team.admin
+      .from('llm_endpoint')
+      .update({
+        input_price_per_mtok: null,
+        cached_input_price_per_mtok: null,
+        output_price_per_mtok: null,
+      })
+      .eq('account_id', team.accountId)
+      .throwOnError();
+    await setCreditCap(0);
+    const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
+
+    const answer = await meterTeamAiCall(
+      ai,
+      {},
+      usage({ outputTokens: 1000 }),
+      async () => ({
+        result: 'free',
+        usage: usage({ inputTokens: 1000, outputTokens: 1000 }),
+      }),
+    );
+
+    expect(answer).toBe('free');
+    expect((await calls())!.at(-1)).toMatchObject({
+      credits: 0,
+      prompt_tokens: 1000,
+      completion_tokens: 1000,
+    });
   });
 });

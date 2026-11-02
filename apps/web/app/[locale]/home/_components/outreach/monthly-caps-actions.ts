@@ -12,6 +12,12 @@ import { saveOutreachSetting } from './save-outreach-setting';
 const NEEDS_DEALS_MANAGE = 'Changing caps needs deals.manage';
 const CAP_RANGE = 'Caps must be between 0 and 100,000';
 const monthlyCap = z.number().int().min(0, CAP_RANGE).max(100000, CAP_RANGE);
+const CREDIT_RANGE = 'AI credits must be between 0 and 10,000,000';
+const monthlyCreditCap = z
+  .number()
+  .int()
+  .min(0, CREDIT_RANGE)
+  .max(10000000, CREDIT_RANGE);
 
 async function requireDealManager(userId: string, accountId: string) {
   const { data: canManage } = await getSupabaseServerClient()
@@ -37,13 +43,18 @@ async function resume(accountId: string) {
 }
 
 export const saveMonthlyCapsAction = refusableAction(
-  async ({ accountId, letterMonthlyCap, lookupMonthlyCap, aiMonthlyCap }) => {
+  async ({
+    accountId,
+    letterMonthlyCap,
+    lookupMonthlyCap,
+    aiMonthlyCreditCap,
+  }) => {
     await saveOutreachSetting(
       accountId,
       {
         letter_monthly_cap: letterMonthlyCap,
         lookup_monthly_cap: lookupMonthlyCap,
-        ai_monthly_cap: aiMonthlyCap,
+        ai_monthly_credit_cap: aiMonthlyCreditCap,
       },
       NEEDS_DEALS_MANAGE,
     );
@@ -54,7 +65,7 @@ export const saveMonthlyCapsAction = refusableAction(
     accountId: z.uuid(),
     letterMonthlyCap: monthlyCap,
     lookupMonthlyCap: monthlyCap,
-    aiMonthlyCap: monthlyCap,
+    aiMonthlyCreditCap: monthlyCreditCap,
   }),
 );
 

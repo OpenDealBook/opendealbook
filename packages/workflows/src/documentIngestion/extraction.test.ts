@@ -4,6 +4,7 @@ import {
   fakeAiProvider,
   openAiReply,
 } from '../../test-support/fake-ai-provider';
+import { priceOf } from '../builder/modelPrices';
 import type { TeamAi } from '../builder/teamAiKey';
 import { extractFigure } from './extraction';
 
@@ -26,7 +27,7 @@ vi.mock('@odb/supabase/admin', () => {
         update: (row: Record<string, unknown>) => ({
           eq: () => {
             ledger.usage.push(row);
-            return settled(null);
+            return { ...settled(null), is: () => settled(null) };
           },
         }),
       }),
@@ -48,6 +49,7 @@ async function serve(
     model: 'gpt-4o-mini',
     baseUrl: provider.baseUrl,
     apiKey: 'sk-vault',
+    price: priceOf(kind, 'gpt-4o-mini'),
   } as TeamAi;
 }
 
@@ -100,7 +102,14 @@ describe('extractFigure', () => {
         p_deal_id: 'deal1',
       }),
     ]);
-    expect(ledger.usage).toEqual([{ prompt_tokens: 12, completion_tokens: 5 }]);
+    expect(ledger.usage).toEqual([
+      {
+        prompt_tokens: 12,
+        completion_tokens: 5,
+        credits: (12 * 0.15 + 5 * 0.6) / 1e4,
+        settled_at: expect.any(String),
+      },
+    ]);
   });
 
   it('returns a null amount when the model reports the figure is absent', async () => {
