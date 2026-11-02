@@ -83,6 +83,12 @@ export const env = createEnv({
     DOCLING_API_KEY: secret(z.string())
       .optional()
       .describe('Docling API key used to authenticate extraction requests'),
+    ODB_PRIVATE_AI_HOSTS: z
+      .string()
+      .optional()
+      .describe(
+        'Comma-separated host or host:port entries a team AI provider may reach over http or https even when they resolve to a private address; mirror them in the odb.private_ai_hosts database setting',
+      ),
   },
   runtimeEnv: process.env,
   exitOnError: true,

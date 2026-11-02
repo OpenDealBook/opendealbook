@@ -213,6 +213,28 @@ describe('saving the team AI provider', () => {
     },
   );
 
+  it.each([
+    ['llm.corp.example:8443', 'https://llm.corp.example:8443/v1'],
+    ['LLM.Corp.Example:80', 'http://llm.corp.example/v1'],
+  ])(
+    'saves a private base URL whose host the operator lists as %s',
+    async (listed, baseUrl) => {
+      vi.stubEnv('ODB_PRIVATE_AI_HOSTS', listed);
+
+      const result = await saveAiProviderAction({
+        accountId: TEAM_ID,
+        provider: 'openai_compatible',
+        model: 'llama-3',
+        embeddingModel: '',
+        baseUrl,
+        apiKey: 'sk-x',
+      });
+
+      expect(result).toEqual({ ok: true, value: undefined });
+      expect(world.saved[0]).toMatchObject({ p_base_url: baseUrl });
+    },
+  );
+
   it('keeps refusing a private base URL on a production stack even with the flag set', async () => {
     vi.stubEnv('ODB_ALLOW_PRIVATE_AI_URL', '1');
     vi.stubEnv('ODB_STACK', 'production');

@@ -52,8 +52,34 @@ export function privateAiUrlsAllowed(): boolean {
   return devStack && process.env.ODB_ALLOW_PRIVATE_AI_URL === '1';
 }
 
-export function teamAiAddressOf(url: string): Promise<VettedAddress | null> {
+const DEFAULT_PORTS: Record<string, string> = {
+  'https:': '443',
+  'http:': '80',
+};
+
+export function operatorListsPrivateAiHost(url: string): boolean {
+  const { protocol, port, hostname } = new URL(url);
+  const defaultPort = DEFAULT_PORTS[protocol];
+  const listed = (process.env.ODB_PRIVATE_AI_HOSTS ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase());
+  return (
+    defaultPort !== undefined &&
+    (listed.includes(hostname) ||
+      listed.includes(`${hostname}:${port || defaultPort}`))
+  );
+}
+
+export function devOrPublicAddressOf(
+  url: string,
+): Promise<VettedAddress | null> {
   return privateAiUrlsAllowed() ? anyAddressOf(url) : publicAddressOf(url);
+}
+
+export function teamAiAddressOf(url: string): Promise<VettedAddress | null> {
+  return operatorListsPrivateAiHost(url)
+    ? anyAddressOf(url)
+    : devOrPublicAddressOf(url);
 }
 
 export function aiJson(text: string): unknown {

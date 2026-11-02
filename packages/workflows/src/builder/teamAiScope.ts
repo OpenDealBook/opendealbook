@@ -4,7 +4,11 @@ import type { Database } from '@odb/supabase';
 
 import { resolveTeamAi, type TeamAi } from './teamAiKey';
 
-export { aiJson, privateAiUrlsAllowed } from './aiClient';
+export {
+  aiJson,
+  operatorListsPrivateAiHost,
+  privateAiUrlsAllowed,
+} from './aiClient';
 export { AI_CREDITS_RUN_OUT, CapReached } from './caps';
 export { embedTexts } from '../documentIngestion/embeddings';
 export { estimatedUsage } from './modelPrices';

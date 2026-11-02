@@ -15,6 +15,7 @@ afterAll(() => broker.close());
 afterEach(() => {
   delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
   delete process.env.ODB_STACK;
+  delete process.env.ODB_PRIVATE_AI_HOSTS;
 });
 
 const ask = () =>
@@ -47,4 +48,12 @@ it('ignores the private AI URL flag on a production stack', async () => {
   });
 
   await expect(ask()).rejects.toThrow('Use a public HTTPS base URL');
+});
+
+it('refuses a broker address the operator lists for team AI', async () => {
+  process.env.ODB_PRIVATE_AI_HOSTS = new URL(broker.origin).host;
+  const before = broker.received.length;
+
+  await expect(ask()).rejects.toThrow('Use a public HTTPS base URL');
+  expect(broker.received).toHaveLength(before);
 });

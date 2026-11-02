@@ -575,3 +575,87 @@ describe('teamAiAddressOf', () => {
     ).toBeNull();
   });
 });
+
+describe('teamAiAddressOf with operator-listed private hosts', () => {
+  afterEach(() => {
+    delete process.env.ODB_PRIVATE_AI_HOSTS;
+  });
+
+  it('reaches a private address the operator lists', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = 'llm.corp.example, 10.0.0.8';
+
+    expect(
+      await teamAiAddressOf('https://10.0.0.8/v1/chat/completions'),
+    ).toEqual({ address: '10.0.0.8', family: 4 });
+  });
+
+  it('pins a listed host name to the address it resolves to', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = 'localhost';
+
+    expect(
+      (await teamAiAddressOf('https://localhost/v1/chat/completions'))?.address,
+    ).toMatch(/^(127\.0\.0\.1|::1)$/);
+  });
+
+  it('reaches a host:port entry only on that port', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = '10.0.0.8:8443';
+
+    expect(
+      await teamAiAddressOf('https://10.0.0.8:8443/v1/chat/completions'),
+    ).toEqual({ address: '10.0.0.8', family: 4 });
+    expect(
+      await teamAiAddressOf('https://10.0.0.8/v1/chat/completions'),
+    ).toBeNull();
+  });
+
+  it('reaches a listed host over http', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = '10.0.0.8:4510';
+
+    expect(
+      await teamAiAddressOf('http://10.0.0.8:4510/v1/chat/completions'),
+    ).toEqual({ address: '10.0.0.8', family: 4 });
+  });
+
+  it('matches a listed host name in any case', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = 'LocalHost';
+
+    expect(
+      (await teamAiAddressOf('https://localhost/v1/chat/completions'))?.address,
+    ).toMatch(/^(127\.0\.0\.1|::1)$/);
+  });
+
+  it.each([
+    ['10.0.0.8:443', 'https://10.0.0.8/v1'],
+    ['10.0.0.8:80', 'http://10.0.0.8/v1'],
+  ])('matches %s to %s through the scheme default port', async (entry, url) => {
+    process.env.ODB_PRIVATE_AI_HOSTS = entry;
+
+    expect(await teamAiAddressOf(url)).toEqual({
+      address: '10.0.0.8',
+      family: 4,
+    });
+  });
+
+  it('does not match a port entry to a different scheme default', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = '10.0.0.8:80';
+
+    expect(await teamAiAddressOf('https://10.0.0.8/v1')).toBeNull();
+  });
+
+  it('matches a bracketed IPv6 entry', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = '[fd00::1]:8443';
+
+    expect(await teamAiAddressOf('https://[fd00::1]:8443/v1')).toEqual({
+      address: 'fd00::1',
+      family: 6,
+    });
+  });
+
+  it('keeps refusing a private address the operator does not list', async () => {
+    process.env.ODB_PRIVATE_AI_HOSTS = '10.0.0.8';
+
+    expect(
+      await teamAiAddressOf('https://10.0.0.9/v1/chat/completions'),
+    ).toBeNull();
+  });
+});

@@ -87,6 +87,20 @@ Unlocks document verification and retrieval over diligence documents (see
 The LLM endpoint itself is configured per tenant (`llm_endpoint`), so the model each account
 uses is a tenant setting rather than a single global key.
 
+| Variable | Notes |
+| --- | --- |
+| `ODB_PRIVATE_AI_HOSTS` | Optional, set on both web and workers. Comma-separated host names or `host:port` entries, such as `llm.corp.example,10.0.0.8:8443,[fd00::1]`, that a team's OpenAI-compatible endpoint may reach over http or https even though they resolve to a private address. Host names match in any case; a `host:port` entry also matches a URL that leaves out the port when the port is the scheme default (443 for https, 80 for http); IPv6 addresses go in brackets. Each call still connects to the address the host resolved to. Every other base URL must be public HTTPS. Diligence broker calls never use this list |
+
+The database refuses to save a private base URL on its own, so mirror the same list in a
+database setting. Run as `supabase_admin`, with the exact value of `ODB_PRIVATE_AI_HOSTS`:
+
+```sql
+alter database postgres set odb.private_ai_hosts = 'llm.corp.example,10.0.0.8:8443';
+```
+
+New connections pick up the setting. A host must be in both lists: the app and the database
+each refuse to save a private host missing from their own list.
+
 ## Billing: Stripe
 
 | Variable | Notes |

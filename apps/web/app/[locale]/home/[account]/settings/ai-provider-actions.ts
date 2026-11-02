@@ -11,6 +11,7 @@ import {
 } from '@odb/workflows/builder/publicUrl';
 import {
   ANTHROPIC_HAS_NO_EMBEDDINGS,
+  operatorListsPrivateAiHost,
   privateAiUrlsAllowed,
 } from '@odb/workflows/team-ai';
 
@@ -59,6 +60,7 @@ export const saveAiProviderAction = refusableAction(
     if (
       provider === 'openai_compatible' &&
       !privateAiUrlsAllowed() &&
+      !operatorListsPrivateAiHost(baseUrl) &&
       !(await publicOrRefuse(baseUrl))
     ) {
       throw new Refusal(NOT_PUBLIC);

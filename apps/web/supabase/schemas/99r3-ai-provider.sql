@@ -56,6 +56,26 @@ begin
 end;
 $$;
 
+-- The operator may list private hosts in odb.private_ai_hosts, comma separated
+-- host or host:port entries matching ODB_PRIVATE_AI_HOSTS on web and workers;
+-- a listed host saves over http or https whatever it resolves to.
+create or replace function odb.operator_lists_private_ai_host(p_url text)
+  returns boolean
+  language sql stable
+  set search_path = '' as $$
+  select exists (
+    select 1
+    from regexp_match(lower(p_url), '^(https?)://(\[[^]/?#@\s]+\]|[^/:?#@\s]+)(?::(\d+))?(?:/[^?#\s]*)?$') as url,
+      unnest(string_to_array(current_setting('odb.private_ai_hosts', true), ',')) as entry
+    where lower(trim(entry)) in (
+      url[2],
+      url[2] || ':' || coalesce(url[3], case url[1] when 'https' then '443' else '80' end)
+    )
+  );
+$$;
+
+revoke all on function odb.operator_lists_private_ai_host(text) from public, anon, authenticated, service_role;
+
 alter table public.llm_endpoint
   add column input_price_per_mtok numeric,
   add column cached_input_price_per_mtok numeric,
@@ -103,6 +123,7 @@ begin
 
   if p_provider = 'openai_compatible'
     and coalesce(current_setting('odb.allow_private_ai_url', true), '') <> 'on'
+    and not odb.operator_lists_private_ai_host(p_base_url)
     and not coalesce(odb.public_https_base_url(p_base_url), false) then
     raise exception 'use a public https base URL' using errcode = 'invalid_parameter_value';
   end if;

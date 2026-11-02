@@ -124,6 +124,10 @@ contract.#Contract & {
 			type:        "url"
 			description: "Base URL of the Novu API the app sends notifications to"
 		}
+		ODB_PRIVATE_AI_HOSTS: {
+			type:        "string"
+			description: "Comma-separated host or host:port entries a team AI provider may reach over http or https even when they resolve to a private address; mirror them in the odb.private_ai_hosts database setting"
+		}
 		OTEL_EXPORTER_OTLP_ENDPOINT: {
 			type:        "url"
 			description: "OTLP collector endpoint traces, metrics and logs are exported to"

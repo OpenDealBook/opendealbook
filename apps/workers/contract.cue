@@ -74,6 +74,10 @@ contract.#Contract & {
 			type:        "url"
 			description: "Base URL of the Novu API the worker sends notifications to"
 		}
+		ODB_PRIVATE_AI_HOSTS: {
+			type:        "string"
+			description: "Comma-separated host or host:port entries a team AI provider may reach over http or https even when they resolve to a private address; mirror them in the odb.private_ai_hosts database setting"
+		}
 		RESEND_API_KEY: {
 			type:        "string"
 			description: "Resend API key the resend mailer sends email with"
