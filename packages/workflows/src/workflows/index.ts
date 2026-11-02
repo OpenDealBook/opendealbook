@@ -1,5 +1,7 @@
 export { dealLifecycle } from './dealLifecycle';
 export { documentIngestion } from './documentIngestion';
+export { documentIngestionBackfill } from './documentIngestionBackfill';
+export { documentIngestionRelay } from './documentIngestionRelay';
 export { dealVerification } from './dealVerification';
 export { loiNegotiation } from './loiNegotiation';
 export { dataRoomProvisioning } from './dataRoomProvisioning';

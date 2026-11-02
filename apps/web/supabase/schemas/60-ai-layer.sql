@@ -121,7 +121,7 @@ create policy document_chunk_delete on public.document_chunk
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
 
 -- Removed and missing documents are already unreadable through
--- document_chunk_read; this nightly purge deletes
+-- document_chunk_read and document_segment_read; this nightly purge deletes
 -- their text and indexing jobs for good. replay_deal recreates documents
 -- inside one transaction, so the purge never sees a replayed document as
 -- missing.
@@ -140,6 +140,12 @@ begin
   where not exists (
     select 1 from public.dr_document d
     where d.id = j.dr_document_id and d.removed_at is null
+  );
+
+  delete from public.document_segment s
+  where not exists (
+    select 1 from public.dr_document d
+    where d.id = s.dr_document_id and d.removed_at is null
   );
 end;
 $$;

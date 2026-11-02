@@ -4,11 +4,16 @@ import { z } from 'zod';
 
 import { refusableAction } from '@odb/next/actions/refusable-action';
 import { Refusal } from '@odb/next/refusal';
+import { getLogger } from '@odb/shared/logger';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import {
   AddressNotFound,
   isPublicHttpsUrl,
 } from '@odb/workflows/builder/publicUrl';
+import {
+  getTemporalClient,
+  triggerDocumentIngestionBackfill,
+} from '@odb/workflows/client';
 import {
   ANTHROPIC_HAS_NO_EMBEDDINGS,
   operatorListsPrivateAiHost,
@@ -78,6 +83,17 @@ export const saveAiProviderAction = refusableAction(
     });
 
     refuseOrThrow(error);
+    try {
+      await triggerDocumentIngestionBackfill(
+        await getTemporalClient(),
+        accountId,
+      );
+    } catch (backfillError) {
+      getLogger().error(
+        { err: backfillError },
+        'Document backfill did not start after saving the AI provider',
+      );
+    }
   },
   z
     .object({

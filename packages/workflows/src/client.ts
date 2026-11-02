@@ -10,6 +10,7 @@ import {
 import type { TrialDripInput } from './workflows/trialDrip';
 
 export { dealWorkflowId, TASK_QUEUE } from './ids';
+export { triggerDocumentIngestionBackfill } from './schedules/documentIngestion';
 
 export interface DealContext {
   accountId: string;

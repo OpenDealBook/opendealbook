@@ -27,3 +27,13 @@ export const DEAL_VERIFICATION_SIGNAL = 'documentIngested';
 export function dealVerificationWorkflowId(dealId: string): string {
   return `deal-verification-${dealId}`;
 }
+
+export const DOCUMENT_INGESTION_WORKFLOW_TYPE = 'documentIngestion';
+export const DOCUMENT_INGESTION_RELAY_WORKFLOW_ID = 'document-ingestion-relay';
+export const DOCUMENT_INGESTION_RELAY_WORKFLOW_TYPE = 'documentIngestionRelay';
+export const DOCUMENT_INGESTION_BACKFILL_WORKFLOW_TYPE =
+  'documentIngestionBackfill';
+
+export function documentIngestionWorkflowId(drDocumentId: string): string {
+  return `ingest-${drDocumentId}`;
+}

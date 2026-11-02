@@ -6,6 +6,32 @@ const world = vi.hoisted(() => ({
   saved: [] as Record<string, unknown>[],
   error: null as { code: string; message: string } | null,
   publicUrls: ['https://llm.example.test/v1'],
+  backfills: [] as string[],
+  temporalDown: false,
+  logged: [] as string[],
+}));
+
+vi.mock('@odb/workflows/client', () => ({
+  getTemporalClient: async () => {
+    if (world.temporalDown) {
+      throw new Error('Temporal is unreachable');
+    }
+    return 'temporal';
+  },
+  triggerDocumentIngestionBackfill: async (
+    client: string,
+    accountId: string,
+  ) => {
+    world.backfills.push(`${client} ${accountId}`);
+  },
+}));
+
+vi.mock('@odb/shared/logger', () => ({
+  getLogger: () => ({
+    error: (context: { err: Error }, message: string) => {
+      world.logged.push(`${message}: ${context.err.message}`);
+    },
+  }),
 }));
 
 vi.mock('@odb/workflows/builder/publicUrl', async (importOriginal) => {
@@ -52,9 +78,59 @@ afterEach(() => {
 beforeEach(() => {
   world.saved = [];
   world.error = null;
+  world.backfills = [];
+  world.temporalDown = false;
+  world.logged = [];
 });
 
 describe('saving the team AI provider', () => {
+  it("reads the team's existing data room documents once the provider is saved", async () => {
+    await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'anthropic',
+      model: 'claude-sonnet-5-5',
+      embeddingModel: '',
+      baseUrl: '',
+      apiKey: 'sk-ant-new',
+    });
+
+    expect(world.backfills).toEqual([`temporal ${TEAM_ID}`]);
+  });
+
+  it('saves the provider and logs the failure when the document backfill cannot start', async () => {
+    world.temporalDown = true;
+
+    const result = await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'anthropic',
+      model: 'claude-sonnet-5-5',
+      embeddingModel: '',
+      baseUrl: '',
+      apiKey: 'sk-ant-new',
+    });
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(world.saved).toMatchObject([{ name: 'save_llm_endpoint' }]);
+    expect(world.logged).toEqual([
+      'Document backfill did not start after saving the AI provider: Temporal is unreachable',
+    ]);
+  });
+
+  it('starts no document backfill when the save is refused', async () => {
+    world.error = { code: '23514', message: 'paste an API key' };
+
+    await saveAiProviderAction({
+      accountId: TEAM_ID,
+      provider: 'openai',
+      model: 'gpt-4.1',
+      embeddingModel: '',
+      baseUrl: '',
+      apiKey: '',
+    });
+
+    expect(world.backfills).toEqual([]);
+  });
+
   it('saves the provider, model and pasted key', async () => {
     const result = await saveAiProviderAction({
       accountId: TEAM_ID,

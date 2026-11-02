@@ -5,7 +5,6 @@ import type * as activities from '../activities';
 const {
   createEmbeddingJob,
   markEmbeddingJobRunning,
-  extractDocumentMarkdown,
   embedDocumentChunks,
   completeEmbeddingJob,
   failEmbeddingJob,
@@ -14,30 +13,42 @@ const {
   startToCloseTimeout: '10 minutes',
 });
 
+const { extractDocumentSegments } = proxyActivities<typeof activities>({
+  startToCloseTimeout: '30 minutes',
+  heartbeatTimeout: '2 minutes',
+  retry: { maximumAttempts: 3 },
+});
+
 export interface DocumentIngestionInput {
   drDocumentId: string;
+  forceOcr?: boolean;
 }
 
 export async function documentIngestion(
   input: DocumentIngestionInput,
 ): Promise<void> {
-  const { jobId, accountId, dealId } = await createEmbeddingJob({
-    drDocumentId: input.drDocumentId,
-  });
+  const job = await createEmbeddingJob({ drDocumentId: input.drDocumentId });
+  if (!job) {
+    return;
+  }
+  const { jobId, accountId, dealId } = job;
 
   try {
     await markEmbeddingJobRunning({ jobId });
 
-    const { markdown } = await extractDocumentMarkdown({
+    const extracted = await extractDocumentSegments({
       drDocumentId: input.drDocumentId,
+      forceOcr: input.forceOcr ?? false,
     });
+    if (!extracted) {
+      return;
+    }
 
     const embedded = await embedDocumentChunks({
       jobId,
       drDocumentId: input.drDocumentId,
       accountId,
       dealId,
-      markdown,
     });
 
     if ('chunkCount' in embedded) {

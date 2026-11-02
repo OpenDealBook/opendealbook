@@ -37,6 +37,7 @@
     "@odb/notifications": "workspace:*",
     "@odb/outreach": "workspace:*",
     "@odb/seller-rooms": "workspace:*",
+    "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/verification": "workspace:*",
     "@temporalio/activity": "catalog:",
@@ -46,6 +47,7 @@
     "fflate": "0.8.2",
     "papaparse": "catalog:",
     "tldts": "7.4.18",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "catalog:"
   },
   "devDependencies": {

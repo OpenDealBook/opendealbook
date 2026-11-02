@@ -31,6 +31,12 @@ export {
 export { writeCloseComp } from '../comps/writeCloseComp';
 export { fetchDealEventsSince } from '../comps/relay';
 export {
+  extractDocumentSegments,
+  fetchAddedDocuments,
+  startDocumentIngestion,
+  startMissingDocumentIngestions,
+} from '../documentIngestion/ingestion';
+export {
   fetchDealNotificationEvents,
   notifyDealEvent,
 } from '../notifications/relay';
@@ -117,10 +123,11 @@ export {
 } from '../trialDrip/activities';
 
 import { buildBrokerCatchUpEmail, firstName } from '../brokerCatchUpEmail';
+import { estimatedUsage } from '../builder/modelPrices';
 import { chunkMarkdown } from '../documentIngestion/chunk';
-import type { DoclingConfig } from '../documentIngestion/docling';
-import { extractMarkdown } from '../documentIngestion/docling';
+import { doclingConfigFromEnv } from '../documentIngestion/docling';
 import { embedTexts } from '../documentIngestion/embeddings';
+import { documentText } from '../documentIngestion/ingestion';
 import { buildDocumentExtractionChecks } from '../documentIngestion/verificationGather';
 import type { BrokerCatchUpConfig } from '../workflows/brokerCatchUp';
 
@@ -330,20 +337,6 @@ export async function recordWorkbookRun(
   }
 }
 
-const SIGNED_URL_TTL_SECONDS = 3600;
-const DATA_ROOM_BUCKET = 'data-room';
-
-function resolveDoclingConfig(): DoclingConfig | null {
-  const baseUrl = process.env.DOCLING_URL;
-  const apiKey = process.env.DOCLING_API_KEY;
-
-  if (!baseUrl || !apiKey) {
-    return null;
-  }
-
-  return { baseUrl, apiKey };
-}
-
 export interface CreateEmbeddingJobInput {
   drDocumentId: string;
 }
@@ -356,17 +349,20 @@ export interface CreateEmbeddingJobResult {
 
 export async function createEmbeddingJob(
   input: CreateEmbeddingJobInput,
-): Promise<CreateEmbeddingJobResult> {
+): Promise<CreateEmbeddingJobResult | null> {
   const client = getSupabaseServerAdminClient();
 
   const { data: document, error: documentError } = await client
     .from('dr_document')
     .select('account_id, deal_id')
     .eq('id', input.drDocumentId)
-    .single();
+    .maybeSingle();
 
   if (documentError) {
     throw documentError;
+  }
+  if (!document) {
+    return null;
   }
 
   const { data: job, error } = await client
@@ -409,53 +405,11 @@ export async function markEmbeddingJobRunning(
   }
 }
 
-export interface ExtractDocumentInput {
-  drDocumentId: string;
-}
-
-export async function extractDocumentMarkdown(
-  input: ExtractDocumentInput,
-): Promise<{ markdown: string }> {
-  const docling = resolveDoclingConfig();
-
-  if (!docling) {
-    console.warn(
-      '[workflows] document extraction unavailable: docling endpoint is not configured (DOCLING_URL / DOCLING_API_KEY)',
-    );
-    return { markdown: '' };
-  }
-
-  const client = getSupabaseServerAdminClient();
-
-  const { data: document, error } = await client
-    .from('dr_document')
-    .select('storage_path')
-    .eq('id', input.drDocumentId)
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  const { data: signed, error: signError } = await client.storage
-    .from(DATA_ROOM_BUCKET)
-    .createSignedUrl(document.storage_path, SIGNED_URL_TTL_SECONDS);
-
-  if (signError) {
-    throw signError;
-  }
-
-  const markdown = await extractMarkdown(docling, signed.signedUrl);
-
-  return { markdown };
-}
-
 export interface EmbedDocumentChunksInput {
   jobId: string;
   drDocumentId: string;
   accountId: string;
   dealId: string;
-  markdown: string;
 }
 
 async function skipEmbedding(
@@ -487,17 +441,21 @@ export async function embedDocumentChunks(
     return skipEmbedding(input.jobId, ANTHROPIC_HAS_NO_EMBEDDINGS);
   }
 
-  const chunks = chunkMarkdown(input.markdown);
+  const chunks = chunkMarkdown(await documentText(input.drDocumentId));
   let vectors: number[][];
   try {
-    vectors = await meterTeamAiCall(ai, { dealId: input.dealId }, async () => ({
-      result: await embedTexts(
-        { baseUrl: ai.baseUrl, model: ai.model, apiKey: ai.apiKey },
-        chunks,
-      ),
-      promptTokens: null,
-      completionTokens: null,
-    }));
+    vectors = await meterTeamAiCall(
+      ai,
+      { dealId: input.dealId },
+      estimatedUsage(chunks.join(''), 0),
+      async () => {
+        const embedded = await embedTexts(
+          { baseUrl: ai.baseUrl, model: ai.model, apiKey: ai.apiKey },
+          chunks,
+        );
+        return { result: embedded.vectors, usage: embedded.usage };
+      },
+    );
   } catch (error) {
     if (error instanceof CapReached) {
       return skipEmbedding(input.jobId, error.message);
@@ -562,7 +520,7 @@ export async function runDealVerification(
   const runnableChecks = await buildDocumentExtractionChecks({
     client,
     dealId: input.dealId,
-    docling: resolveDoclingConfig(),
+    docling: doclingConfigFromEnv(),
   });
 
   await runVerification({

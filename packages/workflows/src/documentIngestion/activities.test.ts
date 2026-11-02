@@ -1,11 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeAiProvider } from '../../test-support/fake-ai-provider';
 import {
   completeEmbeddingJob,
   createEmbeddingJob,
   embedDocumentChunks,
-  extractDocumentMarkdown,
   failEmbeddingJob,
   markEmbeddingJobRunning,
 } from '../activities';
@@ -13,14 +12,8 @@ import { EMBEDDING_DIMENSIONS } from './embeddings';
 
 const state = vi.hoisted(() => ({ client: null as unknown }));
 
-const doclingState = vi.hoisted(() => ({ extractMarkdown: vi.fn() }));
-
 vi.mock('@odb/supabase/admin', () => ({
   getSupabaseServerAdminClient: () => state.client,
-}));
-
-vi.mock('./docling', () => ({
-  extractMarkdown: doclingState.extractMarkdown,
 }));
 
 interface FakeConfig {
@@ -41,6 +34,10 @@ function makeClient(config: FakeConfig) {
         eq: () => builder,
         limit: () => builder,
         single: async () => ({
+          data: config.rows?.[table] ?? null,
+          error: null,
+        }),
+        maybeSingle: async () => ({
           data: config.rows?.[table] ?? null,
           error: null,
         }),
@@ -84,7 +81,10 @@ async function serveEmbeddings(
 ): Promise<void> {
   provider = await fakeAiProvider({
     status: 200,
-    body: { data: [{ index: 0, embedding: Array(dimension).fill(0.1) }] },
+    body: {
+      data: [{ index: 0, embedding: Array(dimension).fill(0.1) }],
+      usage: { prompt_tokens: 11 },
+    },
   });
   team.endpoint!.base_url = provider.baseUrl;
   process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
@@ -118,6 +118,14 @@ describe('embedding job status transitions', () => {
       deal_id: 'deal1',
       dr_document_id: 'doc1',
     });
+  });
+
+  it('creates no job for a document that is gone, so the run can end quietly', async () => {
+    const { client, capture } = makeClient({});
+    state.client = client;
+
+    expect(await createEmbeddingJob({ drDocumentId: 'doc1' })).toBeNull();
+    expect(capture.inserts).toEqual({});
   });
 
   it('advances a job to running', async () => {
@@ -166,12 +174,16 @@ interface FakeTeam {
     model: string | null;
     chat_model: string;
     base_url: string;
+    input_price_per_mtok: number | null;
+    cached_input_price_per_mtok: number | null;
+    output_price_per_mtok: number | null;
   } | null;
   apiKey: string | null;
   capReached: boolean;
   reserved: Record<string, unknown>[];
   usage: Record<string, unknown>[];
   chunks: Array<Record<string, unknown>> | undefined;
+  segments: string[];
 }
 
 function settled(data: unknown) {
@@ -182,7 +194,14 @@ function makeTeamClient(team: FakeTeam) {
   return {
     from: (table: string) => ({
       select: () => ({
-        eq: () => ({ maybeSingle: () => settled(team.endpoint) }),
+        eq: () =>
+          table === 'document_segment'
+            ? {
+                order: () => ({
+                  range: () => settled(team.segments.map((text) => ({ text }))),
+                }),
+              }
+            : { maybeSingle: () => settled(team.endpoint) },
       }),
       insert: async (rows: Array<Record<string, unknown>>) => {
         team.chunks = rows;
@@ -191,7 +210,7 @@ function makeTeamClient(team: FakeTeam) {
       update: (row: Record<string, unknown>) => ({
         eq: (_column: string, id: string) => {
           team.usage.push({ table, id, ...row });
-          return settled(null);
+          return { ...settled(null), is: () => settled(null) };
         },
       }),
     }),
@@ -216,25 +235,29 @@ function connectedTeam(): FakeTeam {
       model: 'text-embedding-3-small',
       chat_model: 'gpt-4o-mini',
       base_url: 'http://llm.test',
+      input_price_per_mtok: null,
+      cached_input_price_per_mtok: null,
+      output_price_per_mtok: null,
     },
     apiKey: 'sk-vault',
     capReached: false,
     reserved: [],
     usage: [],
     chunks: undefined,
+    segments: ['# Only', 'One short chunk from Priya Okafor.'],
   };
   state.client = makeTeamClient(team);
   return team;
 }
 
 describe('embedDocumentChunks', () => {
-  const markdown = '# Only\n\nOne short chunk from Priya Okafor.';
+  const documentText = '# Only\n\nOne short chunk from Priya Okafor.';
 
-  it("embeds the chunks unchanged, team people included, on the team's vault key and writes them scoped to the document account and deal", async () => {
+  it("embeds the document's segment text in order, unchanged, team people included, on the team's vault key and writes them scoped to the document account and deal", async () => {
     const team = connectedTeam();
     await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-    const result = await embedDocumentChunks({ ...chunkScope, markdown });
+    const result = await embedDocumentChunks(chunkScope);
 
     expect(result).toEqual({ chunkCount: 1, model: 'text-embedding-3-small' });
     expect(provider!.received).toMatchObject([
@@ -253,23 +276,27 @@ describe('embedDocumentChunks', () => {
       deal_id: 'deal1',
       document_id: 'doc1',
       chunk_index: 0,
-      content: markdown,
+      content: documentText,
     });
     expect(JSON.parse(team.chunks![0]!.embedding as string)).toHaveLength(
       EMBEDDING_DIMENSIONS,
     );
   });
 
-  it('counts one AI call per document against the cap, logged to the deal without token counts', async () => {
+  it("reserves one AI call per document at its estimated input, then settles it to the provider's token count at the team's prices", async () => {
     const team = connectedTeam();
+    team.endpoint!.input_price_per_mtok = 0.5;
+    team.endpoint!.cached_input_price_per_mtok = 0.5;
+    team.endpoint!.output_price_per_mtok = 0;
     await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-    await embedDocumentChunks({ ...chunkScope, markdown });
+    await embedDocumentChunks(chunkScope);
 
     expect(team.reserved).toEqual([
       expect.objectContaining({
         p_account_id: 'acct1',
         p_model: 'text-embedding-3-small',
+        p_credits: (Math.ceil(documentText.length / 4) * 0.5) / 1e4,
         p_endpoint_id: 'endpoint-1',
         p_deal_id: 'deal1',
       }),
@@ -278,8 +305,10 @@ describe('embedDocumentChunks', () => {
       {
         table: 'ai_call_log',
         id: 'call-1',
-        prompt_tokens: null,
-        completion_tokens: null,
+        prompt_tokens: 11,
+        completion_tokens: 0,
+        credits: (11 * 0.5) / 1e4,
+        settled_at: expect.any(String),
       },
     ]);
   });
@@ -288,9 +317,9 @@ describe('embedDocumentChunks', () => {
     const team = connectedTeam();
     await serveEmbeddings(team, 1024);
 
-    await expect(
-      embedDocumentChunks({ ...chunkScope, markdown: 'short' }),
-    ).rejects.toThrow(/1024/);
+    team.segments = ['short'];
+
+    await expect(embedDocumentChunks(chunkScope)).rejects.toThrow(/1024/);
     expect(team.chunks).toBeUndefined();
   });
 
@@ -312,7 +341,7 @@ describe('embedDocumentChunks', () => {
       unset(team);
       await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-      const result = await embedDocumentChunks({ ...chunkScope, markdown });
+      const result = await embedDocumentChunks(chunkScope);
 
       expect(result).toEqual({ skippedReason: reason });
       expect(provider!.received).toEqual([]);
@@ -332,7 +361,7 @@ describe('embedDocumentChunks', () => {
     [
       'once the AI cap is reached',
       (team: FakeTeam) => (team.capReached = true),
-      'The monthly AI limit is reached',
+      'Not enough AI credits left this month',
     ],
     [
       'for an Anthropic team',
@@ -346,7 +375,7 @@ describe('embedDocumentChunks', () => {
       arrange(team);
       await serveEmbeddings(team, EMBEDDING_DIMENSIONS);
 
-      expect(await embedDocumentChunks({ ...chunkScope, markdown })).toEqual({
+      expect(await embedDocumentChunks(chunkScope)).toEqual({
         skippedReason: reason,
       });
       expect(provider!.received).toEqual([]);
@@ -361,64 +390,4 @@ describe('embedDocumentChunks', () => {
       ]);
     },
   );
-});
-
-function makeExtractClient() {
-  return {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({
-            data: { storage_path: 'deals/doc1.pdf' },
-            error: null,
-          }),
-        }),
-      }),
-    }),
-    storage: {
-      from: () => ({
-        createSignedUrl: async () => ({
-          data: { signedUrl: 'https://signed.example/doc1' },
-          error: null,
-        }),
-      }),
-    },
-  };
-}
-
-describe('extractDocumentMarkdown', () => {
-  beforeEach(() => {
-    doclingState.extractMarkdown.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.DOCLING_URL;
-    delete process.env.DOCLING_API_KEY;
-  });
-
-  it('returns an empty markdown result and does not call docling when the endpoint is not configured', async () => {
-    delete process.env.DOCLING_URL;
-    delete process.env.DOCLING_API_KEY;
-    state.client = makeExtractClient();
-
-    const result = await extractDocumentMarkdown({ drDocumentId: 'doc1' });
-
-    expect(result).toEqual({ markdown: '' });
-    expect(doclingState.extractMarkdown).not.toHaveBeenCalled();
-  });
-
-  it('extracts markdown through docling when the endpoint is configured', async () => {
-    process.env.DOCLING_URL = 'http://docling.test';
-    process.env.DOCLING_API_KEY = 'dk';
-    doclingState.extractMarkdown.mockResolvedValue('# Extracted');
-    state.client = makeExtractClient();
-
-    const result = await extractDocumentMarkdown({ drDocumentId: 'doc1' });
-
-    expect(result).toEqual({ markdown: '# Extracted' });
-    expect(doclingState.extractMarkdown).toHaveBeenCalledWith(
-      { baseUrl: 'http://docling.test', apiKey: 'dk' },
-      'https://signed.example/doc1',
-    );
-  });
 });

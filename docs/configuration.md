@@ -81,7 +81,7 @@ Unlocks document verification and retrieval over diligence documents (see
 
 | Variable | Notes |
 | --- | --- |
-| `DOCLING_URL` | Docling service URL; without it, ingestion errors clearly rather than running |
+| `DOCLING_URL` | Docling service URL; without it, PDF, Word, PowerPoint and image files wait unread (one log line each) and the nightly backfill reads them once it is set; text, CSV and Excel files are read regardless |
 | `DOCLING_API_KEY` | Docling credential |
 
 The LLM endpoint itself is configured per tenant (`llm_endpoint`), so the model each account

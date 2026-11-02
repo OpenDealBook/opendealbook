@@ -5678,6 +5678,95 @@ export type Database = {
           },
         ]
       }
+      document_segment: {
+        Row: {
+          account_id: string
+          cell_range: string | null
+          content_hash: string
+          created_at: string
+          deal_id: string
+          document_version: number
+          dr_document_id: string
+          formulas: string | null
+          from_ocr: boolean
+          id: string
+          kind: Database["public"]["Enums"]["document_segment_kind"]
+          page_from: number | null
+          page_to: number | null
+          segment_index: number
+          sheet: string | null
+          text: string
+          tsv: unknown
+        }
+        Insert: {
+          account_id: string
+          cell_range?: string | null
+          content_hash: string
+          created_at?: string
+          deal_id: string
+          document_version: number
+          dr_document_id: string
+          formulas?: string | null
+          from_ocr: boolean
+          id?: string
+          kind: Database["public"]["Enums"]["document_segment_kind"]
+          page_from?: number | null
+          page_to?: number | null
+          segment_index: number
+          sheet?: string | null
+          text: string
+          tsv?: unknown
+        }
+        Update: {
+          account_id?: string
+          cell_range?: string | null
+          content_hash?: string
+          created_at?: string
+          deal_id?: string
+          document_version?: number
+          dr_document_id?: string
+          formulas?: string | null
+          from_ocr?: boolean
+          id?: string
+          kind?: Database["public"]["Enums"]["document_segment_kind"]
+          page_from?: number | null
+          page_to?: number | null
+          segment_index?: number
+          sheet?: string | null
+          text?: string
+          tsv?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_segment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_segment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_segment_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_segment_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_share: {
         Row: {
           account_id: string
@@ -13520,6 +13609,8 @@ export type Database = {
       }
     }
     Functions: {
+      a1_box: { Args: { cell_range: string }; Returns: unknown }
+      a1_column_number: { Args: { letters: string }; Returns: number }
       accept_invitation: {
         Args: { token: string; user_id: string }
         Returns: string
@@ -14592,6 +14683,31 @@ export type Database = {
         Returns: string[]
       }
       purge_removed_document_text: { Args: never; Returns: undefined }
+      read_document_pages: {
+        Args: { document_id: string; from_page: number; to_page: number }
+        Returns: {
+          from_ocr: boolean
+          page_from: number
+          page_to: number
+          segment_id: string
+          text: string
+        }[]
+      }
+      read_sheet_range: {
+        Args: {
+          a1_range: string
+          document_id: string
+          sheet: string
+          with_formulas?: boolean
+        }
+        Returns: {
+          cell_range: string
+          formulas: string
+          from_ocr: boolean
+          segment_id: string
+          text: string
+        }[]
+      }
       reads_contracts_as_seller_side: {
         Args: { deal_id: string }
         Returns: boolean
@@ -14721,6 +14837,26 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      search_document_segments: {
+        Args: {
+          deal_id: string
+          include_earlier_versions?: boolean
+          query: string
+          result_limit?: number
+        }
+        Returns: {
+          cell_range: string
+          document_name: string
+          document_version: number
+          dr_document_id: string
+          page_from: number
+          page_to: number
+          rank: number
+          segment_id: string
+          sheet: string
+          snippet: string
+        }[]
       }
       search_documents: {
         Args: { p_account_id: string; p_query: string }
@@ -15319,6 +15455,7 @@ export type Database = {
         | "financial"
         | "other"
       discovery_revenue_trend: "up" | "down" | "flat"
+      document_segment_kind: "page" | "section" | "sheet_block"
       embedding_job_status: "queued" | "running" | "done" | "failed" | "skipped"
       event_actor_kind: "user" | "service" | "api_key" | "system"
       florida_license_import_status: "running" | "succeeded" | "failed"
@@ -15724,6 +15861,7 @@ export const Constants = {
         "other",
       ],
       discovery_revenue_trend: ["up", "down", "flat"],
+      document_segment_kind: ["page", "section", "sheet_block"],
       embedding_job_status: ["queued", "running", "done", "failed", "skipped"],
       event_actor_kind: ["user", "service", "api_key", "system"],
       florida_license_import_status: ["running", "succeeded", "failed"],

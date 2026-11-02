@@ -597,6 +597,9 @@ importers:
       tldts:
         specifier: 7.4.18
         version: 7.4.18
+      xlsx:
+        specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+        version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -2548,6 +2551,9 @@ importers:
       '@odb/seller-rooms':
         specifier: workspace:*
         version: link:../features/seller-rooms
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase
@@ -2575,6 +2581,9 @@ importers:
       tldts:
         specifier: 7.4.18
         version: 7.4.18
+      xlsx:
+        specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+        version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
       zod:
         specifier: 'catalog:'
         version: 4.4.3

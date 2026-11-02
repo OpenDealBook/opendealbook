@@ -27,6 +27,10 @@ export { ensureMilestoneOverdueSchedule } from './schedules/milestoneOverdue';
 export { ensureWorkflowPruneSchedule } from './schedules/workflowPrune';
 export { ensureRemovedDocumentTextPurgeSchedule } from './schedules/removedDocumentTextPurge';
 export { ensureCompEventRelay } from './schedules/compEventRelay';
+export {
+  ensureDocumentIngestionBackfillSchedule,
+  ensureDocumentIngestionRelay,
+} from './schedules/documentIngestion';
 export { ensureDealEventNotificationRelay } from './schedules/dealEventNotificationRelay';
 export { ensureWorkflowEventRelay } from './builder/eventRelayStart';
 export { ensureApprovalReminderSchedule } from './schedules/approvalReminder';
