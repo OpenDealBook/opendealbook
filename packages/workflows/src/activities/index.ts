@@ -15,6 +15,13 @@ import {
   meterTeamAiCall,
   resolveTeamAi,
 } from '../builder/teamAiKey';
+import { getTemporalClient } from '../client';
+import {
+  DEAL_VERIFICATION_SIGNAL,
+  DEAL_VERIFICATION_WORKFLOW_TYPE,
+  dealVerificationWorkflowId,
+  TASK_QUEUE,
+} from '../ids';
 
 export {
   discoverSbaResources,
@@ -74,6 +81,7 @@ export {
 export { deleteUnfinishedUploads } from '../uploadCleanup/activities';
 export { deleteOrphanedDealObjects } from '../storageSweep/activities';
 export { pruneWorkflowStepData } from '../schedules/workflowPruneActivity';
+export { purgeRemovedDocumentText } from '../schedules/removedDocumentTextPurgeActivity';
 export {
   discoverLeadFiles,
   failLeadImport,
@@ -565,6 +573,19 @@ export async function runDealVerification(
     notify: (notification) =>
       triggerNotification({ novu: createNovuClient(), client }, notification),
     skipReason: (error) => (error instanceof CapReached ? error.message : null),
+  });
+}
+
+export async function requestDealVerification(
+  input: RunDealVerificationInput,
+): Promise<void> {
+  const temporal = await getTemporalClient();
+
+  await temporal.workflow.signalWithStart(DEAL_VERIFICATION_WORKFLOW_TYPE, {
+    taskQueue: TASK_QUEUE,
+    workflowId: dealVerificationWorkflowId(input.dealId),
+    signal: DEAL_VERIFICATION_SIGNAL,
+    args: [input],
   });
 }
 

@@ -65,7 +65,9 @@ create table if not exists public.upload_item (
   content_type text,
   status public.upload_item_status not null default 'pending',
   target_folder_id uuid references public.dr_folder (id) on delete set null,
-  dr_document_id uuid references public.dr_document (id) on delete set null,
+  -- No foreign key: replay_deal deletes a deal's documents and puts them back
+  -- under the same ids.
+  dr_document_id uuid,
   error text,
   created_at timestamptz,
   updated_at timestamptz

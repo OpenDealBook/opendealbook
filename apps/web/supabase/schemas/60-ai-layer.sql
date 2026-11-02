@@ -85,7 +85,9 @@ create table if not exists public.document_chunk (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   deal_id uuid not null references public.deal (id) on delete cascade,
-  document_id uuid not null references public.dr_document (id) on delete cascade,
+  -- No foreign key: replay_deal deletes a deal's documents and puts them back
+  -- under the same ids, and the text must survive it.
+  document_id uuid not null,
   chunk_index int not null,
   content text not null,
   embedding extensions.vector(1536),
@@ -103,10 +105,7 @@ grant select, insert, update, delete on public.document_chunk to service_role;
 
 create policy document_chunk_read on public.document_chunk
   for select to authenticated
-  using (
-    public.has_role_on_account(account_id)
-    or public.has_deal_permission(deal_id, 'deals.manage')
-  );
+  using (exists (select 1 from public.dr_document d where d.id = document_id));
 
 create policy document_chunk_insert on public.document_chunk
   for insert to authenticated
@@ -120,3 +119,30 @@ create policy document_chunk_update on public.document_chunk
 create policy document_chunk_delete on public.document_chunk
   for delete to authenticated
   using (public.has_permission((select auth.uid()), account_id, 'deals.manage'));
+
+-- Removed and missing documents are already unreadable through
+-- document_chunk_read; this nightly purge deletes
+-- their text and indexing jobs for good. replay_deal recreates documents
+-- inside one transaction, so the purge never sees a replayed document as
+-- missing.
+create or replace function public.purge_removed_document_text()
+  returns void
+  language plpgsql security definer
+  set search_path = '' as $$
+begin
+  delete from public.document_chunk c
+  where not exists (
+    select 1 from public.dr_document d
+    where d.id = c.document_id and d.removed_at is null
+  );
+
+  delete from public.embedding_job j
+  where not exists (
+    select 1 from public.dr_document d
+    where d.id = j.dr_document_id and d.removed_at is null
+  );
+end;
+$$;
+
+revoke all on function public.purge_removed_document_text() from public, anon, authenticated;
+grant execute on function public.purge_removed_document_text() to service_role;

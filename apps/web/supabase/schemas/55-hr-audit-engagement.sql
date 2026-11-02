@@ -13,7 +13,9 @@ create table if not exists public.hr_audit_engagement (
   scope text,
   ordered_at timestamptz,
   due_at timestamptz,
-  report_document_id uuid references public.dr_document (id) on delete set null,
+  -- No foreign key: replay_deal deletes a deal's documents and puts them back
+  -- under the same ids.
+  report_document_id uuid,
   findings_json jsonb not null default '{}'::jsonb,
   status public.checklist_status not null default 'not_started',
   created_at timestamptz,

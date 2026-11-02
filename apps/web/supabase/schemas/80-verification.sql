@@ -52,7 +52,9 @@ create table if not exists public.verification_finding (
   check_key text not null,
   severity public.verification_severity not null,
   status public.verification_finding_status not null default 'open',
-  dr_document_id uuid references public.dr_document (id) on delete set null,
+  -- No foreign key: replay_deal deletes a deal's documents and puts them back
+  -- under the same ids.
+  dr_document_id uuid,
   detail jsonb not null default '{}'::jsonb,
   created_at timestamptz,
   updated_at timestamptz,

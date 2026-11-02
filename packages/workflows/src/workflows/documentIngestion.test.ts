@@ -20,7 +20,7 @@ vi.mock('@temporalio/workflow', () => ({
     },
     completeEmbeddingJob: async () => world.log.push('complete'),
     failEmbeddingJob: async () => world.log.push('fail'),
-    runDealVerification: async () => world.log.push('verify'),
+    requestDealVerification: async () => world.log.push('verify'),
   }),
 }));
 

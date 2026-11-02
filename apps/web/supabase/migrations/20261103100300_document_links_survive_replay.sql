@@ -1,0 +1,5 @@
+alter table public.upload_item drop constraint upload_item_dr_document_id_fkey;
+
+alter table public.verification_finding drop constraint verification_finding_dr_document_id_fkey;
+
+alter table public.hr_audit_engagement drop constraint hr_audit_engagement_report_document_id_fkey;

@@ -5670,13 +5670,6 @@ export type Database = {
             referencedRelation: "deal"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "document_chunk_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "dr_document"
-            referencedColumns: ["id"]
-          },
         ]
       }
       document_share: {
@@ -6113,13 +6106,6 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "embedding_job_dr_document_id_fkey"
-            columns: ["dr_document_id"]
-            isOneToOne: false
-            referencedRelation: "dr_document"
             referencedColumns: ["id"]
           },
         ]
@@ -6928,13 +6914,6 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "hr_audit_engagement_report_document_id_fkey"
-            columns: ["report_document_id"]
-            isOneToOne: false
-            referencedRelation: "dr_document"
             referencedColumns: ["id"]
           },
         ]
@@ -12491,13 +12470,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "upload_item_dr_document_id_fkey"
-            columns: ["dr_document_id"]
-            isOneToOne: false
-            referencedRelation: "dr_document"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "upload_item_target_folder_id_fkey"
             columns: ["target_folder_id"]
             isOneToOne: false
@@ -12576,13 +12548,6 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "verification_finding_dr_document_id_fkey"
-            columns: ["dr_document_id"]
-            isOneToOne: false
-            referencedRelation: "dr_document"
             referencedColumns: ["id"]
           },
           {
@@ -14608,6 +14573,7 @@ export type Database = {
         }
         Returns: string[]
       }
+      purge_removed_document_text: { Args: never; Returns: undefined }
       reads_contracts_as_seller_side: {
         Args: { deal_id: string }
         Returns: boolean

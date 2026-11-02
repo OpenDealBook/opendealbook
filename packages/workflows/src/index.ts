@@ -25,6 +25,7 @@ export {
 } from './contract-review/schedule';
 export { ensureMilestoneOverdueSchedule } from './schedules/milestoneOverdue';
 export { ensureWorkflowPruneSchedule } from './schedules/workflowPrune';
+export { ensureRemovedDocumentTextPurgeSchedule } from './schedules/removedDocumentTextPurge';
 export { ensureCompEventRelay } from './schedules/compEventRelay';
 export { ensureDealEventNotificationRelay } from './schedules/dealEventNotificationRelay';
 export { ensureWorkflowEventRelay } from './builder/eventRelayStart';

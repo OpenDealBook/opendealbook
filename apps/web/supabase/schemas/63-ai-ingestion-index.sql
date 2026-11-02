@@ -12,7 +12,9 @@ create table if not exists public.embedding_job (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts (id) on delete cascade,
   deal_id uuid not null references public.deal (id) on delete cascade,
-  dr_document_id uuid not null references public.dr_document (id) on delete cascade,
+  -- No foreign key: replay_deal deletes a deal's documents and puts them back
+  -- under the same ids, and the job history must survive it.
+  dr_document_id uuid not null,
   status public.embedding_job_status not null default 'queued',
   chunk_count int,
   model text,

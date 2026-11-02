@@ -1,5 +1,6 @@
 export { dealLifecycle } from './dealLifecycle';
 export { documentIngestion } from './documentIngestion';
+export { dealVerification } from './dealVerification';
 export { loiNegotiation } from './loiNegotiation';
 export { dataRoomProvisioning } from './dataRoomProvisioning';
 export { weeklyMeetingCadence } from './weeklyMeetingCadence';
@@ -17,6 +18,7 @@ export { outreachDispatch } from './outreachDispatch';
 export { cleanUpUnfinishedUploads } from './cleanUpUnfinishedUploads';
 export { sweepOrphanedDealObjects } from '../storageSweep/workflow';
 export { pruneWorkflowStepDataDaily } from '../schedules/workflowPruneWorkflow';
+export { purgeRemovedDocumentTextNightly } from '../schedules/removedDocumentTextPurgeWorkflow';
 export { syncLenderRepliesHourly } from '../lender-replies/workflow';
 export { sweepStaleLenderOutreach } from '../lender-replies/staleSweepWorkflow';
 export { sweepStaleOutreachMessages } from '../outreach/staleSweepWorkflow';

@@ -20,3 +20,10 @@ export function dealWorkflowId(dealId: string): string {
 export function trialDripWorkflowId(userId: string): string {
   return `trial-drip-${userId}`;
 }
+
+export const DEAL_VERIFICATION_WORKFLOW_TYPE = 'dealVerification';
+export const DEAL_VERIFICATION_SIGNAL = 'documentIngested';
+
+export function dealVerificationWorkflowId(dealId: string): string {
+  return `deal-verification-${dealId}`;
+}

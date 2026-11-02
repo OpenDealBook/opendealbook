@@ -4,6 +4,13 @@ const state = vi.hoisted(() => ({
   client: { marker: 'admin-client' } as unknown,
   runVerification: vi.fn(),
   buildDocumentExtractionChecks: vi.fn(async () => [] as unknown[]),
+  signalWithStart: vi.fn(),
+}));
+
+vi.mock('../client', () => ({
+  getTemporalClient: async () => ({
+    workflow: { signalWithStart: state.signalWithStart },
+  }),
 }));
 
 vi.mock('@odb/supabase/admin', () => ({
@@ -23,7 +30,7 @@ vi.mock('@odb/notifications/server', () => ({
   triggerNotification: vi.fn(),
 }));
 
-import { runDealVerification } from '../activities';
+import { requestDealVerification, runDealVerification } from '../activities';
 import { CapReached } from '../builder/caps';
 
 beforeEach(() => {
@@ -75,5 +82,18 @@ describe('runDealVerification', () => {
     await expect(runDealVerification({ dealId: 'deal1' })).rejects.toThrow(
       'boom',
     );
+  });
+});
+
+describe('requestDealVerification', () => {
+  it('signals the deal verification workflow, starting it when none is waiting', async () => {
+    await requestDealVerification({ dealId: 'deal1' });
+
+    expect(state.signalWithStart).toHaveBeenCalledWith('dealVerification', {
+      taskQueue: 'opendealbook',
+      workflowId: 'deal-verification-deal1',
+      signal: 'documentIngested',
+      args: [{ dealId: 'deal1' }],
+    });
   });
 });
