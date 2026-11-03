@@ -13,12 +13,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
-    "./scope": "./src/scope.ts"
+    "./scope": "./src/scope.ts",
+    "./citations": "./src/citations.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
     "@odb/supabase": "workspace:*",

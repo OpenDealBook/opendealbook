@@ -1,10 +1,6 @@
 import 'server-only';
 
-export { answerDealQuestion } from './generate';
-export type {
-  Citation,
-  DealQuestionInput,
-  DealQuestionResult,
-} from './generate';
+export { answerWithDocuments } from './agent';
+export type { DealQuestion, QuestionOutcome } from './agent';
 export { generateStructured } from './structured';
 export type { Structured, StructuredGenerateInput } from './structured';
