@@ -1,6 +1,6 @@
 import type { Client } from '@temporalio/client';
 
-import { TASK_QUEUE } from '../ids';
+import { BULK_TASK_QUEUE } from '../ids';
 import { ensureSchedule } from './ensureSchedule';
 
 export function ensureFloridaLicenseSchedule(client: Client): Promise<void> {
@@ -10,7 +10,7 @@ export function ensureFloridaLicenseSchedule(client: Client): Promise<void> {
     action: {
       type: 'startWorkflow',
       workflowType: 'importFloridaLicenses',
-      taskQueue: TASK_QUEUE,
+      taskQueue: BULK_TASK_QUEUE,
       args: [],
     },
   });

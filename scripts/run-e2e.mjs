@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const WORKERS_ENV_FILE = 'apps/e2e/.e2e-workers.env';
 const WEB_PORT = Number(process.env.APP_PORT ?? 3000);
-const TASK_QUEUE_URL = `http://localhost:${process.env.TEMPORAL_UI_PORT ?? 8233}/api/v1/namespaces/default/task-queues/opendealbook?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW`;
+const TASK_QUEUE_URLS = ['opendealbook', 'opendealbook-bulk'].map(
+  (queue) =>
+    `http://localhost:${process.env.TEMPORAL_UI_PORT ?? 8233}/api/v1/namespaces/default/task-queues/${queue}?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW`,
+);
 const WORKER_POLL_DEADLINE_MS = 120_000;
 const REST_ROOT_URL = `${process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'}/rest/v1/`;
 const ANON_KEY =
@@ -71,12 +74,19 @@ function playwright(args) {
   );
 }
 
-async function freshPollerSince(startedAt) {
-  const response = await fetch(TASK_QUEUE_URL);
+async function freshPollerSince(startedAt, url) {
+  const response = await fetch(url);
   const queue = await response.json();
   return (queue.pollers ?? []).some(
     (poller) => Date.parse(poller.lastAccessTime) >= startedAt,
   );
+}
+
+async function freshPollersOnEveryQueueSince(startedAt) {
+  const polled = await Promise.all(
+    TASK_QUEUE_URLS.map((url) => freshPollerSince(startedAt, url)),
+  );
+  return polled.every(Boolean);
 }
 
 if (await listens(WEB_PORT)) {
@@ -190,16 +200,18 @@ const worker = spawnInOwnGroup(
     '-c',
     `set -a && . ${WORKERS_ENV_FILE} && set +a && exec pnpm --filter workers dev`,
   ],
-  { cwd: root, stdio: 'inherit' },
+  { cwd: root, stdio: 'inherit', env: { ...process.env, WORKER_QUEUE: 'all' } },
 );
 const workerExit = exitCodeOf(worker);
 
-while (!(await freshPollerSince(workerStartedAt))) {
+while (!(await freshPollersOnEveryQueueSince(workerStartedAt))) {
   if (
     worker.exitCode !== null ||
     Date.now() - workerStartedAt > WORKER_POLL_DEADLINE_MS
   ) {
-    console.error('The e2e worker never polled the opendealbook task queue.');
+    console.error(
+      'The e2e worker never polled both the opendealbook and opendealbook-bulk task queues.',
+    );
     process.exit(1);
   }
   await sleep(1000);

@@ -101,6 +101,11 @@ package opendealbook
 		resources: #Resources
 	}
 
+	workersBulk: {
+		replicaCount: int & >0
+		resources:    #Resources
+	}
+
 	// The web Service: the stable backend any ingress/gateway points at.
 	service: {
 		type:        string | *"ClusterIP"

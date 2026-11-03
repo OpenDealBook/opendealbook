@@ -1,4 +1,5 @@
 export const TASK_QUEUE = 'opendealbook';
+export const BULK_TASK_QUEUE = 'opendealbook-bulk';
 
 export const OUTREACH_DISPATCH_SCHEDULE_ID = 'outreach-dispatch';
 export const OUTREACH_DISPATCH_WORKFLOW_TYPE = 'outreachDispatch';

@@ -68,6 +68,14 @@ values: #Values & {
 		}
 	}
 
+	workersBulk: {
+		replicaCount: 1
+		resources: {
+			requests: {cpu: "250m", memory: "512Mi"}
+			limits: {cpu: "1", memory: "1Gi"}
+		}
+	}
+
 	service: {
 		type: "ClusterIP"
 		port: 3000

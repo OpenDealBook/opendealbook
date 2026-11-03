@@ -78,7 +78,7 @@ export default async function globalSetup() {
 
   if (!(await workersArePolling())) {
     failWith([
-      'No Temporal worker is polling the opendealbook task queue.',
+      'No Temporal worker is polling both the opendealbook and opendealbook-bulk task queues.',
       'Start the workers with the e2e env from the repo root, then rerun:',
       `  ${START_WORKERS}`,
     ]);

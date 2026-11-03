@@ -49,6 +49,21 @@ describe('ensureLeadImportSchedules', () => {
     ]);
   });
 
+  it('runs every lead import on the bulk task queue', async () => {
+    const { client, schedules } = fakeScheduleClient();
+
+    await ensureLeadImportSchedules(client);
+
+    expect(
+      [...schedules.values()].map((schedule) => schedule.action.taskQueue),
+    ).toEqual([
+      'opendealbook-bulk',
+      'opendealbook-bulk',
+      'opendealbook-bulk',
+      'opendealbook-bulk',
+    ]);
+  });
+
   it('applies the current spec to an existing schedule', async () => {
     const { client, schedules } = fakeScheduleClient([
       { ...staleSchedule, scheduleId: 'lead-import-sba' },

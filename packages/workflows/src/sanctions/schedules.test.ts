@@ -18,6 +18,16 @@ describe('ensureScreeningListSchedule', () => {
     });
   });
 
+  it('runs the screening list import on the bulk task queue', async () => {
+    const { client, schedules } = fakeScheduleClient();
+
+    await ensureScreeningListSchedule(client);
+
+    expect(schedules.get('sanctions-import-csl')?.action.taskQueue).toBe(
+      'opendealbook-bulk',
+    );
+  });
+
   it('applies the current spec to an existing schedule', async () => {
     const { client, schedules } = fakeScheduleClient([
       { ...staleSchedule, scheduleId: 'sanctions-import-csl' },

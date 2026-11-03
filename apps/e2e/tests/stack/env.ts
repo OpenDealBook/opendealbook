@@ -44,6 +44,7 @@ export function workersEnv(novuApiKey: string): Record<string, string> {
     LICENSE_REGISTRY_URL: STAND_INS.licenses,
     TRIAL_DRIP_FROM_EMAIL: `${SENDER.name} <${SENDER.address}>`,
     SELLER_DELIVERY_FROM_EMAIL: `${SENDER.name} <${SENDER.address}>`,
+    WORKER_QUEUE: 'all',
   };
 }
 

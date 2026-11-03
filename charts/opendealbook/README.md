@@ -35,6 +35,7 @@ values.schema.json     XApp contract
 ```
 {{ .Values.web.replicaCount }}
 {{ .Values.workers.replicaCount }}
+{{ .Values.workersBulk.replicaCount }}
 {{ .Values.image.repository }}
 {{ .Values.image.tag }}
 {{ .Values.workerImage.repository }}

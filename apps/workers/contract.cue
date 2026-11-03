@@ -103,5 +103,11 @@ contract.#Contract & {
 			type:        "string"
 			description: "From address the trial drip email activity sends with"
 		}
+		WORKER_QUEUE: {
+			type:        "enum"
+			description: "Which task queues this worker polls: main, bulk, or all (polls both queues in one process)"
+			required:    true
+			values: ["main", "bulk", "all"]
+		}
 	}
 }

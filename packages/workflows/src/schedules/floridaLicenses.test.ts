@@ -18,4 +18,14 @@ describe('ensureFloridaLicenseSchedule', () => {
       },
     });
   });
+
+  it('runs the Florida license import on the bulk task queue', async () => {
+    const { client, schedules } = fakeScheduleClient();
+
+    await ensureFloridaLicenseSchedule(client);
+
+    expect(schedules.get('florida-licenses-import')?.action.taskQueue).toBe(
+      'opendealbook-bulk',
+    );
+  });
 });

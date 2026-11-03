@@ -9,7 +9,7 @@ import {
 } from './ids';
 import type { TrialDripInput } from './workflows/trialDrip';
 
-export { dealWorkflowId, TASK_QUEUE } from './ids';
+export { BULK_TASK_QUEUE, dealWorkflowId, TASK_QUEUE } from './ids';
 export { triggerDocumentIngestionBackfill } from './schedules/documentIngestion';
 
 export interface DealContext {

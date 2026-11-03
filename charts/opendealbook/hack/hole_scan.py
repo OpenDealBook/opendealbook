@@ -8,6 +8,7 @@ import sys
 ALLOWED = [
     r"\{\{ \.Values\.web\.replicaCount \}\}",
     r"\{\{ \.Values\.workers\.replicaCount \}\}",
+    r"\{\{ \.Values\.workersBulk\.replicaCount \}\}",
     r"\{\{ \.Values\.image\.repository \}\}",
     r"\{\{ \.Values\.image\.tag \}\}",
     r"\{\{ \.Values\.workerImage\.repository \}\}",

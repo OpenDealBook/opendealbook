@@ -170,6 +170,84 @@ spec:
               value: http://documenso.documenso.svc.cluster.local:3000
             - name: NANGO_SERVER_URL
               value: http://nango-server.nango.svc.cluster.local:3003
+            - name: WORKER_QUEUE
+              value: main
+          envFrom:
+            - secretRef:
+                name: opendealbook-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opendealbook.fullname" . }}-workers-bulk
+  labels:
+    {{- include "opendealbook.labels" . | nindent 4 }}
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: {{ .Values.workersBulk.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "opendealbook.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: workers-bulk
+  template:
+    metadata:
+      labels:
+        {{- include "opendealbook.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: workers-bulk
+    spec:
+      serviceAccountName: opendealbook
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: workers
+          image: {{ .Values.workerImage.repository }}:{{ .Values.workerImage.tag }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: SUPABASE_URL
+              value: http://supabase-kong.supabase.svc.cluster.local:8000
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector.observability.svc.cluster.local:4318
+            - name: PYROSCOPE_SERVER_ADDRESS
+              value: http://pyroscope.observability.svc.cluster.local:4040
+            - name: TEMPORAL_ADDRESS
+              value: temporal-frontend.temporal.svc.cluster.local:7233
+            - name: GOTENBERG_URL
+              value: http://gotenberg.gotenberg.svc.cluster.local:3000
+            - name: DOCLING_URL
+              value: http://docling-serve.docling.svc.cluster.local:5001
+            - name: NOVU_API_URL
+              value: http://novu-api.novu.svc.cluster.local:3000
+            - name: DOCUMENSO_URL
+              value: http://documenso.documenso.svc.cluster.local:3000
+            - name: NANGO_SERVER_URL
+              value: http://nango-server.nango.svc.cluster.local:3003
+            - name: OTEL_SERVICE_NAME
+              value: opendealbook-workers-bulk
+            - name: WORKER_QUEUE
+              value: bulk
           envFrom:
             - secretRef:
                 name: opendealbook-secrets

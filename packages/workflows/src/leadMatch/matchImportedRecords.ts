@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Enums } from '@odb/supabase';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 
+import { heartbeating } from '../heartbeating';
 import {
   REGISTRY_ADDRESS_COLUMNS,
   registryAddress,
@@ -88,13 +89,21 @@ interface SourceRecord {
   aliases?: string[];
 }
 
-export async function matchImportedRecords({
-  source,
-  importId,
-}: {
+interface MatchImportedRecordsInput {
   source: Enums<'lead_source'>;
   importId: string;
-}): Promise<void> {
+}
+
+export function matchImportedRecords(
+  input: MatchImportedRecordsInput,
+): Promise<void> {
+  return heartbeating(() => matchAll(input));
+}
+
+async function matchAll({
+  source,
+  importId,
+}: MatchImportedRecordsInput): Promise<void> {
   const db: SupabaseClient = getSupabaseServerAdminClient();
   const shape = SOURCES[source];
   const columns = [

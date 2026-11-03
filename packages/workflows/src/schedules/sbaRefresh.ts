@@ -1,6 +1,6 @@
 import type { Client } from '@temporalio/client';
 
-import { TASK_QUEUE } from '../ids';
+import { BULK_TASK_QUEUE } from '../ids';
 import { ensureSchedule } from './ensureSchedule';
 
 export const SBA_REFRESH_SCHEDULE_ID = 'sba-loans-refresh';
@@ -23,7 +23,7 @@ export function ensureSbaRefreshSchedule(client: Client): Promise<void> {
     action: {
       type: 'startWorkflow',
       workflowType: 'refreshSbaLoans',
-      taskQueue: TASK_QUEUE,
+      taskQueue: BULK_TASK_QUEUE,
       args: [{}],
     },
   });

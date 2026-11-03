@@ -1,82 +1,44 @@
-import { NativeConnection, Worker } from '@temporalio/worker';
-
 import {
-  ensureApprovalReminderSchedule,
-  ensureCompEventRelay,
-  ensureContractReviewReminderEmailSchedule,
-  ensureContractReviewTodoSyncSchedule,
-  ensureDealEventNotificationRelay,
-  ensureDocumentIngestionBackfillSchedule,
-  ensureDocumentIngestionRelay,
-  ensureFloridaLicenseSchedule,
-  ensureLeadImportSchedules,
-  ensureLenderNudgeEmailSchedule,
-  ensureLenderNudgeTodoSyncSchedule,
-  ensureLenderOutreachStaleSweepSchedule,
-  ensureLenderReplySyncSchedule,
-  ensureMilestoneOverdueSchedule,
-  ensureOrphanDealFileSweepSchedule,
-  ensureOutreachDispatchSchedule,
-  ensureOutreachReplySyncSchedule,
-  ensureOutreachStaleSweepSchedule,
-  ensureRemovedDocumentTextPurgeSchedule,
-  ensureScreeningListLoaded,
-  ensureScreeningListSchedule,
-  ensureUploadCleanupSchedule,
-  ensureWorkflowEventRelay,
-  ensureWorkflowPruneSchedule,
-} from '@odb/workflows';
+  bundleWorkflowCode,
+  NativeConnection,
+  Worker,
+} from '@temporalio/worker';
+
 import * as activities from '@odb/workflows/activities';
-import { getTemporalClient, TASK_QUEUE } from '@odb/workflows/client';
+import { getTemporalClient } from '@odb/workflows/client';
 
 import { env } from './env.ts';
+import { lanesByWorkerQueue } from './lanes.ts';
 
 import { fileURLToPath } from 'node:url';
 
-const workflowsPath = fileURLToPath(
-  new URL('./workflows/index.ts', import.meta.resolve('@odb/workflows')),
-);
+const workflowBundle = await bundleWorkflowCode({
+  workflowsPath: fileURLToPath(
+    new URL('./workflows/index.ts', import.meta.resolve('@odb/workflows')),
+  ),
+});
 
 const connection = await NativeConnection.connect({
   address: env.TEMPORAL_ADDRESS,
 });
 
-const worker = await Worker.create({
-  connection,
-  namespace: 'default',
-  taskQueue: TASK_QUEUE,
-  workflowsPath,
-  activities,
-});
+const lanes = lanesByWorkerQueue[env.WORKER_QUEUE];
+
+const workers = await Promise.all(
+  lanes.map((lane) =>
+    Worker.create({
+      connection,
+      namespace: 'default',
+      workflowBundle,
+      activities,
+      ...lane.options,
+    }),
+  ),
+);
 
 const client = await getTemporalClient();
 
-for (const ensure of [
-  ensureCompEventRelay,
-  ensureDealEventNotificationRelay,
-  ensureDocumentIngestionRelay,
-  ensureWorkflowEventRelay,
-  ensureUploadCleanupSchedule,
-  ensureOrphanDealFileSweepSchedule,
-  ensureMilestoneOverdueSchedule,
-  ensureLenderReplySyncSchedule,
-  ensureLenderOutreachStaleSweepSchedule,
-  ensureLenderNudgeTodoSyncSchedule,
-  ensureLenderNudgeEmailSchedule,
-  ensureContractReviewTodoSyncSchedule,
-  ensureContractReviewReminderEmailSchedule,
-  ensureOutreachDispatchSchedule,
-  ensureOutreachStaleSweepSchedule,
-  ensureOutreachReplySyncSchedule,
-  ensureWorkflowPruneSchedule,
-  ensureRemovedDocumentTextPurgeSchedule,
-  ensureDocumentIngestionBackfillSchedule,
-  ensureApprovalReminderSchedule,
-  ensureLeadImportSchedules,
-  ensureScreeningListSchedule,
-  ensureScreeningListLoaded,
-  ensureFloridaLicenseSchedule,
-]) {
+for (const ensure of lanes.flatMap((lane) => lane.ensures)) {
   try {
     await ensure(client);
   } catch (error) {
@@ -84,4 +46,4 @@ for (const ensure of [
   }
 }
 
-await worker.run();
+await Promise.all(workers.map((worker) => worker.run()));

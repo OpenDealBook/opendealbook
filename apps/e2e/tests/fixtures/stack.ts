@@ -19,7 +19,7 @@ export const GOTENBERG_URL = `http://localhost:${process.env.GOTENBERG_PORT ?? 3
 export const DOCUMENSO_URL = `http://localhost:${process.env.DOCUMENSO_PORT ?? 3005}`;
 export const NOVU_API_URL = process.env.NOVU_API_URL ?? 'http://localhost:3006';
 export const TEMPORAL_UI_URL = `http://localhost:${process.env.TEMPORAL_UI_PORT ?? 8233}`;
-export const TEMPORAL_TASK_QUEUE = 'opendealbook';
+export const TEMPORAL_TASK_QUEUES = ['opendealbook', 'opendealbook-bulk'];
 
 const STAND_IN_PORT = Number(process.env.E2E_STAND_IN_PORT ?? 4510);
 

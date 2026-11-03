@@ -1,10 +1,14 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   provisionAccount,
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
 import { matchImportedRecords } from './matchImportedRecords';
+
+vi.mock('@temporalio/activity', () => ({
+  Context: { current: () => ({ heartbeat: () => {} }) },
+}));
 
 let pipelineTeam: IntegrationAccount;
 let otherTeam: IntegrationAccount;

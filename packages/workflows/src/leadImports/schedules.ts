@@ -1,6 +1,6 @@
 import type { Client, ScheduleSpec } from '@temporalio/client';
 
-import { TASK_QUEUE } from '../ids';
+import { BULK_TASK_QUEUE } from '../ids';
 import { ensureSchedule } from '../schedules/ensureSchedule';
 import type { LeadSourceGroup } from './files';
 
@@ -55,7 +55,7 @@ export async function ensureLeadImportSchedules(client: Client): Promise<void> {
       action: {
         type: 'startWorkflow',
         workflowType: 'importLeadSource',
-        taskQueue: TASK_QUEUE,
+        taskQueue: BULK_TASK_QUEUE,
         args: [{ group }],
       },
     });

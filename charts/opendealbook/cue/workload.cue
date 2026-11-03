@@ -16,11 +16,6 @@ _selectorWeb: {
 	"app.kubernetes.io/component": "web"
 }
 
-_selectorWorkers: {
-	(#holes.selector): ""
-	"app.kubernetes.io/component": "workers"
-}
-
 _env: [for k, v in values.env {name: k, value: v}]
 
 _envFrom: [{secretRef: name: values.secretName}]
@@ -161,52 +156,80 @@ _httpRoute: #HTTPRoute & {
 	}
 }
 
-_workers: #Deployment & {
-	metadata: {
-		name:   "\(#holes.fullname)-workers"
-		labels: _labels
-		annotations: "reloader.stakater.com/auto": "true"
+_worker: {
+	_component: string
+	_replicas:  int
+	_resources: #Resources
+	_containerEnv: [...]
+	_selector: {
+		(#holes.selector):             ""
+		"app.kubernetes.io/component": _component
 	}
-	spec: {
-		replicas: #holes.replicasWorkers
-		selector: matchLabels: _selectorWorkers
-		template: {
-			metadata: labels: _selectorWorkers
-			spec: {
-				serviceAccountName: values.serviceAccountName
-				securityContext: {
-					runAsNonRoot: true
-					runAsUser:    1000
-					runAsGroup:   1000
-					fsGroup:      1000
-					seccompProfile: type: "RuntimeDefault"
-				}
-				containers: [{
-					name:            "workers"
-					image:           #holes.workerImage
-					imagePullPolicy: values.image.pullPolicy
-					if len(values.workers.command) > 0 {
-						command: values.workers.command
-					}
-					if len(values.workers.args) > 0 {
-						args: values.workers.args
-					}
-					env:     _env
-					envFrom: _envFrom
-					resources: {
-						requests: {cpu: values.workers.resources.requests.cpu, memory: values.workers.resources.requests.memory}
-						limits: {cpu: values.workers.resources.limits.cpu, memory: values.workers.resources.limits.memory}
-					}
+
+	#Deployment & {
+		metadata: {
+			name:   "\(#holes.fullname)-\(_component)"
+			labels: _labels
+			annotations: "reloader.stakater.com/auto": "true"
+		}
+		spec: {
+			replicas: _replicas
+			selector: matchLabels: _selector
+			template: {
+				metadata: labels: _selector
+				spec: {
+					serviceAccountName: values.serviceAccountName
 					securityContext: {
-						allowPrivilegeEscalation: false
-						readOnlyRootFilesystem:   true
-						capabilities: drop: ["ALL"]
+						runAsNonRoot: true
+						runAsUser:    1000
+						runAsGroup:   1000
+						fsGroup:      1000
 						seccompProfile: type: "RuntimeDefault"
 					}
-				}]
+					containers: [{
+						name:            "workers"
+						image:           #holes.workerImage
+						imagePullPolicy: values.image.pullPolicy
+						if len(values.workers.command) > 0 {
+							command: values.workers.command
+						}
+						if len(values.workers.args) > 0 {
+							args: values.workers.args
+						}
+						env:       _containerEnv
+						envFrom:   _envFrom
+						resources: _resources
+						securityContext: {
+							allowPrivilegeEscalation: false
+							readOnlyRootFilesystem:   true
+							capabilities: drop: ["ALL"]
+							seccompProfile: type: "RuntimeDefault"
+						}
+					}]
+				}
 			}
 		}
 	}
+}
+
+_workers: _worker & {
+	_component: "workers"
+	_replicas:  #holes.replicasWorkers
+	_resources: values.workers.resources
+	_containerEnv: list.Concat([_env, [{name: "WORKER_QUEUE", value: "main"}]])
+}
+
+_workersBulk: _worker & {
+	_component: "workers-bulk"
+	_replicas:  #holes.replicasWorkersBulk
+	_resources: values.workersBulk.resources
+	_containerEnv: list.Concat([
+		[for k, v in values.env if k != "OTEL_SERVICE_NAME" {name: k, value: v}],
+		[
+			{name: "OTEL_SERVICE_NAME", value: "opendealbook-workers-bulk"},
+			{name: "WORKER_QUEUE", value: "bulk"},
+		],
+	])
 }
 
 _novuSyncScript: """

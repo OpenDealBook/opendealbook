@@ -8,6 +8,7 @@ package opendealbook
 // Allowed holes:
 //   {{ .Values.web.replicaCount }}
 //   {{ .Values.workers.replicaCount }}
+//   {{ .Values.workersBulk.replicaCount }}
 //   {{ .Values.image.repository }}
 //   {{ .Values.image.tag }}
 //   {{ .Values.workerImage.repository }}
@@ -24,8 +25,9 @@ package opendealbook
 
 #holes: {
 	// int sentinels (unquoted in YAML -> Helm substitutes an int)
-	replicasWeb:     424201
-	replicasWorkers: 424202
+	replicasWeb:         424201
+	replicasWorkers:     424202
+	replicasWorkersBulk: 424203
 
 	// bare-string sentinels (marshal unquoted)
 	image:       "0.0.0-ODBIMAGE"
@@ -45,6 +47,7 @@ package opendealbook
 	tokens: {
 		"424201":               "{{ .Values.web.replicaCount }}"
 		"424202":               "{{ .Values.workers.replicaCount }}"
+		"424203":               "{{ .Values.workersBulk.replicaCount }}"
 		"0.0.0-ODBIMAGE":       "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
 		"0.0.0-ODBWORKERIMAGE": "{{ .Values.workerImage.repository }}:{{ .Values.workerImage.tag }}"
 		"ODBFULLNAME":          "{{ include \"opendealbook.fullname\" . }}"

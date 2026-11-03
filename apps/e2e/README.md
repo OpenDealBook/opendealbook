@@ -14,7 +14,7 @@ resets a service.
 - Mailpit, the Supabase mail catcher: API on 54324, SMTP on 54325 (slot 0).
 - The compose `core` and `notifications` profiles: Gotenberg (3009), Documenso
   (3005), Novu (3006), Temporal (7233, UI on 8233).
-- Temporal workers polling the `opendealbook` task queue.
+- Temporal workers polling the `opendealbook` and `opendealbook-bulk` task queues.
 - `infra/documenso/cert.p12`, which Documenso needs to seal signed documents; signing tests never complete without it. Generate it with the recipe in `infra/documenso/README.md`.
 
 Stripe, Nango, Gmail, and the LLM are local stand-ins the global setup starts,
@@ -31,9 +31,10 @@ After the checks, the global setup:
 1. Starts the stand-ins.
 2. Signs in to Novu as a fixed e2e user, registering it on the first run, and
    reads its API key. It points Novu's email integration at Mailpit SMTP.
-3. Writes the workers' env to `apps/e2e/.e2e-workers.env` and checks a worker
-   polls the task queue. If none does, the run fails and prints the command
-   that starts the workers with that env:
+3. Writes the workers' env, including `WORKER_QUEUE=all`, to
+   `apps/e2e/.e2e-workers.env` and checks workers poll both the `opendealbook`
+   and `opendealbook-bulk` task queues. If either queue has no poller, the run
+   fails and prints the command that starts the workers with that env:
    `set -a && . apps/e2e/.e2e-workers.env && set +a && pnpm --filter workers dev`
 4. Signs in to Documenso as a fixed e2e user through its UI, signing up on the
    first run. It adds the app's webhook and mints an API token. Set

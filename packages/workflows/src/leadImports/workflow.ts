@@ -23,6 +23,7 @@ const { importLeadFile } = proxyActivities<typeof activities>({
 
 const { matchImportedRecords } = proxyActivities<typeof activities>({
   startToCloseTimeout: '6 hours',
+  heartbeatTimeout: '2 minutes',
   retry: { maximumAttempts: 3 },
 });
 

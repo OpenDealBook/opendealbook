@@ -4,7 +4,15 @@
   "description": "Contract for the OpenDealbook Hybrid C / CUE chart. Mirrors cue/values.cue #Values. Only the runtime holes are meaningfully overridable per release; the rest is baked at generate time and kept here for the XApp claim to stay aligned.",
   "type": "object",
   "additionalProperties": true,
-  "required": ["mode", "marketing", "image", "workerImage", "web", "workers"],
+  "required": [
+    "mode",
+    "marketing",
+    "image",
+    "workerImage",
+    "web",
+    "workers",
+    "workersBulk"
+  ],
   "properties": {
     "mode": {
       "type": "string",
@@ -123,6 +131,14 @@
       }
     },
     "workers": {
+      "type": "object",
+      "required": ["replicaCount"],
+      "additionalProperties": true,
+      "properties": {
+        "replicaCount": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "workersBulk": {
       "type": "object",
       "required": ["replicaCount"],
       "additionalProperties": true,

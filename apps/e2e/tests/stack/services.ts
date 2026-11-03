@@ -5,7 +5,7 @@ import {
   MAILPIT_URL,
   NOVU_API_URL,
   SUPABASE_URL,
-  TEMPORAL_TASK_QUEUE,
+  TEMPORAL_TASK_QUEUES,
   TEMPORAL_UI_URL,
   serviceHeaders,
 } from '../fixtures/stack';
@@ -66,17 +66,22 @@ const required: [name: string, probe: Probe][] = [
   [`Temporal on ${TEMPORAL_PORT}`, listens(TEMPORAL_PORT)],
 ];
 
-export const workersArePolling = responds(
-  `${TEMPORAL_UI_URL}/api/v1/namespaces/default/task-queues/${TEMPORAL_TASK_QUEUE}?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW`,
-  async (response) => {
-    if (!response.ok) {
-      return false;
-    }
-    // Temporal's JSON omits an empty pollers list.
-    const queue: { pollers?: unknown[] } = await response.json();
-    return (queue.pollers ?? []).length > 0;
-  },
+const queueProbes = TEMPORAL_TASK_QUEUES.map((name) =>
+  responds(
+    `${TEMPORAL_UI_URL}/api/v1/namespaces/default/task-queues/${name}?taskQueueType=TASK_QUEUE_TYPE_WORKFLOW`,
+    async (response) => {
+      if (!response.ok) {
+        return false;
+      }
+      // Temporal's JSON omits an empty pollers list.
+      const queue: { pollers?: unknown[] } = await response.json();
+      return (queue.pollers ?? []).length > 0;
+    },
+  ),
 );
+
+export const workersArePolling: Probe = async () =>
+  (await Promise.all(queueProbes.map((probe) => probe()))).every(Boolean);
 
 export async function missingServices(): Promise<string[]> {
   const results = await Promise.all(

@@ -16,6 +16,11 @@ export const env = createEnv({
       .describe(
         'Host and port of the Temporal frontend the worker connects to',
       ),
+    WORKER_QUEUE: z
+      .enum(['main', 'bulk', 'all'])
+      .describe(
+        'Which task queues this worker polls: main, bulk, or all (polls both queues in one process)',
+      ),
     SUPABASE_SERVICE_ROLE_KEY: secret(z.string().min(1)).describe(
       'Supabase service role key used for privileged server-side access',
     ),

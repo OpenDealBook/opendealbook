@@ -1,6 +1,6 @@
 import type { Client } from '@temporalio/client';
 
-import { TASK_QUEUE } from '../ids';
+import { BULK_TASK_QUEUE } from '../ids';
 import { ensureSchedule } from '../schedules/ensureSchedule';
 import { indexScreeningNames } from './load';
 import { currentSnapshot } from './screenSubjects';
@@ -17,7 +17,7 @@ export async function ensureScreeningListSchedule(
     action: {
       type: 'startWorkflow',
       workflowType: 'importScreeningList',
-      taskQueue: TASK_QUEUE,
+      taskQueue: BULK_TASK_QUEUE,
       args: [],
     },
   });
