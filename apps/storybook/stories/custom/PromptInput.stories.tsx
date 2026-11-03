@@ -1,13 +1,11 @@
-import { useState } from 'react';
-
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Button } from '@odb/ui/button';
 import {
   PromptInput,
-  PromptInputActions,
+  PromptInputFooter,
+  PromptInputSubmit,
   PromptInputTextarea,
-} from '@odb/ui/prompt-input';
+} from '@odb/ui/ai-elements/prompt-input';
 
 const meta: Meta<typeof PromptInput> = {
   title: 'AI/PromptInput',
@@ -19,24 +17,27 @@ export default meta;
 type Story = StoryObj<typeof PromptInput>;
 
 export const Composer: Story = {
-  render: () => {
-    const Demo = () => {
-      const [value, setValue] = useState('');
-      return (
-        <div style={{ maxWidth: 560 }}>
-          <PromptInput
-            value={value}
-            onValueChange={setValue}
-            onSubmit={() => setValue('')}
-          >
-            <PromptInputTextarea placeholder="Ask about this deal room..." />
-            <PromptInputActions className="justify-end pt-2">
-              <Button className="rounded-full">Send</Button>
-            </PromptInputActions>
-          </PromptInput>
-        </div>
-      );
-    };
-    return <Demo />;
-  },
+  render: () => (
+    <div style={{ maxWidth: 560 }}>
+      <PromptInput onSubmit={() => {}}>
+        <PromptInputTextarea placeholder="Ask about this deal room..." />
+        <PromptInputFooter className="justify-end">
+          <PromptInputSubmit />
+        </PromptInputFooter>
+      </PromptInput>
+    </div>
+  ),
+};
+
+export const Submitted: Story = {
+  render: () => (
+    <div style={{ maxWidth: 560 }}>
+      <PromptInput onSubmit={() => {}}>
+        <PromptInputTextarea placeholder="Ask about this deal room..." />
+        <PromptInputFooter className="justify-end">
+          <PromptInputSubmit status="submitted" />
+        </PromptInputFooter>
+      </PromptInput>
+    </div>
+  ),
 };

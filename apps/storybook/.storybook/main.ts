@@ -17,13 +17,13 @@ const customStories: Array<[componentFile: string, storyGlob: string]> = [
   ['redline-diff.tsx', '../stories/custom/RedlineDiff.stories.tsx'],
   ['meeting-card.tsx', '../stories/custom/MeetingCard.stories.tsx'],
   ['template-field.tsx', '../stories/custom/TemplateField.stories.tsx'],
-  ['prompt-input.tsx', '../stories/custom/PromptInput.stories.tsx'],
-  ['chat-message.tsx', '../stories/custom/ChatMessage.stories.tsx'],
+  ['ai-elements/prompt-input.tsx', '../stories/custom/PromptInput.stories.tsx'],
+  ['ai-elements/conversation.tsx', '../stories/custom/ChatMessage.stories.tsx'],
   [
-    'chat-typing-indicator.tsx',
+    'ai-elements/message.tsx',
     '../stories/custom/ChatTypingIndicator.stories.tsx',
   ],
-  ['sources.tsx', '../stories/custom/Sources.stories.tsx'],
+  ['ai-elements/sources.tsx', '../stories/custom/Sources.stories.tsx'],
   ['severity-badge.tsx', '../stories/custom/SeverityBadge.stories.tsx'],
   ['finding-card.tsx', '../stories/custom/FindingCard.stories.tsx'],
 ];

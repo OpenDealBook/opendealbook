@@ -77,7 +77,7 @@ function showThread(
   show(
     <RequestThread
       {...place}
-      lenderName={'First Harbor Bank'}
+      lenderName={'Bluefin Test Lending'}
       dealName={'Harbor Freight Co'}
       request={request}
       thread={thread}
@@ -89,6 +89,14 @@ function showThread(
 beforeEach(() => {
   fakeRoom.reset();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 
 afterEach(clearScreen);
@@ -474,17 +482,62 @@ describe('reading a thread', () => {
   ];
 
   function entries() {
-    return [...document.querySelectorAll('[role="log"] > div > div')].map(
-      (entry) => entry.textContent ?? '',
+    return [...document.querySelectorAll('[role="log"] time')].map(
+      (time) => time.parentElement?.parentElement?.textContent ?? '',
     );
   }
+
+  it('shows each entry in order with its author, time, and content', () => {
+    showThread(answered, thread);
+
+    expect(
+      [...document.querySelectorAll('[role="log"] time')].map((time) =>
+        time.getAttribute('datetime'),
+      ),
+    ).toEqual([
+      '2026-10-01T09:00:00.000Z',
+      '2026-10-01T10:00:00.000Z',
+      '2026-10-02T09:00:00.000Z',
+    ]);
+    expect(entries()).toEqual([
+      expect.stringMatching(/^Dana Ruiz.*Please send the rent roll$/),
+      expect.stringMatching(
+        /^Bluefin Test Lending.*From a colleague no longer in the room$/,
+      ),
+      expect.stringMatching(
+        /^Harbor Freight Co's team.*Rent roll\.xlsx.*A file that is no longer available$/,
+      ),
+    ]);
+  });
+
+  it('shows a message body as the plain text the person wrote', () => {
+    showThread(answered, [
+      {
+        kind: 'message',
+        key: 'typed',
+        side: 'lender',
+        authorName: 'Dana Ruiz',
+        at: '2026-10-01T09:00:00.000Z',
+        body: '**Rent roll** for _Unit 4_\n- see [link](https://example.com)',
+      },
+    ]);
+
+    expect(entries()[0]).toContain(
+      '**Rent roll** for _Unit 4_\n- see [link](https://example.com)',
+    );
+    expect(
+      document.querySelector(
+        '[role="log"] strong, [role="log"] em, [role="log"] a, [role="log"] li',
+      ),
+    ).toBeNull();
+  });
 
   it('names the lender person, their institution, or the deal team on each entry', () => {
     showThread(answered, thread);
 
     expect(entries()).toEqual([
       expect.stringContaining('Dana Ruiz'),
-      expect.stringContaining('First Harbor Bank'),
+      expect.stringContaining('Bluefin Test Lending'),
       expect.stringContaining("Harbor Freight Co's team"),
     ]);
   });

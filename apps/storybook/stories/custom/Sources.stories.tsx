@@ -5,7 +5,7 @@ import {
   Sources,
   SourcesContent,
   SourcesTrigger,
-} from '@odb/ui/sources';
+} from '@odb/ui/ai-elements/sources';
 
 const meta: Meta<typeof Sources> = {
   title: 'AI/Sources',
@@ -18,7 +18,7 @@ type Story = StoryObj<typeof Sources>;
 
 export const Citations: Story = {
   render: () => (
-    <Sources open style={{ maxWidth: 480 }}>
+    <Sources style={{ maxWidth: 480 }}>
       <SourcesTrigger count={2} />
       <SourcesContent>
         <Source href="#" title="CIM.pdf, page 12" />

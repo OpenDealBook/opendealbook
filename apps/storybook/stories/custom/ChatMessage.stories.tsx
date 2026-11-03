@@ -1,36 +1,45 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
-import { Message, MessageAvatar, MessageContent } from '@odb/ui/chat-message';
-import { Conversation, ConversationContent } from '@odb/ui/conversation';
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from '@odb/ui/ai-elements/conversation';
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from '@odb/ui/ai-elements/message';
 
-const meta: Meta<typeof Message> = {
-  title: 'AI/ChatMessage',
-  component: Message,
+const meta: Meta<typeof Conversation> = {
+  title: 'AI/Conversation',
+  component: Conversation,
 };
 
 export default meta;
 
-type Story = StoryObj<typeof Message>;
+type Story = StoryObj<typeof Conversation>;
 
-export const Conversation_: Story = {
-  name: 'Conversation',
+export const Default: Story = {
   render: () => (
     <Conversation style={{ maxWidth: 560, height: 320 }}>
       <ConversationContent>
-        <Message role="user">
-          <MessageAvatar alt="You" fallback="ZC" />
+        <Message from="user">
           <MessageContent>
             What is the client concentration in the 2024 book?
           </MessageContent>
         </Message>
-        <Message role="assistant">
-          <MessageAvatar alt="Assistant" fallback="AI" />
+        <Message from="assistant">
           <MessageContent>
-            The top client accounts for 34% of billings, which is above the 25%
-            diligence threshold.
+            <MessageResponse>
+              {
+                'The top client accounts for **34%** of billings, which is above the 25% diligence threshold.'
+              }
+            </MessageResponse>
           </MessageContent>
         </Message>
       </ConversationContent>
+      <ConversationScrollButton />
     </Conversation>
   ),
 };

@@ -5,9 +5,12 @@ import { useState } from 'react';
 import { DownloadIcon, FileIcon, FileXIcon } from 'lucide-react';
 
 import type { Tables } from '@odb/supabase';
+import {
+  Conversation,
+  ConversationContent,
+} from '@odb/ui/ai-elements/conversation';
+import { Message, MessageContent } from '@odb/ui/ai-elements/message';
 import { Badge } from '@odb/ui/badge';
-import { Message, MessageContent } from '@odb/ui/chat-message';
-import { Conversation, ConversationContent } from '@odb/ui/conversation';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
@@ -433,7 +436,7 @@ export function RequestThread({
   return (
     <section className={'flex flex-col gap-4'}>
       <Conversation aria-label={'Messages and files'}>
-        <ConversationContent className={'px-0'}>
+        <ConversationContent className={'gap-4 px-0'}>
           {thread.length === 0 ? (
             <p className={'text-muted-foreground text-sm'}>
               Nothing here yet beyond the title.
@@ -442,9 +445,9 @@ export function RequestThread({
           {thread.map((entry) => (
             <Message
               key={entry.key}
-              role={entry.side === 'lender' ? 'user' : 'assistant'}
+              from={entry.side === 'lender' ? 'user' : 'assistant'}
               className={cn(
-                'flex-col gap-1',
+                'max-w-full gap-1',
                 entry.side === 'lender' ? 'items-end' : 'items-start',
               )}
             >
@@ -457,7 +460,11 @@ export function RequestThread({
                 <LocalTime at={entry.at} />
               </p>
               {entry.kind === 'message' ? (
-                <MessageContent className={'max-w-[min(100%,36rem)]'}>
+                <MessageContent
+                  className={
+                    'max-w-[min(100%,36rem)] break-words whitespace-pre-wrap'
+                  }
+                >
                   {entry.body}
                 </MessageContent>
               ) : (
