@@ -822,7 +822,9 @@ create or replace function public.reserve_ai_call(
   p_credits numeric,
   p_endpoint_id uuid default null,
   p_firm_id uuid default null,
-  p_deal_id uuid default null
+  p_deal_id uuid default null,
+  p_created_by uuid default null,
+  p_question_id uuid default null
 ) returns uuid
   language plpgsql security definer
   set search_path = '' as $$
@@ -840,15 +842,15 @@ begin
      > coalesce((select ai_monthly_credit_cap from public.outreach_setting where account_id = p_account_id), 0) then
     return null;
   end if;
-  insert into public.ai_call_log (account_id, model, credits, endpoint_id, firm_id, deal_id)
-  values (p_account_id, p_model, p_credits, p_endpoint_id, p_firm_id, p_deal_id)
+  insert into public.ai_call_log (account_id, model, credits, endpoint_id, firm_id, deal_id, created_by, question_id)
+  values (p_account_id, p_model, p_credits, p_endpoint_id, p_firm_id, p_deal_id, p_created_by, p_question_id)
   returning id into v_call_id;
   return v_call_id;
 end;
 $$;
 
-revoke all on function public.reserve_ai_call(uuid, text, numeric, uuid, uuid, uuid) from public, anon, authenticated;
-grant execute on function public.reserve_ai_call(uuid, text, numeric, uuid, uuid, uuid) to service_role;
+revoke all on function public.reserve_ai_call(uuid, text, numeric, uuid, uuid, uuid, uuid, uuid) from public, anon, authenticated;
+grant execute on function public.reserve_ai_call(uuid, text, numeric, uuid, uuid, uuid, uuid, uuid) to service_role;
 
 -- Team-wide events that belong to no deal, such as a firm approval. Like
 -- deal_event, rows are appended by their source tables and read in global_seq

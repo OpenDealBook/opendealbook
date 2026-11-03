@@ -180,6 +180,17 @@ select is_empty(
   'a lender reads no pages of a document the room hides'
 );
 
+select results_eq(
+  $$ select document_id from public.list_documents('d5a00000-0000-0000-0000-0000000000d1') $$,
+  array['d5a00000-0000-0000-0000-00000000d002']::uuid[],
+  'a lender lists only the latest version of documents the room shows'
+);
+
+select is_empty(
+  $$ select 1 from public.list_sheets('d5a00000-0000-0000-0000-00000000d005') $$,
+  'a lender lists no sheets of a workbook the room hides'
+);
+
 select tests.login_as('dsg_foreign');
 select is_empty(
   $$ select 1 from public.document_segment $$,
@@ -194,6 +205,16 @@ select is_empty(
 select is_empty(
   $$ select 1 from public.read_sheet_range('d5a00000-0000-0000-0000-00000000d005', 'P&L', 'A1:F80') $$,
   'another team reads no sheet ranges'
+);
+
+select is_empty(
+  $$ select 1 from public.list_documents('d5a00000-0000-0000-0000-0000000000d1') $$,
+  'another team lists no documents'
+);
+
+select is_empty(
+  $$ select 1 from public.list_sheets('d5a00000-0000-0000-0000-00000000d005') $$,
+  'another team lists no sheets'
 );
 
 -- Search.
@@ -220,6 +241,18 @@ select results_eq(
   $$ select dr_document_id from public.search_document_segments('d5a00000-0000-0000-0000-0000000000d1', 'Schedule 4.12') $$,
   array['d5a00000-0000-0000-0000-00000000d0ff']::uuid[],
   'search matches an exact schedule number and not a neighbouring one'
+);
+
+select results_eq(
+  $$ select from_ocr from public.search_document_segments('d5a00000-0000-0000-0000-0000000000d1', 'Schedule 4.12') $$,
+  array[true],
+  'a search hit in OCR text says it came from OCR'
+);
+
+select results_eq(
+  $$ select from_ocr from public.search_document_segments('d5a00000-0000-0000-0000-0000000000d1', 'addback') $$,
+  array[false],
+  'a search hit in extracted text says it did not come from OCR'
 );
 
 select results_eq(
@@ -273,6 +306,34 @@ select results_eq(
 select is_empty(
   $$ select 1 from public.read_document_pages('d5a00000-0000-0000-0000-00000000d00e', 1, 1) $$,
   'the team reads no pages of a removed document'
+);
+
+select results_eq(
+  $$ select page_from, truncated, next_page from public.read_document_pages('d5a00000-0000-0000-0000-00000000d004', 1, 3) $$,
+  $$ values (1, true, 2), (2, true, 2) $$,
+  'a page read the cap cut says so and names the page to read next'
+);
+
+select results_eq(
+  $$ select page_from, truncated, next_page from public.read_document_pages('d5a00000-0000-0000-0000-00000000d004', 3, 3) $$,
+  $$ values (3, false, null::int) $$,
+  'a page read that fits says it is whole and names no next page'
+);
+
+select results_eq(
+  $$ select document_id, name, version, page_count, sheets from public.list_documents('d5a00000-0000-0000-0000-0000000000d1') $$,
+  $$ values
+       ('d5a00000-0000-0000-0000-00000000d002'::uuid, 'cim.pdf', 2, 2, null::text[]),
+       ('d5a00000-0000-0000-0000-00000000d005'::uuid, 'model.xlsx', 1, null::int, array['P&L', 'Balance sheet']),
+       ('d5a00000-0000-0000-0000-00000000d004'::uuid, 'report.pdf', 1, 3, null::text[]),
+       ('d5a00000-0000-0000-0000-00000000d0ff'::uuid, 'tax-return.pdf', 1, 1, null::text[]) $$,
+  'listing documents gives the latest version of each live document with text, with its pages or sheets'
+);
+
+select results_eq(
+  $$ select sheet, used_range from public.list_sheets('d5a00000-0000-0000-0000-00000000d005') $$,
+  $$ values ('P&L', 'A1:AB80'), ('Balance sheet', 'A1:F40') $$,
+  'listing sheets gives each sheet in workbook order with the range its cells span'
 );
 
 select results_eq(
@@ -342,9 +403,32 @@ select results_eq(
 );
 
 select results_eq(
+  $$ select distinct truncated from public.read_sheet_range('d5a00000-0000-0000-0000-00000000d005', 'P&L', 'A1:F80', with_formulas => true) $$,
+  array[true],
+  'a sheet read the cap cut says so'
+);
+
+select results_eq(
   $$ select length(text), length(formulas) from public.read_sheet_range('d5a00000-0000-0000-0000-00000000d005', 'P&L', 'A1:F80') $$,
   $$ values (20000, null::int), (5000, null::int) $$,
   'without formulas, only text counts toward the cap'
+);
+
+select results_eq(
+  $$ select distinct truncated from public.read_sheet_range('d5a00000-0000-0000-0000-00000000d005', 'P&L', 'A1:F80') $$,
+  array[false],
+  'a sheet read that fits says it is whole'
+);
+
+reset role;
+update public.document_segment set text = repeat('p', 40000)
+where dr_document_id = 'd5a00000-0000-0000-0000-00000000d004' and segment_index = 0;
+
+select tests.login_as('dsg_owner');
+select results_eq(
+  $$ select page_from, length(text), truncated, next_page from public.read_document_pages('d5a00000-0000-0000-0000-00000000d004', 1, 3) $$,
+  $$ values (1, 32000, true, 2) $$,
+  'a single page over the cap returns its first 32000 characters and points at the page after it'
 );
 
 -- Purge.

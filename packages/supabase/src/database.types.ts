@@ -477,6 +477,7 @@ export type Database = {
           id: string
           model: string
           prompt_tokens: number | null
+          question_id: string | null
           settled_at: string | null
         }
         Insert: {
@@ -491,6 +492,7 @@ export type Database = {
           id?: string
           model: string
           prompt_tokens?: number | null
+          question_id?: string | null
           settled_at?: string | null
         }
         Update: {
@@ -505,6 +507,7 @@ export type Database = {
           id?: string
           model?: string
           prompt_tokens?: number | null
+          question_id?: string | null
           settled_at?: string | null
         }
         Relationships: [
@@ -556,6 +559,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "lead_pipeline"
             referencedColumns: ["firm_id"]
+          },
+          {
+            foreignKeyName: "ai_call_log_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "deal_ai_question"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3432,6 +3442,105 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pipeline_stage"
             referencedColumns: ["account_id", "key"]
+          },
+        ]
+      }
+      deal_ai_question: {
+        Row: {
+          answer: string | null
+          asked_by: string | null
+          citations: Json
+          created_at: string
+          credits_used: number
+          deal_id: string
+          finished_at: string | null
+          id: string
+          model: string | null
+          question: string
+          status: Database["public"]["Enums"]["deal_ai_question_status"]
+          steps: Json
+          thread_id: string
+          tsv: unknown
+        }
+        Insert: {
+          answer?: string | null
+          asked_by?: string | null
+          citations?: Json
+          created_at?: string
+          credits_used?: number
+          deal_id: string
+          finished_at?: string | null
+          id?: string
+          model?: string | null
+          question: string
+          status?: Database["public"]["Enums"]["deal_ai_question_status"]
+          steps?: Json
+          thread_id: string
+          tsv?: unknown
+        }
+        Update: {
+          answer?: string | null
+          asked_by?: string | null
+          citations?: Json
+          created_at?: string
+          credits_used?: number
+          deal_id?: string
+          finished_at?: string | null
+          id?: string
+          model?: string | null
+          question?: string
+          status?: Database["public"]["Enums"]["deal_ai_question_status"]
+          steps?: Json
+          thread_id?: string
+          tsv?: unknown
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_ai_question_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_ai_question_thread_id_deal_id_fkey"
+            columns: ["thread_id", "deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_ai_thread"
+            referencedColumns: ["id", "deal_id"]
+          },
+          {
+            foreignKeyName: "deal_ai_question_thread_id_deal_id_fkey"
+            columns: ["thread_id", "deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal_ai_thread_summary"
+            referencedColumns: ["id", "deal_id"]
+          },
+        ]
+      }
+      deal_ai_thread: {
+        Row: {
+          created_at: string
+          deal_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_ai_thread_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -13454,6 +13563,46 @@ export type Database = {
         }
         Relationships: []
       }
+      deal_ai_thread_summary: {
+        Row: {
+          account_id: string | null
+          deal_id: string | null
+          deal_name: string | null
+          first_question: string | null
+          id: string | null
+          last_asked_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_account_workspace"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "user_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_ai_thread_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_pipeline: {
         Row: {
           account_id: string | null
@@ -13613,6 +13762,7 @@ export type Database = {
     }
     Functions: {
       a1_box: { Args: { cell_range: string }; Returns: unknown }
+      a1_column_letters: { Args: { column_number: number }; Returns: string }
       a1_column_number: { Args: { letters: string }; Returns: number }
       accept_invitation: {
         Args: { token: string; user_id: string }
@@ -14520,6 +14670,23 @@ export type Database = {
         }[]
       }
       letter_webhook_secret: { Args: { p_account_id: string }; Returns: string }
+      list_documents: {
+        Args: { deal_id: string }
+        Returns: {
+          document_id: string
+          name: string
+          page_count: number
+          sheets: string[]
+          version: number
+        }[]
+      }
+      list_sheets: {
+        Args: { document_id: string }
+        Returns: {
+          sheet: string
+          used_range: string
+        }[]
+      }
       llm_endpoint_api_key: { Args: { p_account_id: string }; Returns: string }
       lookup_cap_reached: { Args: { p_account_id: string }; Returns: boolean }
       main_contact_on_side: {
@@ -14690,10 +14857,12 @@ export type Database = {
         Args: { document_id: string; from_page: number; to_page: number }
         Returns: {
           from_ocr: boolean
+          next_page: number
           page_from: number
           page_to: number
           segment_id: string
           text: string
+          truncated: boolean
         }[]
       }
       read_sheet_range: {
@@ -14709,6 +14878,7 @@ export type Database = {
           from_ocr: boolean
           segment_id: string
           text: string
+          truncated: boolean
         }[]
       }
       reads_contracts_as_seller_side: {
@@ -14756,11 +14926,13 @@ export type Database = {
       reserve_ai_call: {
         Args: {
           p_account_id: string
+          p_created_by?: string
           p_credits: number
           p_deal_id?: string
           p_endpoint_id?: string
           p_firm_id?: string
           p_model: string
+          p_question_id?: string
         }
         Returns: string
       }
@@ -14841,6 +15013,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      search_deal_ai_answers: {
+        Args: { p_deal_id: string; p_limit?: number; p_query: string }
+        Returns: {
+          answer: string
+          asked_at: string
+          question: string
+          question_id: string
+          rank: number
+          thread_id: string
+        }[]
+      }
       search_document_segments: {
         Args: {
           deal_id: string
@@ -14853,6 +15036,7 @@ export type Database = {
           document_name: string
           document_version: number
           dr_document_id: string
+          from_ocr: boolean
           page_from: number
           page_to: number
           rank: number
@@ -15137,6 +15321,13 @@ export type Database = {
           target_on: string
         }[]
       }
+      start_deal_ai_question: {
+        Args: { p_deal_id: string; p_question: string; p_thread_id?: string }
+        Returns: {
+          question_id: string
+          thread_id: string
+        }[]
+      }
       start_workflow_step_run: {
         Args: {
           p_account_id: string
@@ -15414,6 +15605,11 @@ export type Database = {
         | "approved_with_comments"
       counsel_activity_action: "document_previewed" | "document_downloaded"
       counsel_side: "buyer" | "seller"
+      deal_ai_question_status:
+        | "running"
+        | "answered"
+        | "credits_ran_out"
+        | "failed"
       deal_person_role: "principal" | "attorney" | "broker" | "cpa" | "other"
       deal_side: "buyer" | "seller" | "lender"
       deal_source: "manual" | "broker" | "outreach" | "marketplace" | "referral"
@@ -15815,6 +16011,12 @@ export const Constants = {
       ],
       counsel_activity_action: ["document_previewed", "document_downloaded"],
       counsel_side: ["buyer", "seller"],
+      deal_ai_question_status: [
+        "running",
+        "answered",
+        "credits_ran_out",
+        "failed",
+      ],
       deal_person_role: ["principal", "attorney", "broker", "cpa", "other"],
       deal_side: ["buyer", "seller", "lender"],
       deal_source: ["manual", "broker", "outreach", "marketplace", "referral"],
