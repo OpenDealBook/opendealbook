@@ -9,9 +9,15 @@ import {
   seedDeal,
   type IntegrationAccount,
 } from '../../test-support/integration-harness';
+import type { Conversation } from './aiClient';
 import { CapReached } from './caps';
 import type { Usage } from './modelPrices';
-import { completeMetered, meterTeamAiCall, resolveTeamAi } from './teamAiKey';
+import {
+  completeMetered,
+  converseMetered,
+  meterTeamAiCall,
+  resolveTeamAi,
+} from './teamAiKey';
 
 const TEAM_INPUT = 2;
 const TEAM_OUTPUT = 4;
@@ -283,4 +289,191 @@ describe('team AI key', () => {
       completion_tokens: 1000,
     });
   });
+});
+
+describe('a metered conversation step', () => {
+  const conversation: Conversation = {
+    system: 'Answer from the deal documents.',
+    messages: [
+      { role: 'user', text: 'What did Priya Okafor say?' },
+      {
+        role: 'assistant',
+        text: '',
+        toolCalls: [{ id: 'call-1', name: 'search', input: { q: 'Priya' } }],
+      },
+      { role: 'tool', toolCallId: 'call-1', content: 'x'.repeat(40_000) },
+    ],
+    tools: [],
+  };
+  let provider: Awaited<ReturnType<typeof fakeAiProvider>>;
+  let questionId: string;
+
+  beforeAll(async () => {
+    provider = await fakeAiProvider({
+      status: 200,
+      body: {
+        choices: [
+          { finish_reason: 'stop', message: { content: 'She said yes.' } },
+        ],
+        usage: { prompt_tokens: 12, completion_tokens: 5 },
+      },
+    });
+    await team.admin
+      .from('llm_endpoint')
+      .update({
+        base_url: provider.baseUrl,
+        input_price_per_mtok: TEAM_INPUT,
+        cached_input_price_per_mtok: 1,
+        output_price_per_mtok: TEAM_OUTPUT,
+      })
+      .eq('account_id', team.accountId)
+      .throwOnError();
+    await setCreditCap(10000);
+    const { data: thread } = await team.user
+      .from('deal_ai_thread')
+      .insert({ deal_id: dealId })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: question } = await team.user
+      .from('deal_ai_question')
+      .insert({
+        thread_id: thread.id,
+        deal_id: dealId,
+        question: 'What did Priya Okafor say?',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    questionId = question.id;
+    process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
+    process.env.ODB_STACK = 'local';
+  });
+
+  afterAll(() => {
+    provider.close();
+    delete process.env.ODB_ALLOW_PRIVATE_AI_URL;
+    delete process.env.ODB_STACK;
+  });
+
+  it('returns the turn and its actual credits, charged to the asker and the question', async () => {
+    const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
+
+    const step = await converseMetered(
+      ai,
+      { dealId, askedBy: team.userId, questionId },
+      conversation,
+    );
+
+    expect(step).toEqual({
+      turn: {
+        text: 'She said yes.',
+        toolCalls: [],
+        stopReason: 'end',
+        usage: usage({ inputTokens: 12, outputTokens: 5 }),
+      },
+      credits: (12 * TEAM_INPUT + 5 * TEAM_OUTPUT) / 1e4,
+    });
+    const { data: row } = await team.admin
+      .from('ai_call_log')
+      .select('deal_id, created_by, question_id, credits, settled_at')
+      .eq('account_id', team.accountId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+      .throwOnError();
+    expect(row).toEqual({
+      deal_id: dealId,
+      created_by: team.userId,
+      question_id: questionId,
+      credits: (12 * TEAM_INPUT + 5 * TEAM_OUTPUT) / 1e4,
+      settled_at: expect.any(String),
+    });
+  });
+
+  const brief: Conversation = {
+    system: 'Answer briefly.',
+    messages: [{ role: 'user', text: 'Hi' }],
+    tools: [],
+  };
+  const huge = 'x'.repeat(1_000_000);
+
+  async function askWithRoom(credits: number, asked: Conversation) {
+    await setCreditCap(Math.ceil((await creditsUsed())!) + credits);
+    const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
+    const sent = provider.received.length;
+    const outcome = await converseMetered(
+      ai,
+      { dealId, askedBy: team.userId, questionId },
+      asked,
+    ).catch((error: unknown) => error);
+    await setCreditCap(10000);
+    return { outcome, providerCalled: provider.received.length > sent };
+  }
+
+  it('makes a brief step that fits the room left', async () => {
+    const { outcome, providerCalled } = await askWithRoom(4, brief);
+
+    expect(outcome).toMatchObject({ turn: { text: 'She said yes.' } });
+    expect(providerCalled).toBe(true);
+  });
+
+  it.each<[string, Conversation]>([
+    ['a long system prompt', { ...brief, system: huge }],
+    [
+      'a long tool result',
+      {
+        ...brief,
+        messages: [
+          ...brief.messages,
+          {
+            role: 'assistant',
+            text: '',
+            toolCalls: [{ id: 'call-1', name: 'search', input: {} }],
+          },
+          { role: 'tool', toolCallId: 'call-1', content: huge },
+        ],
+      },
+    ],
+    [
+      'long tool calls',
+      {
+        ...brief,
+        messages: [
+          ...brief.messages,
+          {
+            role: 'assistant',
+            text: '',
+            toolCalls: [{ id: 'call-1', name: 'search', input: { q: huge } }],
+          },
+          { role: 'tool', toolCallId: 'call-1', content: 'none' },
+        ],
+      },
+    ],
+    [
+      'large tool schemas',
+      {
+        ...brief,
+        tools: [
+          {
+            name: 'search',
+            description: 'Search the deal documents',
+            inputSchema: { type: 'object', description: huge },
+          },
+        ],
+      },
+    ],
+    [
+      'a caller maxTokens above the 4096 default',
+      { ...brief, maxTokens: 100_000 },
+    ],
+  ])(
+    'refuses a step whose worst case grows past the room left from %s, without calling the provider',
+    async (_, asked) => {
+      const { outcome, providerCalled } = await askWithRoom(4, asked);
+
+      expect(outcome).toBeInstanceOf(CapReached);
+      expect(providerCalled).toBe(false);
+    },
+  );
 });

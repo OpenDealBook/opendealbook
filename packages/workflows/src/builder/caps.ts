@@ -60,6 +60,8 @@ export async function reserveAiCall(
     endpointId: string | null;
     firmId?: string;
     dealId?: string;
+    createdBy?: string;
+    questionId?: string;
   },
 ): Promise<{ callId: string }> {
   const { data: callId } = await getSupabaseServerAdminClient()
@@ -70,6 +72,8 @@ export async function reserveAiCall(
       p_endpoint_id: call.endpointId ?? undefined,
       p_firm_id: call.firmId,
       p_deal_id: call.dealId,
+      p_created_by: call.createdBy,
+      p_question_id: call.questionId,
     })
     .throwOnError();
   if (callId === null) {

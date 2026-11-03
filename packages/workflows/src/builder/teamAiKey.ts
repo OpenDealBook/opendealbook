@@ -4,6 +4,9 @@ import {
   type AiEndpoint,
   type AiRequest,
   completeWithTeamAi,
+  type Conversation,
+  type ConversationTurn,
+  converseWithTeamAi,
   DEFAULT_MAX_TOKENS,
 } from './aiClient';
 import { reserveAiCall, settleAiCall } from './caps';
@@ -21,12 +24,6 @@ export const CONNECT_AI_PROVIDER = 'Connect an AI provider first';
 export const ADD_EMBEDDING_MODEL = 'Add an embedding model to your AI provider';
 export const ANTHROPIC_HAS_NO_EMBEDDINGS =
   'Anthropic has no embeddings API; leave Embedding model empty';
-
-export class TeamAiNotConnected extends Error {
-  constructor(message = CONNECT_AI_PROVIDER) {
-    super(message);
-  }
-}
 
 declare const resolved: unique symbol;
 
@@ -83,26 +80,35 @@ export async function resolveTeamAi(
   } as TeamAi;
 }
 
+function creditsOf(ai: TeamAi, usage: Usage): number {
+  return ai.price ? creditsFor(ai.price, usage) : 0;
+}
+
 export async function meterTeamAiCall<T>(
   ai: TeamAi,
-  call: { dealId?: string; firmId?: string },
+  call: {
+    dealId?: string;
+    firmId?: string;
+    createdBy?: string;
+    questionId?: string;
+  },
   worstCase: Usage,
   request: () => Promise<{ result: T; usage: Usage }>,
 ): Promise<T> {
-  const credits = (usage: Usage) =>
-    ai.price ? creditsFor(ai.price, usage) : 0;
   const { callId } = await reserveAiCall(ai.accountId, {
     model: ai.model,
-    credits: credits(worstCase),
+    credits: creditsOf(ai, worstCase),
     endpointId: ai.endpointId,
     dealId: call.dealId,
     firmId: call.firmId,
+    createdBy: call.createdBy,
+    questionId: call.questionId,
   });
   const { result, usage } = await request().catch(async (error: unknown) => {
     await settleAiCall(callId, null, 0);
     throw error;
   });
-  await settleAiCall(callId, usage, credits(usage));
+  await settleAiCall(callId, usage, creditsOf(ai, usage));
   return result;
 }
 
@@ -130,4 +136,37 @@ export function completeMetered(
     );
     return { result: completion.text, usage: completion.usage };
   });
+}
+
+export async function converseMetered(
+  ai: TeamAi,
+  call: { dealId: string; askedBy: string; questionId: string },
+  conversation: Conversation,
+): Promise<{ turn: ConversationTurn; credits: number }> {
+  const worstCase = estimatedUsage(
+    JSON.stringify(conversation),
+    conversation.maxTokens ?? DEFAULT_MAX_TOKENS,
+  );
+  const turn = await meterTeamAiCall(
+    ai,
+    {
+      dealId: call.dealId,
+      createdBy: call.askedBy,
+      questionId: call.questionId,
+    },
+    worstCase,
+    async () => {
+      const result = await converseWithTeamAi(
+        {
+          provider: ai.provider,
+          model: ai.model,
+          baseUrl: ai.baseUrl,
+          apiKey: ai.apiKey,
+        },
+        conversation,
+      );
+      return { result, usage: result.usage };
+    },
+  );
+  return { turn, credits: creditsOf(ai, turn.usage) };
 }

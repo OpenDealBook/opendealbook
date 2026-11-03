@@ -1,4 +1,5 @@
 import { ApplicationFailure } from '@temporalio/common';
+import { z } from 'zod';
 
 import { estimatedTokens, estimatedUsage, type Usage } from './modelPrices';
 import { AI_PROVIDER_TIMEOUT_MS } from './nodeKinds';
@@ -228,24 +229,12 @@ export async function completeWithTeamAi(
       overrides,
     )) as {
       content: { text: string }[];
-      usage?: {
-        input_tokens: number;
-        output_tokens: number;
-        cache_read_input_tokens?: number;
-        cache_creation_input_tokens?: number;
-      };
+      usage?: AnthropicUsage;
     };
     const text = reply.content.map((block) => block.text).join('');
     return {
       text,
-      usage: reply.usage
-        ? {
-            inputTokens: reply.usage.input_tokens,
-            cachedInputTokens: reply.usage.cache_read_input_tokens ?? 0,
-            cacheWriteTokens: reply.usage.cache_creation_input_tokens ?? 0,
-            outputTokens: reply.usage.output_tokens,
-          }
-        : replyUsage(text),
+      usage: reply.usage ? anthropicUsage(reply.usage) : replyUsage(text),
     };
   }
 
@@ -264,24 +253,361 @@ export async function completeWithTeamAi(
     overrides,
   )) as {
     choices: { message: { content: string } }[];
-    usage?: {
-      prompt_tokens: number;
-      completion_tokens: number;
-      prompt_tokens_details?: { cached_tokens?: number };
-    };
+    usage?: OpenAiUsage;
   };
   const text = reply.choices[0]!.message.content;
-  if (!reply.usage) {
-    return { text, usage: replyUsage(text) };
-  }
-  const cached = reply.usage.prompt_tokens_details?.cached_tokens ?? 0;
   return {
     text,
-    usage: {
-      inputTokens: reply.usage.prompt_tokens - cached,
-      cachedInputTokens: cached,
-      cacheWriteTokens: 0,
-      outputTokens: reply.usage.completion_tokens,
-    },
+    usage: reply.usage ? openAiUsage(reply.usage) : replyUsage(text),
+  };
+}
+
+type OpenAiUsage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  prompt_tokens_details?: { cached_tokens?: number };
+};
+
+function openAiUsage(usage: OpenAiUsage): Usage {
+  const cached = usage.prompt_tokens_details?.cached_tokens ?? 0;
+  return {
+    inputTokens: usage.prompt_tokens - cached,
+    cachedInputTokens: cached,
+    cacheWriteTokens: 0,
+    outputTokens: usage.completion_tokens,
+  };
+}
+
+type AnthropicUsage = {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+};
+
+function anthropicUsage(usage: AnthropicUsage): Usage {
+  return {
+    inputTokens: usage.input_tokens,
+    cachedInputTokens: usage.cache_read_input_tokens ?? 0,
+    cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
+    outputTokens: usage.output_tokens,
+  };
+}
+
+export type ToolCall = { id: string; name: string; input: unknown };
+
+export type ToolDefinition = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
+export type ConversationMessage =
+  | { role: 'user'; text: string }
+  | { role: 'assistant'; text: string; toolCalls: ToolCall[] }
+  | { role: 'tool'; toolCallId: string; content: string; isError?: true };
+
+export type Conversation = {
+  system?: string;
+  messages: ConversationMessage[];
+  tools: ToolDefinition[];
+  maxTokens?: number;
+  toolChoice?: 'none';
+};
+
+export type ConversationTurn = {
+  text: string;
+  toolCalls: ToolCall[];
+  stopReason: 'tool_use' | 'end' | 'max_tokens';
+  usage: Usage;
+};
+
+const anthropicTurn = z.object({
+  content: z.array(
+    z.discriminatedUnion('type', [
+      z.object({ type: z.literal('text'), text: z.string() }),
+      z.object({
+        type: z.literal('tool_use'),
+        id: z.string(),
+        name: z.string(),
+        input: z.unknown(),
+      }),
+    ]),
+  ),
+  stop_reason: z
+    .enum(['end_turn', 'tool_use', 'max_tokens'])
+    .transform((reason) => (reason === 'end_turn' ? 'end' : reason)),
+  usage: z
+    .object({
+      input_tokens: z.number(),
+      output_tokens: z.number(),
+      cache_read_input_tokens: z.number().optional(),
+      cache_creation_input_tokens: z.number().optional(),
+    })
+    .optional(),
+});
+
+type AnthropicContent =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: unknown }
+  | {
+      type: 'tool_result';
+      tool_use_id: string;
+      content: string;
+      is_error?: true;
+    };
+
+function anthropicMessages(messages: ConversationMessage[]) {
+  const sent: {
+    role: 'user' | 'assistant';
+    content: string | AnthropicContent[];
+  }[] = [];
+  for (const message of messages) {
+    if (message.role === 'user') {
+      sent.push({ role: 'user', content: message.text });
+    } else if (message.role === 'assistant') {
+      sent.push({
+        role: 'assistant',
+        content: [
+          ...(message.text
+            ? [{ type: 'text' as const, text: message.text }]
+            : []),
+          ...message.toolCalls.map(({ id, name, input }) => ({
+            type: 'tool_use' as const,
+            id,
+            name,
+            input,
+          })),
+        ],
+      });
+    } else {
+      const result = {
+        type: 'tool_result' as const,
+        tool_use_id: message.toolCallId,
+        content: message.content,
+        is_error: message.isError,
+      };
+      const last = sent.at(-1);
+      if (last?.role === 'user' && Array.isArray(last.content)) {
+        last.content.push(result);
+      } else {
+        sent.push({ role: 'user', content: [result] });
+      }
+    }
+  }
+  return sent;
+}
+
+function readReply<T>(schema: z.ZodType<T>, reply: unknown): T {
+  const parsed = schema.safeParse(reply);
+  if (!parsed.success) {
+    throw ApplicationFailure.nonRetryable(
+      'The AI provider answered with a reply this call cannot read',
+    );
+  }
+  return parsed.data;
+}
+
+function conversationText(
+  system: string | undefined,
+  messages: ConversationMessage[],
+): string {
+  return (
+    (system ?? '') +
+    messages
+      .map((message) =>
+        message.role === 'user'
+          ? message.text
+          : message.role === 'assistant'
+            ? message.text + toolCallText(message.toolCalls)
+            : message.content,
+      )
+      .join('')
+  );
+}
+
+function toolCallText(toolCalls: ToolCall[]): string {
+  return toolCalls.map((call) => JSON.stringify(call.input)).join('');
+}
+
+function estimatedTurnUsage(
+  { system, messages }: Conversation,
+  text: string,
+  toolCalls: ToolCall[],
+): Usage {
+  return estimatedUsage(
+    conversationText(system, messages),
+    estimatedTokens(text + toolCallText(toolCalls)),
+  );
+}
+
+export function converseWithTeamAi(
+  endpoint: AiEndpoint,
+  conversation: Conversation,
+  overrides: Partial<Connection> = {},
+): Promise<ConversationTurn> {
+  return endpoint.provider === 'anthropic'
+    ? converseWithAnthropic(endpoint, conversation, overrides)
+    : converseWithOpenAi(endpoint, conversation, overrides);
+}
+
+async function converseWithAnthropic(
+  endpoint: AiEndpoint,
+  conversation: Conversation,
+  overrides: Partial<Connection>,
+): Promise<ConversationTurn> {
+  const { system, messages, tools, maxTokens, toolChoice } = conversation;
+  const reply = readReply(
+    anthropicTurn,
+    await postToAiProvider(
+      `${endpoint.baseUrl}/messages`,
+      { 'x-api-key': endpoint.apiKey, 'anthropic-version': '2023-06-01' },
+      {
+        model: endpoint.model,
+        max_tokens: maxTokens ?? DEFAULT_MAX_TOKENS,
+        system,
+        tools: tools.map(({ name, description, inputSchema }) => ({
+          name,
+          description,
+          input_schema: inputSchema,
+        })),
+        tool_choice: toolChoice && { type: toolChoice },
+        messages: anthropicMessages(messages),
+      },
+      overrides,
+    ),
+  );
+  const text = reply.content
+    .flatMap((block) => (block.type === 'text' ? [block.text] : []))
+    .join('');
+  const toolCalls = reply.content.flatMap((block) =>
+    block.type === 'tool_use'
+      ? [{ id: block.id, name: block.name, input: block.input }]
+      : [],
+  );
+  return {
+    text,
+    toolCalls,
+    stopReason: reply.stop_reason,
+    usage: reply.usage
+      ? anthropicUsage(reply.usage)
+      : estimatedTurnUsage(conversation, text, toolCalls),
+  };
+}
+
+const OPENAI_STOP_REASONS = {
+  stop: 'end',
+  tool_calls: 'tool_use',
+  length: 'max_tokens',
+} as const;
+
+const openAiChoice = z.object({
+  finish_reason: z
+    .enum(['stop', 'tool_calls', 'length'])
+    .transform((reason) => OPENAI_STOP_REASONS[reason]),
+  message: z.object({
+    content: z.string().nullable(),
+    tool_calls: z
+      .array(
+        z.object({
+          id: z.string(),
+          function: z.object({
+            name: z.string(),
+            arguments: z.string().transform((raw, context) => {
+              try {
+                return JSON.parse(raw) as unknown;
+              } catch {
+                context.addIssue({ code: 'custom', message: 'not JSON' });
+                return z.NEVER;
+              }
+            }),
+          }),
+        }),
+      )
+      .optional(),
+  }),
+});
+
+const openAiTurn = z.object({
+  choices: z.tuple([openAiChoice], z.unknown()),
+  usage: z
+    .object({
+      prompt_tokens: z.number(),
+      completion_tokens: z.number(),
+      prompt_tokens_details: z
+        .object({ cached_tokens: z.number().optional() })
+        .optional(),
+    })
+    .optional(),
+});
+
+function openAiMessages(messages: ConversationMessage[]) {
+  return messages.map((message) =>
+    message.role === 'user'
+      ? { role: 'user', content: message.text }
+      : message.role === 'assistant'
+        ? {
+            role: 'assistant',
+            content:
+              message.text === '' && message.toolCalls.length > 0
+                ? null
+                : message.text,
+            ...(message.toolCalls.length > 0 && {
+              tool_calls: message.toolCalls.map(({ id, name, input }) => ({
+                id,
+                type: 'function',
+                function: { name, arguments: JSON.stringify(input) },
+              })),
+            }),
+          }
+        : {
+            role: 'tool',
+            tool_call_id: message.toolCallId,
+            content: message.content,
+          },
+  );
+}
+
+async function converseWithOpenAi(
+  endpoint: AiEndpoint,
+  conversation: Conversation,
+  overrides: Partial<Connection>,
+): Promise<ConversationTurn> {
+  const { system, messages, tools, maxTokens, toolChoice } = conversation;
+  const reply = readReply(
+    openAiTurn,
+    await postToAiProvider(
+      `${endpoint.baseUrl}/chat/completions`,
+      { authorization: `Bearer ${endpoint.apiKey}` },
+      {
+        model: endpoint.model,
+        max_tokens: maxTokens,
+        tools: tools.map(({ name, description, inputSchema }) => ({
+          type: 'function',
+          function: { name, description, parameters: inputSchema },
+        })),
+        tool_choice: toolChoice,
+        messages: [
+          ...(system ? [{ role: 'system', content: system }] : []),
+          ...openAiMessages(messages),
+        ],
+      },
+      overrides,
+    ),
+  );
+  const [{ message, finish_reason }] = reply.choices;
+  const text = message.content ?? '';
+  const toolCalls = (message.tool_calls ?? []).map((call) => ({
+    id: call.id,
+    name: call.function.name,
+    input: call.function.arguments,
+  }));
+  return {
+    text,
+    toolCalls,
+    stopReason: finish_reason,
+    usage: reply.usage
+      ? openAiUsage(reply.usage)
+      : estimatedTurnUsage(conversation, text, toolCalls),
   };
 }

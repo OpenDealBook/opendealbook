@@ -9,17 +9,14 @@ export {
   operatorListsPrivateAiHost,
   privateAiUrlsAllowed,
 } from './aiClient';
-export { AI_CREDITS_RUN_OUT, CapReached } from './caps';
-export { embedTexts } from '../documentIngestion/embeddings';
-export { estimatedUsage } from './modelPrices';
+export type { ConversationMessage, ToolCall, ToolDefinition } from './aiClient';
+export { CapReached } from './caps';
 export {
-  ADD_EMBEDDING_MODEL,
   ANTHROPIC_HAS_NO_EMBEDDINGS,
   completeMetered,
   CONNECT_AI_PROVIDER,
-  meterTeamAiCall,
+  converseMetered,
   type TeamAi,
-  TeamAiNotConnected,
 } from './teamAiKey';
 
 type Client = SupabaseClient<Database>;
@@ -61,20 +58,37 @@ export async function dealAiScope(
     : 'forbidden';
 }
 
-export async function accountAiScope(
+async function permittedAiScope(
   client: Client,
   userId: string,
   accountId: string,
+  permission: 'deals.create' | 'deals.work',
 ): Promise<AiScope | null> {
   const { data: allowed } = await client
     .rpc('has_permission', {
       user_id: userId,
       account_id: accountId,
-      permission_name: 'deals.create',
+      permission_name: permission,
     })
     .throwOnError();
 
   return allowed ? ({ accountId } as AiScope) : null;
+}
+
+export function accountAiScope(
+  client: Client,
+  userId: string,
+  accountId: string,
+): Promise<AiScope | null> {
+  return permittedAiScope(client, userId, accountId, 'deals.create');
+}
+
+export function teamAiScope(
+  client: Client,
+  userId: string,
+  accountId: string,
+): Promise<AiScope | null> {
+  return permittedAiScope(client, userId, accountId, 'deals.work');
 }
 
 export function resolveScopedTeamAi(

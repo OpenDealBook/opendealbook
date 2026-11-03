@@ -7,6 +7,8 @@ import {
 import {
   aiJson,
   completeWithTeamAi,
+  converseWithTeamAi,
+  type Conversation,
   pinnedGet,
   teamAiAddressOf,
 } from './aiClient';
@@ -464,6 +466,678 @@ describe('completeWithTeamAi', () => {
     expect(failure).toMatchObject({
       nonRetryable: true,
       message: 'The AI provider answered with something that is not JSON',
+    });
+  });
+});
+
+const LOOKUP_CONVERSATION: Conversation = {
+  system: 'Answer from the deal file.',
+  tools: [
+    {
+      name: 'lookup',
+      description: 'Look up a deal field',
+      inputSchema: {
+        type: 'object',
+        properties: { field: { type: 'string' } },
+        required: ['field'],
+      },
+    },
+  ],
+  messages: [
+    { role: 'user', text: 'What is the asking price?' },
+    {
+      role: 'assistant',
+      text: 'Checking.',
+      toolCalls: [
+        { id: 'call_1', name: 'lookup', input: { field: 'price' } },
+        { id: 'call_2', name: 'lookup', input: { field: 'currency' } },
+      ],
+    },
+    { role: 'tool', toolCallId: 'call_1', content: '2400000' },
+    { role: 'tool', toolCallId: 'call_2', content: 'USD' },
+  ],
+  maxTokens: 500,
+};
+
+describe('converseWithTeamAi', () => {
+  it('sends Anthropic the conversation as tool_use and tool_result blocks and reads back its tool calls', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        content: [
+          { type: 'text', text: 'One more.' },
+          {
+            type: 'tool_use',
+            id: 'toolu_3',
+            name: 'lookup',
+            input: { field: 'seller' },
+          },
+        ],
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 80,
+          output_tokens: 20,
+          cache_read_input_tokens: 10,
+          cache_creation_input_tokens: 5,
+        },
+      },
+    });
+
+    const turn = await converseWithTeamAi(
+      {
+        provider: 'anthropic',
+        model: 'claude-x',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-ant',
+      },
+      LOOKUP_CONVERSATION,
+      LOOPBACK_FAKE,
+    );
+
+    expect(turn).toEqual({
+      text: 'One more.',
+      toolCalls: [
+        { id: 'toolu_3', name: 'lookup', input: { field: 'seller' } },
+      ],
+      stopReason: 'tool_use',
+      usage: {
+        inputTokens: 80,
+        cachedInputTokens: 10,
+        cacheWriteTokens: 5,
+        outputTokens: 20,
+      },
+    });
+    expect(fake.received).toEqual([
+      expect.objectContaining({
+        path: '/v1/messages',
+        headers: expect.objectContaining({
+          'x-api-key': 'sk-ant',
+          'anthropic-version': '2023-06-01',
+        }),
+        body: {
+          model: 'claude-x',
+          max_tokens: 500,
+          system: 'Answer from the deal file.',
+          tools: [
+            {
+              name: 'lookup',
+              description: 'Look up a deal field',
+              input_schema: {
+                type: 'object',
+                properties: { field: { type: 'string' } },
+                required: ['field'],
+              },
+            },
+          ],
+          messages: [
+            { role: 'user', content: 'What is the asking price?' },
+            {
+              role: 'assistant',
+              content: [
+                { type: 'text', text: 'Checking.' },
+                {
+                  type: 'tool_use',
+                  id: 'call_1',
+                  name: 'lookup',
+                  input: { field: 'price' },
+                },
+                {
+                  type: 'tool_use',
+                  id: 'call_2',
+                  name: 'lookup',
+                  input: { field: 'currency' },
+                },
+              ],
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: 'call_1',
+                  content: '2400000',
+                },
+                { type: 'tool_result', tool_use_id: 'call_2', content: 'USD' },
+              ],
+            },
+          ],
+        },
+      }),
+    ]);
+  });
+
+  it('sends an OpenAI-compatible endpoint the conversation as tool_calls and tool messages and reads back its tool calls', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        choices: [
+          {
+            finish_reason: 'tool_calls',
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  id: 'call_3',
+                  type: 'function',
+                  function: { name: 'lookup', arguments: '{"field":"seller"}' },
+                },
+              ],
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 15,
+          prompt_tokens_details: { cached_tokens: 60 },
+        },
+      },
+    });
+
+    const turn = await converseWithTeamAi(
+      {
+        provider: 'openai_compatible',
+        model: 'llama-3',
+        baseUrl: fake.baseUrl,
+        apiKey: 'sk-team',
+      },
+      LOOKUP_CONVERSATION,
+      LOOPBACK_FAKE,
+    );
+
+    expect(turn).toEqual({
+      text: '',
+      toolCalls: [{ id: 'call_3', name: 'lookup', input: { field: 'seller' } }],
+      stopReason: 'tool_use',
+      usage: {
+        inputTokens: 40,
+        cachedInputTokens: 60,
+        cacheWriteTokens: 0,
+        outputTokens: 15,
+      },
+    });
+    expect(fake.received).toEqual([
+      expect.objectContaining({
+        path: '/v1/chat/completions',
+        headers: expect.objectContaining({ authorization: 'Bearer sk-team' }),
+        body: {
+          model: 'llama-3',
+          max_tokens: 500,
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: 'lookup',
+                description: 'Look up a deal field',
+                parameters: {
+                  type: 'object',
+                  properties: { field: { type: 'string' } },
+                  required: ['field'],
+                },
+              },
+            },
+          ],
+          messages: [
+            { role: 'system', content: 'Answer from the deal file.' },
+            { role: 'user', content: 'What is the asking price?' },
+            {
+              role: 'assistant',
+              content: 'Checking.',
+              tool_calls: [
+                {
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'lookup', arguments: '{"field":"price"}' },
+                },
+                {
+                  id: 'call_2',
+                  type: 'function',
+                  function: {
+                    name: 'lookup',
+                    arguments: '{"field":"currency"}',
+                  },
+                },
+              ],
+            },
+            { role: 'tool', tool_call_id: 'call_1', content: '2400000' },
+            { role: 'tool', tool_call_id: 'call_2', content: 'USD' },
+          ],
+        },
+      }),
+    ]);
+  });
+
+  it.each([
+    {
+      provider: 'anthropic' as const,
+      reply: {
+        content: [{ type: 'text', text: 'It is $2.4M.' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 90, output_tokens: 6 },
+      },
+      toolChoice: { tool_choice: { type: 'none' } },
+    },
+    {
+      provider: 'openai' as const,
+      reply: {
+        choices: [
+          { finish_reason: 'stop', message: { content: 'It is $2.4M.' } },
+        ],
+        usage: { prompt_tokens: 90, completion_tokens: 6 },
+      },
+      toolChoice: { tool_choice: 'none' },
+    },
+  ])(
+    'forbids $provider from calling tools when a final answer is forced, and reads the answer as the end',
+    async ({ provider: kind, reply, toolChoice }) => {
+      const fake = await provider({ status: 200, body: reply });
+
+      const turn = await converseWithTeamAi(
+        { provider: kind, model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+        { ...LOOKUP_CONVERSATION, toolChoice: 'none' },
+        LOOPBACK_FAKE,
+      );
+
+      expect(turn).toEqual({
+        text: 'It is $2.4M.',
+        toolCalls: [],
+        stopReason: 'end',
+        usage: {
+          inputTokens: 90,
+          cachedInputTokens: 0,
+          cacheWriteTokens: 0,
+          outputTokens: 6,
+        },
+      });
+      expect(fake.received[0]!.body).toMatchObject(toolChoice);
+    },
+  );
+
+  it.each([
+    {
+      provider: 'anthropic' as const,
+      reply: {
+        content: [{ type: 'text', text: 'The asking' }],
+        stop_reason: 'max_tokens',
+        usage: { input_tokens: 90, output_tokens: 500 },
+      },
+    },
+    {
+      provider: 'openai' as const,
+      reply: {
+        choices: [
+          { finish_reason: 'length', message: { content: 'The asking' } },
+        ],
+        usage: { prompt_tokens: 90, completion_tokens: 500 },
+      },
+    },
+  ])(
+    'reports a $provider reply cut off at the token limit',
+    async ({ provider: kind, reply }) => {
+      const fake = await provider({ status: 200, body: reply });
+
+      const turn = await converseWithTeamAi(
+        { provider: kind, model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+        LOOKUP_CONVERSATION,
+        LOOPBACK_FAKE,
+      );
+
+      expect(turn).toMatchObject({
+        text: 'The asking',
+        stopReason: 'max_tokens',
+      });
+    },
+  );
+
+  it('sends an earlier answer without tool calls to an OpenAI-compatible endpoint as plain assistant content', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        choices: [{ finish_reason: 'stop', message: { content: 'Yes.' } }],
+        usage: { prompt_tokens: 9, completion_tokens: 1 },
+      },
+    });
+
+    await converseWithTeamAi(
+      { provider: 'openai', model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+      {
+        tools: [],
+        messages: [
+          { role: 'user', text: 'Price?' },
+          { role: 'assistant', text: '$2.4M.', toolCalls: [] },
+          { role: 'user', text: 'Sure?' },
+        ],
+      },
+      LOOPBACK_FAKE,
+    );
+
+    expect(fake.received[0]!.body.messages).toEqual([
+      { role: 'user', content: 'Price?' },
+      { role: 'assistant', content: '$2.4M.' },
+      { role: 'user', content: 'Sure?' },
+    ]);
+  });
+
+  it('sends Anthropic a tool-calling turn that had no text as tool_use blocks alone', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        content: [{ type: 'text', text: 'USD.' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 9, output_tokens: 1 },
+      },
+    });
+
+    await converseWithTeamAi(
+      { provider: 'anthropic', model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+      {
+        tools: LOOKUP_CONVERSATION.tools,
+        messages: [
+          { role: 'user', text: 'Currency?' },
+          {
+            role: 'assistant',
+            text: '',
+            toolCalls: [
+              { id: 'c', name: 'lookup', input: { field: 'currency' } },
+            ],
+          },
+          { role: 'tool', toolCallId: 'c', content: 'USD' },
+        ],
+      },
+      LOOPBACK_FAKE,
+    );
+
+    expect(fake.received[0]!.body.messages[1]).toEqual({
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool_use',
+          id: 'c',
+          name: 'lookup',
+          input: { field: 'currency' },
+        },
+      ],
+    });
+  });
+
+  it("fails at once on a refused call, naming only the provider's status", async () => {
+    const fake = await provider({ status: 400, body: { error: 'bad tool' } });
+
+    const failure = await converseWithTeamAi(
+      { provider: 'anthropic', model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+      LOOKUP_CONVERSATION,
+      LOOPBACK_FAKE,
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      message: 'The AI provider answered 400',
+      nonRetryable: true,
+    });
+  });
+
+  it('fails retryably when the provider has a server error', async () => {
+    const fake = await provider({ status: 503, body: { error: 'overloaded' } });
+
+    const failure = await converseWithTeamAi(
+      { provider: 'openai', model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+      LOOKUP_CONVERSATION,
+      LOOPBACK_FAKE,
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({ message: 'The AI provider answered 503' });
+    expect((failure as { nonRetryable?: boolean }).nonRetryable).not.toBe(true);
+  });
+
+  const anthropicUsageBlock = { input_tokens: 9, output_tokens: 1 };
+  const openAiUsageBlock = { prompt_tokens: 9, completion_tokens: 1 };
+
+  it.each([
+    ...['stop_sequence', 'pause_turn', 'refusal'].map((stopReason) => ({
+      case: `Anthropic stop reason ${stopReason}`,
+      provider: 'anthropic' as const,
+      reply: {
+        content: [{ type: 'text', text: 'Hm.' }],
+        stop_reason: stopReason,
+        usage: anthropicUsageBlock,
+      },
+    })),
+    {
+      case: 'an Anthropic thinking block',
+      provider: 'anthropic' as const,
+      reply: {
+        content: [
+          { type: 'thinking', thinking: 'Let me see.', signature: 's' },
+          { type: 'text', text: 'Hm.' },
+        ],
+        stop_reason: 'end_turn',
+        usage: anthropicUsageBlock,
+      },
+    },
+    {
+      case: 'OpenAI stop reason content_filter',
+      provider: 'openai' as const,
+      reply: {
+        choices: [
+          { finish_reason: 'content_filter', message: { content: '' } },
+        ],
+        usage: openAiUsageBlock,
+      },
+    },
+    {
+      case: 'OpenAI tool arguments that are not JSON',
+      provider: 'openai' as const,
+      reply: {
+        choices: [
+          {
+            finish_reason: 'tool_calls',
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  id: 'call_9',
+                  type: 'function',
+                  function: { name: 'lookup', arguments: '{"field":' },
+                },
+              ],
+            },
+          },
+        ],
+        usage: openAiUsageBlock,
+      },
+    },
+  ])('fails at once on $case', async ({ provider: kind, reply }) => {
+    const fake = await provider({ status: 200, body: reply });
+
+    const failure = await converseWithTeamAi(
+      { provider: kind, model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+      LOOKUP_CONVERSATION,
+      LOOPBACK_FAKE,
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      message: 'The AI provider answered with a reply this call cannot read',
+      nonRetryable: true,
+    });
+  });
+
+  it.each([
+    {
+      provider: 'anthropic' as const,
+      reply: {
+        content: [
+          { type: 'text', text: 'Looking.' },
+          { type: 'tool_use', id: 't', name: 'lookup', input: { field: 'x' } },
+        ],
+        stop_reason: 'tool_use',
+      },
+    },
+    {
+      provider: 'openai_compatible' as const,
+      reply: {
+        choices: [
+          {
+            finish_reason: 'tool_calls',
+            message: {
+              content: 'Looking.',
+              tool_calls: [
+                {
+                  id: 't',
+                  type: 'function',
+                  function: { name: 'lookup', arguments: '{"field":"x"}' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ])(
+    'estimates usage from the conversation and the reply when $provider sends no usage block',
+    async ({ provider: kind, reply }) => {
+      const fake = await provider({ status: 200, body: reply });
+
+      const turn = await converseWithTeamAi(
+        { provider: kind, model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+        {
+          system: 'Be brief.',
+          tools: LOOKUP_CONVERSATION.tools,
+          messages: [
+            { role: 'user', text: 'Price?' },
+            {
+              role: 'assistant',
+              text: 'Checking.',
+              toolCalls: [
+                { id: 'c', name: 'lookup', input: { field: 'price' } },
+              ],
+            },
+            { role: 'tool', toolCallId: 'c', content: '2400000' },
+          ],
+        },
+        LOOPBACK_FAKE,
+      );
+
+      expect(turn.usage).toEqual({
+        inputTokens: Math.ceil(
+          (
+            'Be brief.' +
+            'Price?' +
+            'Checking.' +
+            '{"field":"price"}' +
+            '2400000'
+          ).length / 4,
+        ),
+        cachedInputTokens: 0,
+        cacheWriteTokens: 0,
+        outputTokens: Math.ceil(('Looking.' + '{"field":"x"}').length / 4),
+      });
+    },
+  );
+
+  it('marks a failed tool result as an error for Anthropic, and sends OpenAI the error text alone', async () => {
+    const conversation: Conversation = {
+      tools: LOOKUP_CONVERSATION.tools,
+      messages: [
+        { role: 'user', text: 'Price?' },
+        {
+          role: 'assistant',
+          text: '',
+          toolCalls: [{ id: 'c', name: 'lookup', input: { field: 'price' } }],
+        },
+        {
+          role: 'tool',
+          toolCallId: 'c',
+          content: 'No field named price',
+          isError: true,
+        },
+      ],
+    };
+    const anthropic = await provider({
+      status: 200,
+      body: {
+        content: [{ type: 'text', text: 'Unknown.' }],
+        stop_reason: 'end_turn',
+        usage: anthropicUsageBlock,
+      },
+    });
+    await converseWithTeamAi(
+      {
+        provider: 'anthropic',
+        model: 'm',
+        baseUrl: anthropic.baseUrl,
+        apiKey: 'k',
+      },
+      conversation,
+      LOOPBACK_FAKE,
+    );
+    close?.();
+    const openAi = await provider({
+      status: 200,
+      body: {
+        choices: [{ finish_reason: 'stop', message: { content: 'Unknown.' } }],
+        usage: openAiUsageBlock,
+      },
+    });
+    await converseWithTeamAi(
+      { provider: 'openai', model: 'm', baseUrl: openAi.baseUrl, apiKey: 'k' },
+      conversation,
+      LOOPBACK_FAKE,
+    );
+
+    expect(anthropic.received[0]!.body.messages[2]).toEqual({
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: 'c',
+          content: 'No field named price',
+          is_error: true,
+        },
+      ],
+    });
+    expect(openAi.received[0]!.body.messages[2]).toEqual({
+      role: 'tool',
+      tool_call_id: 'c',
+      content: 'No field named price',
+    });
+  });
+
+  it('sends an OpenAI-compatible endpoint a tool-calling turn that had no text with null content', async () => {
+    const fake = await provider({
+      status: 200,
+      body: {
+        choices: [{ finish_reason: 'stop', message: { content: 'USD.' } }],
+        usage: openAiUsageBlock,
+      },
+    });
+
+    await converseWithTeamAi(
+      { provider: 'openai', model: 'm', baseUrl: fake.baseUrl, apiKey: 'k' },
+      {
+        tools: LOOKUP_CONVERSATION.tools,
+        messages: [
+          { role: 'user', text: 'Currency?' },
+          {
+            role: 'assistant',
+            text: '',
+            toolCalls: [
+              { id: 'c', name: 'lookup', input: { field: 'currency' } },
+            ],
+          },
+          { role: 'tool', toolCallId: 'c', content: 'USD' },
+        ],
+      },
+      LOOPBACK_FAKE,
+    );
+
+    expect(fake.received[0]!.body.messages[1]).toEqual({
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'c',
+          type: 'function',
+          function: { name: 'lookup', arguments: '{"field":"currency"}' },
+        },
+      ],
     });
   });
 });
