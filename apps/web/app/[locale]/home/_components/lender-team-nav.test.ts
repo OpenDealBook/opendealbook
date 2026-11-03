@@ -12,7 +12,7 @@ function labelsIn(group: string, permissions: string[]) {
     .map((item) => item.label);
 }
 
-const everyPermission = ['deals.manage', 'api_keys.manage'];
+const everyPermission = ['deals.work', 'deals.manage', 'api_keys.manage'];
 
 describe('the team workspace nav', () => {
   it('puts daily work in the Work group', () => {
@@ -20,6 +20,7 @@ describe('the team workspace nav', () => {
       'common.home',
       'common.todos',
       'common.deals',
+      'aiHome.nav',
       'common.lenders',
       'common.outreach',
       'common.reports',

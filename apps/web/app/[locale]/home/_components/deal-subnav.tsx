@@ -40,7 +40,14 @@ const TABS: { segment: string; label: string; pages: Page[] }[] = [
       { segment: 'lenders', label: 'Lenders' },
     ],
   },
-  { segment: 'documents', label: 'Documents', pages: [] },
+  {
+    segment: 'documents',
+    label: 'Documents',
+    pages: [
+      { segment: 'documents', label: 'Files' },
+      { segment: 'ask', label: 'Ask AI' },
+    ],
+  },
   {
     segment: 'financials',
     label: 'Financials',

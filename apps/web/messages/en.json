@@ -56,6 +56,93 @@
     "title": "Billing",
     "manageSubscription": "Manage subscription"
   },
+  "aiHome": {
+    "nav": "AI",
+    "title": "AI",
+    "newQuestion": "Ask about a deal",
+    "pickDeal": "Choose a deal",
+    "threads": "Questions across deals",
+    "noThreads": "No one has asked about a deal yet.",
+    "nothingOpen": "Open a question to continue it, or choose a deal to ask something new.",
+    "connectBody": "Connect your team's AI provider to ask about a deal.",
+    "connectAction": "Open AI provider settings",
+    "newThread": "New question",
+    "loadMore": "Load more",
+    "loadFailed": "More questions could not be loaded. Try again."
+  },
+  "dealAsk": {
+    "threads": "Team questions",
+    "newThread": "New thread",
+    "noQuestions": "No questions yet. Ask anything about this deal's documents.",
+    "placeholder": "Ask about this deal's documents",
+    "ask": "Ask",
+    "delete": "Delete",
+    "deleteRefused": "This question could not be deleted.",
+    "stillWorking": "Still working on this question",
+    "stopped": "This question stopped before it finished.",
+    "askedBy": "{name} asked {when}",
+    "formerMember": "A former member",
+    "readOnly": "This team is read-only until billing is updated.",
+    "threadFull": "Thread full, start a new one",
+    "tooLong": "A question can be at most 4,000 characters.",
+    "connectionLost": "Connection lost; check history shortly",
+    "creditsRanOut": "Not enough AI credits left this month",
+    "citationUnavailable": "{name}, unavailable",
+    "citation": {
+      "version": "Version {version}",
+      "page": "Page {page}",
+      "pages": "Pages {from} to {to}",
+      "cells": "{sheet}, cells {range}"
+    },
+    "scrollToLatest": "Scroll to the latest answer",
+    "connectTitle": "Connect AI",
+    "connectBody": "Connect your team's AI provider to ask questions about this deal's documents.",
+    "connectAction": "Open AI provider settings",
+    "progress": {
+      "search": "Searching the documents for \"{query}\"",
+      "search_past_answers": "Searching earlier answers for \"{query}\"",
+      "read_page": "Reading page {from}",
+      "read_pages": "Reading pages {from} to {to}",
+      "read_sheet": "Reading {sheet}, {range}",
+      "list_documents": "Looking through the document list",
+      "list_sheets": "Looking through the sheets",
+      "working": "Working on the answer"
+    },
+    "errors": {
+      "alreadyRunning": "You already have a question running. Wait for it to finish.",
+      "connectProvider": "Connect an AI provider first.",
+      "notOnTeam": "Only the deal team can ask about this deal.",
+      "dealNotFound": "This deal no longer exists.",
+      "threadNotFound": "This thread no longer exists. Start a new one.",
+      "empty": "Type a question first.",
+      "signedOut": "Your session ended. Sign in again.",
+      "notSaved": "The answer was lost before it could be saved. Check the history shortly.",
+      "unknown": "Something went wrong asking that question. Try again."
+    },
+    "promote": {
+      "open": "Add to lender FAQ",
+      "title": "Add to the lender FAQ",
+      "description": "This saves a draft. Lenders see it only once it is published. Data room sources are left out.",
+      "question": "Question",
+      "answer": "Answer",
+      "save": "Save draft",
+      "saved": "Saved to the lender FAQ as a draft.",
+      "failed": "The draft was not saved. Try again.",
+      "viewFaq": "View lender FAQ",
+      "similar": "The FAQ already has entries like this one. Save again to add yours anyway.",
+      "notManager": "Only deal managers can add to the lender FAQ.",
+      "tooLong": "A question or answer can be at most 5,000 characters.",
+      "bothRequired": "A question and an answer are both required."
+    },
+    "links": {
+      "openExternalLink": "Open external link?",
+      "externalLinkWarning": "You're about to visit an external website.",
+      "openLink": "Open link",
+      "copyLink": "Copy link",
+      "copied": "Copied",
+      "close": "Close"
+    }
+  },
   "marketing": {
     "heroTitle": "Welcome to Open Deal Book",
     "heroSubtitle": "The foundation is in place."

@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { storageKeyName } from '@odb/supabase/storage-key';
 
 export const DEAL_TEAM_ONLY = 'Only the deal team can do that';
-const BOTH_REQUIRED = 'A question and an answer are both required';
-const TOO_LONG = 'A question or answer can be at most 5,000 characters';
+export const BOTH_REQUIRED = 'A question and an answer are both required';
+export const TOO_LONG = 'A question or answer can be at most 5,000 characters';
 
 export const entryText = z
   .string()

@@ -18,6 +18,12 @@ export function getTeamAccountNavigationConfig(
     { group: 'work', label: 'common.deals', path: `${prefix}/deals` },
     {
       group: 'work',
+      label: 'aiHome.nav',
+      path: `${prefix}/ai`,
+      requires: 'deals.work',
+    },
+    {
+      group: 'work',
       label: 'common.lenders',
       path: `${prefix}/lenders`,
       requires: 'deals.manage',
