@@ -38,6 +38,7 @@ import {
   getSupabaseServerAdminClient,
   getSupabaseServerClient,
 } from '@odb/supabase/server';
+import { PageHeader, PageTitle } from '@odb/ui/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@odb/ui/tabs';
 
 import { LenderFaqManager } from './lender-faq-manage';
@@ -188,15 +189,13 @@ export async function LenderFaqPage({
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
       <LenderFaqSubnav basePath={basePath} />
-      <header className={'flex flex-col gap-3'}>
-        <h1 className={'font-serif text-3xl leading-tight font-medium'}>
-          Lender FAQ
-        </h1>
-        <p className={'text-muted-foreground max-w-2xl'}>
-          Published entries show in every lender room on this deal, pinned ones
-          first. Untick a room to keep an entry out of it.
-        </p>
-      </header>
+      <PageHeader
+        level={2}
+        title={'Lender FAQ'}
+        description={
+          'Published entries show in every lender room on this deal, pinned ones first. Untick a room to keep an entry out of it.'
+        }
+      />
       <LenderFaqManager
         entries={entries}
         rooms={rooms.map(({ id, name }) => ({ id, name }))}
@@ -278,13 +277,9 @@ export async function LenderRoomPage({
             logoUrl={loaded.logoUrl}
             className={'size-14 text-xl'}
           />
-          <h1
-            className={
-              'min-w-0 font-serif text-3xl leading-tight font-medium break-words'
-            }
-          >
+          <PageTitle level={2} className={'min-w-0'}>
             {room.name}
-          </h1>
+          </PageTitle>
           <RoomStatusBadge status={room.status} />
         </div>
       </header>
@@ -414,9 +409,7 @@ export async function LenderRequestPage({
         >
           {room.name} requests
         </Link>
-        <h1 className={'font-serif text-2xl font-medium break-words'}>
-          {request.title}
-        </h1>
+        <PageTitle level={2}>{request.title}</PageTitle>
         <div className={'flex flex-wrap items-center gap-2 text-sm'}>
           <RequestBadges
             isForm={kind === 'form'}

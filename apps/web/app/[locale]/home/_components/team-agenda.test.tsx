@@ -1,7 +1,9 @@
+import { NextIntlClientProvider } from 'next-intl';
 // @vitest-environment jsdom
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import messages from '../../../../messages/en.json';
 import type { AgendaRow } from '../_lib/team-agenda';
 import { TeamAgenda } from './team-agenda';
 
@@ -24,12 +26,14 @@ function row(overrides: Partial<AgendaRow>): AgendaRow {
 function render(rows: AgendaRow[], wholeTeam: boolean | null = null) {
   const container = document.createElement('div');
   container.innerHTML = renderToStaticMarkup(
-    <TeamAgenda
-      account={'acme'}
-      rows={rows}
-      wholeTeam={wholeTeam}
-      showsLenders={false}
-    />,
+    <NextIntlClientProvider locale={'en'} messages={messages}>
+      <TeamAgenda
+        account={'acme'}
+        rows={rows}
+        wholeTeam={wholeTeam}
+        showsLenders={false}
+      />
+    </NextIntlClientProvider>,
   );
   return container;
 }
@@ -160,8 +164,33 @@ describe('TeamAgenda', () => {
     );
   });
 
-  it('says so when nothing needs the person today', () => {
-    expect(render([]).textContent).toContain('Nothing needs you today.');
+  it('says so when nothing needs the person today and points them to the deals', () => {
+    const container = render([]);
+    const empty = container.querySelector('[data-slot="empty-state"]')!;
+
+    expect(empty.querySelector('h2')!.textContent).toBe(
+      messages.empty.agenda.title,
+    );
+    expect(empty.querySelector('a[href="/home/acme/deals"]')!.textContent).toBe(
+      messages.empty.agenda.action,
+    );
+  });
+
+  it('points a manager on their own empty agenda to the whole team', () => {
+    const empty = render([], false).querySelector('[data-slot="empty-state"]')!;
+
+    expect(empty.querySelector('a[href="?scope=team"]')!.textContent).toBe(
+      messages.empty.agenda.teamAction,
+    );
+    expect(empty.querySelector('a[href="/home/acme/deals"]')).toBeNull();
+  });
+
+  it('points a manager on an empty whole-team agenda to the deals', () => {
+    const empty = render([], true).querySelector('[data-slot="empty-state"]')!;
+
+    expect(empty.querySelector('a[href="/home/acme/deals"]')!.textContent).toBe(
+      messages.empty.agenda.action,
+    );
   });
 
   it('lets a manager switch between their own agenda and the whole team', () => {

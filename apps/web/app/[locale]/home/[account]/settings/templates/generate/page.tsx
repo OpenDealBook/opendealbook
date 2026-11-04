@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../../../layout';
 import {
@@ -70,7 +71,7 @@ export default async function GeneratePage({ params }: GeneratePageProps) {
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Generate document</h1>
+      <PageHeader title={'Generate document'} />
       <GenerateForm accountId={team.id} templates={templates} deals={deals} />
     </main>
   );

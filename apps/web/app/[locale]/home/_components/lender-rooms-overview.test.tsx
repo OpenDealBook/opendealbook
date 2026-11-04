@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { createElement } from 'react';
-
+import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import messages from '../../../../messages/en.json';
 import type { LenderRoomRow } from './lender-room-list';
 import { LenderRoomsOverview } from './lender-rooms-overview';
 import {
@@ -67,7 +67,9 @@ const harbor: LenderRoomRow = {
 
 function showOverview(rows: LenderRoomRow[]) {
   show(
-    createElement(LenderRoomsOverview, { dealId: DEAL, basePath: BASE, rows }),
+    <NextIntlClientProvider locale={'en'} messages={messages}>
+      <LenderRoomsOverview dealId={DEAL} basePath={BASE} rows={rows} />
+    </NextIntlClientProvider>,
   );
 }
 
@@ -126,11 +128,19 @@ describe('the lender rooms overview', () => {
     expect(fourth).toMatch(/Open.*No expiry/);
   });
 
-  it('invites the team to create the first room when there are none', () => {
+  it('invites the team to create the first room when there are none', async () => {
     showOverview([]);
 
-    expect(pageText()).toContain('No lender rooms yet');
-    expect(buttonNames()).toContain('Create the first lender room');
+    const empty = document.querySelector('[data-slot="empty-state"]')!;
+    expect(empty.querySelector('h2')!.textContent).toBe(
+      messages.empty.lenderRooms.title,
+    );
+    expect(buttonNames()).toContain(messages.empty.lenderRooms.action);
+
+    await press(messages.empty.lenderRooms.action);
+
+    expect(field('Lender name').value).toBe('');
+    expect(fields("Lender's website")).toHaveLength(1);
   });
 });
 

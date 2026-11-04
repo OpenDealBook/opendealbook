@@ -12,6 +12,7 @@ import {
 } from '@odb/seller-rooms/members/entry-rules.ts';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 export default async function SellerMeetingPage({
   params,
@@ -46,10 +47,14 @@ export default async function SellerMeetingPage({
 
   return (
     <main className={'flex flex-col gap-4'}>
-      <Link href={sellerRoomPath(roomId)} className={'text-sm underline'}>
-        Back to the room
-      </Link>
-      <h1 className={'text-2xl font-semibold'}>{meetingLabel(meeting)}</h1>
+      <PageHeader
+        eyebrow={
+          <Link href={sellerRoomPath(roomId)} className={'underline'}>
+            Back to the room
+          </Link>
+        }
+        title={meetingLabel(meeting)}
+      />
       {meeting.summary ? (
         <section className={'flex flex-col gap-2'}>
           <h2 className={'text-lg font-semibold'}>Summary</h2>

@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { ArrowLeftIcon } from 'lucide-react';
 import { z } from 'zod';
 
+import { PageHeader } from '@odb/ui/page-header';
+
 import type { LenderRoomSummary } from '../members/entry-rules';
 import { AskComposerForm, SendingRequests, SendingRows } from './ask-composer';
 import { FormUpload } from './form-upload';
@@ -31,29 +33,31 @@ export function RequestsPage({
     <SendingRequests sentTo={contactName ?? teamName(room.deal_name)}>
       <main className={'flex flex-col gap-8'}>
         {canAct ? null : <ViewingAsLender lenderName={room.name} />}
-        <header className={'flex flex-col gap-3'}>
-          <Link
-            href={`/lender/${roomId}`}
-            className={
-              'text-muted-foreground hover:text-foreground flex min-h-6 w-fit items-center gap-1.5 text-sm'
+        <div className={'flex flex-col gap-3'}>
+          <PageHeader
+            eyebrow={
+              <Link
+                href={`/lender/${roomId}`}
+                className={
+                  'hover:text-foreground flex min-h-6 w-fit items-center gap-1.5'
+                }
+              >
+                <ArrowLeftIcon className={'size-4'} />
+                {room.deal_name}
+              </Link>
             }
-          >
-            <ArrowLeftIcon className={'size-4'} />
-            {room.deal_name}
-          </Link>
-          <div
-            className={'flex flex-wrap items-baseline justify-between gap-3'}
-          >
-            <h1 className={'font-serif text-3xl font-medium'}>Requests</h1>
-            <Link
-              href={`/lender/${roomId}/faq`}
-              className={
-                'text-muted-foreground hover:text-foreground min-h-6 text-sm underline-offset-4 hover:underline'
-              }
-            >
-              Check the FAQ
-            </Link>
-          </div>
+            title={'Requests'}
+            actions={
+              <Link
+                href={`/lender/${roomId}/faq`}
+                className={
+                  'text-muted-foreground hover:text-foreground min-h-6 text-sm underline-offset-4 hover:underline'
+                }
+              >
+                Check the FAQ
+              </Link>
+            }
+          />
           {canAct ? (
             <AskComposerForm
               roomId={roomId}
@@ -61,7 +65,7 @@ export function RequestsPage({
               dealName={room.deal_name}
             />
           ) : null}
-        </header>
+        </div>
 
         <section
           className={'flex flex-col gap-3'}

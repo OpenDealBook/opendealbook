@@ -7,6 +7,7 @@ import {
   InviteMemberForm,
   MembersTable,
 } from '@odb/team-accounts';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../layout';
 
@@ -64,7 +65,7 @@ export default async function TeamMembersPage({
 
   return (
     <main className={'flex flex-col gap-8 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Members</h1>
+      <PageHeader title={'Members'} />
       <MembersTable
         accountId={team.id}
         members={members}

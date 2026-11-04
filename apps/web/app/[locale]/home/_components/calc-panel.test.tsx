@@ -1,12 +1,15 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 
+import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+import messages from '../../../../messages/en.json';
 import { CalculatorsPanel } from './calc-panel';
 import {
   alerts,
   button,
+  buttonNames,
   clearScreen,
   fakeServer,
   linkTo,
@@ -32,17 +35,81 @@ vi.mock('@odb/deals/server', async () =>
 beforeEach(() => fakeServer.reset());
 afterEach(clearScreen);
 
+const NO_ACCESS = 'Ask a teammate who can manage calculators to start one.';
+
+const withNoAccessCopy = {
+  ...messages,
+  empty: {
+    ...messages.empty,
+    calculators: {
+      ...messages.empty.calculators,
+      descriptionNoAccess: NO_ACCESS,
+    },
+  },
+};
+
+const MANAGER_NOTE = 'Only deal managers can mark a calc primary or adopt it.';
+
+function showEmpty({ canManage = true, canCreate = true } = {}) {
+  show(
+    <NextIntlClientProvider locale={'en'} messages={withNoAccessCopy}>
+      <CalculatorsPanel
+        dealId={'deal-1'}
+        versions={[]}
+        canManage={canManage}
+        canCreate={canCreate}
+        calcsHref={'/home/acme/deals/deal-1/financials/calcs'}
+      />
+    </NextIntlClientProvider>,
+  );
+}
+
+it('offers nothing to create to someone who cannot create calculators, and sends them to a teammate', () => {
+  showEmpty({ canManage: false, canCreate: false });
+
+  const empty = document.querySelector('[data-slot="empty-state"]')!;
+  expect(empty.querySelector('h2')!.textContent).toBe(
+    messages.empty.calculators.title,
+  );
+  expect(empty.textContent).toContain(NO_ACCESS);
+  expect(buttonNames()).toEqual([]);
+});
+
+it('leaves out the deal-manager note while the deal has no calculator', () => {
+  showEmpty({ canManage: false, canCreate: true });
+
+  expect(document.body.textContent).not.toContain(MANAGER_NOTE);
+  expect(buttonNames()).toEqual(['New SDE', 'New Deal', 'New Working capital']);
+});
+
+it('offers the New buttons in the empty state, and only there, before the deal has a calculator', async () => {
+  fakeServer.values.createCalcVersion = 'v-new';
+  showEmpty();
+
+  const empty = document.querySelector('[data-slot="empty-state"]')!;
+  expect(empty.querySelector('h2')!.textContent).toBe(
+    messages.empty.calculators.title,
+  );
+  expect(
+    [...empty.querySelectorAll('button')].map((each) => each.textContent),
+  ).toEqual(['New SDE', 'New Deal', 'New Working capital']);
+  expect(buttonNames()).toEqual(['New SDE', 'New Deal', 'New Working capital']);
+
+  await press('New SDE');
+  await settle();
+
+  expect(fakeServer.inputsTo('createCalcVersion')).toEqual([
+    { deal_id: 'deal-1', type: 'sde' },
+  ]);
+  expect(fakeServer.pathname).toBe(
+    '/home/acme/deals/deal-1/financials/calcs/v-new',
+  );
+});
+
 it('shows a refused new calculator inline and leaves the New buttons usable', async () => {
   fakeServer.refusal =
     "Read-only members can't create calculators. Ask a deal manager.";
-  show(
-    <CalculatorsPanel
-      dealId={'deal-1'}
-      versions={[]}
-      canManage={true}
-      calcsHref={'/home/acme/deals/deal-1/financials/calcs'}
-    />,
-  );
+  showEmpty();
 
   await press('New SDE');
   await settle();
@@ -67,16 +134,26 @@ const version = {
 
 const CALCS = '/home/acme/deals/deal-1/financials/calcs';
 
-function showVersions(versions: Version[], canManage = true) {
+function showVersions(versions: Version[], canManage = true, canCreate = true) {
   show(
     <CalculatorsPanel
       dealId={'deal-1'}
       versions={versions}
       canManage={canManage}
+      canCreate={canCreate}
       calcsHref={CALCS}
     />,
   );
 }
+
+it('offers no New buttons above the list to someone who cannot create calculators', () => {
+  showVersions([version], false, false);
+
+  expect(buttonNames()).not.toContain('New SDE');
+  expect(buttonNames()).not.toContain('New Deal');
+  expect(buttonNames()).not.toContain('New Working capital');
+  expect(document.body.textContent).toContain(MANAGER_NOTE);
+});
 
 function showPanel(canManage: boolean) {
   showVersions([version], canManage);
@@ -232,7 +309,7 @@ it('names the multiple as including closing costs in the key outputs', () => {
   showPanel(true);
 
   expect(document.body.textContent).toContain(
-    'Purchase multiple incl. closing costs 3.00x',
+    'Purchase multiple incl. closing costs 3.0x',
   );
 });
 

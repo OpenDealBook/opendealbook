@@ -6,6 +6,7 @@ import { sellerRoomPath } from '@odb/seller-rooms/members/entry-rules.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Card, CardDescription, CardHeader, CardTitle } from '@odb/ui/card';
+import { PageHeader } from '@odb/ui/page-header';
 
 export default async function SellerRoomsPage() {
   const client = getSupabaseServerClient();
@@ -21,7 +22,7 @@ export default async function SellerRoomsPage() {
 
   return (
     <main className={'flex flex-col gap-4'}>
-      <h1 className={'text-2xl font-semibold'}>Your rooms</h1>
+      <PageHeader title={'Your rooms'} />
 
       {sellerRooms.map((room) => (
         <Link key={room.id} href={sellerRoomPath(room.id)}>

@@ -1,3 +1,5 @@
+import { PageHeader } from '@odb/ui/page-header';
+
 import { OutreachArea } from '../../_components/outreach/outreach-area';
 import { loadTeamWorkspace } from '../layout';
 
@@ -13,7 +15,7 @@ export default async function TeamOutreachPage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Outreach</h1>
+      <PageHeader title={'Outreach'} />
       <OutreachArea
         accountId={team.id}
         canManageDeals={permissions.includes('deals.manage')}

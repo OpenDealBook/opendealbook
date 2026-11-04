@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { z } from 'zod';
 
 import type { Enums, Tables } from '@odb/supabase';
+import { PageHeader } from '@odb/ui/page-header';
 
 import type { LenderRoomSummary } from '../members/entry-rules';
 import { RequestStatus } from './request-list';
@@ -57,46 +58,35 @@ export function RequestPage({
   return (
     <main className={'flex flex-col gap-6'}>
       {canAct ? null : <ViewingAsLender lenderName={room.name} />}
-      <header className={'flex flex-col gap-3'}>
-        <Link
-          href={`/lender/${roomId}/requests`}
-          className={
-            'text-muted-foreground hover:text-foreground flex min-h-6 w-fit items-center gap-1.5 text-sm'
-          }
-        >
-          <ArrowLeftIcon className={'size-4'} />
-          Requests
-        </Link>
-        <div
-          className={
-            'flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'
-          }
-        >
-          <div className={'flex min-w-0 flex-col gap-2'}>
-            <h1
-              id={REQUEST_TITLE_ID}
-              tabIndex={-1}
-              className={
-                'font-serif text-2xl font-medium break-words outline-none sm:text-3xl'
-              }
-            >
-              {request.title}
-            </h1>
-            <div
-              className={'flex flex-wrap items-center gap-x-3 gap-y-1 text-sm'}
-            >
-              <RequestStatus request={progress} dealName={room.deal_name} />
-              {request.return_route ? (
-                <span className={'text-muted-foreground'}>
-                  {returnWording(request.return_route, room.deal_name)}
-                </span>
-              ) : null}
-              {signatureLine && signatureLine !== badgeWording ? (
-                <span className={'font-medium'}>{signatureLine}</span>
-              ) : null}
-            </div>
+      <PageHeader
+        eyebrow={
+          <Link
+            href={`/lender/${roomId}/requests`}
+            className={
+              'hover:text-foreground flex min-h-6 w-fit items-center gap-1.5'
+            }
+          >
+            <ArrowLeftIcon className={'size-4'} />
+            Requests
+          </Link>
+        }
+        title={request.title}
+        titleProps={{ id: REQUEST_TITLE_ID, tabIndex: -1 }}
+        description={
+          <div className={'flex flex-wrap items-center gap-x-3 gap-y-1'}>
+            <RequestStatus request={progress} dealName={room.deal_name} />
+            {request.return_route ? (
+              <span>{returnWording(request.return_route, room.deal_name)}</span>
+            ) : null}
+            {signatureLine && signatureLine !== badgeWording ? (
+              <span className={'text-foreground font-medium'}>
+                {signatureLine}
+              </span>
+            ) : null}
           </div>
-          {canAct ? (
+        }
+        actions={
+          canAct ? (
             <RequestActions
               roomId={roomId}
               privateFolderId={privateFolderId}
@@ -105,9 +95,9 @@ export function RequestPage({
               request={summary}
               formFile={formToComplete(thread)}
             />
-          ) : null}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       <RequestThread
         roomId={roomId}

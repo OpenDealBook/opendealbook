@@ -1,5 +1,6 @@
 import { fetchEmployees, fetchHrAuditEngagement } from '@odb/hr-audit/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../../../layout';
 import { HrAuditManager } from './_components/hr-audit-manager';
@@ -23,7 +24,7 @@ export default async function DealHrAuditPage({
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
-      <h1 className={'text-2xl font-semibold'}>HR audit</h1>
+      <PageHeader level={2} title={'HR audit'} />
       <HrAuditManager
         dealId={id}
         accountId={team.id}

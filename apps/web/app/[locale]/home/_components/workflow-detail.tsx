@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@odb/ui/dialog';
 import { Input } from '@odb/ui/input';
+import { PageTitle } from '@odb/ui/page-header';
 import {
   Table,
   TableBody,
@@ -101,7 +102,7 @@ export function WorkflowDetail(props: {
             onDone={() => setRenaming(false)}
           />
         ) : (
-          <h1 className={'text-2xl font-semibold'}>{props.workflow.name}</h1>
+          <PageTitle>{props.workflow.name}</PageTitle>
         )}
         <Badge variant={props.workflow.enabled ? 'default' : 'outline'}>
           {props.workflow.enabled ? 'Enabled' : 'Disabled'}

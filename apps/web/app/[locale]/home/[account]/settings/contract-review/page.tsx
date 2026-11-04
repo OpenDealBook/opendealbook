@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { TeamReviewGate } from '../../../_components/contract-review-gate';
 import { loadTeamWorkspace } from '../../layout';
@@ -29,12 +30,12 @@ export default async function ContractReviewSettingsPage(props: {
 
   return (
     <main className={'flex max-w-3xl flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Counsel sign-off</h1>
-      <p className={'text-muted-foreground text-sm'}>
-        Choose which contracts need both sides&apos; counsel to approve the
-        exact version before it goes out for signature. Each deal starts with
-        these and a deal manager can change them on the deal.
-      </p>
+      <PageHeader
+        title={'Counsel sign-off'}
+        description={
+          "Choose which contracts need both sides' counsel to approve the exact version before it goes out for signature. Each deal starts with these and a deal manager can change them on the deal."
+        }
+      />
       <TeamReviewGate accountId={team.id} gates={{ loi, apa }} />
     </main>
   );

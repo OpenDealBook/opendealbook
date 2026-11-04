@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { NewDealForm } from '../../../_components/new-deal-form';
 import { loadTeamWorkspace } from '../../layout';
@@ -30,7 +31,7 @@ export default async function NewTeamDealPage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>New deal</h1>
+      <PageHeader title={'New deal'} />
       <NewDealForm
         accountId={team.id}
         detailBasePath={`/home/${account}/deals`}

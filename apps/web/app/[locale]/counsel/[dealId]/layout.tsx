@@ -9,6 +9,7 @@ import {
 import { dealDisplayName, outsideDealName } from '@odb/deals/shared';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageTitle } from '@odb/ui/page-header';
 
 import { ItemFocus } from '../../home/_components/item-focus';
 import { CounselNav } from './counsel-nav';
@@ -69,15 +70,11 @@ export default async function CounselPortalLayout({
           }
         >
           <div className={'flex min-w-0 flex-col gap-1'}>
-            <h1
-              className={
-                'font-serif text-3xl leading-tight font-medium text-balance'
-              }
-            >
+            <PageTitle>
               {sides.includes('buyer')
                 ? outsideDealName(deal)
                 : dealDisplayName(deal)}
-            </h1>
+            </PageTitle>
             <p className={'text-muted-foreground'}>
               {sides.map((side) => SIDE_LABEL[side]).join(', ')}
             </p>

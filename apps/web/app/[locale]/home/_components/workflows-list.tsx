@@ -1,7 +1,12 @@
 import Link from 'next/link';
 
+import { Archive, Workflow } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
 import type { Enums } from '@odb/supabase';
 import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
+import { EmptyState } from '@odb/ui/empty-state';
 import {
   Table,
   TableBody,
@@ -26,6 +31,52 @@ export interface WorkflowListRow {
   archived: boolean;
   publishedAt: string | null;
   lastRun: { status: RunStatus; startedAt: string } | null;
+}
+
+function NoWorkflows({
+  view,
+  canManage,
+  accountId,
+  basePath,
+}: {
+  view: 'active' | 'archived';
+  canManage: boolean;
+  accountId: string;
+  basePath: string;
+}) {
+  const t = useTranslations('empty');
+
+  if (view === 'archived') {
+    return (
+      <EmptyState
+        icon={Archive}
+        title={t('workflowsArchived.title')}
+        description={t('workflowsArchived.description')}
+        action={
+          <Button asChild variant={'outline'} size={'sm'}>
+            <Link href={basePath}>{t('workflowsArchived.action')}</Link>
+          </Button>
+        }
+      />
+    );
+  }
+
+  return (
+    <EmptyState
+      icon={Workflow}
+      title={t('workflows.title')}
+      description={
+        canManage
+          ? t('workflows.description')
+          : t('workflows.descriptionNoAccess')
+      }
+      action={
+        canManage ? (
+          <NewWorkflowForm accountId={accountId} basePath={basePath} />
+        ) : null
+      }
+    />
+  );
 }
 
 export function WorkflowsList({
@@ -66,19 +117,18 @@ export function WorkflowsList({
             </Link>
           ))}
         </nav>
-        {canManage ? (
+        {canManage && !(view === 'active' && workflows.length === 0) ? (
           <NewWorkflowForm accountId={accountId} basePath={basePath} />
         ) : null}
       </div>
 
       {workflows.length === 0 ? (
-        <p className={'text-muted-foreground rounded-md border p-6 text-sm'}>
-          {view === 'archived'
-            ? 'No archived workflows.'
-            : canManage
-              ? 'No workflows yet. Create one with New workflow.'
-              : 'No workflows yet. A workflows manager can create one.'}
-        </p>
+        <NoWorkflows
+          view={view}
+          canManage={canManage}
+          accountId={accountId}
+          basePath={basePath}
+        />
       ) : (
         <Table>
           <TableHeader>

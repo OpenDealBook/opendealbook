@@ -1,31 +1,13 @@
 import type { ReactNode } from 'react';
 
 import type { Metadata, Viewport } from 'next';
-import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from 'next/font/google';
 
+import { fontVariables } from '~/app/fonts';
 import { AnalyticsProvider } from '~/components/analytics-provider';
 import { AnalyticsRouteTracker } from '~/components/analytics-route-tracker';
 import { RootProviders } from '~/components/root-providers';
 import appConfig from '~/config/app.config';
 import '~/app/globals.css';
-
-const fontSerif = Newsreader({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-serif',
-});
-
-const fontSans = IBM_Plex_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
-});
-
-const fontMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-mono',
-});
 
 const description =
   'The deal platform for teams that grow by acquisition. Run pipeline, diligence, the data room, contracts, and closing in one place, with counsel, sellers, and brokers each in the right lane.';
@@ -70,9 +52,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang={appConfig.locale} suppressHydrationWarning>
-      <body
-        className={`${fontSerif.variable} ${fontSans.variable} ${fontMono.variable}`}
-      >
+      <body className={fontVariables}>
         <RootProviders>
           <AnalyticsProvider>
             <AnalyticsRouteTracker />

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 import { parseWorkflowGraph } from '@odb/workflows/builder/client';
 
 import {
@@ -119,13 +120,12 @@ export default async function ApprovalsPage(props: {
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
-      <div className={'flex flex-col gap-1'}>
-        <h1 className={'text-2xl font-semibold'}>Approvals</h1>
-        <p className={'text-muted-foreground text-sm'}>
-          Workflow steps and firm verdicts that wait for a deal manager. Nothing
-          here is decided automatically.
-        </p>
-      </div>
+      <PageHeader
+        title={'Approvals'}
+        description={
+          'Workflow steps and firm verdicts that wait for a deal manager. Nothing here is decided automatically.'
+        }
+      />
       <div className={'grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]'}>
         <ApprovalInbox
           accountId={team.id}

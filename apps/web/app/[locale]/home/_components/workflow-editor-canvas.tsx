@@ -212,7 +212,7 @@ function NodeErrorList(props: { nodeId: string }) {
   );
 
   return errors.length > 0 ? (
-    <ul role={'alert'} className={'pt-1 text-xs text-red-600'}>
+    <ul role={'alert'} className={'text-destructive pt-1 text-xs'}>
       {errors.map((error) => (
         <li key={error.message}>{error.message}</li>
       ))}
@@ -228,7 +228,7 @@ function StepNode(props: WorkflowNodeTemplateProps) {
   return (
     <div
       style={{ width: NODE_SIZE.width }}
-      className={`rounded-md border bg-white px-3 py-2 shadow-sm ${props.selected ? 'border-blue-500' : ''}`}
+      className={`bg-card text-card-foreground rounded-md border px-3 py-2 shadow-sm ${props.selected ? 'border-ring' : ''}`}
     >
       {(TRIGGER_TYPES as readonly string[]).includes(type) ? null : (
         <Handle
@@ -239,7 +239,7 @@ function StepNode(props: WorkflowNodeTemplateProps) {
       <p className={'text-sm font-medium'}>
         {props.label || NODE_TYPE_DISPLAY[type].label}
       </p>
-      <p className={'text-xs text-gray-500'}>
+      <p className={'text-muted-foreground text-xs'}>
         {props.description || NODE_TYPE_DISPLAY[type].description}
       </p>
       <NodeErrorList nodeId={props.id} />
@@ -262,7 +262,7 @@ function StepNode(props: WorkflowNodeTemplateProps) {
           >
             <span
               className={
-                'pointer-events-none absolute ml-3 text-[10px] text-gray-500'
+                'text-muted-foreground pointer-events-none absolute ml-3 text-[10px]'
               }
             >
               {handle}

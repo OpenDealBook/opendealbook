@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 import { listWorkbookTemplates, listWorkbooks } from '@odb/workbooks';
 
 import { loadTeamWorkspace } from '../../../layout';
@@ -35,7 +36,7 @@ export default async function DealWorkbooksPage({
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Workbooks</h1>
+      <PageHeader level={2} title={'Workbooks'} />
       <DealWorkbooks
         accountId={team.id}
         workbooks={workbooks.map((workbook) => ({

@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../../../layout';
 import { MeetingsManager } from './meetings-manager';
@@ -42,7 +43,7 @@ export default async function DealMeetingsPage({
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Meetings</h1>
+      <PageHeader level={2} title={'Meetings'} />
       <MeetingsManager
         accountId={team.id}
         dealId={id}

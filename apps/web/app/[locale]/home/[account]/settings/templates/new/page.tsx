@@ -1,3 +1,5 @@
+import { PageHeader } from '@odb/ui/page-header';
+
 import { loadTeamWorkspace } from '../../../layout';
 import { TemplateAuthoring } from '../_components/template-authoring';
 
@@ -13,7 +15,7 @@ export default async function NewTemplatePage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>New template</h1>
+      <PageHeader title={'New template'} />
       <TemplateAuthoring
         accountId={team.id}
         listHref={`/home/${account}/settings/templates`}

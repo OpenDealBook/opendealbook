@@ -1,6 +1,7 @@
 import type { DealBoxCriteria } from '@odb/deals/schema';
 import { fetchDealBox } from '@odb/deals/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { UnderwritingForm } from '../../_components/underwriting-form';
 import { loadTeamWorkspace } from '../layout';
@@ -20,7 +21,7 @@ export default async function TeamUnderwritingPage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Deal box</h1>
+      <PageHeader title={'Deal box'} />
       <UnderwritingForm
         accountId={team.id}
         criteria={(dealBox?.criteria_json ?? {}) as DealBoxCriteria}

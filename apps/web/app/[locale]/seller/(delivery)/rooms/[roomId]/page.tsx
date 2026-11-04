@@ -24,6 +24,7 @@ import {
   getSupabaseServerAdminClient,
   getSupabaseServerClient,
 } from '@odb/supabase/server';
+import { PageTitle } from '@odb/ui/page-header';
 
 import { SellerCounselFolder } from '../../../../counsel/[dealId]/seller-room/seller-counsel-folder';
 import { MainContacts } from '../../../../lender/[roomId]/main-contacts';
@@ -87,7 +88,7 @@ export default async function SellerRoomPage({
           />
         ) : null}
         <div>
-          <h1 className={'text-2xl font-semibold'}>Selling {room.deal_name}</h1>
+          <PageTitle>Selling {room.deal_name}</PageTitle>
           <p className={'text-muted-foreground text-sm'}>
             with {room.team_name}
           </p>

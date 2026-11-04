@@ -1,6 +1,7 @@
 import type { DealListGroup } from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../layout';
 import { loadPipelineReport } from './_lib/load-pipeline-report';
@@ -48,7 +49,7 @@ export default async function TeamReportsPage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Reports</h1>
+      <PageHeader title={'Reports'} />
 
       <section className={'grid grid-cols-2 gap-4 md:grid-cols-5'}>
         <Stat label={'Active deals'} value={report.activeTotal} />

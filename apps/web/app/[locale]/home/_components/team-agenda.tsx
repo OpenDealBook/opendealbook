@@ -1,6 +1,12 @@
 import Link from 'next/link';
 
+import { CalendarCheck } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+
 import { Badge } from '@odb/ui/badge';
+import { Button } from '@odb/ui/button';
+import { EmptyState } from '@odb/ui/empty-state';
+import { PageHeader } from '@odb/ui/page-header';
 
 import {
   AGENDA_SECTIONS,
@@ -106,6 +112,33 @@ function ScopeToggle({ wholeTeam }: { wholeTeam: boolean }) {
   );
 }
 
+function NothingNeedsYou({
+  account,
+  onlyMine,
+}: {
+  account: string;
+  onlyMine: boolean;
+}) {
+  const t = useTranslations('empty.agenda');
+
+  return (
+    <EmptyState
+      icon={CalendarCheck}
+      title={t('title')}
+      description={t('description')}
+      action={
+        <Button asChild variant={'outline'} size={'sm'}>
+          {onlyMine ? (
+            <Link href={'?scope=team'}>{t('teamAction')}</Link>
+          ) : (
+            <Link href={`/home/${account}/deals`}>{t('action')}</Link>
+          )}
+        </Button>
+      }
+    />
+  );
+}
+
 export function TeamAgenda(props: {
   account: string;
   rows: AgendaRow[];
@@ -119,15 +152,20 @@ export function TeamAgenda(props: {
 
   return (
     <div className={'flex max-w-5xl flex-col gap-8'}>
-      <div className={'flex flex-wrap items-center justify-between gap-4'}>
-        <h1 className={'text-2xl font-semibold'}>Today</h1>
-        {props.wholeTeam === null ? null : (
-          <ScopeToggle wholeTeam={props.wholeTeam} />
-        )}
-      </div>
+      <PageHeader
+        title={'Today'}
+        actions={
+          props.wholeTeam === null ? null : (
+            <ScopeToggle wholeTeam={props.wholeTeam} />
+          )
+        }
+      />
 
       {sections.length === 0 ? (
-        <p className={'text-muted-foreground'}>Nothing needs you today.</p>
+        <NothingNeedsYou
+          account={props.account}
+          onlyMine={props.wholeTeam === false}
+        />
       ) : null}
 
       {sections.map((group) => (

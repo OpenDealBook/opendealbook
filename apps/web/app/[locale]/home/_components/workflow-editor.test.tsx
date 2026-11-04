@@ -344,7 +344,11 @@ it('is view only under the tablet breakpoint', async () => {
 it('shows the name as a heading with no rename field', async () => {
   await open();
 
-  expect(document.querySelector('h1')?.textContent).toBe('New deal alert');
+  expect(
+    [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(
+      (heading) => heading.textContent,
+    ),
+  ).toContain('New deal alert');
   expect(
     document.querySelector('input[aria-label="Workflow name"]'),
   ).toBeNull();

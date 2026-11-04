@@ -171,9 +171,9 @@ export function WorkflowEditor(props: {
         <Button asChild variant={'ghost'} size={'sm'}>
           <Link href={props.workflowPath}>Back to workflow</Link>
         </Button>
-        <h1 className={'truncate text-base font-semibold'}>
+        <h2 className={'truncate text-base font-semibold'}>
           {props.workflowName}
-        </h1>
+        </h2>
         <details className={'relative'}>
           <summary
             className={

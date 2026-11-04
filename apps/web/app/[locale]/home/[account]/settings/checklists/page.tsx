@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../../layout';
 import { ChecklistEditor } from './_components/checklist-editor';
@@ -23,7 +24,7 @@ export default async function ChecklistsPage({ params }: ChecklistsPageProps) {
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Checklist templates</h1>
+      <PageHeader title={'Checklist templates'} />
       <ChecklistEditor
         accountId={team.id}
         canManage={permissions.includes('checklists.manage')}

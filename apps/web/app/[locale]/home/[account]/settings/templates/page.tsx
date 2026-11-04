@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import type { TemplateType } from '@odb/templates';
 import { Button } from '@odb/ui/button';
+import { PageHeader } from '@odb/ui/page-header';
 import {
   Table,
   TableBody,
@@ -51,17 +52,19 @@ export default async function TemplatesPage({ params }: TemplatesPageProps) {
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <div className={'flex items-center justify-between'}>
-        <h1 className={'text-2xl font-semibold'}>Document templates</h1>
-        <div className={'flex gap-2'}>
-          <Button asChild variant={'outline'}>
-            <Link href={`${base}/generate`}>Generate document</Link>
-          </Button>
-          <Button asChild>
-            <Link href={`${base}/new`}>New template</Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={'Document templates'}
+        actions={
+          <>
+            <Button asChild variant={'outline'}>
+              <Link href={`${base}/generate`}>Generate document</Link>
+            </Button>
+            <Button asChild>
+              <Link href={`${base}/new`}>New template</Link>
+            </Button>
+          </>
+        }
+      />
 
       <Table>
         <TableHeader>

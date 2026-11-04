@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+import { Calculator } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 import {
   adoptCalcVersion,
@@ -30,6 +33,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@odb/ui/dropdown-menu';
+import { EmptyState } from '@odb/ui/empty-state';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
 import {
   Table,
   TableBody,
@@ -39,7 +44,7 @@ import {
   TableRow,
 } from '@odb/ui/table';
 
-import { TYPE_LABELS, money, ratio, versionName } from './calc-shared';
+import { TYPE_LABELS, versionName } from './calc-shared';
 import { useRefusableAction } from './use-refusable-action';
 
 type CalcVersion = Tables<'calc_version'>;
@@ -51,20 +56,51 @@ interface Snapshot {
   working_capital?: number;
 }
 
-function keyOutputs(version: CalcVersion): string {
+function keyOutputs(version: CalcVersion): ReactNode {
   const snapshot = version.outputs_snapshot as unknown as Snapshot;
   if (version.type === 'sde') {
-    return `Weighted SDE ${money(snapshot.weighted_sde ?? null)}`;
+    return (
+      <>
+        Weighted SDE{' '}
+        <FigureValue
+          calculated
+          value={snapshot.weighted_sde ?? null}
+          format={'money'}
+        />
+      </>
+    );
   }
   if (version.type === 'deal') {
-    return `DSCR ${ratio(snapshot.dscr ?? null)} · Purchase multiple incl. closing costs ${ratio(
-      snapshot.purchase_multiple ?? null,
-    )}`;
+    return (
+      <>
+        DSCR{' '}
+        <FigureValue
+          calculated
+          value={snapshot.dscr ?? null}
+          format={'ratio'}
+        />{' '}
+        · Purchase multiple incl. closing costs{' '}
+        <FigureValue
+          calculated
+          value={snapshot.purchase_multiple ?? null}
+          format={'multiple'}
+        />
+      </>
+    );
   }
   if (version.type === 'working_capital') {
-    return `Working capital ${money(snapshot.working_capital ?? null)}`;
+    return (
+      <>
+        Working capital{' '}
+        <FigureValue
+          calculated
+          value={snapshot.working_capital ?? null}
+          format={'money'}
+        />
+      </>
+    );
   }
-  return 'n/a';
+  return <MissingValue calculated />;
 }
 
 function adoptable(version: CalcVersion): boolean {
@@ -73,10 +109,30 @@ function adoptable(version: CalcVersion): boolean {
   );
 }
 
+function NoCalculators({
+  newButtons,
+  canCreate,
+}: {
+  newButtons: ReactNode;
+  canCreate: boolean;
+}) {
+  const t = useTranslations('empty.calculators');
+
+  return (
+    <EmptyState
+      icon={Calculator}
+      title={t('title')}
+      description={canCreate ? t('description') : t('descriptionNoAccess')}
+      action={canCreate ? newButtons : null}
+    />
+  );
+}
+
 export function CalculatorsPanel(props: {
   dealId: string;
   versions: CalcVersion[];
   canManage: boolean;
+  canCreate: boolean;
   calcsHref: string;
 }) {
   const router = useRouter();
@@ -95,45 +151,43 @@ export function CalculatorsPanel(props: {
     );
   }
 
+  const newButtons = (
+    <>
+      <Button size={'sm'} disabled={pending} onClick={() => newVersion('sde')}>
+        New SDE
+      </Button>
+      <Button size={'sm'} disabled={pending} onClick={() => newVersion('deal')}>
+        New Deal
+      </Button>
+      <Button
+        size={'sm'}
+        disabled={pending}
+        onClick={() => newVersion('working_capital')}
+      >
+        New Working capital
+      </Button>
+    </>
+  );
+
   return (
     <div className={'flex flex-col gap-4'}>
-      <div className={'flex flex-wrap gap-2'}>
-        <Button
-          size={'sm'}
-          disabled={pending}
-          onClick={() => newVersion('sde')}
-        >
-          New SDE
-        </Button>
-        <Button
-          size={'sm'}
-          disabled={pending}
-          onClick={() => newVersion('deal')}
-        >
-          New Deal
-        </Button>
-        <Button
-          size={'sm'}
-          disabled={pending}
-          onClick={() => newVersion('working_capital')}
-        >
-          New Working capital
-        </Button>
-      </div>
+      {props.canCreate && props.versions.length > 0 ? (
+        <div className={'flex flex-wrap gap-2'}>{newButtons}</div>
+      ) : null}
       {refusal ? (
         <p role={'alert'} className={'text-destructive text-sm'}>
           {refusal}
         </p>
       ) : null}
 
-      {props.canManage ? null : (
+      {props.canManage || props.versions.length === 0 ? null : (
         <p className={'text-muted-foreground text-sm'}>
           Only deal managers can mark a calc primary or adopt it.
         </p>
       )}
 
       {props.versions.length === 0 ? (
-        <p className={'text-muted-foreground text-sm'}>No calculators yet</p>
+        <NoCalculators newButtons={newButtons} canCreate={props.canCreate} />
       ) : (
         <div className={'overflow-x-auto'}>
           <Table>

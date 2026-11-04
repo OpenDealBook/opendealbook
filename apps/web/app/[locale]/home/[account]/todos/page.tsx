@@ -1,5 +1,6 @@
 import { fetchMyTodos } from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { ItemFocus } from '../../_components/item-focus';
 import { MyTodosView } from '../../_components/my-todos-view';
@@ -18,7 +19,7 @@ export default async function TeamTodosPage({ params }: TeamTodosPageProps) {
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>My to-dos</h1>
+      <PageHeader title={'My to-dos'} />
       <ItemFocus />
       <MyTodosView
         data={data}

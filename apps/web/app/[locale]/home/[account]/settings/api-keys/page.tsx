@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { ApiKeysManager } from '@odb/api/components';
 import { listApiKeys } from '@odb/api/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../../layout';
 
@@ -23,7 +24,7 @@ export default async function TeamApiKeysPage({
 
   return (
     <main className={'flex flex-col gap-8 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>API keys</h1>
+      <PageHeader title={'API keys'} />
       <ApiKeysManager accountId={team.id} initialKeys={initialKeys} />
     </main>
   );

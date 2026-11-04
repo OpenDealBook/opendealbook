@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { getLocale } from 'next-intl/server';
+
 import { headerFacts } from '@odb/lender-rooms/browser/header-facts.ts';
+import {
+  CloseByDate,
+  LoanAskFigures,
+} from '@odb/lender-rooms/browser/loan-facts.tsx';
 import { PurgeUnfinishedUploads } from '@odb/lender-rooms/browser/purge-unfinished-uploads.tsx';
 import { LenderNameForm } from '@odb/lender-rooms/members/lender-name-form.tsx';
 import {
@@ -14,6 +20,7 @@ import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import { Input } from '@odb/ui/input';
+import { PageTitle } from '@odb/ui/page-header';
 
 import { PhonePrompt } from '../_components/phone-prompt';
 
@@ -24,6 +31,7 @@ export default async function LenderRoomsPage({
 }) {
   const { q = '' } = await searchParams;
   const client = getSupabaseServerClient();
+  const locale = await getLocale();
 
   if (!(await isSignedIn(client))) {
     redirect('/lender/sign-in');
@@ -74,7 +82,7 @@ export default async function LenderRoomsPage({
       />
 
       <header className={'flex flex-col gap-2'}>
-        <h1 className={'text-2xl font-semibold'}>Your lender rooms</h1>
+        <PageTitle>Your lender rooms</PageTitle>
         <p className={'text-muted-foreground text-sm'}>
           Signed in as {name ?? user!.email}
         </p>
@@ -123,11 +131,16 @@ export default async function LenderRoomsPage({
                     {facts.buyerTeam}
                   </p>
                 ) : null}
-                {facts.loanAsk ? (
-                  <p className={'text-sm tabular-nums'}>{facts.loanAsk}</p>
+                {facts.loan ? (
+                  <p className={'text-sm tabular-nums'}>
+                    <LoanAskFigures loan={facts.loan} />
+                  </p>
                 ) : null}
                 {facts.closeBy ? (
-                  <p className={'text-sm'}>Close by {facts.closeBy}</p>
+                  <p className={'text-sm'}>
+                    Close by{' '}
+                    <CloseByDate isoDate={facts.closeBy} locale={locale} />
+                  </p>
                 ) : null}
                 <p className={'text-muted-foreground text-xs'}>
                   Prepared for {facts.lenderName}

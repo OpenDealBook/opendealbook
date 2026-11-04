@@ -16,6 +16,7 @@ import {
 } from '@odb/seller-rooms/members/entry-rules.ts';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { ContractList } from '../../../../../counsel/[dealId]/contracts/contract-list';
 import { versionReviews } from '../../../../../counsel/[dealId]/contracts/version-reviews';
@@ -104,10 +105,14 @@ export default async function SellerRoomContractsPage({
 
   return (
     <main className={'flex flex-col gap-6'}>
-      <Link className={'text-sm underline'} href={sellerRoomPath(roomId)}>
-        Back to the room
-      </Link>
-      <h1 className={'text-2xl font-semibold'}>Contracts</h1>
+      <PageHeader
+        eyebrow={
+          <Link className={'underline'} href={sellerRoomPath(roomId)}>
+            Back to the room
+          </Link>
+        }
+        title={'Contracts'}
+      />
       {readOnlyReason ? (
         <p className={'text-muted-foreground'}>{readOnlyReason}</p>
       ) : null}

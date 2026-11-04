@@ -1,11 +1,11 @@
 'use client';
 
+import { PageTitle } from '@odb/ui/page-header';
+
 export default function LenderError() {
   return (
     <main className={'flex flex-col gap-3'}>
-      <h1 className={'text-2xl font-semibold'}>
-        This page could not be loaded
-      </h1>
+      <PageTitle>This page could not be loaded</PageTitle>
       <p>
         <a className={'inline-block py-1 underline'} href={''}>
           Reload the page

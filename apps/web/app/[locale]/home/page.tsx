@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Card, CardHeader, CardTitle } from '@odb/ui/card';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { resolveTeamLanding } from './_lib/team-landing';
 
@@ -25,7 +26,7 @@ export default async function HomeLandingPage() {
 
   return (
     <main className={'mx-auto flex max-w-3xl flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Choose a team</h1>
+      <PageHeader title={'Choose a team'} />
 
       <div className={'grid gap-4 sm:grid-cols-2'}>
         {landing.teams.map((team) => (

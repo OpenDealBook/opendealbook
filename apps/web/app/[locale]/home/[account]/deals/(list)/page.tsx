@@ -1,5 +1,7 @@
-import { DealsList } from '../../_components/deals-list';
-import { loadTeamWorkspace } from '../layout';
+import { PageHeader } from '@odb/ui/page-header';
+
+import { DealsList } from '../../../_components/deals-list';
+import { loadTeamWorkspace } from '../../layout';
 
 interface TeamDealsPageProps {
   params: Promise<{ locale: string; account: string }>;
@@ -11,15 +13,16 @@ export default async function TeamDealsPage({
   searchParams,
 }: TeamDealsPageProps) {
   const { account } = await params;
-  const { team, isOwner } = await loadTeamWorkspace(account);
+  const { team, isOwner, permissions } = await loadTeamWorkspace(account);
   const resolvedSearchParams = await searchParams;
 
   return (
     <main className={'flex flex-col gap-6 p-4 md:p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Deals</h1>
+      <PageHeader title={'Deals'} />
       <DealsList
         accountId={team.id}
         isOwner={isOwner}
+        canCreate={permissions.includes('deals.create')}
         searchParams={resolvedSearchParams}
         detailBasePath={`/home/${account}/deals`}
       />

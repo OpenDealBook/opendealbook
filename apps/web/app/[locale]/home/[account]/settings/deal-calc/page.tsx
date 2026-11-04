@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadDealCalcDefaults } from '../../../_lib/deal-calc-defaults';
 import { loadTeamWorkspace } from '../../layout';
@@ -20,7 +21,7 @@ export default async function DealCalcDefaultsPage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Deal calc defaults</h1>
+      <PageHeader title={'Deal calc defaults'} />
       <DealCalcDefaultsForm
         accountId={team.id}
         defaults={defaults}

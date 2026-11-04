@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useFormatter, useTranslations } from 'next-intl';
 
 import { Button } from '@odb/ui/button';
+import { PageHeader } from '@odb/ui/page-header';
 import {
   Select,
   SelectContent,
@@ -116,7 +117,7 @@ export function AiHome({
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
-      <h1 className={'text-2xl font-semibold'}>{t('title')}</h1>
+      <PageHeader title={t('title')} />
       <div
         className={
           'grid gap-6 xl:grid-cols-[18rem_minmax(0,1fr)] xl:items-start'

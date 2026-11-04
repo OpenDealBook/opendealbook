@@ -1,4 +1,5 @@
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { WorkflowsList } from '../../_components/workflows-list';
 import { loadTeamWorkspace } from '../layout';
@@ -36,7 +37,7 @@ export default async function TeamWorkflowsPage({
 
   return (
     <main className={'flex flex-col gap-6 p-4 md:p-8'}>
-      <h1 className={'font-serif text-2xl font-medium'}>Workflows</h1>
+      <PageHeader title={'Workflows'} />
       <WorkflowsList
         view={view}
         canManage={permissions.includes('workflows.manage')}

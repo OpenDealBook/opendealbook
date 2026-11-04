@@ -46,7 +46,9 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   await expect(page).toHaveURL(new RegExp(`/home/${slug}(/|$)`));
 
   await page.goto(`/home/${slug}/deals`);
-  await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Deals' }),
+  ).toBeVisible();
   const examplesFilter = page.getByRole('checkbox', {
     name: /^Examples \(4\)$/,
   });
@@ -66,7 +68,7 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   await expect(page.getByText('Example', { exact: true })).toHaveCount(0);
 
   const dealName = `Zephyr Advisory ${Date.now()}`;
-  await page.getByRole('link', { name: 'New deal' }).click();
+  await page.getByRole('link', { name: 'New deal' }).first().click();
   await expect(page).toHaveURL(new RegExp(`/home/${slug}/deals/new$`));
   const { dealId } = await createDeal(page, slug, dealName);
 
@@ -129,7 +131,7 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
     });
   }).toPass({ timeout: 60 * 1000 });
   await expect(
-    page.getByRole('heading', { name: /^SDE v\d+, /, level: 1 }),
+    page.getByRole('heading', { name: /^SDE v\d+, /, level: 2 }),
   ).toBeVisible();
 
   await sdeRow(page, 'Sales').getByRole('textbox').fill('1000000');
@@ -141,12 +143,12 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
     .fill('7676');
 
   // (1,000,000 - 400,000 - 300,000) + 200,000 + 7,676 = 507,676
-  await expect(page.getByText('$507,676').first()).toBeVisible();
+  await expect(page.getByTitle('$507,676').first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Saved', { exact: true })).toBeVisible();
   await page.goto(`/home/${slug}/deals/${dealId}/financials`);
-  await expect(page.getByText('Weighted SDE $507,676')).toBeVisible();
+  await expect(page.getByText('Weighted SDE $507.68K')).toBeVisible();
 
   await expect(page.getByText('No financials adopted yet')).toBeVisible();
   await calcRowAction(
@@ -157,7 +159,7 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   await expect(page.getByText('No financials adopted yet')).toHaveCount(0, {
     timeout: 30 * 1000,
   });
-  await expect(page.getByText('$507,676').first()).toBeVisible();
+  await expect(page.getByTitle('$507,676').first()).toBeVisible();
 
   await page.goto(`/home/${slug}/deals/${dealId}/diligence`);
   await page.getByPlaceholder('New item title').fill('Confirm financials');
@@ -182,7 +184,8 @@ test('full deal flow: onboard, create, advance, offer, calc, checklist, resolve,
   ).toHaveValue('clean');
 
   await page.goto(`/home/${slug}/deals/${dealId}`);
-  await page.getByRole('button', { name: 'Mark won' }).click();
+  await page.getByRole('button', { name: 'More deal actions' }).click();
+  await page.getByRole('menuitem', { name: 'Mark won' }).click();
   await expect(page.getByText('Won (closed)').first()).toBeVisible({
     timeout: 30 * 1000,
   });

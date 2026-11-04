@@ -15,6 +15,7 @@ import {
 } from '@odb/seller-rooms/members/entry-rules.ts';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { SellerCounselThread } from './seller-counsel-thread';
 
@@ -74,10 +75,14 @@ export default async function SellerCounselThreadPage({
 
   return (
     <main className={'flex max-w-3xl flex-col gap-6'}>
-      <Link className={'text-sm underline'} href={sellerRoomPath(roomId)}>
-        Back to the room
-      </Link>
-      <h1 className={'text-2xl font-semibold'}>Messages with your counsel</h1>
+      <PageHeader
+        eyebrow={
+          <Link className={'underline'} href={sellerRoomPath(roomId)}>
+            Back to the room
+          </Link>
+        }
+        title={'Messages with your counsel'}
+      />
       {side.counsel.length === 0 ? (
         <p className={'text-muted-foreground'}>
           Invite your counsel from the room page to start a private thread with

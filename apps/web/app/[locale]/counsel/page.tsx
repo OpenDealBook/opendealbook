@@ -9,6 +9,7 @@ import { loadCounselThread } from '@odb/deal-counsel/thread.ts';
 import { dealDisplayName, outsideDealName } from '@odb/deals/shared';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 import {
   Table,
   TableBody,
@@ -117,7 +118,7 @@ export default async function CounselDealsPage() {
 
   return (
     <main className={'flex flex-col gap-6'}>
-      <h1 className={'font-serif text-3xl font-medium'}>Your deals</h1>
+      <PageHeader title={'Your deals'} />
 
       {deals.length === 0 ? (
         <p className={'text-muted-foreground'}>You have no open deals.</p>

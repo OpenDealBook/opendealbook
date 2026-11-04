@@ -2,6 +2,9 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 
+import { Briefcase, ListFilter } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
+
 import {
   type DealListGroup,
   type DealListItem,
@@ -9,11 +12,13 @@ import {
   listDealsFaceted,
 } from '@odb/deals';
 import { listSavedViews } from '@odb/deals/server';
-import { multipleText } from '@odb/deals/shared';
 import { getSupabaseServerAdminClient } from '@odb/supabase/admin';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
+import { EmptyState } from '@odb/ui/empty-state';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
+import { StageChip } from '@odb/ui/stage-chip';
 import {
   Table,
   TableBody,
@@ -30,26 +35,74 @@ import {
   DEAL_COLUMNS,
   type DealColumnKey,
   type RawSearchParams,
+  DEAL_PARAM,
   hasActiveFilters,
   parseDealParams,
 } from './deals-search-params';
 import { DealsViewToggle } from './deals-view-toggle';
 import { SavedViewsBar } from './saved-views-bar';
 
-const COLUMN_CELLS: Record<DealColumnKey, (deal: DealListItem) => ReactNode> = {
-  stage: (deal) => deal.stageLabel ?? deal.stage,
-  resolution: (deal) => resolutionLabel(deal.resolution, deal.resolutionReason),
-  asking: (deal) => formatCurrency(deal.askingPrice),
-  offer: (deal) => formatCurrency(deal.yourOffer),
-  revenue: (deal) => formatCurrency(deal.revenue),
-  sde: (deal) => formatCurrency(deal.sde),
-  multiple: (deal) =>
-    deal.multiple === null ? 'Not disclosed' : multipleText(deal.multiple),
-  margin: (deal) =>
-    deal.margin === null ? null : (
-      <Badge variant={'outline'}>{Math.round(deal.margin * 100)}%</Badge>
+const COLUMN_CELLS: Record<
+  DealColumnKey,
+  { numeric: boolean; cell: (deal: DealListItem) => ReactNode }
+> = {
+  stage: {
+    numeric: false,
+    cell: (deal) => (
+      <StageChip
+        stage={deal.stage}
+        lost={deal.resolution === 'lost'}
+        className={
+          deal.archivedAt === null
+            ? undefined
+            : 'bg-muted text-muted-foreground'
+        }
+      >
+        {deal.stageLabel ?? deal.stage}
+      </StageChip>
     ),
-  days: (deal) => deal.daysInStage ?? '',
+  },
+  resolution: {
+    numeric: false,
+    cell: (deal) => resolutionLabel(deal.resolution, deal.resolutionReason),
+  },
+  asking: {
+    numeric: true,
+    cell: (deal) => <FigureValue value={deal.askingPrice} format={'money'} />,
+  },
+  offer: {
+    numeric: true,
+    cell: (deal) => <FigureValue value={deal.yourOffer} format={'money'} />,
+  },
+  revenue: {
+    numeric: true,
+    cell: (deal) => <FigureValue value={deal.revenue} format={'money'} />,
+  },
+  sde: {
+    numeric: true,
+    cell: (deal) => <FigureValue value={deal.sde} format={'money'} />,
+  },
+  multiple: {
+    numeric: true,
+    cell: (deal) => (
+      <FigureValue value={deal.multiple} format={'multiple'} calculated />
+    ),
+  },
+  margin: {
+    numeric: true,
+    cell: (deal) =>
+      deal.margin === null ? (
+        <MissingValue calculated />
+      ) : (
+        <Badge variant={'outline'}>
+          <FigureValue value={deal.margin} format={'percent'} />
+        </Badge>
+      ),
+  },
+  days: {
+    numeric: true,
+    cell: (deal) => deal.daysInStage ?? <MissingValue calculated />,
+  },
 };
 
 const GROUP_ORDER: { group: DealListGroup; label: string }[] = [
@@ -70,16 +123,6 @@ const LISTING_STATUS_LABELS: Record<string, string> = {
   pulled: 'Pulled',
   sold: 'Sold',
 };
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-function formatCurrency(value: number | null): string {
-  return value === null ? 'Not disclosed' : currency.format(value);
-}
 
 function resolutionLabel(
   resolution: string | null,
@@ -135,14 +178,28 @@ function nextPageHref(params: RawSearchParams, cursor: string): string {
   return `?${query.toString()}`;
 }
 
+function clearedFiltersHref(params: RawSearchParams, basePath: string): string {
+  const query = new URLSearchParams();
+  for (const key of [DEAL_PARAM.view, DEAL_PARAM.sort]) {
+    const value = params[key];
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (raw !== undefined) {
+      query.set(key, raw);
+    }
+  }
+  return query.size > 0 ? `${basePath}?${query.toString()}` : basePath;
+}
+
 export async function DealsList({
   accountId,
   isOwner,
+  canCreate,
   searchParams,
   detailBasePath,
 }: {
   accountId: string;
   isOwner: boolean;
+  canCreate: boolean;
   searchParams: RawSearchParams;
   detailBasePath: string;
 }) {
@@ -165,7 +222,8 @@ export async function DealsList({
     ),
   ];
 
-  const [savedViews, { data: owners }] = await Promise.all([
+  const [t, savedViews, { data: owners }] = await Promise.all([
+    getTranslations('empty'),
     listSavedViews({ account_id: accountId }),
     // Service role: teammates cannot read each other's personal accounts, and
     // these ids come from deals the caller was already allowed to read.
@@ -241,42 +299,57 @@ export async function DealsList({
           <SavedViewsBar views={savedViews} accountId={accountId} view={view} />
           <div className={'flex items-center gap-2'}>
             <DealsViewToggle view={view} />
-            <Button asChild size={'sm'}>
-              <Link href={`${detailBasePath}/new`}>New deal</Link>
-            </Button>
+            {canCreate ? (
+              <Button asChild size={'sm'}>
+                <Link href={`${detailBasePath}/new`}>New deal</Link>
+              </Button>
+            ) : null}
           </div>
         </div>
 
         {result.items.length === 0 ? (
-          <p className={'text-muted-foreground text-sm'}>
-            {hasActiveFilters(searchParams) ? 'No deals match' : 'No deals yet'}
-          </p>
+          hasActiveFilters(searchParams) ? (
+            <EmptyState
+              icon={ListFilter}
+              title={t('dealsFiltered.title')}
+              description={t('dealsFiltered.description')}
+              action={
+                <Button asChild variant={'outline'} size={'sm'}>
+                  <Link href={clearedFiltersHref(searchParams, detailBasePath)}>
+                    {t('dealsFiltered.action')}
+                  </Link>
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={Briefcase}
+              title={t('deals.title')}
+              description={
+                canCreate
+                  ? t('deals.description')
+                  : t('deals.descriptionNoAccess')
+              }
+              action={
+                canCreate ? (
+                  <Button asChild size={'sm'}>
+                    <Link href={`${detailBasePath}/new`}>
+                      {t('deals.action')}
+                    </Link>
+                  </Button>
+                ) : null
+              }
+            />
+          )
         ) : (
           <>
             {view === 'table' ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    {columns.map((column) => (
-                      <TableHead key={column.key}>{column.label}</TableHead>
-                    ))}
-                    <TableHead />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {grouped.map((section) => (
-                    <GroupSection
-                      key={section.group}
-                      label={section.label}
-                      items={section.items}
-                      columns={columns}
-                      isOwner={isOwner}
-                      detailBasePath={detailBasePath}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
+              <DealsTable
+                sections={grouped}
+                columns={columns}
+                isOwner={isOwner}
+                detailBasePath={detailBasePath}
+              />
             ) : (
               <div className={'flex flex-col gap-6'}>
                 {grouped.map((section) => (
@@ -328,6 +401,49 @@ export async function DealsList({
   );
 }
 
+export function DealsTable({
+  sections,
+  columns,
+  isOwner,
+  detailBasePath,
+}: {
+  sections: { group: DealListGroup; label: string; items: DealListItem[] }[];
+  columns: readonly { key: DealColumnKey; label: string }[];
+  isOwner: boolean;
+  detailBasePath: string;
+}) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Title</TableHead>
+          {columns.map((column) => (
+            <TableHead
+              key={column.key}
+              numeric={COLUMN_CELLS[column.key].numeric}
+            >
+              {column.label}
+            </TableHead>
+          ))}
+          <TableHead />
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {sections.map((section) => (
+          <GroupSection
+            key={section.group}
+            label={section.label}
+            items={section.items}
+            columns={columns}
+            isOwner={isOwner}
+            detailBasePath={detailBasePath}
+          />
+        ))}
+      </TableBody>
+    </Table>
+  );
+}
+
 function GroupSection({
   label,
   items,
@@ -352,7 +468,10 @@ function GroupSection({
         </TableCell>
       </TableRow>
       {items.map((deal) => (
-        <TableRow key={deal.id}>
+        <TableRow
+          key={deal.id}
+          className={deal.archivedAt === null ? undefined : 'bg-muted/40'}
+        >
           <TableCell className={'flex items-center gap-2'}>
             <Link
               href={`${detailBasePath}/${deal.id}`}
@@ -363,10 +482,16 @@ function GroupSection({
             {deal.isExample ? (
               <Badge variant={'secondary'}>Example</Badge>
             ) : null}
+            {deal.archivedAt === null ? null : (
+              <Badge variant={'outline'}>Archived</Badge>
+            )}
           </TableCell>
           {columns.map((column) => (
-            <TableCell key={column.key}>
-              {COLUMN_CELLS[column.key](deal)}
+            <TableCell
+              key={column.key}
+              numeric={COLUMN_CELLS[column.key].numeric}
+            >
+              {COLUMN_CELLS[column.key].cell(deal)}
             </TableCell>
           ))}
           <TableCell>

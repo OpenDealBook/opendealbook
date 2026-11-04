@@ -1,6 +1,7 @@
 import { loadOutreachTemplate } from '@odb/lender-outreach/template.ts';
 import { fetchQuietDays } from '@odb/lender-rooms/crm/nudges/nudges.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { GatedControl } from '../../../_components/gated-control';
 import {
@@ -23,7 +24,7 @@ export default async function LenderSettingsPage(props: {
 
   return (
     <main className={'flex max-w-3xl flex-col gap-10 p-8'}>
-      <h1 className={'text-2xl font-semibold'}>Lender settings</h1>
+      <PageHeader title={'Lender settings'} />
       <GatedControl
         allowed={permissions.includes('deals.manage')}
         reason={'Only deal managers can change lender settings.'}

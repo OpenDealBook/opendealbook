@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { fetchDealCalcVersions } from '@odb/deals';
 import { fetchCalcVersion, fetchDealBox } from '@odb/deals/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { CalcCompare } from '../../../../../../_components/calc-compare';
 import { loadDealCalcDefaults } from '../../../../../../_lib/deal-calc-defaults';
@@ -50,17 +51,18 @@ export default async function TeamDealCalcComparePage({
 
   return (
     <main className={'flex min-w-0 flex-col gap-6 p-4 md:p-8'}>
-      <div className={'flex flex-col gap-2'}>
-        <Link
-          href={`/home/${account}/deals/${id}/financials`}
-          className={
-            'text-muted-foreground hover:text-foreground w-fit text-sm'
-          }
-        >
-          Back to Financials
-        </Link>
-        <h1 className={'text-xl font-semibold'}>Compare versions</h1>
-      </div>
+      <PageHeader
+        eyebrow={
+          <Link
+            href={`/home/${account}/deals/${id}/financials`}
+            className={'hover:text-foreground w-fit'}
+          >
+            Back to Financials
+          </Link>
+        }
+        level={2}
+        title={'Compare versions'}
+      />
       <CalcCompare
         a={detailA}
         b={detailB}

@@ -1,6 +1,7 @@
 import type { QueryData } from '@supabase/supabase-js';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { type LeadRow, LeadsPipeline } from '../../_components/leads-pipeline';
 import { parseLeadParams } from '../../_components/leads-search-params';
@@ -158,13 +159,12 @@ export default async function LeadsPage({
 
   return (
     <main className={'flex min-w-0 flex-col gap-8 p-4 md:p-8'}>
-      <div className={'flex flex-col gap-1'}>
-        <h1 className={'font-serif text-2xl font-medium'}>Leads</h1>
-        <p className={'text-muted-foreground max-w-prose text-sm'}>
-          Firms your workflows pulled from public records, with what the team
-          has learned about each and where its outreach stands.
-        </p>
-      </div>
+      <PageHeader
+        title={'Leads'}
+        description={
+          'Firms your workflows pulled from public records, with what the team has learned about each and where its outreach stands.'
+        }
+      />
       <section className={'flex min-w-0 flex-col gap-4'}>
         <h2 className={'text-lg font-semibold'}>Pipeline</h2>
         <LeadsPipeline

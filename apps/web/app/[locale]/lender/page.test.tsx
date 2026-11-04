@@ -47,6 +47,7 @@ const rpcResults = vi.hoisted(() => ({
   ],
 }));
 
+vi.mock('next-intl/server', () => ({ getLocale: async () => 'en' }));
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({
     auth: {
@@ -132,8 +133,8 @@ describe('the lender rooms page', () => {
 
     expect(text).toContain('Project Harbor');
     expect(text).toContain('Harbor Acquisitions');
-    expect(text).toContain('$2,240,000 SBA 7(a), 10-year term');
-    expect(text).toContain('Close by March 31, 2027');
+    expect(text).toContain('$2.24M SBA 7(a), 10-year term');
+    expect(text).toContain('Close by Mar 31, 2027');
     expect(text).toContain('3 new since your last visit');
     expect(text).toContain('1 answered, your turn');
     expect(text).toContain('Open');

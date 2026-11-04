@@ -8,6 +8,7 @@ import { loadBuyerProfile } from '@odb/buyer-profile/server';
 import { buyerProfilePhotoSignedUrl } from '@odb/buyer-profile/storage';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Button } from '@odb/ui/button';
+import { PageHeader } from '@odb/ui/page-header';
 
 import { loadTeamWorkspace } from '../../layout';
 import { BuyerProfileForm } from './_components/buyer-profile-form';
@@ -66,16 +67,18 @@ export default async function BuyerProfilePage({
 
   return (
     <main className={'flex flex-col gap-6 p-8'}>
-      <div className={'flex items-center justify-between'}>
-        <h1 className={'text-2xl font-semibold'}>Buyer profile</h1>
-        {profile ? (
-          <Button asChild variant={'outline'}>
-            <a href={`/home/${account}/settings/buyer-profile/pdf`}>
-              Download PDF
-            </a>
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title={'Buyer profile'}
+        actions={
+          profile ? (
+            <Button asChild variant={'outline'}>
+              <a href={`/home/${account}/settings/buyer-profile/pdf`}>
+                Download PDF
+              </a>
+            </Button>
+          ) : null
+        }
+      />
 
       <BuyerProfileForm accountId={team.id} initial={initial} />
     </main>

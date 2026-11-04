@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 
+import { NextIntlClientProvider } from 'next-intl';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import messages from '../../../../messages/en.json';
 
 vi.mock('../[account]/workflows/actions', () => ({
   setWorkflowEnabled: vi.fn(),
@@ -44,14 +47,16 @@ function render(
 ): HTMLDivElement {
   act(() =>
     root.render(
-      <WorkflowsList
-        workflows={[published, draft]}
-        view={'active'}
-        canManage={true}
-        accountId={'00000000-0000-4000-8000-0000000000a1'}
-        basePath={'/home/team-one/workflows'}
-        {...props}
-      />,
+      <NextIntlClientProvider locale={'en'} messages={messages}>
+        <WorkflowsList
+          workflows={[published, draft]}
+          view={'active'}
+          canManage={true}
+          accountId={'00000000-0000-4000-8000-0000000000a1'}
+          basePath={'/home/team-one/workflows'}
+          {...props}
+        />
+      </NextIntlClientProvider>,
     ),
   );
 
@@ -153,28 +158,43 @@ describe('WorkflowsList', () => {
     expect(container.querySelectorAll('button')).toHaveLength(0);
   });
 
-  it('offers New workflow to a manager, even when the team has none yet', () => {
+  it('offers New workflow to a manager in the empty state, and only there, when the team has none yet', () => {
     render({ workflows: [] });
 
+    const empty = container.querySelector('[data-slot="empty-state"]')!;
     expect(container.querySelector('table')).toBeNull();
-    expect(container.textContent).toContain(
-      'No workflows yet. Create one with New workflow.',
+    expect(empty.querySelector('h2')!.textContent).toBe(
+      messages.empty.workflows.title,
     );
+    expect(
+      empty.querySelector('input[aria-label="Workflow name"]'),
+    ).not.toBeNull();
+    expect(buttonsIn(empty)).toEqual(['New workflow']);
     expect(buttonsIn(container)).toEqual(['New workflow']);
   });
 
-  it('tells a member without workflows.manage that a manager creates workflows', () => {
+  it('tells a member without workflows.manage to ask a teammate, with nothing to create', () => {
     render({ workflows: [], canManage: false });
 
-    expect(container.textContent).toContain(
-      'No workflows yet. A workflows manager can create one.',
+    const empty = container.querySelector('[data-slot="empty-state"]')!;
+    expect(empty.querySelector('h2')!.textContent).toBe(
+      messages.empty.workflows.title,
+    );
+    expect(empty.textContent).toContain(
+      messages.empty.workflows.descriptionNoAccess,
     );
     expect(buttonsIn(container)).toEqual([]);
   });
 
-  it('says when nothing is archived', () => {
+  it('says when nothing is archived and links back to the active workflows', () => {
     render({ view: 'archived', workflows: [] });
 
-    expect(container.textContent).toContain('No archived workflows.');
+    const empty = container.querySelector('[data-slot="empty-state"]')!;
+    expect(empty.querySelector('h2')!.textContent).toBe(
+      messages.empty.workflowsArchived.title,
+    );
+    expect(
+      empty.querySelector('a[href="/home/team-one/workflows"]')!.textContent,
+    ).toBe(messages.empty.workflowsArchived.action);
   });
 });
