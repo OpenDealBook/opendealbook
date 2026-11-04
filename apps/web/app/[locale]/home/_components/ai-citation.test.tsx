@@ -217,6 +217,43 @@ describe('AiAnswer', () => {
     },
   );
 
+  it('quotes the excerpt kept for a citation in its hover preview', async () => {
+    const excerpt = 'Revenue grew 12% on renewed service contracts.';
+    vi.useFakeTimers();
+    render('See [cim.pdf v2, p. 4-5].', [{ ...PAGES, excerpt }], {
+      'doc-cim': 2,
+    });
+    expect(document.body.textContent).not.toContain(excerpt);
+
+    await act(async () => {
+      buttons()[0]!.dispatchEvent(
+        new MouseEvent('pointerover', { bubbles: true }),
+      );
+      await vi.runAllTimersAsync();
+    });
+    vi.useRealTimers();
+
+    expect(document.body.querySelector('blockquote')?.textContent).toBe(
+      excerpt,
+    );
+  });
+
+  it('previews a citation saved without an excerpt with no quote', async () => {
+    vi.useFakeTimers();
+    render('See [cim.pdf v2, p. 4-5].', [PAGES], { 'doc-cim': 2 });
+
+    await act(async () => {
+      buttons()[0]!.dispatchEvent(
+        new MouseEvent('pointerover', { bubbles: true }),
+      );
+      await vi.runAllTimersAsync();
+    });
+    vi.useRealTimers();
+
+    expect(document.body.textContent).toContain('Pages 4 to 5');
+    expect(document.body.querySelector('blockquote')).toBeNull();
+  });
+
   it('shows a citation tag the model wrote itself as text, not as a badge', () => {
     render('Trust me <citation index="0"></citation>.', [PAGES], {
       'doc-cim': 2,

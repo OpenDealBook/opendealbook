@@ -6,7 +6,11 @@ import { useParams } from 'next/navigation';
 
 import { useTranslations } from 'next-intl';
 
-import { citationLabel, type DocumentCitation } from '@odb/ai/citations';
+import {
+  citationLabel,
+  citationRange,
+  type DocumentCitation,
+} from '@odb/ai/citations';
 import {
   InlineCitation,
   InlineCitationCard,
@@ -33,7 +37,7 @@ function CitationPreview({ citation }: { citation: DocumentCitation }) {
   const t = useTranslations('dealAsk.citation');
 
   return (
-    <InlineCitationCardBody className={'w-64 p-3'}>
+    <InlineCitationCardBody className={'w-80 p-3'}>
       <InlineCitationSource title={citation.documentName}>
         <p className={'text-muted-foreground text-xs'}>
           {t('version', { version: citation.version })}
@@ -46,11 +50,26 @@ function CitationPreview({ citation }: { citation: DocumentCitation }) {
               : t('pages', { from: citation.pageFrom, to: citation.pageTo })}
         </p>
       </InlineCitationSource>
+      {citation.excerpt ? (
+        <blockquote
+          className={
+            'text-foreground/80 mt-2 border-l pl-3 font-serif text-sm leading-relaxed'
+          }
+        >
+          {citation.excerpt}
+        </blockquote>
+      ) : null}
     </InlineCitationCardBody>
   );
 }
 
-export function Citation({ index }: { index?: unknown }) {
+export function Citation({
+  index,
+  rangeOnly = false,
+}: {
+  index?: unknown;
+  rangeOnly?: boolean;
+}) {
   const t = useTranslations('dealAsk');
   const { account } = useParams<{ account: string }>();
   const { dealId, citations, readable } = use(AnswerCitations)!;
@@ -63,7 +82,9 @@ export function Citation({ index }: { index?: unknown }) {
   if (readable[citation.documentId] !== citation.version) {
     return (
       <Badge variant={'outline'} className={'text-muted-foreground mx-0.5'}>
-        {t('citationUnavailable', { name: citation.documentName })}
+        {rangeOnly
+          ? t('rangeUnavailable', { range: citationRange(citation) })
+          : t('citationUnavailable', { name: citation.documentName })}
       </Badge>
     );
   }
@@ -86,7 +107,7 @@ export function Citation({ index }: { index?: unknown }) {
                 })
               }
             >
-              {citationLabel(citation)}
+              {rangeOnly ? citationRange(citation) : citationLabel(citation)}
             </button>
           </Badge>
         </HoverCardTrigger>
@@ -151,6 +172,52 @@ export function AiAnswer({
       >
         {markdown}
       </MessageResponse>
+    </AnswerCitations>
+  );
+}
+
+export function AnswerSources({
+  dealId,
+  citations,
+  readable,
+}: {
+  dealId: string;
+  citations: DocumentCitation[];
+  readable: Record<string, number>;
+}) {
+  const t = useTranslations('dealAsk');
+  const documents = Map.groupBy(
+    citations.keys(),
+    (index) => citations[index]!.documentId,
+  );
+
+  if (documents.size === 0) {
+    return null;
+  }
+
+  return (
+    <AnswerCitations value={{ dealId, citations, readable }}>
+      <footer className={'flex flex-col gap-2 border-t pt-3'}>
+        <h4 className={'font-serif text-sm font-medium'}>{t('sources')}</h4>
+        <ul className={'flex flex-col gap-1.5'}>
+          {[...documents].map(([documentId, indexes]) => {
+            const { documentName, version } = citations[indexes[0]!]!;
+            return (
+              <li
+                key={documentId}
+                className={'flex flex-wrap items-baseline gap-x-1 gap-y-1'}
+              >
+                <span className={'mr-1 text-sm'}>
+                  {`${documentName} v${version}`}
+                </span>
+                {indexes.map((index) => (
+                  <Citation key={index} index={index} rangeOnly />
+                ))}
+              </li>
+            );
+          })}
+        </ul>
+      </footer>
     </AnswerCitations>
   );
 }

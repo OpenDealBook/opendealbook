@@ -234,6 +234,7 @@ describe('runDocumentTool (integration)', () => {
         version: 2,
         pageFrom: 1,
         pageTo: 1,
+        excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
       },
     ]);
   });
@@ -283,6 +284,7 @@ describe('runDocumentTool (integration)', () => {
         version: 2,
         pageFrom: 1,
         pageTo: 1,
+        excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
       },
       {
         documentId: cimV2,
@@ -290,6 +292,7 @@ describe('runDocumentTool (integration)', () => {
         version: 2,
         pageFrom: 2,
         pageTo: 3,
+        excerpt: 'Customer list, see Schedule 4.13.',
       },
     ]);
   });
@@ -363,6 +366,7 @@ describe('runDocumentTool (integration)', () => {
         version: 1,
         sheet: 'P&L',
         cellRange: 'A1:F40',
+        excerpt: 'P&L rows 1 to 40',
       },
     ]);
   });

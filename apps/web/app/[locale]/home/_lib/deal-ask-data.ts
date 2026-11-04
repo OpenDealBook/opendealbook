@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import type { DocumentCitation } from '@odb/ai/citations';
 import { dealAiScope } from '@odb/ai/scope';
 import { dealDisplayName } from '@odb/deals/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
@@ -9,6 +10,7 @@ const cited = z.object({
   documentId: z.string(),
   documentName: z.string(),
   version: z.number(),
+  excerpt: z.string().optional(),
 });
 
 const citations = z.array(
@@ -86,17 +88,26 @@ export async function loadDealAsk(dealId: string, teamId: string) {
     resolveScopedTeamAi(scope, 'chat'),
   ]);
 
+  const readable: Record<string, number> = Object.fromEntries(
+    documents.map((document) => [document.id, document.version]),
+  );
+
   return {
     people: Object.fromEntries(
       people.map((person) => [person.user_id, person.name]),
     ),
     questions: questions.map((question) => ({
       ...question,
-      citations: citations.parse(question.citations),
+      citations: citations
+        .parse(question.citations)
+        .map(
+          ({ excerpt, ...citation }): DocumentCitation =>
+            readable[citation.documentId] === citation.version
+              ? { ...citation, excerpt }
+              : citation,
+        ),
     })),
-    readable: Object.fromEntries(
-      documents.map((document) => [document.id, document.version]),
-    ),
+    readable,
     connected: ai !== null,
     readOnly: locked,
     canManage,

@@ -81,6 +81,10 @@ async function setLocked(locked: boolean) {
 const cim = crypto.randomUUID();
 const report = crypto.randomUUID();
 const model = crypto.randomUUID();
+const longPassage = Array.from(
+  { length: 80 },
+  (_, index) => `Lease clause ${index} renews yearly.`,
+).join('\n');
 
 type SentMessage = {
   role: string;
@@ -217,6 +221,7 @@ beforeAll(async () => {
         page_from: 4,
         page_to: 5,
       },
+      { ...page(cim, 2, longPassage), page_from: 8, page_to: 9 },
       {
         account_id: team.accountId,
         deal_id: dealId,
@@ -315,7 +320,12 @@ describe('answerWithDocuments (integration)', () => {
     expect(outcome).toEqual({
       status: 'answered',
       answer: 'Revenue was 1.4 million [cim.pdf v1, p. 1].',
-      citations: [cimPage1],
+      citations: [
+        {
+          ...cimPage1,
+          excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
+        },
+      ],
       model: 'team-chat',
       credits: 2 * STEP_CREDITS,
       steps: [
@@ -482,6 +492,30 @@ describe('answerWithDocuments (integration)', () => {
       answer: 'Customers [cim.pdf v1, p. 4] and more.',
       citations: [{ ...cimPage1, pageFrom: 4, pageTo: 4 }],
     });
+  });
+
+  it('keeps up to 300 characters from the start of the passage that holds a cited range, ending on a whole word and an ellipsis', async () => {
+    scripted(
+      toolTurn([
+        'read_document_pages',
+        { document_id: cim, from_page: 8, to_page: 9 },
+      ]),
+      textTurn('Leases renew [cim.pdf v1, p. 9].'),
+    );
+
+    const outcome = await ask();
+
+    expect(outcome.status).toBe('answered');
+    const [citation] = (outcome as { citations: { excerpt?: string }[] })
+      .citations;
+    const excerpt = citation!.excerpt!;
+    const flattened = longPassage.replaceAll('\n', ' ');
+    const kept = excerpt.slice(0, -1);
+    expect(excerpt.length).toBeLessThanOrEqual(300);
+    expect(excerpt.length).toBeGreaterThan(270);
+    expect(excerpt.at(-1)).toBe('\u2026');
+    expect(flattened.startsWith(kept)).toBe(true);
+    expect(flattened[kept.length]).toBe(' ');
   });
 
   it('keeps a cited cell or cell range inside a sheet range a tool read, and drops one outside it or on another sheet', async () => {

@@ -217,6 +217,84 @@ describe('DealAskPanel', () => {
     );
   });
 
+  it('ends an answer with its sources, each document once with the ranges it cites', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const cim = {
+      documentId: 'doc-cim',
+      documentName: 'cim.pdf',
+      version: 2,
+    };
+    render({
+      readable: { 'doc-cim': 2, 'doc-model': 1 },
+      questions: [
+        asked({
+          answer:
+            'Revenue grew [cim.pdf v2, p. 4-5], margins hold [model.xlsx v1, Sheet1!A1:C9] and churn is low [cim.pdf v2, p. 7].',
+          citations: [
+            { ...cim, pageFrom: 4, pageTo: 5, excerpt: 'Revenue grew 12%.' },
+            {
+              documentId: 'doc-model',
+              documentName: 'model.xlsx',
+              version: 1,
+              sheet: 'Sheet1',
+              cellRange: 'A1:C9',
+            },
+            { ...cim, pageFrom: 7, pageTo: 7 },
+          ],
+        }),
+      ],
+    });
+
+    const sources = container.querySelector('footer')!;
+    expect(sources.firstElementChild!.textContent).toBe('Sources');
+    expect(
+      [...sources.querySelectorAll('li')].map((source) => [
+        source.firstElementChild!.textContent,
+        [...source.querySelectorAll('button')].map(
+          (range) => range.textContent,
+        ),
+      ]),
+    ).toEqual([
+      ['cim.pdf v2', ['p. 4-5', 'p. 7']],
+      ['model.xlsx v1', ['Sheet1!A1:C9']],
+    ]);
+
+    act(() => button('p. 7')!.click());
+
+    expect(open.mock.calls.map(([url]) => url)).toEqual([
+      '/deal-windows/acme/deal-1/data-room/view?doc=doc-cim&page=7',
+    ]);
+  });
+
+  it('lists a source the viewer can no longer read as unavailable, and no sources for an answer without citations', () => {
+    render({
+      readable: {},
+      questions: [
+        asked({
+          id: 'q-1',
+          answer: 'Revenue grew [cim.pdf v2, p. 4-5].',
+          citations: [
+            {
+              documentId: 'doc-cim',
+              documentName: 'cim.pdf',
+              version: 2,
+              pageFrom: 4,
+              pageTo: 5,
+            },
+          ],
+        }),
+        asked({ id: 'q-2', answer: 'Nothing to cite.' }),
+      ],
+    });
+
+    const footers = container.querySelectorAll('footer');
+    expect(footers).toHaveLength(1);
+    expect(footers[0]!.querySelector('li')!.textContent).toBe(
+      'cim.pdf v2p. 4-5, unavailable',
+    );
+    expect(footers[0]!.querySelector('button')).toBeNull();
+  });
+
   it('names who asked each question and when', () => {
     render({
       questions: [
@@ -386,9 +464,11 @@ describe('DealAskPanel', () => {
     );
     await stream.close();
     await act(async () => {
-      [...container.querySelectorAll('[data-question]')]
-        .find((question) => question.textContent?.includes('And margins?'))!
-        .querySelector('button')!
+      const margins = [...container.querySelectorAll('[data-question]')].find(
+        (question) => question.textContent?.includes('And margins?'),
+      )!;
+      [...margins.querySelectorAll('button')]
+        .find((candidate) => candidate.textContent === 'Delete')!
         .click();
     });
 

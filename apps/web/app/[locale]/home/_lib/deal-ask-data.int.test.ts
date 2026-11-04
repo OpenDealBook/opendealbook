@@ -276,6 +276,64 @@ describe('loadDealAsk', () => {
     world.client = owner.client;
   });
 
+  it('keeps a citation excerpt only for a document version the viewer can read', async () => {
+    const { data: folder } = await admin
+      .from('dr_folder')
+      .insert({ account_id: teamId, deal_id: acme, name: 'Diligence' })
+      .select('id')
+      .single()
+      .throwOnError();
+    const cim = crypto.randomUUID();
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: acme,
+        p_aggregate_type: 'dr_document',
+        p_aggregate_id: cim,
+        p_event_type: 'dr_document.added',
+        p_payload: {
+          folder_id: folder.id,
+          name: 'cim.pdf',
+          storage_path: `deal/${acme}/${cim}`,
+          version: 1,
+        },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+    const cited = (documentId: string, version: number, excerpt: string) => ({
+      documentId,
+      documentName: 'cim.pdf',
+      version,
+      pageFrom: 1,
+      pageTo: 1,
+      excerpt,
+    });
+    const threadId = await thread(acme, [['What was revenue?', 0]]);
+    await admin
+      .from('deal_ai_question')
+      .update({
+        citations: [
+          cited(cim, 1, 'Readable passage.'),
+          cited(cim, 2, 'Superseded version passage.'),
+          cited(crypto.randomUUID(), 1, 'Removed document passage.'),
+        ],
+      })
+      .eq('thread_id', threadId)
+      .throwOnError();
+
+    const loaded = await loadDealAsk(acme, teamId);
+
+    const question = loaded!.questions.find(
+      (candidate) => candidate.thread_id === threadId,
+    )!;
+    expect(question.citations.map((citation) => citation.excerpt)).toEqual([
+      'Readable passage.',
+      undefined,
+      undefined,
+    ]);
+    expect(JSON.stringify(loaded)).not.toContain('Superseded version passage');
+    expect(JSON.stringify(loaded)).not.toContain('Removed document passage');
+  });
+
   it("loads nothing for a deal that is not a deal id, not this team's, or not readable", async () => {
     expect(await loadDealAsk('not-a-uuid', teamId)).toBeNull();
     expect(await loadDealAsk(elsewhere, teamId)).toBeNull();

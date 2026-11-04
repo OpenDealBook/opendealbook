@@ -88,6 +88,8 @@
     "connectionLost": "Connection lost; check history shortly",
     "creditsRanOut": "Not enough AI credits left this month",
     "citationUnavailable": "{name}, unavailable",
+    "rangeUnavailable": "{range}, unavailable",
+    "sources": "Sources",
     "citation": {
       "version": "Version {version}",
       "page": "Page {page}",
@@ -146,5 +148,91 @@
   "marketing": {
     "heroTitle": "Welcome to Open Deal Book",
     "heroSubtitle": "The foundation is in place."
+  },
+  "loading": {
+    "deals": "Loading deals",
+    "deal": "Loading deal",
+    "ai": "Loading AI"
+  },
+  "empty": {
+    "agenda": {
+      "title": "Nothing needs you today",
+      "description": "Overdue items, approvals and deadlines on your deals show up here as they come in.",
+      "action": "Go to deals",
+      "teamAction": "See the whole team"
+    },
+    "deals": {
+      "title": "No deals yet",
+      "description": "Add a business you are looking at to track its stage, financials and diligence in one place.",
+      "action": "New deal",
+      "descriptionNoAccess": "Ask a teammate who can add deals to add the first one."
+    },
+    "dealsFiltered": {
+      "title": "No deals match these filters",
+      "description": "Clear the filters to see every deal on this team.",
+      "action": "Clear filters"
+    },
+    "lenderRooms": {
+      "title": "No lender rooms yet",
+      "description": "Each lender gets a private room with your lender package, their own folder, and a place to send requests. Lenders never see each other.",
+      "action": "Create the first lender room"
+    },
+    "workflows": {
+      "title": "No workflows yet",
+      "description": "A workflow runs routine steps for you, like a notice when a milestone goes overdue. Name one to start building it.",
+      "descriptionNoAccess": "Ask a teammate who can manage workflows to create one."
+    },
+    "workflowsArchived": {
+      "title": "No archived workflows",
+      "description": "Workflows you archive show up here.",
+      "action": "See active workflows"
+    },
+    "calculators": {
+      "title": "No calculators yet",
+      "description": "Start an SDE, deal or working capital calculator. Each one saves as a version you can compare and adopt.",
+      "descriptionNoAccess": "Ask a teammate who can manage calculators to start one."
+    }
+  },
+  "dataRoom": {
+    "title": "Data room",
+    "folders": "Folders",
+    "columns": {
+      "index": "No.",
+      "name": "Name",
+      "size": "Size",
+      "uploaded": "Uploaded",
+      "version": "Version",
+      "views": "Views",
+      "actions": "Actions"
+    },
+    "version": "v{version}",
+    "versionHistory": "v{version} · history",
+    "history": {
+      "title": "Earlier versions of {name}"
+    },
+    "sizeMissing": "Size not available",
+    "uploaderMissing": "Uploader not recorded",
+    "emptyRoom": {
+      "title": "No folders yet",
+      "description": "Folders and their documents appear here, numbered.",
+      "descriptionNoAccess": "Ask a teammate who can manage this deal to create a folder."
+    },
+    "emptyFolder": {
+      "title": "{folder} is empty",
+      "description": "Documents added to this folder appear here.",
+      "descriptionNoAccess": "Ask a teammate who can upload documents to add them here."
+    },
+    "newFolder": {
+      "open": "Create folder",
+      "title": "Create folder",
+      "name": "Folder name",
+      "parent": "Inside",
+      "topLevel": "Top level",
+      "cancel": "Cancel",
+      "create": "Create"
+    },
+    "upload": {
+      "chooseFolder": "Choose a folder"
+    }
   }
 }

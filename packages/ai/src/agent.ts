@@ -140,6 +140,7 @@ function citationOf(
       documentId: source.documentId,
       documentName: source.documentName,
       version: source.version,
+      excerpt: source.excerpt,
       ...cited,
     }
   );

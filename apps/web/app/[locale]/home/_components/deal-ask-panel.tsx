@@ -34,7 +34,7 @@ import type {
 } from '../../../api/ai/deal-question/codes';
 import type { Progress } from '../../../api/ai/deal-question/progress';
 import { deleteDealAiQuestion } from '../[account]/deals/[id]/ask/actions';
-import { AiAnswer } from './ai-citation';
+import { AiAnswer, AnswerSources } from './ai-citation';
 import { PromoteToFaqDialog } from './promote-to-faq-dialog';
 
 export interface AskedQuestion {
@@ -61,6 +61,8 @@ type QuestionEvent =
 const STALE_AFTER_MS = 10 * 60_000;
 const QUESTION_MAX_LENGTH = 4000;
 const THREAD_MAX_QUESTIONS = 20;
+const QUESTION_LINE =
+  'group-[.is-user]:text-muted-foreground font-medium whitespace-pre-wrap group-[.is-user]:ml-0 group-[.is-user]:rounded-none group-[.is-user]:bg-transparent group-[.is-user]:p-0';
 
 const ERRORS: Record<DealQuestionErrorCode, string> = {
   unauthenticated: 'errors.signedOut',
@@ -361,30 +363,37 @@ export function DealAskPanel({
               <div
                 key={question.id}
                 data-question
-                className={'flex flex-col gap-2'}
+                className={'flex flex-col gap-3 border-b pb-6 last:border-b-0'}
               >
-                <p
-                  data-asked-by
-                  className={'text-muted-foreground text-right text-xs'}
+                <div
+                  className={
+                    'flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b pb-2'
+                  }
                 >
-                  {t('askedBy', {
-                    name:
-                      (question.asked_by && people[question.asked_by]) ||
-                      t('formerMember'),
-                    when: format.dateTime(new Date(question.created_at), {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }),
-                  })}
-                </p>
-                <Message from={'user'}>
-                  <MessageContent className={'whitespace-pre-wrap'}>
-                    {question.question}
-                  </MessageContent>
-                </Message>
-                <Message from={'assistant'}>
+                  <Message from={'user'} className={'ml-0 w-auto flex-1'}>
+                    <MessageContent className={QUESTION_LINE}>
+                      {question.question}
+                    </MessageContent>
+                  </Message>
+                  <p
+                    data-asked-by
+                    className={'text-muted-foreground shrink-0 text-xs'}
+                  >
+                    {t('askedBy', {
+                      name:
+                        (question.asked_by && people[question.asked_by]) ||
+                        t('formerMember'),
+                      when: format.dateTime(new Date(question.created_at), {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      }),
+                    })}
+                  </p>
+                </div>
+                <Message from={'assistant'} className={'max-w-prose gap-4'}>
                   <MessageContent
                     className={cn(
+                      'w-full leading-relaxed',
                       question.status !== 'answered' &&
                         'text-muted-foreground flex-row items-center',
                     )}
@@ -394,6 +403,13 @@ export function DealAskPanel({
                     ) : null}
                     {answerOf(question)}
                   </MessageContent>
+                  {question.status === 'answered' ? (
+                    <AnswerSources
+                      dealId={dealId}
+                      citations={question.citations}
+                      readable={readable}
+                    />
+                  ) : null}
                   <MessageActions className={'empty:hidden'}>
                     {canManage &&
                     question.status === 'answered' &&
@@ -422,13 +438,15 @@ export function DealAskPanel({
               </div>
             ))}
             {asking && asking.threadId === threadId ? (
-              <div className={'flex flex-col gap-2'}>
-                <Message from={'user'}>
-                  <MessageContent className={'whitespace-pre-wrap'}>
-                    {asking.question}
-                  </MessageContent>
-                </Message>
-                <Message from={'assistant'}>
+              <div className={'flex flex-col gap-3'}>
+                <div className={'border-b pb-2'}>
+                  <Message from={'user'} className={'ml-0 max-w-full'}>
+                    <MessageContent className={QUESTION_LINE}>
+                      {asking.question}
+                    </MessageContent>
+                  </Message>
+                </div>
+                <Message from={'assistant'} className={'max-w-prose'}>
                   <MessageContent
                     className={
                       'text-muted-foreground flex-row items-center text-xs'

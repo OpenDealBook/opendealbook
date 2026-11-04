@@ -157,6 +157,19 @@ const OCR_MARK = '(OCR text, lower confidence)';
 const PAST_ANSWERS_ARE_NOT_SOURCES =
   'Past answers are not sources. To cite anything in them, read the documents again.';
 const CUT_OFF = 'This read was cut off at the 32000 character limit.';
+const EXCERPT_LENGTH = 300;
+const ELLIPSIS = '\u2026';
+const HEADLINE_MARK = /<\/?b>/g;
+
+function excerptOf(text: string): string {
+  const flat = text.replaceAll(/\s+/g, ' ').trim();
+  if (flat.length <= EXCERPT_LENGTH) {
+    return flat;
+  }
+  const room = EXCERPT_LENGTH - ELLIPSIS.length;
+  const wordEnd = flat.lastIndexOf(' ', room);
+  return `${flat.slice(0, wordEnd > 0 ? wordEnd : room)}${ELLIPSIS}`;
+}
 
 interface Passage {
   citation: DocumentCitation;
@@ -234,6 +247,7 @@ const TOOLS: DocumentTool[] = [
             documentId: hit.dr_document_id,
             documentName: hit.document_name,
             version: hit.document_version,
+            excerpt: excerptOf(hit.snippet.replaceAll(HEADLINE_MARK, '')),
           };
           return {
             citation:
@@ -300,7 +314,12 @@ const TOOLS: DocumentTool[] = [
         );
       }
       const passages = data.map((row) => ({
-        citation: { ...document, pageFrom: row.page_from, pageTo: row.page_to },
+        citation: {
+          ...document,
+          pageFrom: row.page_from,
+          pageTo: row.page_to,
+          excerpt: excerptOf(row.text),
+        },
         text: row.text,
         fromOcr: row.from_ocr,
       }));
@@ -347,7 +366,12 @@ const TOOLS: DocumentTool[] = [
         throw new ToolError(`${args.sheet}!${args.a1_range} holds no cells.`);
       }
       const passages = data.map((row) => ({
-        citation: { ...document, sheet: args.sheet, cellRange: row.cell_range },
+        citation: {
+          ...document,
+          sheet: args.sheet,
+          cellRange: row.cell_range,
+          excerpt: excerptOf(row.text),
+        },
         text: row.text,
         fromOcr: row.from_ocr,
       }));
