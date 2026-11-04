@@ -9,9 +9,9 @@ export default defineConfig({
   globalSetup: './tests/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   workers: Number(process.env.E2E_WORKERS ?? (process.env.CI ? 1 : 3)),
-  reporter: 'html',
+  reporter: process.env.CI ? [['list'], ['html']] : 'html',
   timeout: 60 * 1000,
   expect: {
     timeout: 10 * 1000,

@@ -96,16 +96,17 @@ if (await listens(WEB_PORT)) {
   process.exit(1);
 }
 
+const PROFILES = [
+  'core',
+  'notifications',
+  ...(process.env.E2E_SKIP_OBSERVABILITY === '1' ? [] : ['observability']),
+];
+
 run(
   'docker',
   [
     'compose',
-    '--profile',
-    'core',
-    '--profile',
-    'notifications',
-    '--profile',
-    'observability',
+    ...PROFILES.flatMap((profile) => ['--profile', profile]),
     'up',
     '-d',
   ],

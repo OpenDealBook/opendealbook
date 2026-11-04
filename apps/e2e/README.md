@@ -90,6 +90,17 @@ the worker, and exits with Playwright's code.
 
 `tests/fixtures.spec.ts` smoke-tests each fixture against the running stack.
 
+## CI
+
+`.github/workflows/e2e.yml` runs the suite on every pull request and every push
+to main, through `pnpm run-e2e` like a local run. Before that it generates the
+Documenso certificate with the recipe above and sets the Supabase demo keys a
+developer's `apps/web/.env.local` would supply. On CI, Playwright retries a
+failing test once; a test that fails twice fails the job. On failure, the job
+uploads the HTML report, traces, screenshots, `.stack-logs`, and the compose
+logs as the `e2e-report` artifact. CI sets `E2E_SKIP_OBSERVABILITY=1`, so
+`run-e2e` leaves the observability profile down; tests do not use it.
+
 ## Speed and fix loops
 
 - The web server runs a production build (`next build`, then `next start`) into

@@ -1,0 +1,106 @@
+name: e2e
+
+# Runs the Playwright suite on a clean machine through scripts/run-e2e.mjs, the
+# same entry point as a local run: it brings up the compose stack (Supabase,
+# Temporal, Mailpit, Gotenberg, Documenso, Novu; no observability), applies migrations, starts a
+# worker on both task queues, and lets the global setup build and start the web
+# app. Outside services are the suite's own stand-ins. Every key here is a
+# public local-dev demo value.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # A developer's apps/web/.env.local supplies these locally.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+      NEXT_PUBLIC_LOCALES: en
+      E2E_SKIP_OBSERVABILITY: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # The compose images outgrow the runner's free disk.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter e2e exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter e2e exec playwright install --with-deps chromium
+
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter e2e exec playwright install-deps chromium
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: 2.114.0
+
+      # The recipe from infra/documenso/README.md, with the compose default passphrase.
+      # World-readable so the Documenso container user can read the bind mount.
+      - name: Generate the Documenso signing certificate
+        run: |
+          openssl req -x509 -newkey rsa:4096 -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem" \
+            -days 365 -nodes -subj "/CN=OpenDealbook Local"
+          openssl pkcs12 -export -out infra/documenso/cert.p12 \
+            -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -passout pass:changeit
+          chmod 644 infra/documenso/cert.p12
+
+      - name: Run e2e
+        run: pnpm run-e2e
+
+      - name: Save compose logs
+        if: failure()
+        run: |
+          mkdir -p apps/e2e/.stack-logs
+          docker compose --profile core --profile notifications logs --no-color \
+            > apps/e2e/.stack-logs/compose.log
+
+      - name: Upload report, traces, and logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          include-hidden-files: true
+          path: |
+            apps/e2e/playwright-report/
+            apps/e2e/test-results/
+            apps/e2e/.stack-logs/
