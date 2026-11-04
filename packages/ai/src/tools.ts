@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { z } from 'zod';
+
 import type { Database } from '@odb/supabase';
 import type {
   ConversationMessage,
@@ -26,130 +28,66 @@ export type DocumentToolResult = Pick<ToolMessage, 'content' | 'isError'> & {
   citations: DocumentCitation[];
 };
 
-type FieldType = 'string' | 'uuid' | 'integer' | 'boolean';
-
-interface Field {
-  type: FieldType;
-  description: string;
-  optional?: true;
-}
-
-type Fields = Record<string, Field>;
-
-type ValueOf<T extends FieldType> = {
-  string: string;
-  uuid: string;
-  integer: number;
-  boolean: boolean;
-}[T];
-
-type Args<F extends Fields> = {
-  [K in keyof F as F[K]['optional'] extends true ? never : K]: ValueOf<
-    F[K]['type']
-  >;
-} & {
-  [K in keyof F as F[K]['optional'] extends true ? K : never]?: ValueOf<
-    F[K]['type']
-  >;
-};
-
 class ToolError extends Error {}
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const A1_RANGE = /^\$?[A-Z]+\$?[0-9]+(?::\$?[A-Z]+\$?[0-9]+)?$/i;
 
-const FIELD_TYPES: Record<
-  FieldType,
-  { jsonType: string; noun: string; accepts: (value: unknown) => boolean }
-> = {
-  string: {
-    jsonType: 'string',
-    noun: 'a string',
-    accepts: (value) => typeof value === 'string',
-  },
-  uuid: {
-    jsonType: 'string',
-    noun: 'a document id',
-    accepts: (value) => typeof value === 'string' && UUID.test(value),
-  },
-  integer: {
-    jsonType: 'integer',
-    noun: 'an integer',
-    accepts: (value) => Number.isInteger(value),
-  },
-  boolean: {
-    jsonType: 'boolean',
-    noun: 'true or false',
-    accepts: (value) => typeof value === 'boolean',
-  },
-};
+const stringArg = (description: string) =>
+  z.string({ error: 'a string' }).describe(description);
+const integerArg = (noun: string, description: string) =>
+  z.int({ error: noun }).describe(description);
 
-function parseArgs<F extends Fields>(fields: F, input: unknown): Args<F> {
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    throw new ToolError('Arguments must be a JSON object.');
+function argumentErrorMessage({ issues }: z.ZodError): string {
+  const issue =
+    issues.find(({ code }) => code === 'unrecognized_keys') ?? issues[0]!;
+  if (issue.code === 'unrecognized_keys') {
+    return `Unknown argument "${issue.keys[0]}".`;
   }
-  const given = new Map(Object.entries(input));
-  for (const name of given.keys()) {
-    if (!(name in fields)) {
-      throw new ToolError(`Unknown argument "${name}".`);
-    }
+  const [name] = issue.path;
+  if (name === undefined) {
+    return 'Arguments must be a JSON object.';
   }
-  for (const [name, field] of Object.entries(fields)) {
-    const value = given.get(name);
-    if (value === undefined) {
-      if (!field.optional) {
-        throw new ToolError(`Missing argument "${name}".`);
-      }
-    } else if (!FIELD_TYPES[field.type].accepts(value)) {
-      throw new ToolError(
-        `Argument "${name}" must be ${FIELD_TYPES[field.type].noun}.`,
-      );
-    }
-  }
-  return input as Args<F>;
+  return issue.input === undefined
+    ? `Missing argument "${String(name)}".`
+    : `Argument "${String(name)}" must be ${issue.message}.`;
 }
 
-function inputSchema(fields: Fields) {
-  return {
-    type: 'object',
-    properties: Object.fromEntries(
-      Object.entries(fields).map(([name, { type, description }]) => [
-        name,
-        { type: FIELD_TYPES[type].jsonType, description },
-      ]),
-    ),
-    required: Object.entries(fields)
-      .filter(([, field]) => !field.optional)
-      .map(([name]) => name),
-    additionalProperties: false,
-  };
-}
-
-interface DocumentTool {
-  name: string;
-  description: string;
-  inputSchema: ReturnType<typeof inputSchema>;
+interface DocumentTool extends ToolDefinition {
   execute: (
     context: DocumentToolContext,
     input: unknown,
   ) => Promise<DocumentToolResult>;
 }
 
-function documentTool<F extends Fields>(tool: {
+function documentTool<A extends z.ZodObject>(tool: {
   name: string;
   description: string;
-  fields: F;
+  args: A;
   run: (
     context: DocumentToolContext,
-    args: Args<F>,
+    args: z.infer<A>,
   ) => Promise<DocumentToolResult>;
 }): DocumentTool {
+  const inputSchema = z.toJSONSchema(tool.args, {
+    override: ({ jsonSchema }) => {
+      delete jsonSchema.format;
+      delete jsonSchema.pattern;
+      delete jsonSchema.minimum;
+      delete jsonSchema.maximum;
+    },
+  });
+  delete inputSchema.$schema;
   return {
     name: tool.name,
     description: tool.description,
-    inputSchema: inputSchema(tool.fields),
-    execute: (context, input) =>
-      tool.run(context, parseArgs(tool.fields, input)),
+    inputSchema: { ...inputSchema, required: inputSchema.required ?? [] },
+    execute: (context, input) => {
+      const parsed = tool.args.safeParse(input, { reportInput: true });
+      if (!parsed.success) {
+        throw new ToolError(argumentErrorMessage(parsed.error));
+      }
+      return tool.run(context, parsed.data);
+    },
   };
 }
 
@@ -212,24 +150,22 @@ async function citedDocument(
   };
 }
 
-const DOCUMENT_ID = {
-  type: 'uuid',
-  description: 'The document id from search_documents or list_documents.',
-} as const satisfies Field;
+const documentIdArg = z
+  .guid({ error: 'a document id' })
+  .describe('The document id from search_documents or list_documents.');
 
 const TOOLS: DocumentTool[] = [
   documentTool({
     name: 'search_documents',
     description:
       "Full-text search over the deal's documents. Returns ranked snippets with the document id and the pages or cells they come from.",
-    fields: {
-      query: { type: 'string', description: 'Words or phrases to search for.' },
-      include_earlier_versions: {
-        type: 'boolean',
-        description: 'Also search earlier versions of each document.',
-        optional: true,
-      },
-    },
+    args: z.strictObject({
+      query: stringArg('Words or phrases to search for.'),
+      include_earlier_versions: z
+        .boolean({ error: 'true or false' })
+        .describe('Also search earlier versions of each document.')
+        .optional(),
+    }),
     run: async ({ client, dealId }, args) => {
       const { data } = await client
         .rpc('search_document_segments', {
@@ -266,9 +202,9 @@ const TOOLS: DocumentTool[] = [
     name: 'search_past_answers',
     description:
       'Search questions already answered on this deal, by anyone on the team. Past answers are not sources and cannot be cited.',
-    fields: {
-      query: { type: 'string', description: 'Words or phrases to search for.' },
-    },
+    args: z.strictObject({
+      query: stringArg('Words or phrases to search for.'),
+    }),
     run: async ({ client, dealId }, args) => {
       const { data } = await client
         .rpc('search_deal_ai_answers', {
@@ -293,11 +229,11 @@ const TOOLS: DocumentTool[] = [
     name: 'read_document_pages',
     description:
       'Read the text of a page range of one document, up to 32000 characters.',
-    fields: {
-      document_id: DOCUMENT_ID,
-      from_page: { type: 'integer', description: 'First page to read.' },
-      to_page: { type: 'integer', description: 'Last page to read.' },
-    },
+    args: z.strictObject({
+      document_id: documentIdArg,
+      from_page: integerArg('a page number', 'First page to read.'),
+      to_page: integerArg('a page number', 'Last page to read.'),
+    }),
     run: async (context, args) => {
       const document = await citedDocument(context, args.document_id);
       const { data } = await context.client
@@ -333,14 +269,11 @@ const TOOLS: DocumentTool[] = [
     name: 'read_sheet_range',
     description:
       'Read the cells of an A1 range on one sheet of a workbook, up to 32000 characters.',
-    fields: {
-      document_id: DOCUMENT_ID,
-      sheet: { type: 'string', description: 'Sheet name from list_sheets.' },
-      a1_range: {
-        type: 'string',
-        description: 'A1 range such as A1:F40.',
-      },
-    },
+    args: z.strictObject({
+      document_id: documentIdArg,
+      sheet: stringArg('Sheet name from list_sheets.'),
+      a1_range: stringArg('A1 range such as A1:F40.'),
+    }),
     run: async (context, args) => {
       const document = await citedDocument(context, args.document_id);
       const { data: sheets } = await context.client
@@ -385,7 +318,7 @@ const TOOLS: DocumentTool[] = [
     name: 'list_documents',
     description:
       'List the latest version of each document in the deal that has text, with its id, page count or sheets.',
-    fields: {},
+    args: z.strictObject({}),
     run: async ({ client, dealId }) => {
       const { data } = await client
         .rpc('list_documents', { deal_id: dealId })
@@ -407,7 +340,7 @@ const TOOLS: DocumentTool[] = [
     name: 'list_sheets',
     description:
       'List the sheets of a workbook in order, with the A1 range each one uses.',
-    fields: { document_id: DOCUMENT_ID },
+    args: z.strictObject({ document_id: documentIdArg }),
     run: async (context, args) => {
       const document = await citedDocument(context, args.document_id);
       const { data } = await context.client

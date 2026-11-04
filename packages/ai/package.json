@@ -25,7 +25,8 @@
   "dependencies": {
     "@odb/supabase": "workspace:*",
     "@odb/workflows": "workspace:*",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@odb/tsconfig": "workspace:*",
