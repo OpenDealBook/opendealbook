@@ -4,6 +4,8 @@ import { expect, type Page } from '@playwright/test';
 import type { Cleanup } from './cleanup';
 import { firstLink, waitForMessage } from './mail';
 
+import { randomBytes } from 'node:crypto';
+
 export interface TestUser {
   email: string;
   password: string;
@@ -11,9 +13,7 @@ export interface TestUser {
 
 export function newCredentials(): TestUser {
   return {
-    email: faker.internet
-      .email({ provider: 'opendealbook.test' })
-      .toLowerCase(),
+    email: `${faker.internet.username().toLowerCase()}.${randomBytes(6).toString('hex')}@opendealbook.test`,
     password: 'password-test-1234',
   };
 }
