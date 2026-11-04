@@ -1,0 +1,18 @@
+# Layered over docker-compose.yml by e2e.yml (COMPOSE_FILE) to leave out the
+# services no e2e test or setup step reaches, so the CI image cache stays small.
+# A service listed here only starts under the never-enabled `e2e-unused` profile.
+services:
+  studio:
+    profiles: !override [e2e-unused]
+  pg-meta:
+    profiles: !override [e2e-unused]
+  novu-dashboard:
+    profiles: !override [e2e-unused]
+  novu-ws:
+    profiles: !override [e2e-unused]
+  nango-server:
+    profiles: !override [e2e-unused]
+  nango-postgres:
+    profiles: !override [e2e-unused]
+  nango-redis:
+    profiles: !override [e2e-unused]

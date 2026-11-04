@@ -101,6 +101,8 @@ const PROFILES = [
   'notifications',
   ...(process.env.E2E_SKIP_OBSERVABILITY === '1' ? [] : ['observability']),
 ];
+const PULL =
+  process.env.E2E_IMAGES_PRELOADED === '1' ? ['--pull', 'never'] : [];
 
 run(
   'docker',
@@ -108,6 +110,7 @@ run(
     'compose',
     ...PROFILES.flatMap((profile) => ['--profile', profile]),
     'up',
+    ...PULL,
     '-d',
   ],
   root,
@@ -120,6 +123,7 @@ run(
     '--profile',
     'core',
     'up',
+    ...PULL,
     '-d',
     '--wait',
     '--wait-timeout',

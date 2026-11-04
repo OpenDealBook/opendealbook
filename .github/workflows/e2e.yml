@@ -30,6 +30,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
       NEXT_PUBLIC_LOCALES: en
       E2E_SKIP_OBSERVABILITY: '1'
+      COMPOSE_FILE: docker-compose.yml:.github/e2e-compose.yml
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,8 +85,55 @@ jobs:
             -inkey "$RUNNER_TEMP/key.pem" -in "$RUNNER_TEMP/cert.pem" -passout pass:changeit
           chmod 644 infra/documenso/cert.p12
 
+      - name: List compose images
+        id: images
+        run: |
+          docker compose --profile core --profile notifications config --images | sort -u > "$RUNNER_TEMP/images.txt"
+          echo "hash=$(sha256sum "$RUNNER_TEMP/images.txt" | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore compose images
+        id: images-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/images.tar.zst
+          key: compose-images-${{ runner.os }}-${{ steps.images.outputs.hash }}
+
+      - name: Load compose images
+        if: steps.images-cache.outputs.cache-hit == 'true'
+        run: |
+          zstd -dc "$RUNNER_TEMP/images.tar.zst" | docker load
+          rm "$RUNNER_TEMP/images.tar.zst"
+
+      # Pulling every image at once trips the ECR Public anonymous rate limit.
+      - name: Pull compose images
+        if: steps.images-cache.outputs.cache-hit != 'true'
+        run: |
+          pull() {
+            for attempt in 1 2 3 4 5; do
+              docker pull --quiet "$1" && return 0
+              sleep $((attempt * attempt * 5))
+            done
+            return 1
+          }
+          export -f pull
+          xargs -P 3 -I{} bash -c "pull {}" < "$RUNNER_TEMP/images.txt"
+          xargs docker save < "$RUNNER_TEMP/images.txt" | zstd -T0 -3 -o "$RUNNER_TEMP/images.tar.zst"
+
+      - name: Save compose images
+        if: steps.images-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/images.tar.zst
+          key: ${{ steps.images-cache.outputs.cache-primary-key }}
+
+      - name: Free the image tarball
+        if: steps.images-cache.outputs.cache-hit != 'true'
+        run: rm "$RUNNER_TEMP/images.tar.zst"
+
       - name: Run e2e
         run: pnpm run-e2e
+        env:
+          E2E_IMAGES_PRELOADED: '1'
 
       - name: Save compose logs
         if: failure()
