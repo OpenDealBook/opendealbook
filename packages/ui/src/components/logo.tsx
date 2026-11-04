@@ -34,9 +34,8 @@ function LogoMark({
             x2="224"
             y2="64"
           >
-            <stop offset="0" stopColor="#122A47" />
-            <stop offset="0.52" stopColor="#167C52" />
-            <stop offset="1" stopColor="#3ECD5E" />
+            <stop offset="0" style={{ stopColor: 'var(--primary)' }} />
+            <stop offset="1" style={{ stopColor: 'var(--brass)' }} />
           </linearGradient>
         </defs>
       )}
