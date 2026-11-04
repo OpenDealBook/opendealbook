@@ -30,6 +30,7 @@ async function withRetries<Value>(
       if (attempt === attempts) {
         throw error;
       }
+      console.error(`Attempt ${attempt} of ${attempts} failed:`, error);
     }
   }
 }
