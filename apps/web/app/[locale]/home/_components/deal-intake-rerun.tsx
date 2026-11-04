@@ -12,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@odb/ui/dialog';
 import { Input } from '@odb/ui/input';
 import { Textarea } from '@odb/ui/textarea';
@@ -24,10 +23,17 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary);
 }
 
-export function DealIntakeRerun({ dealId }: { dealId: string }) {
+export function DealIntakeRerun({
+  dealId,
+  open,
+  onOpenChange: setOpen,
+}: {
+  dealId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [pdf, setPdf] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -79,11 +85,6 @@ export function DealIntakeRerun({ dealId }: { dealId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant={'ghost'} size={'sm'}>
-          Re-extract with AI
-        </Button>
-      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Re-extract this deal</DialogTitle>

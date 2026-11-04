@@ -27,8 +27,11 @@ function render(props: Partial<ComponentProps<typeof DealSummaryStrip>>) {
     root.render(
       <DealSummaryStrip
         stage={{ key: 'loi', label: 'LOI' }}
+        lost={false}
         asking={2_000_000}
+        basis={'sde'}
         adoptedSde={800_000}
+        adoptedEbitda={500_000}
         deadline={{ label: 'LOI deadline', on: '2026-11-03' }}
         waitingOnUs={3}
         {...props}
@@ -37,12 +40,14 @@ function render(props: Partial<ComponentProps<typeof DealSummaryStrip>>) {
   );
 }
 
-function figure(label: string) {
-  const term = [...container.querySelectorAll('dt')].find(
+function value(label: string) {
+  return [...container.querySelectorAll('dt')].find(
     (dt) => dt.textContent === label,
-  );
+  )?.nextElementSibling;
+}
 
-  return term?.nextElementSibling?.textContent;
+function figure(label: string) {
+  return value(label)?.textContent;
 }
 
 function milestone(overrides: Partial<TimelineMilestone>): TimelineMilestone {
@@ -62,31 +67,79 @@ describe('DealSummaryStrip', () => {
     render({});
 
     expect(figure('Stage')).toBe('LOI');
-    expect(figure('Asking')).toBe('$2,000,000');
-    expect(figure('Adopted SDE')).toBe('$800,000');
-    expect(figure('Asking multiple (SDE)')).toBe('2.50x');
+    expect(figure('Asking')).toBe('$2M');
+    expect(figure('Adopted SDE')).toBe('$800K');
+    expect(figure('Asking multiple (SDE)')).toBe('2.5x');
     expect(figure('Next deadline')).toBe('LOI deadline, Nov 3, 2026');
     expect(figure('Waiting on us')).toBe('3');
   });
 
-  it('shows Not disclosed for asking and multiple when asking is null', () => {
+  it('tones the stage chip as lost on a lost deal', () => {
+    render({ lost: true });
+
+    expect(
+      container.querySelector('[data-slot="stage-chip"]')!.className,
+    ).toContain('bg-stage-lost');
+  });
+
+  it('shows the exact amount on hover of a compact figure', () => {
+    render({ asking: 2_450_000 });
+
+    expect(figure('Asking')).toBe('$2.45M');
+    expect(
+      value('Asking')!.querySelector('[title]')!.getAttribute('title'),
+    ).toBe('$2,450,000');
+  });
+
+  it('follows the EBITDA basis for the earnings figure and the multiple', () => {
+    render({ basis: 'ebitda' });
+
+    expect(figure('Adopted EBITDA')).toBe('$500K');
+    expect(figure('Asking multiple (EBITDA)')).toBe('4.0x');
+    expect(figure('Adopted SDE')).toBeUndefined();
+  });
+
+  it('shows a dash meaning not disclosed for asking and multiple when asking is null', () => {
     render({ asking: null });
 
-    expect(figure('Asking')).toBe('Not disclosed');
-    expect(figure('Asking multiple (SDE)')).toBe('Not disclosed');
+    expect(figure('Asking')).toBe('–');
+    expect(figure('Asking multiple (SDE)')).toBe('–');
+    expect(
+      value('Asking')!
+        .querySelector('[aria-label]')!
+        .getAttribute('aria-label'),
+    ).toBe('Not disclosed');
+    expect(
+      value('Asking multiple (SDE)')!
+        .querySelector('[aria-label]')!
+        .getAttribute('aria-label'),
+    ).toBe('Not available');
   });
 
-  it('shows Not disclosed for SDE and multiple when nothing is adopted', () => {
-    render({ adoptedSde: null });
+  it('shows a dash for earnings and multiple when nothing is adopted on the basis', () => {
+    render({ basis: 'ebitda', adoptedEbitda: null });
 
-    expect(figure('Adopted SDE')).toBe('Not disclosed');
-    expect(figure('Asking multiple (SDE)')).toBe('Not disclosed');
+    expect(figure('Adopted EBITDA')).toBe('–');
+    expect(figure('Asking multiple (EBITDA)')).toBe('–');
   });
 
-  it('shows Not set when no deadline is open', () => {
+  it('sets the deadline text smaller than the figures so long labels fit', () => {
+    render({
+      deadline: { label: 'Financing commitment deadline', on: '2026-11-03' },
+    });
+
+    expect(value('Next deadline')!.className).toContain('text-sm');
+    expect(value('Next deadline')!.className).not.toContain('text-2xl');
+    expect(value('Asking')!.className).toContain('text-2xl');
+  });
+
+  it('shows a dash meaning not set when no deadline is open', () => {
     render({ deadline: null });
 
-    expect(figure('Next deadline')).toBe('Not set');
+    expect(figure('Next deadline')).toBe('–');
+    expect(
+      value('Next deadline')!.querySelector('[title]')!.getAttribute('title'),
+    ).toBe('Not set');
   });
 });
 

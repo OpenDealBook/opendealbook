@@ -6,29 +6,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { earningsMargin, earningsMultiple } from '@odb/calculators';
-import { dealDisplayName, multipleText } from '@odb/deals/shared';
+import { dealDisplayName } from '@odb/deals/shared';
 import type { Tables } from '@odb/supabase';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
+import { FigureValue } from '@odb/ui/figure-value';
 
-import { DealHeaderActions, DealStarButton } from './deal-detail-actions';
-import { DealIntakeRerun } from './deal-intake-rerun';
+import { DealOverflowMenu, DealStageSelect } from './deal-detail-actions';
 import { DealProfileDialog, type ProfileDeal } from './deal-profile-form';
-import { EarningsBasisToggle } from './earnings-basis-toggle';
 import { GatedControl } from './gated-control';
+
+const LISTING_MARKS: Partial<Record<string, string>> = {
+  pulled: 'Pulled',
+  sold: 'Sold',
+};
 
 const MANAGERS_ONLY =
   'Only deal managers can change the stage, listing, earnings basis or outcome, archive the deal, or re-extract it.';
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-function money(value: number | null): string {
-  return value === null ? 'Not disclosed' : currency.format(value);
-}
 
 function resolutionText(
   resolution: string | null,
@@ -43,11 +37,11 @@ function resolutionText(
     : `${outcome} (${reason.replace(/_/g, ' ')})`;
 }
 
-function Figure({ label, value }: { label: string; value: string }) {
+function Figure({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className={'flex flex-col'}>
+    <div className={'flex min-w-0 flex-col gap-1'}>
       <dt className={'text-muted-foreground text-xs'}>{label}</dt>
-      <dd className={'text-sm font-medium tabular-nums'}>{value}</dd>
+      <dd className={'text-2xl font-medium tracking-tight'}>{children}</dd>
     </div>
   );
 }
@@ -114,6 +108,7 @@ export function DealHeader({
   const earningsLabel = basis === 'ebitda' ? 'EBITDA' : 'SDE';
   const multiple = earningsMultiple(basis, asking, sde, ebitda);
   const margin = earningsMargin(basis, revenue, sde, ebitda);
+  const listingMark = LISTING_MARKS[deal.listing_status];
   const onOverview = usePathname().endsWith(`/deals/${deal.id}`);
 
   return (
@@ -134,23 +129,64 @@ export function DealHeader({
         <span aria-hidden className={'text-muted-foreground'}>
           /
         </span>
-        <h1 className={'truncate text-xl font-semibold md:text-2xl'}>
+        <h1 className={'truncate font-serif text-2xl font-medium'}>
           {dealDisplayName(deal)}
         </h1>
       </div>
-      <div className={'flex flex-col gap-3 px-4 pb-3 md:px-8'}>
-        <div className={'flex flex-wrap items-center gap-2'}>
-          {deal.code_name === null ? null : (
-            <Badge variant={'secondary'} title={'Code name'}>
-              {deal.code_name}
+      <div className={'flex flex-col gap-4 px-4 pb-4 md:px-8'}>
+        <div className={'flex flex-wrap items-start justify-between gap-3'}>
+          <div className={'flex flex-wrap items-center gap-2'}>
+            {deal.code_name === null ? null : (
+              <Badge variant={'secondary'} title={'Code name'}>
+                {deal.code_name}
+              </Badge>
+            )}
+            {deal.capture_method === 'example' ? (
+              <Badge variant={'secondary'}>Example</Badge>
+            ) : null}
+            <Badge variant={'outline'}>
+              {resolutionText(deal.resolution, deal.resolution_reason)}
             </Badge>
-          )}
-          {deal.capture_method === 'example' ? (
-            <Badge variant={'secondary'}>Example</Badge>
-          ) : null}
-          <Badge variant={'outline'}>
-            {resolutionText(deal.resolution, deal.resolution_reason)}
-          </Badge>
+          </div>
+          <div className={'flex flex-wrap items-start gap-2'}>
+            <GatedControl allowed={canManage} reason={MANAGERS_ONLY}>
+              <DealStageSelect
+                dealId={deal.id}
+                stage={deal.stage}
+                stages={stages}
+              />
+            </GatedControl>
+            {listingMark === undefined ? null : (
+              <Badge
+                variant={'outline'}
+                className={'text-muted-foreground self-center'}
+              >
+                {listingMark}
+              </Badge>
+            )}
+            <DealProfileDialog
+              trigger={
+                <Button variant={'outline'} size={'sm'}>
+                  Deal profile
+                </Button>
+              }
+              deal={deal}
+              industries={industries}
+              otherBusinessNames={otherBusinessNames}
+              canManage={canManage}
+            />
+            <DealOverflowMenu
+              dealId={deal.id}
+              dealName={dealDisplayName(deal)}
+              dealsHref={dealsHref}
+              starred={starred}
+              listingStatus={deal.listing_status}
+              basis={basis}
+              archived={deal.archived_at !== null}
+              isOwner={isOwner}
+              canManage={canManage}
+            />
+          </div>
         </div>
         {deal.firm.name_confirmed ? null : (
           <div
@@ -173,59 +209,31 @@ export function DealHeader({
           </div>
         )}
         {onOverview ? null : (
-          <dl className={'grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-5'}>
-            <Figure label={'Asking'} value={money(asking)} />
-            <Figure label={'Revenue'} value={money(revenue)} />
-            <Figure
-              label={earningsLabel}
-              value={money(basis === 'ebitda' ? ebitda : sde)}
-            />
-            <Figure
-              label={`Asking multiple (${earningsLabel})`}
-              value={
-                multiple === null ? 'Not disclosed' : multipleText(multiple)
-              }
-            />
-            <Figure
-              label={`${earningsLabel} margin`}
-              value={
-                margin === null
-                  ? 'Not disclosed'
-                  : `${Math.round(margin * 100)}%`
-              }
-            />
+          <dl
+            className={
+              'grid grid-cols-2 gap-x-8 gap-y-4 border-t pt-4 sm:grid-cols-5'
+            }
+          >
+            <Figure label={'Asking'}>
+              <FigureValue value={asking} format={'money'} />
+            </Figure>
+            <Figure label={'Revenue'}>
+              <FigureValue value={revenue} format={'money'} />
+            </Figure>
+            <Figure label={earningsLabel}>
+              <FigureValue
+                value={basis === 'ebitda' ? ebitda : sde}
+                format={'money'}
+              />
+            </Figure>
+            <Figure label={`Asking multiple (${earningsLabel})`}>
+              <FigureValue value={multiple} format={'multiple'} calculated />
+            </Figure>
+            <Figure label={`${earningsLabel} margin`}>
+              <FigureValue value={margin} format={'percent'} calculated />
+            </Figure>
           </dl>
         )}
-        <div className={'flex flex-wrap items-start gap-2'}>
-          <DealStarButton dealId={deal.id} starred={starred} />
-          <DealProfileDialog
-            trigger={
-              <Button variant={'outline'} size={'sm'}>
-                Deal profile
-              </Button>
-            }
-            deal={deal}
-            industries={industries}
-            otherBusinessNames={otherBusinessNames}
-            canManage={canManage}
-          />
-          <GatedControl allowed={canManage} reason={MANAGERS_ONLY}>
-            <div className={'flex flex-wrap items-start gap-2'}>
-              <DealHeaderActions
-                dealId={deal.id}
-                dealName={dealDisplayName(deal)}
-                dealsHref={dealsHref}
-                isOwner={isOwner}
-                stage={deal.stage}
-                stages={stages}
-                listingStatus={deal.listing_status}
-                archived={deal.archived_at !== null}
-              />
-              <EarningsBasisToggle dealId={deal.id} basis={basis} />
-              <DealIntakeRerun dealId={deal.id} />
-            </div>
-          </GatedControl>
-        </div>
       </div>
       <div
         className={

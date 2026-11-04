@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
 
 import { useRouter } from 'next/navigation';
+
+import { MoreHorizontalIcon } from 'lucide-react';
 
 import {
   archiveDeal,
   setDealListingStatus,
   setDealResolution,
+  setEarningsBasis,
   starDeal,
   unarchiveDeal,
   unstarDeal,
@@ -22,13 +25,27 @@ import {
   DialogTitle,
 } from '@odb/ui/dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@odb/ui/dropdown-menu';
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@odb/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@odb/ui/tooltip';
 
+import { DealIntakeRerun } from './deal-intake-rerun';
 import { DeleteDealDialog } from './deal-row-actions';
 import { useRefusableAction } from './use-refusable-action';
 
@@ -40,56 +57,54 @@ const LOST_REASONS: { value: string; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-const LISTING_STATUSES: {
-  value: 'active' | 'pulled' | 'sold';
-  label: string;
-}[] = [
+type ListingStatus = 'active' | 'pulled' | 'sold';
+type EarningsBasis = 'sde' | 'ebitda';
+
+const LISTING_STATUSES: { value: ListingStatus; label: string }[] = [
   { value: 'active', label: 'Active' },
   { value: 'pulled', label: 'Pulled' },
   { value: 'sold', label: 'Sold' },
 ];
 
-export function DealStarButton(props: { dealId: string; starred: boolean }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+const EARNINGS_BASES: { value: EarningsBasis; label: string }[] = [
+  { value: 'sde', label: 'SDE' },
+  { value: 'ebitda', label: 'EBITDA' },
+];
+
+function ManagersOnly(props: {
+  allowed: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  if (props.allowed) {
+    return props.children;
+  }
 
   return (
-    <Button
-      variant={'outline'}
-      size={'sm'}
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          await (props.starred
-            ? unstarDeal({ deal_id: props.dealId })
-            : starDeal({ deal_id: props.dealId }));
-          router.refresh();
-        })
-      }
-    >
-      {props.starred ? 'Unstar' : 'Star'}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <DropdownMenuItem
+          aria-disabled
+          className={'opacity-50'}
+          onSelect={(event) => event.preventDefault()}
+        >
+          {props.label}
+        </DropdownMenuItem>
+      </TooltipTrigger>
+      <TooltipContent side={'left'}>Managers only</TooltipContent>
+    </Tooltip>
   );
 }
 
-export function DealHeaderActions(props: {
+export function DealStageSelect(props: {
   dealId: string;
-  dealName: string;
-  dealsHref: string;
   stage: string;
   stages: { key: string; label: string }[];
-  listingStatus: string;
-  archived: boolean;
-  isOwner: boolean;
 }) {
-  const router = useRouter();
   const refusable = useRefusableAction();
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [lostOpen, setLostOpen] = useState(false);
-  const [lostReason, setLostReason] = useState(LOST_REASONS[0]!.value);
 
   return (
-    <div className={'flex flex-wrap items-center gap-2'}>
+    <div className={'flex flex-col gap-1'}>
       <Select
         value={props.stage}
         onValueChange={(stage) =>
@@ -107,76 +122,173 @@ export function DealHeaderActions(props: {
           ))}
         </SelectContent>
       </Select>
-
-      <Select
-        value={props.listingStatus}
-        onValueChange={(value) =>
-          refusable.run(() =>
-            setDealListingStatus({
-              deal_id: props.dealId,
-              listing_status: value as 'active' | 'pulled' | 'sold',
-            }),
-          )
-        }
-      >
-        <SelectTrigger className={'w-36'} disabled={refusable.pending}>
-          <SelectValue placeholder={'Listing'} />
-        </SelectTrigger>
-        <SelectContent>
-          {LISTING_STATUSES.map((status) => (
-            <SelectItem key={status.value} value={status.value}>
-              {status.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Button
-        variant={'outline'}
-        size={'sm'}
-        disabled={refusable.pending}
-        onClick={() =>
-          refusable.run(() =>
-            setDealResolution({ deal_id: props.dealId, resolution: 'won' }),
-          )
-        }
-      >
-        Mark won
-      </Button>
-
-      <Button
-        variant={'outline'}
-        size={'sm'}
-        disabled={refusable.pending}
-        onClick={() => setLostOpen(true)}
-      >
-        Mark lost
-      </Button>
-
-      <Button
-        variant={'outline'}
-        size={'sm'}
-        disabled={refusable.pending}
-        onClick={() =>
-          refusable.run(() =>
-            props.archived
-              ? unarchiveDeal({ deal_id: props.dealId })
-              : archiveDeal({ deal_id: props.dealId }),
-          )
-        }
-      >
-        {props.archived ? 'Unarchive' : 'Archive'}
-      </Button>
-
-      {props.archived && props.isOwner ? (
-        <Button
-          variant={'outline'}
-          size={'sm'}
-          onClick={() => setDeleteOpen(true)}
-        >
-          Delete
-        </Button>
+      {refusable.refusal ? (
+        <p role={'alert'} className={'text-destructive text-sm'}>
+          {refusable.refusal}
+        </p>
       ) : null}
+    </div>
+  );
+}
+
+export function DealOverflowMenu(props: {
+  dealId: string;
+  dealName: string;
+  dealsHref: string;
+  starred: boolean;
+  listingStatus: string;
+  basis: EarningsBasis;
+  archived: boolean;
+  isOwner: boolean;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const [starPending, startStarTransition] = useTransition();
+  const refusable = useRefusableAction();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [rerunOpen, setRerunOpen] = useState(false);
+  const [lostOpen, setLostOpen] = useState(false);
+  const [lostReason, setLostReason] = useState(LOST_REASONS[0]!.value);
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant={'outline'}
+            size={'sm'}
+            aria-label={'More deal actions'}
+            disabled={starPending || refusable.pending}
+          >
+            <MoreHorizontalIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align={'end'} className={'w-52'}>
+          <DropdownMenuItem
+            onSelect={() =>
+              startStarTransition(async () => {
+                await (props.starred
+                  ? unstarDeal({ deal_id: props.dealId })
+                  : starDeal({ deal_id: props.dealId }));
+                router.refresh();
+              })
+            }
+          >
+            {props.starred ? 'Unstar' : 'Star'}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <ManagersOnly allowed={props.canManage} label={'Listing status'}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Listing status</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={props.listingStatus}
+                  onValueChange={(value) =>
+                    refusable.run(() =>
+                      setDealListingStatus({
+                        deal_id: props.dealId,
+                        listing_status: value as ListingStatus,
+                      }),
+                    )
+                  }
+                >
+                  {LISTING_STATUSES.map((status) => (
+                    <DropdownMenuRadioItem
+                      key={status.value}
+                      value={status.value}
+                    >
+                      {status.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </ManagersOnly>
+          <ManagersOnly allowed={props.canManage} label={'Earnings basis'}>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>Earnings basis</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={props.basis}
+                  onValueChange={(value) =>
+                    refusable.run(() =>
+                      setEarningsBasis({
+                        deal_id: props.dealId,
+                        earnings_basis: value as EarningsBasis,
+                      }),
+                    )
+                  }
+                >
+                  {EARNINGS_BASES.map((basis) => (
+                    <DropdownMenuRadioItem
+                      key={basis.value}
+                      value={basis.value}
+                    >
+                      {basis.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </ManagersOnly>
+          <ManagersOnly allowed={props.canManage} label={'Re-extract with AI'}>
+            <DropdownMenuItem onSelect={() => setRerunOpen(true)}>
+              Re-extract with AI
+            </DropdownMenuItem>
+          </ManagersOnly>
+          <DropdownMenuSeparator />
+          <ManagersOnly allowed={props.canManage} label={'Mark won'}>
+            <DropdownMenuItem
+              onSelect={() =>
+                refusable.run(() =>
+                  setDealResolution({
+                    deal_id: props.dealId,
+                    resolution: 'won',
+                  }),
+                )
+              }
+            >
+              Mark won
+            </DropdownMenuItem>
+          </ManagersOnly>
+          <ManagersOnly allowed={props.canManage} label={'Mark lost'}>
+            <DropdownMenuItem onSelect={() => setLostOpen(true)}>
+              Mark lost
+            </DropdownMenuItem>
+          </ManagersOnly>
+          <DropdownMenuSeparator />
+          <ManagersOnly
+            allowed={props.canManage}
+            label={props.archived ? 'Unarchive' : 'Archive'}
+          >
+            <DropdownMenuItem
+              onSelect={() =>
+                refusable.run(() =>
+                  props.archived
+                    ? unarchiveDeal({ deal_id: props.dealId })
+                    : archiveDeal({ deal_id: props.dealId }),
+                )
+              }
+            >
+              {props.archived ? 'Unarchive' : 'Archive'}
+            </DropdownMenuItem>
+          </ManagersOnly>
+          {props.archived && props.isOwner ? (
+            <DropdownMenuItem
+              variant={'destructive'}
+              onSelect={() => setDeleteOpen(true)}
+            >
+              Delete
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DealIntakeRerun
+        dealId={props.dealId}
+        open={rerunOpen}
+        onOpenChange={setRerunOpen}
+      />
 
       <DeleteDealDialog
         dealId={props.dealId}
@@ -234,6 +346,6 @@ export function DealHeaderActions(props: {
           {refusable.refusal}
         </p>
       ) : null}
-    </div>
+    </>
   );
 }

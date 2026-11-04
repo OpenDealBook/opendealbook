@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 
+import { NextIntlClientProvider } from 'next-intl';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -57,15 +58,18 @@ async function render(
   item: DealListItem,
   ownerName: string | null,
   isOwner = false,
+  locale = 'en-US',
 ) {
   await act(async () => {
     root.render(
-      <DealCard
-        deal={item}
-        ownerName={ownerName}
-        isOwner={isOwner}
-        detailBasePath={'/home/t/deals'}
-      />,
+      <NextIntlClientProvider locale={locale}>
+        <DealCard
+          deal={item}
+          ownerName={ownerName}
+          isOwner={isOwner}
+          detailBasePath={'/home/t/deals'}
+        />
+      </NextIntlClientProvider>,
     );
   });
 }
@@ -85,10 +89,26 @@ afterEach(() => {
 });
 
 describe('DealCard', () => {
-  it('shows the multiple to 2 decimals', async () => {
-    await render(deal({ multiple: 3.2 }), 'Morgan Reyes');
+  it('shows its figures in the shared ledger format', async () => {
+    await render(
+      deal({
+        askingPrice: 1_250_000,
+        revenue: -40_000,
+        multiple: 3.2,
+        margin: 0.234,
+      }),
+      'Morgan Reyes',
+    );
 
-    expect(container.textContent).toContain('3.20x');
+    const text = container.textContent;
+
+    expect(text).toContain('$1.25M');
+    expect(text).toContain('($40K)');
+    expect(text).toContain('3.2x');
+    expect(text).toContain('23.4%');
+    expect(
+      container.querySelector('[aria-label="Not disclosed"]')!.textContent,
+    ).toBe('–');
   });
 
   it('shows the full business name without truncating it or a placeholder icon', async () => {
@@ -112,6 +132,83 @@ describe('DealCard', () => {
     expect(text).toContain('Morgan Reyes');
     expect(text).toContain('4 open, 2 overdue');
     expect(text).toContain('Oct 14, 2026');
+  });
+
+  it('writes dates in the viewer locale', async () => {
+    await render(deal(), 'Morgan Reyes', false, 'en-GB');
+
+    expect(container.textContent).toContain('14 Oct 2026');
+  });
+
+  it('shows the stage as a stage chip with a matching strip, muted red once lost', async () => {
+    await render(deal({ stage: 'due_diligence' }), 'Morgan Reyes');
+
+    expect(
+      container.querySelector('[data-slot="stage-chip"]')!.className,
+    ).toContain('bg-stage-diligence');
+    expect(container.querySelector('div[aria-hidden]')!.className).toContain(
+      'bg-stage-diligence-foreground',
+    );
+
+    await render(
+      deal({ stage: 'due_diligence', resolution: 'lost' }),
+      'Morgan Reyes',
+    );
+
+    expect(
+      container.querySelector('[data-slot="stage-chip"]')!.className,
+    ).toContain('bg-stage-lost');
+    expect(container.querySelector('div[aria-hidden]')!.className).toContain(
+      'bg-stage-lost-foreground',
+    );
+  });
+
+  it('mutes an archived deal, tags it Archived and mutes its stage chip', async () => {
+    await render(
+      deal({ stage: 'due_diligence', archivedAt: '2026-10-01T00:00:00Z' }),
+      'Morgan Reyes',
+    );
+
+    const card = container.querySelector('[data-slot="card"]')!;
+    const chip = container.querySelector('[data-slot="stage-chip"]')!;
+
+    expect(card.className).toContain('bg-muted/40');
+    expect(card.className).not.toContain('opacity');
+    expect(card.textContent).toContain('Archived');
+    expect(chip.textContent).toBe('NDA Signed');
+    expect(chip.className).toContain('bg-muted text-muted-foreground');
+    expect(chip.className).not.toContain('bg-stage-');
+  });
+
+  it('leaves a live deal undimmed and untagged', async () => {
+    await render(deal(), 'Morgan Reyes');
+
+    expect(
+      container.querySelector('[data-slot="card"]')!.className,
+    ).not.toContain('bg-muted/40');
+    expect(container.textContent).not.toContain('Archived');
+  });
+
+  it('shows a dash for a missing multiple and margin, as not available', async () => {
+    await render(deal(), 'Morgan Reyes');
+
+    const missing = [
+      ...container.querySelectorAll(
+        '[data-slot="badge"] [title="Not available"]',
+      ),
+    ].map((dash) => dash.closest('[data-slot="badge"]')!.textContent);
+
+    expect(missing).toEqual(['–', '– margin']);
+  });
+
+  it('shows a dash for missing days in stage, as not available', async () => {
+    await render(deal(), 'Morgan Reyes');
+
+    const dash = [
+      ...container.querySelectorAll('[title="Not available"]'),
+    ].find((each) => !each.closest('[data-slot="badge"]'))!;
+
+    expect(dash.parentElement!.textContent).toBe('– days in stage');
   });
 
   it('names a custom milestone by its label', async () => {

@@ -186,6 +186,22 @@ describe('TeamAccountLayout', () => {
     ).not.toBeNull();
   });
 
+  it('shows the Open Deal Book logo in the sidebar and the menu sheet', async () => {
+    await showLayout();
+
+    expect(
+      document.querySelector('aside [aria-label="Open Deal Book"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      button('Menu').click();
+    });
+
+    expect(
+      document.querySelector('[role="dialog"] [aria-label="Open Deal Book"]'),
+    ).not.toBeNull();
+  });
+
   it('splits the sidebar into Work and Settings groups with readable labels', async () => {
     await showLayout();
     const sidebar = document.querySelector('aside')!;

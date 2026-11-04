@@ -2,49 +2,37 @@ import type { ReactNode } from 'react';
 
 import Link from 'next/link';
 
+import { useLocale } from 'next-intl';
+
 import {
   FIXED_MILESTONES,
   type MilestoneKind,
 } from '@odb/deal-timeline/schema.ts';
-import type { DealListGroup, DealListItem, NextMilestone } from '@odb/deals';
-import { multipleText } from '@odb/deals/shared';
+import type { DealListItem, NextMilestone } from '@odb/deals';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import { Card } from '@odb/ui/card';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
+import { formatDate } from '@odb/ui/format';
+import { StageChip, type StageTone, stageTone } from '@odb/ui/stage-chip';
 
 import { DealRowActions } from './deal-row-actions';
 
-const GROUP_ACCENT: Record<DealListGroup, string> = {
-  actively_pursuing: 'bg-emerald-500',
-  early_funnel: 'bg-sky-500',
-  closed_off_track: 'bg-amber-500',
-  archived: 'bg-muted-foreground',
+const STRIP: Record<StageTone, string> = {
+  early: 'bg-stage-early-foreground',
+  diligence: 'bg-stage-diligence-foreground',
+  close: 'bg-stage-close-foreground',
+  lost: 'bg-stage-lost-foreground',
 };
 
-const compactCurrency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
-
-function money(value: number | null): string {
-  return value === null ? 'Not disclosed' : compactCurrency.format(value);
-}
-
-const shortDate = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'UTC',
-  dateStyle: 'medium',
-});
-
-function nextStep(milestone: NextMilestone | null): string {
+function nextStep(milestone: NextMilestone | null, locale: string): string {
   if (milestone === null) {
     return 'Not set';
   }
   const kind = milestone.kind as MilestoneKind;
   const name =
     kind === 'custom' ? milestone.label! : FIXED_MILESTONES[kind].label;
-  return `${name}, ${shortDate.format(new Date(milestone.targetOn))}`;
+  return `${name}, ${formatDate(milestone.targetOn, locale)}`;
 }
 
 function resolutionText(
@@ -71,6 +59,9 @@ export function DealCard({
   isOwner: boolean;
   detailBasePath: string;
 }) {
+  const locale = useLocale();
+  const lost = deal.resolution === 'lost';
+  const archived = deal.archivedAt !== null;
   const href = `${detailBasePath}/${deal.id}`;
   const resolution = resolutionText(deal.resolution, deal.resolutionReason);
   const subtitle = [deal.locationName, deal.industryName]
@@ -78,9 +69,11 @@ export function DealCard({
     .join(' · ');
 
   return (
-    <Card className={'relative overflow-hidden py-0'}>
+    <Card
+      className={`relative overflow-hidden py-0 ${archived ? 'bg-muted/40' : ''}`}
+    >
       <div
-        className={`absolute inset-y-0 left-0 w-1 ${GROUP_ACCENT[deal.group]}`}
+        className={`absolute inset-y-0 left-0 w-1 ${archived ? 'bg-muted-foreground' : STRIP[stageTone(deal.stage, lost)]}`}
         aria-hidden
       />
       <div className={'flex flex-col gap-4 py-5 pr-4 pl-5'}>
@@ -95,6 +88,7 @@ export function DealCard({
             {deal.isExample ? (
               <Badge variant={'secondary'}>Example</Badge>
             ) : null}
+            {archived ? <Badge variant={'outline'}>Archived</Badge> : null}
           </div>
           {subtitle.length > 0 ? (
             <p className={'text-muted-foreground text-sm'}>{subtitle}</p>
@@ -102,7 +96,10 @@ export function DealCard({
         </div>
 
         <dl className={'grid grid-cols-2 gap-x-2 gap-y-3 text-sm'}>
-          <Fact label={'Next step'} value={nextStep(deal.nextMilestone)} />
+          <Fact
+            label={'Next step'}
+            value={nextStep(deal.nextMilestone, locale)}
+          />
           <Fact label={'Owner'} value={ownerName ?? 'Unassigned'} />
           <Fact
             label={'Checklist'}
@@ -121,12 +118,18 @@ export function DealCard({
           />
           <Fact
             label={'Last activity'}
-            value={shortDate.format(new Date(deal.lastActivityAt))}
+            value={formatDate(deal.lastActivityAt, locale)}
           />
         </dl>
 
         <div className={'flex flex-wrap items-center gap-2'}>
-          <Badge variant={'outline'}>{deal.stageLabel ?? deal.stage}</Badge>
+          <StageChip
+            stage={deal.stage}
+            lost={lost}
+            className={archived ? 'bg-muted text-muted-foreground' : undefined}
+          >
+            {deal.stageLabel ?? deal.stage}
+          </StageChip>
           {resolution !== null ? (
             <Badge variant={'secondary'}>{resolution}</Badge>
           ) : null}
@@ -140,32 +143,27 @@ export function DealCard({
             'grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-2 text-sm'
           }
         >
-          <Metric label={'Ask'} value={money(deal.askingPrice)} />
-          <Metric label={'Revenue'} value={money(deal.revenue)} />
-          <Metric label={'SDE'} value={money(deal.sde)} />
+          <Metric label={'Ask'} value={deal.askingPrice} />
+          <Metric label={'Revenue'} value={deal.revenue} />
+          <Metric label={'SDE'} value={deal.sde} />
           {deal.yourOffer !== null ? (
-            <Metric label={'Your offer'} value={money(deal.yourOffer)} />
+            <Metric label={'Your offer'} value={deal.yourOffer} />
           ) : null}
         </div>
 
-        {deal.multiple !== null || deal.margin !== null ? (
-          <div className={'flex flex-wrap gap-2'}>
-            {deal.multiple !== null ? (
-              <Badge variant={'outline'}>{multipleText(deal.multiple)}</Badge>
-            ) : null}
-            {deal.margin !== null ? (
-              <Badge variant={'outline'}>
-                {Math.round(deal.margin * 100)}% margin
-              </Badge>
-            ) : null}
-          </div>
-        ) : null}
+        <div className={'flex flex-wrap gap-2'}>
+          <Badge variant={'outline'}>
+            <FigureValue value={deal.multiple} format={'multiple'} calculated />
+          </Badge>
+          <Badge variant={'outline'}>
+            <FigureValue value={deal.margin} format={'percent'} calculated />{' '}
+            margin
+          </Badge>
+        </div>
 
         <div className={'flex items-center justify-between gap-2'}>
           <span className={'text-muted-foreground text-xs'}>
-            {deal.daysInStage === null
-              ? ''
-              : `${deal.daysInStage} days in stage`}
+            {deal.daysInStage ?? <MissingValue calculated />} days in stage
           </span>
           <div className={'flex items-center gap-1'}>
             <Button asChild variant={'ghost'} size={'sm'}>
@@ -194,11 +192,11 @@ function Fact({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: string; value: number | null }) {
   return (
     <div className={'flex flex-col'}>
       <span className={'text-muted-foreground text-xs'}>{label}</span>
-      <span className={'font-medium'}>{value}</span>
+      <FigureValue value={value} format={'money'} className={'font-medium'} />
     </div>
   );
 }

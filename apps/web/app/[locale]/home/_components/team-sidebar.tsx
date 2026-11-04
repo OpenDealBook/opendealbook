@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@odb/ui/dropdown-menu';
+import { Logo } from '@odb/ui/logo';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@odb/ui/sheet';
 
 interface Team {
@@ -116,6 +117,13 @@ function TeamNavigation({
 }: TeamNavigationProps & { onNavigate?: () => void }) {
   return (
     <>
+      <Link
+        href={`/home/${team.slug}`}
+        onClick={onNavigate}
+        className={'px-2 py-2'}
+      >
+        <Logo size={24} wordmark />
+      </Link>
       <TeamSwitcher team={team} teams={teams} onNavigate={onNavigate} />
 
       <nav aria-label={'Team'} className={'flex flex-col gap-6'}>

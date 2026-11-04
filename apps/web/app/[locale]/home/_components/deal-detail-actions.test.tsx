@@ -15,7 +15,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: server.push, refresh: server.refresh }),
 }));
 
-import { DealHeaderActions } from './deal-detail-actions';
+import { DealOverflowMenu } from './deal-detail-actions';
 
 const DEAL_ID = 'd0000000-0000-4000-8000-000000000001';
 const NAME = 'Harbor Plumbing';
@@ -26,17 +26,33 @@ let root: Root;
 function render(deal: { archived: boolean; isOwner: boolean }) {
   act(() =>
     root.render(
-      <DealHeaderActions
+      <DealOverflowMenu
         dealId={DEAL_ID}
         dealName={NAME}
         dealsHref={'/home/harbor/deals'}
-        stage={'sourcing'}
-        stages={[{ key: 'sourcing', label: 'Sourcing' }]}
+        starred={false}
         listingStatus={'active'}
+        basis={'sde'}
+        canManage={true}
         {...deal}
       />,
     ),
   );
+}
+
+function openMenu() {
+  const trigger = container.querySelector('[aria-label="More deal actions"]')!;
+  act(() => {
+    trigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+  });
+}
+
+function menuItem(text: string) {
+  return [...document.body.querySelectorAll('[role="menuitem"]')].find(
+    (candidate) => candidate.textContent === text,
+  ) as HTMLElement | undefined;
 }
 
 function button(text: string) {
@@ -74,21 +90,25 @@ afterEach(() => {
   container.remove();
 });
 
-describe('DealHeaderActions delete', () => {
-  it('shows Delete only on an archived deal, and only to the team owner', () => {
-    render({ archived: true, isOwner: true });
-    expect(button('Delete')).toBeDefined();
+describe('DealOverflowMenu delete', () => {
+  it.each([
+    [{ archived: true, isOwner: true }, true],
+    [{ archived: true, isOwner: false }, false],
+    [{ archived: false, isOwner: true }, false],
+  ])(
+    'offers Delete only on an archived deal to the team owner: %o',
+    (deal, offered) => {
+      render(deal);
+      openMenu();
 
-    render({ archived: true, isOwner: false });
-    expect(button('Delete')).toBeUndefined();
-
-    render({ archived: false, isOwner: true });
-    expect(button('Delete')).toBeUndefined();
-  });
+      expect(menuItem('Delete') !== undefined).toBe(offered);
+    },
+  );
 
   it('goes back to the deals list once the deal is deleted', async () => {
     render({ archived: true, isOwner: true });
-    act(() => button('Delete')!.click());
+    openMenu();
+    act(() => menuItem('Delete')!.click());
     type(NAME);
 
     await act(async () => button('Delete deal')!.click());

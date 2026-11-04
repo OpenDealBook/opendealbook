@@ -303,8 +303,9 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
         }),
       })
       .getByRole('cell');
-    for (const cell of (await debtCells.allTextContents()).slice(1)) {
-      expect(cell).toMatch(/^\$[\d,]+$/);
+    for (const cell of (await debtCells.all()).slice(1)) {
+      await expect(cell).toHaveText(/^\$[\d.]+[KMB]?$/);
+      await expect(cell.getByTitle(/^\$[\d,]+$/)).toBeVisible();
     }
     for (const cell of (await dscrCells.allTextContents()).slice(1)) {
       expect(parseFloat(cell)).toBeGreaterThan(1.25);
@@ -975,7 +976,7 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
       if (index < timelineChoices.length) {
         await expect(
           lender.page.getByRole('heading', {
-            name: 'Can you close by March 31, 2027?',
+            name: 'Can you close by Mar 31, 2027?',
           }),
         ).toBeVisible({ timeout: 60 * 1000 });
         const choice = lender.page.getByRole('button', {
@@ -1679,7 +1680,8 @@ test('full deal: team, financials, LOI, diligence, lenders, APA, closing, timeli
     await page
       .waitForLoadState('networkidle', { timeout: 3000 })
       .catch(() => undefined);
-    await page.getByRole('button', { name: 'Mark won' }).click();
+    await page.getByRole('button', { name: 'More deal actions' }).click();
+    await page.getByRole('menuitem', { name: 'Mark won' }).click();
     await expect(page.getByText('Won (closed)').first()).toBeVisible({
       timeout: 30 * 1000,
     });

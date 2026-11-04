@@ -80,19 +80,48 @@ function button(text: string) {
   )!;
 }
 
+function openMenu() {
+  const trigger = container.querySelector('[aria-label="More deal actions"]')!;
+  act(() => {
+    trigger.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+    );
+  });
+}
+
+function menuItems() {
+  return [...document.body.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+}
+
+function menuItem(text: string) {
+  return menuItems().find((item) => item.textContent === text)!;
+}
+
 function dialog() {
   return document.querySelector('[role="dialog"]');
 }
 
-function figure(label: string) {
+function value(label: string) {
   return [...container.querySelectorAll('dt')].find(
     (candidate) => candidate.textContent === label,
-  )!.nextElementSibling!.textContent;
+  )!.nextElementSibling!;
+}
+
+function figure(label: string) {
+  return value(label).textContent;
 }
 
 beforeEach(() => {
   pathname = `/home/harbor/deals/${deal.id}/financials`;
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -110,7 +139,8 @@ describe('DealHeader', () => {
       isOwner: true,
     });
 
-    act(() => button('Delete').click());
+    openMenu();
+    act(() => menuItem('Delete').click());
 
     expect(document.body.textContent).toContain(
       'Type Brennan Climate Services to confirm.',
@@ -136,26 +166,37 @@ describe('DealHeader', () => {
     expect(container.textContent!.split('Sourcing')).toHaveLength(2);
   });
 
-  it('shows the listing status once, in sentence case', () => {
-    render();
+  it('keeps the stage and the deal profile in view and moves the rest into the overflow menu', () => {
+    render({
+      deal: { ...deal, archived_at: '2026-10-01T00:00:00Z' },
+      isOwner: true,
+    });
 
-    expect(container.textContent!.split('Active')).toHaveLength(2);
-    expect(container.textContent).not.toContain('active');
-  });
-
-  it('keeps only the title row and the tabs pinned while the rest scrolls away', () => {
-    render({ tabs: <nav>Deal tabs</nav> });
-
-    const pinned = [...container.querySelectorAll('*')].filter((element) =>
-      /(^|\s)([a-z0-9]+:)*sticky(\s|$)/.test(element.className),
-    );
-    const pinnedText = pinned.map((element) => element.textContent).join('|');
-
-    expect(pinnedText).toContain('Brennan Climate Services');
-    expect(pinnedText).toContain('Deal tabs');
-    for (const scrolling of ['Revenue', 'Star', 'Deal profile', 'Mark won']) {
-      expect(pinnedText).not.toContain(scrolling);
+    expect(container.querySelectorAll('[role="combobox"]')).toHaveLength(1);
+    expect(button('Deal profile')).toBeDefined();
+    for (const secondary of [
+      'Re-extract with AI',
+      'Star',
+      'Mark won',
+      'Mark lost',
+      'Unarchive',
+      'Delete',
+    ]) {
+      expect(button(secondary)).toBeUndefined();
     }
+
+    openMenu();
+
+    expect(menuItems().map((item) => item.textContent)).toEqual([
+      'Star',
+      'Listing status',
+      'Earnings basis',
+      'Re-extract with AI',
+      'Mark won',
+      'Mark lost',
+      'Unarchive',
+      'Delete',
+    ]);
   });
 
   it('leaves the asking figures to the overview summary strip on the overview', () => {
@@ -170,16 +211,44 @@ describe('DealHeader', () => {
     pathname = `/home/harbor/deals/${deal.id}/documents`;
     render();
 
-    expect(figure('Asking')).toBe('$2,000,000');
-    expect(figure('Asking multiple (SDE)')).toBe('2.86x');
+    expect(figure('Asking')).toBe('$2M');
+    expect(figure('Asking multiple (SDE)')).toBe('2.9x');
   });
 
-  it('shows trailing twelve month figures with the multiple to 2 decimals', () => {
+  it('shows trailing twelve month figures compact with the multiple to 1 decimal', () => {
     render();
 
-    expect(figure('Revenue')).toBe('$1,000,000');
-    expect(figure('SDE')).toBe('$700,000');
-    expect(figure('Asking multiple (SDE)')).toBe('2.86x');
+    expect(figure('Revenue')).toBe('$1M');
+    expect(figure('SDE')).toBe('$700K');
+    expect(figure('Asking multiple (SDE)')).toBe('2.9x');
+    expect(figure('SDE margin')).toBe('70.0%');
+  });
+
+  it('shows the exact amount on hover of a compact figure', () => {
+    render({ deal: { ...deal, asking_price: 2_450_000 } });
+
+    expect(figure('Asking')).toBe('$2.45M');
+    expect(
+      value('Asking').querySelector('[title]')!.getAttribute('title'),
+    ).toBe('$2,450,000');
+  });
+
+  it('marks a missing multiple and margin as not available since they are calculated', () => {
+    render({ deal: { ...deal, asking_price: null, revenue_ttm: null } });
+
+    const hover = (label: string) =>
+      value(label).querySelector('[aria-label]')!.getAttribute('aria-label');
+    expect(hover('Asking')).toBe('Not disclosed');
+    expect(hover('Asking multiple (SDE)')).toBe('Not available');
+    expect(hover('SDE margin')).toBe('Not available');
+  });
+
+  it('follows the EBITDA basis across the earnings figures', () => {
+    render({ deal: { ...deal, earnings_basis: 'ebitda' } });
+
+    expect(figure('EBITDA')).toBe('$500K');
+    expect(figure('Asking multiple (EBITDA)')).toBe('4.0x');
+    expect(figure('EBITDA margin')).toBe('50.0%');
   });
 
   it('prefers adopted financials over trailing twelve months', () => {
@@ -191,9 +260,9 @@ describe('DealHeader', () => {
       },
     });
 
-    expect(figure('Revenue')).toBe('$2,000,000');
-    expect(figure('SDE')).toBe('$600,000');
-    expect(figure('Asking multiple (SDE)')).toBe('3.33x');
+    expect(figure('Revenue')).toBe('$2M');
+    expect(figure('SDE')).toBe('$600K');
+    expect(figure('Asking multiple (SDE)')).toBe('3.3x');
   });
 
   it('shows only adopted figures once financials are adopted, never filling gaps from trailing twelve months', () => {
@@ -205,35 +274,88 @@ describe('DealHeader', () => {
       },
     });
 
-    expect(figure('Revenue')).toBe('$2,000,000');
-    expect(figure('SDE')).toBe('Not disclosed');
-    expect(figure('Asking multiple (SDE)')).toBe('Not disclosed');
+    expect(figure('Revenue')).toBe('$2M');
+    expect(figure('SDE')).toBe('–');
+    expect(
+      value('SDE').querySelector('[aria-label]')!.getAttribute('aria-label'),
+    ).toBe('Not disclosed');
+    expect(figure('Asking multiple (SDE)')).toBe('–');
   });
 
   it('disables manager controls for a non-manager and says why', () => {
     render({ canManage: false });
 
     expect(container.textContent).toContain(MANAGERS_ONLY);
+    expect(
+      container.querySelector('[role="combobox"]')!.matches(':disabled'),
+    ).toBe(true);
+
+    openMenu();
+
     for (const label of [
+      'Listing status',
+      'Earnings basis',
+      'Re-extract with AI',
       'Mark won',
       'Mark lost',
       'Archive',
-      'Re-extract with AI',
     ]) {
-      expect(button(label).matches(':disabled')).toBe(true);
+      expect(menuItem(label).getAttribute('aria-disabled')).toBe('true');
     }
-    for (const trigger of container.querySelectorAll('[role="combobox"]')) {
-      expect(trigger.matches(':disabled')).toBe(true);
-    }
-    expect(button('Star').matches(':disabled')).toBe(false);
+    expect(menuItem('Star').hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('tells a non-manager a greyed-out menu action is for managers only when it takes focus', () => {
+    render({ canManage: false });
+    openMenu();
+
+    act(() => menuItem('Mark won').focus());
+
+    expect(document.querySelector('[role="tooltip"]')?.textContent).toBe(
+      'Managers only',
+    );
+  });
+
+  it('does nothing when a non-manager picks a greyed-out menu action', () => {
+    render({ canManage: false });
+    openMenu();
+
+    act(() => menuItem('Re-extract with AI').click());
+
+    expect(dialog()).toBeNull();
+  });
+
+  it('opens the re-extract dialog from the overflow menu', () => {
+    render();
+
+    openMenu();
+    act(() => menuItem('Re-extract with AI').click());
+
+    expect(dialog()!.textContent).toContain('Re-extract this deal');
+  });
+
+  it.each([
+    ['pulled', 'Pulled'],
+    ['sold', 'Sold'],
+  ])('marks a %s listing beside the stage', (listing_status, label) => {
+    render({ deal: { ...deal, listing_status } });
+
+    expect(container.textContent).toContain(label);
+  });
+
+  it('shows no listing mark while the listing is active', () => {
+    render();
+
+    expect(container.textContent).not.toMatch(/active|pulled|sold/i);
   });
 
   it('leaves manager controls enabled for a manager', () => {
     render({ canManage: true });
 
     expect(container.textContent).not.toContain(MANAGERS_ONLY);
-    expect(button('Mark won').matches(':disabled')).toBe(false);
-    expect(button('Archive').matches(':disabled')).toBe(false);
+    openMenu();
+    expect(menuItem('Mark won').hasAttribute('aria-disabled')).toBe(false);
+    expect(menuItem('Archive').hasAttribute('aria-disabled')).toBe(false);
   });
 
   it('shows the code name as a badge beside the business name', () => {

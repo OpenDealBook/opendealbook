@@ -485,6 +485,9 @@ importers:
       elkjs:
         specifier: 0.12.0
         version: 0.12.0
+      lucide-react:
+        specifier: 'catalog:'
+        version: 1.14.0(react@19.2.6)
       next:
         specifier: 'catalog:'
         version: 16.3.4(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@25.6.2)(babel-plugin-macros@3.1.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -2486,6 +2489,9 @@ importers:
       ai:
         specifier: ^7.0.159
         version: 7.0.159(zod@4.4.3)
+      jsdom:
+        specifier: 30.1.2
+        version: 30.1.2
       react:
         specifier: 'catalog:'
         version: 19.2.6
@@ -2501,6 +2507,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.6.2)(jsdom@30.1.2)(vite@8.3.1(@types/node@26.6.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/verification:
     dependencies:

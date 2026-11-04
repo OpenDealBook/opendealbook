@@ -106,8 +106,11 @@ test('a closed seller room and an archived deal turn the seller side read-only',
   await expect(sellerSide.page.getByText(closedReason)).toHaveCount(0);
 
   await page.goto(dealPath);
-  await page.getByRole('button', { name: 'Archive' }).click();
-  await expect(page.getByRole('button', { name: 'Unarchive' })).toBeVisible();
+  await page.getByRole('button', { name: 'More deal actions' }).click();
+  await page.getByRole('menuitem', { name: 'Archive' }).click();
+  await page.getByRole('button', { name: 'More deal actions' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Unarchive' })).toBeVisible();
+  await page.keyboard.press('Escape');
   const archivedReason =
     'This deal has closed, so everything here is read-only.';
   await sellerSide.page.goto(`/seller/rooms/${roomId}`);
