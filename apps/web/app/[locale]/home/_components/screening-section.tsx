@@ -2,23 +2,10 @@ import { type DealBoxScreenBreakdown, dealBoxScreen } from '@odb/deals';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-function dscrText(value: number): string {
-  return `${value.toFixed(2)}x`;
-}
-
-function dscrGap(value: number): string {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}x`;
-}
+import { formatMoney, formatRatio, formatRatioGap } from '@odb/ui/format';
 
 function moneyGap(value: number): string {
-  return `${value >= 0 ? '+' : ''}${currency.format(value)}`;
+  return `${value >= 0 ? '+' : ''}${formatMoney(value)}`;
 }
 
 function verdict(pass: boolean | null) {
@@ -66,24 +53,26 @@ function ScreenBreakdown({ screen }: { screen: DealBoxScreenBreakdown }) {
     <div className={'flex flex-col gap-4'}>
       <ScreenRow
         label={'DSCR'}
-        adopted={dscrText(screen.dscr)}
+        adopted={formatRatio(screen.dscr)}
         threshold={
           screen.minDscr === null
             ? 'Not set'
-            : `min ${dscrText(screen.minDscr)}`
+            : `min ${formatRatio(screen.minDscr)}`
         }
         gap={
-          screen.minDscr === null ? null : dscrGap(screen.dscr - screen.minDscr)
+          screen.minDscr === null
+            ? null
+            : formatRatioGap(screen.dscr - screen.minDscr)
         }
         pass={screen.dscrPass}
       />
       <ScreenRow
         label={'Personal cash flow'}
-        adopted={currency.format(screen.netCashFlow)}
+        adopted={formatMoney(screen.netCashFlow)}
         threshold={
           screen.requiredPersonalCashFlow === null
             ? 'Not set'
-            : `min ${currency.format(screen.requiredPersonalCashFlow)}`
+            : `min ${formatMoney(screen.requiredPersonalCashFlow)}`
         }
         gap={
           screen.requiredPersonalCashFlow === null

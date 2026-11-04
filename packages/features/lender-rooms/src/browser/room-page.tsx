@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { z } from 'zod';
 
 import { getSupabaseServerClient } from '@odb/supabase/server';
+import { formatTimestamp } from '@odb/ui/format';
+import { PageTitle } from '@odb/ui/page-header';
 
 import { brandLogoUrl } from '../brand/logo-url';
 import { getLastRoomVisit } from '../contents/last-visit';
@@ -16,16 +18,20 @@ import { OpenRequestsSummary } from '../requests-ui/open-requests-summary';
 import { ContactCard } from './contact-card';
 import { headerFacts } from './header-facts';
 import { LenderRoomBrowser } from './lender-room-browser';
-import { LocalDate } from './local-date';
+import { CloseByDate, LoanAskFigures } from './loan-facts';
 import { PeopleInRoom } from './people-in-room';
 import { loadRoomContact } from './room-contact';
 
 export async function RoomPage({
   room,
   question,
+  locale,
+  timeZone,
 }: {
   room: LenderRoomSummary;
   question: ReactNode;
+  locale: string;
+  timeZone: string;
 }) {
   const client = getSupabaseServerClient();
   const roomId = z.uuid().parse(room.id);
@@ -93,24 +99,34 @@ export async function RoomPage({
             </span>
           </p>
 
-          <h1
-            className={
-              'font-serif text-3xl leading-tight font-medium text-balance sm:text-4xl'
-            }
-          >
-            {facts.dealName}
-          </h1>
+          <PageTitle>{facts.dealName}</PageTitle>
 
           <dl
             className={
               'grid max-w-2xl grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-base'
             }
           >
-            {[
-              ['Buyer', facts.buyerTeam],
-              ['Loan ask', facts.loanAsk],
-              ['Close by', facts.closeBy],
-            ]
+            {(
+              [
+                ['Buyer', facts.buyerTeam],
+                [
+                  'Loan ask',
+                  facts.loan && (
+                    <LoanAskFigures key={'loan'} loan={facts.loan} />
+                  ),
+                ],
+                [
+                  'Close by',
+                  facts.closeBy && (
+                    <CloseByDate
+                      key={'close-by'}
+                      isoDate={facts.closeBy}
+                      locale={locale}
+                    />
+                  ),
+                ],
+              ] satisfies [string, ReactNode][]
+            )
               .filter(([, value]) => value !== null)
               .map(([term, value]) => (
                 <div key={term} className={'contents'}>
@@ -132,7 +148,10 @@ export async function RoomPage({
 
           {facts.accessEnds ? (
             <p className={'text-muted-foreground text-sm'}>
-              Room open until <LocalDate at={facts.accessEnds} />
+              Room open until{' '}
+              <time dateTime={facts.accessEnds}>
+                {formatTimestamp(facts.accessEnds, locale, timeZone)}
+              </time>
             </p>
           ) : null}
         </div>

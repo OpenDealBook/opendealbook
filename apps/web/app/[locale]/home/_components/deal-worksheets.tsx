@@ -21,11 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@odb/ui/select';
+import { cn } from '@odb/ui/utils';
 
 import {
+  isNumericField,
   worksheetColumns,
   worksheetDisplayCells,
 } from './deal-worksheets-cells';
+import { ShownValue } from './shown-value';
 import { useRefusableAction } from './use-refusable-action';
 
 const WORKSHEET_TYPES: DealWorksheetType[] = [
@@ -181,7 +184,10 @@ function WorksheetSection(props: {
                   {columns.map((column) => (
                     <th
                       key={column.key}
-                      className={'text-muted-foreground px-2 py-1 text-left'}
+                      className={cn(
+                        'text-muted-foreground px-2 py-1 text-left',
+                        column.numeric && 'text-right',
+                      )}
                     >
                       {column.label}
                     </th>
@@ -201,7 +207,15 @@ function WorksheetSection(props: {
                   return (
                     <tr key={row.id} className={'border-t'}>
                       {fields.map((field) => (
-                        <td key={field.key} className={'px-2 py-1'}>
+                        <td
+                          key={field.key}
+                          className={cn(
+                            'px-2 py-1',
+                            !isEditing &&
+                              isNumericField(field) &&
+                              'text-right tabular-nums',
+                          )}
+                        >
                           {isEditing ? (
                             <WorksheetFieldInput
                               field={field}
@@ -215,13 +229,21 @@ function WorksheetSection(props: {
                               }
                             />
                           ) : (
-                            cells.find((cell) => cell.key === field.key)?.value
+                            <ShownValue
+                              shown={
+                                cells.find((cell) => cell.key === field.key)!
+                                  .shown
+                              }
+                            />
                           )}
                         </td>
                       ))}
                       {computedCells.map((cell) => (
-                        <td key={cell.key} className={'px-2 py-1'}>
-                          {cell.value}
+                        <td
+                          key={cell.key}
+                          className={'px-2 py-1 text-right tabular-nums'}
+                        >
+                          <ShownValue shown={cell.shown} calculated />
                         </td>
                       ))}
                       <td className={'px-2 py-1 text-right'}>

@@ -2,6 +2,7 @@
 
 import { Badge } from '@odb/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
 import { Spinner } from '@odb/ui/spinner';
 import {
   Table,
@@ -14,14 +15,6 @@ import {
 
 import { useAdminCompsPool } from '../hooks/use-admin-insights';
 import { summarizeBuckets } from '../lib/comps-summary';
-
-function formatMoney(value: number | null) {
-  return value === null ? '—' : `$${Math.round(value).toLocaleString()}`;
-}
-
-function formatMultiple(value: number | null) {
-  return value === null ? '—' : `${value.toFixed(2)}x`;
-}
 
 export function AdminCompsPool() {
   const { data, isPending } = useAdminCompsPool();
@@ -94,24 +87,36 @@ export function AdminCompsPool() {
                 <TableHead>Region</TableHead>
                 <TableHead>NAICS-3</TableHead>
                 <TableHead>Quarter</TableHead>
-                <TableHead>n</TableHead>
-                <TableHead>Median SDE multiple</TableHead>
-                <TableHead>Median sale price</TableHead>
+                <TableHead numeric>n</TableHead>
+                <TableHead numeric>Median SDE multiple</TableHead>
+                <TableHead numeric>Median sale price</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {compBuckets.map((bucket, index) => (
                 <TableRow key={index}>
-                  <TableCell>{bucket.region ?? '—'}</TableCell>
-                  <TableCell>{bucket.naics3 ?? '—'}</TableCell>
-                  <TableCell>{bucket.close_quarter ?? '—'}</TableCell>
+                  <TableCell>{bucket.region ?? <MissingValue />}</TableCell>
+                  <TableCell>{bucket.naics3 ?? <MissingValue />}</TableCell>
                   <TableCell>
+                    {bucket.close_quarter ?? <MissingValue />}
+                  </TableCell>
+                  <TableCell numeric>
                     <Badge variant="outline">{bucket.n}</Badge>
                   </TableCell>
-                  <TableCell>
-                    {formatMultiple(bucket.median_sde_multiple)}
+                  <TableCell numeric>
+                    <FigureValue
+                      calculated
+                      value={bucket.median_sde_multiple}
+                      format={'multiple'}
+                    />
                   </TableCell>
-                  <TableCell>{formatMoney(bucket.median_sale_price)}</TableCell>
+                  <TableCell numeric>
+                    <FigureValue
+                      calculated
+                      value={bucket.median_sale_price}
+                      format={'money'}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -131,25 +136,37 @@ export function AdminCompsPool() {
                 <TableHead>NAICS-3</TableHead>
                 <TableHead>Quarter</TableHead>
                 <TableHead>Outcome</TableHead>
-                <TableHead>n</TableHead>
-                <TableHead>Median asking</TableHead>
-                <TableHead>Median LOI</TableHead>
+                <TableHead numeric>n</TableHead>
+                <TableHead numeric>Median asking</TableHead>
+                <TableHead numeric>Median LOI</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {activityBuckets.map((bucket, index) => (
                 <TableRow key={index}>
-                  <TableCell>{bucket.region ?? '—'}</TableCell>
-                  <TableCell>{bucket.naics3 ?? '—'}</TableCell>
-                  <TableCell>{bucket.created_quarter ?? '—'}</TableCell>
-                  <TableCell>{bucket.outcome ?? '—'}</TableCell>
+                  <TableCell>{bucket.region ?? <MissingValue />}</TableCell>
+                  <TableCell>{bucket.naics3 ?? <MissingValue />}</TableCell>
                   <TableCell>
+                    {bucket.created_quarter ?? <MissingValue />}
+                  </TableCell>
+                  <TableCell>{bucket.outcome ?? <MissingValue />}</TableCell>
+                  <TableCell numeric>
                     <Badge variant="outline">{bucket.n}</Badge>
                   </TableCell>
-                  <TableCell>
-                    {formatMoney(bucket.median_asking_price)}
+                  <TableCell numeric>
+                    <FigureValue
+                      calculated
+                      value={bucket.median_asking_price}
+                      format={'money'}
+                    />
                   </TableCell>
-                  <TableCell>{formatMoney(bucket.median_loi_price)}</TableCell>
+                  <TableCell numeric>
+                    <FigureValue
+                      calculated
+                      value={bucket.median_loi_price}
+                      format={'money'}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

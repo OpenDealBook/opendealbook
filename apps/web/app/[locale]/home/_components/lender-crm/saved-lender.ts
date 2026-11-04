@@ -28,11 +28,3 @@ export const RATE_TYPE_WORDING = {
   variable: 'Variable',
   either: 'Fixed or variable',
 } as const;
-
-export function dollars(amount: number) {
-  return amount.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  });
-}

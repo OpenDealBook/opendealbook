@@ -10,8 +10,9 @@ import {
 } from '@odb/email-templates';
 import { getMailer } from '@odb/mailers';
 import type { Database } from '@odb/supabase';
+import { formatMoneyExact } from '@odb/ui/format';
 
-import { headerFacts } from '../browser/header-facts';
+import { headerFacts, loanAskParts, longDate } from '../browser/header-facts';
 import { signInConfirmUrl } from './entry-rules';
 
 type Admin = SupabaseClient<Database>;
@@ -114,8 +115,11 @@ export async function sendLenderInvite(
     inviterName: inviter.name,
     buyerTeam: z.string().parse(facts.buyerTeam),
     outsideName: z.string().parse(facts.dealName),
-    loanAsk: facts.loanAsk,
-    closeBy: facts.closeBy,
+    loanAsk:
+      facts.loan === null
+        ? null
+        : loanAskParts(facts.loan, formatMoneyExact).join(''),
+    closeBy: facts.closeBy === null ? null : longDate(facts.closeBy),
     signInLink: await signInLink(
       admin,
       invite.email,

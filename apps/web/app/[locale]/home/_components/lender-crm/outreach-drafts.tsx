@@ -4,12 +4,14 @@ import { useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { useLocale } from 'next-intl';
+
 import { draftLenderOutreach } from '@odb/lender-outreach/draft-actions.ts';
-import { longDate } from '@odb/lender-outreach/draft-email.ts';
 import { sendLenderOutreach } from '@odb/lender-outreach/send-actions.ts';
 import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
 import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
 import { Button } from '@odb/ui/button';
+import { formatTimestamp } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
@@ -21,8 +23,15 @@ type Drafted = Extract<
   { ok: true }
 >['value'];
 
-function OutreachDraft({ draft }: { draft: Drafted['drafts'][number] }) {
+function OutreachDraft({
+  draft,
+  timeZone,
+}: {
+  draft: Drafted['drafts'][number];
+  timeZone: string;
+}) {
   const router = useRouter();
+  const locale = useLocale();
   const sending = useAttempt();
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body);
@@ -48,8 +57,8 @@ function OutreachDraft({ draft }: { draft: Drafted['drafts'][number] }) {
         <p
           className={'bg-warning/10 text-warning rounded-md px-3 py-2 text-sm'}
         >
-          Already sent on {longDate(draft.lastSentAt.slice(0, 10))}. Sending
-          again emails this lender a second time.
+          Already sent on {formatTimestamp(draft.lastSentAt, locale, timeZone)}.
+          Sending again emails this lender a second time.
         </p>
       ) : null}
       <div className={'flex flex-col gap-2'}>
@@ -101,7 +110,13 @@ function OutreachDraft({ draft }: { draft: Drafted['drafts'][number] }) {
   );
 }
 
-export function OutreachDrafts({ dealId }: { dealId: string }) {
+export function OutreachDrafts({
+  dealId,
+  timeZone,
+}: {
+  dealId: string;
+  timeZone: string;
+}) {
   const drafting = useAttempt();
   const [drafted, setDrafted] = useState<Drafted | null>(null);
 
@@ -131,7 +146,11 @@ export function OutreachDrafts({ dealId }: { dealId: string }) {
       {drafted && drafted.drafts.length > 0 ? (
         <ul className={'bg-card divide-y rounded-xl border'}>
           {drafted.drafts.map((draft) => (
-            <OutreachDraft key={draft.roomId} draft={draft} />
+            <OutreachDraft
+              key={draft.roomId}
+              draft={draft}
+              timeZone={timeZone}
+            />
           ))}
         </ul>
       ) : null}

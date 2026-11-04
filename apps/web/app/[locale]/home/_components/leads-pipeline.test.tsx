@@ -108,7 +108,7 @@ it('lists each pulled firm with location, size signals, sources, match, verdict,
   expect(cellsOf('Acme Plumbing')).toEqual([
     'Acme Plumbing',
     'Austin, TX',
-    '18 jobs $150,000 PPP loan 25 on Form 5500 25 years old',
+    '18 jobs $150K PPP loan 25 on Form 5500 25 years old',
     'PPP SBA 7(a) Form 5500 State registry',
     'Matched',
     'Fit Approved',

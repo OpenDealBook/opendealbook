@@ -64,14 +64,32 @@ describe('AdoptedFinancials', () => {
         versions={VERSIONS}
         adoptedBy={'Morgan Lee'}
         primaryChanged={null}
+        locale={'en'}
+        timeZone={'UTC'}
       />,
     );
 
     expect(text(html)).toContain(
-      'From Normalized 2025 SDE, adopted by Morgan Lee on 10/14/2026',
+      'From Normalized 2025 SDE, adopted by Morgan Lee on Oct 14, 2026',
     );
-    expect(text(html)).toContain('$780,000');
+    expect(text(html)).toContain('$780K');
     expect(text(html)).not.toContain('Primary calc changed since adoption');
+  });
+
+  it('dates the adoption in the viewer time zone', () => {
+    const html = renderToStaticMarkup(
+      <AdoptedFinancials
+        adoption={{ ...adoption, adoptedAt: '2026-10-14T03:00:00Z' }}
+        calc={null}
+        versions={[]}
+        adoptedBy={'Morgan Lee'}
+        primaryChanged={null}
+        locale={'en'}
+        timeZone={'America/Los_Angeles'}
+      />,
+    );
+
+    expect(text(html)).toContain('Adopted by Morgan Lee on Oct 13, 2026');
   });
 
   it('calls an unnamed calc by its kind, number and saved time', () => {
@@ -82,6 +100,8 @@ describe('AdoptedFinancials', () => {
         versions={VERSIONS}
         adoptedBy={'Morgan Lee'}
         primaryChanged={null}
+        locale={'en'}
+        timeZone={'UTC'}
       />,
     );
 
@@ -98,6 +118,8 @@ describe('AdoptedFinancials', () => {
         versions={[]}
         adoptedBy={null}
         primaryChanged={null}
+        locale={'en'}
+        timeZone={'UTC'}
       />,
     );
 
@@ -111,6 +133,8 @@ describe('AdoptedFinancials', () => {
         calc={secondDeal}
         versions={VERSIONS}
         adoptedBy={'Morgan Lee'}
+        locale={'en'}
+        timeZone={'UTC'}
         primaryChanged={{
           primaryCalcVersionId: PRIMARY_ID,
           canReadopt: true,
@@ -137,6 +161,8 @@ describe('AdoptedFinancials', () => {
         calc={secondDeal}
         versions={VERSIONS}
         adoptedBy={'Morgan Lee'}
+        locale={'en'}
+        timeZone={'UTC'}
         primaryChanged={{
           primaryCalcVersionId: PRIMARY_ID,
           canReadopt: false,
@@ -160,6 +186,8 @@ describe('AdoptedFinancials', () => {
         versions={VERSIONS}
         adoptedBy={'Morgan Lee'}
         primaryChanged={null}
+        locale={'en'}
+        timeZone={'UTC'}
       />,
     );
 

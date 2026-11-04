@@ -29,6 +29,8 @@ import type { DealCalcInputs } from '@odb/deals/schema';
 import { saveDealCalc } from '@odb/deals/server';
 import type { CalcSources } from '@odb/deals/shared';
 import { Button } from '@odb/ui/button';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
+import { formatRatio } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import {
@@ -59,13 +61,10 @@ import {
   NumberField,
   UnsavedChangesGuard,
   YEAR_BASIS_LABELS,
-  money,
   newFundingDraft,
   scenarioPathDriversFrom,
   num,
-  pctText,
   pctToDecimal,
-  ratio,
 } from './calc-shared';
 import { PathDriversSection } from './path-drivers-section';
 import { ScenarioPathsOutputs } from './scenario-paths-outputs';
@@ -578,44 +577,102 @@ export function CalcDealEditor(props: {
         <div className={'flex flex-col gap-4 border-t pt-4'}>
           <h3 className={'text-sm font-semibold'}>Computed outputs</h3>
           <dl className={'grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3'}>
-            <Output label={'Net income'} value={money(computed.net_income)} />
-            <Output label={'SDE'} value={money(computed.sde)} />
+            <Output
+              label={'Net income'}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.net_income}
+                  format={'money'}
+                />
+              }
+            />
+            <Output
+              label={'SDE'}
+              value={
+                <FigureValue calculated value={computed.sde} format={'money'} />
+              }
+            />
             <Output
               label={'Loan payment / debt service yr1'}
-              value={money(computed.debt_service_yr1)}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.debt_service_yr1}
+                  format={'money'}
+                />
+              }
             />
             <Output
               label={'Net cash flow'}
-              value={money(computed.net_cash_flow)}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.net_cash_flow}
+                  format={'money'}
+                />
+              }
             />
             <Output
               label={'DSCR (tax adjusted)'}
-              value={ratio(computed.dscr)}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.dscr}
+                  format={'ratio'}
+                />
+              }
             />
             <Output
               label={'Purchase multiple incl. closing costs'}
-              value={ratio(computed.purchase_multiple)}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.purchase_multiple}
+                  format={'multiple'}
+                />
+              }
             />
             <Output
               label={'Cash on cash'}
-              value={pctText(computed.cash_on_cash)}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.cash_on_cash}
+                  format={'percent'}
+                />
+              }
             />
             <Output
               label={'Payback years'}
               value={
-                computed.payback_years == null
-                  ? 'n/a'
-                  : String(computed.payback_years)
+                computed.payback_years == null ? (
+                  <MissingValue calculated />
+                ) : (
+                  String(computed.payback_years)
+                )
               }
             />
             <Output
               label={'Buyer equity'}
-              value={money(computed.buyer_equity)}
+              value={
+                <FigureValue
+                  calculated
+                  value={computed.buyer_equity}
+                  format={'money'}
+                />
+              }
             />
             {props.dealBox.set ? (
               <Output
                 label={'Deal box gap'}
-                value={money(computed.deal_box_gap)}
+                value={
+                  <FigureValue
+                    calculated
+                    value={computed.deal_box_gap}
+                    format={'money'}
+                  />
+                }
               />
             ) : (
               <div className={'flex flex-col gap-0.5 text-sm'}>
@@ -660,7 +717,8 @@ export function CalcDealEditor(props: {
             <div className={'flex flex-wrap gap-2 text-sm'}>
               {computed.pro_forma.map((value, index) => (
                 <span key={index} className={'rounded border px-2 py-1'}>
-                  Yr {index + 1}: {money(value)}
+                  Yr {index + 1}:{' '}
+                  <FigureValue calculated value={value} format={'money'} />
                 </span>
               ))}
             </div>
@@ -672,14 +730,14 @@ export function CalcDealEditor(props: {
                 'text-muted-foreground mb-1 text-xs font-semibold uppercase'
               }
             >
-              DSCR sensitivity vs {computed.reference.toFixed(2)}x line
+              DSCR sensitivity vs {formatRatio(computed.reference)} line
             </h4>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>SDE scale</TableHead>
-                  <TableHead>SDE</TableHead>
-                  <TableHead>DSCR</TableHead>
+                  <TableHead numeric>SDE</TableHead>
+                  <TableHead numeric>DSCR</TableHead>
                   <TableHead>Meets reference</TableHead>
                 </TableRow>
               </TableHeader>
@@ -687,8 +745,20 @@ export function CalcDealEditor(props: {
                 {computed.dscr_sensitivity.map((point) => (
                   <TableRow key={point.scale}>
                     <TableCell>{`${point.scale >= 0 ? '+' : ''}${Math.round(point.scale * 100)}%`}</TableCell>
-                    <TableCell>{money(point.sde)}</TableCell>
-                    <TableCell>{ratio(point.dscr)}</TableCell>
+                    <TableCell numeric>
+                      <FigureValue
+                        calculated
+                        value={point.sde}
+                        format={'money'}
+                      />
+                    </TableCell>
+                    <TableCell numeric>
+                      <FigureValue
+                        calculated
+                        value={point.dscr}
+                        format={'ratio'}
+                      />
+                    </TableCell>
                     <TableCell>
                       {point.meets_reference ? 'Yes' : 'No'}
                     </TableCell>
@@ -756,7 +826,7 @@ function NumberInput(props: {
   );
 }
 
-function Output(props: { label: string; value: string }) {
+function Output(props: { label: string; value: ReactNode }) {
   return (
     <div className={'flex flex-col gap-0.5'}>
       <dt className={'text-muted-foreground text-xs uppercase'}>
@@ -780,7 +850,9 @@ function YearsTable(props: { years: ProjectedYear[]; sourceLabels: string[] }) {
           <TableRow>
             <TableHead />
             {props.years.map((year) => (
-              <TableHead key={year.year}>Yr {year.year}</TableHead>
+              <TableHead key={year.year} numeric>
+                Yr {year.year}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -789,8 +861,12 @@ function YearsTable(props: { years: ProjectedYear[]; sourceLabels: string[] }) {
             <TableRow key={index}>
               <TableCell>{label}</TableCell>
               {props.years.map((year) => (
-                <TableCell key={year.year}>
-                  {money(year.debt_service_by_source[index])}
+                <TableCell key={year.year} numeric>
+                  <FigureValue
+                    calculated
+                    value={year.debt_service_by_source[index] ?? null}
+                    format={'money'}
+                  />
                 </TableCell>
               ))}
             </TableRow>
@@ -798,25 +874,41 @@ function YearsTable(props: { years: ProjectedYear[]; sourceLabels: string[] }) {
           <TableRow>
             <TableCell>Total debt service</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{money(year.debt_service)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue
+                  calculated
+                  value={year.debt_service}
+                  format={'money'}
+                />
+              </TableCell>
             ))}
           </TableRow>
           <TableRow>
             <TableCell>SDE</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{money(year.sde)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue calculated value={year.sde} format={'money'} />
+              </TableCell>
             ))}
           </TableRow>
           <TableRow>
             <TableCell>DSCR</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{ratio(year.dscr)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue calculated value={year.dscr} format={'ratio'} />
+              </TableCell>
             ))}
           </TableRow>
           <TableRow>
             <TableCell>Net cash flow</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{money(year.net_cash_flow)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue
+                  calculated
+                  value={year.net_cash_flow}
+                  format={'money'}
+                />
+              </TableCell>
             ))}
           </TableRow>
         </TableBody>

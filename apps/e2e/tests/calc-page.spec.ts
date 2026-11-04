@@ -131,7 +131,7 @@ test('the calc page saves in place, guards unsaved edits, opens in a window and 
   await expect(
     page.getByRole('heading', { name: 'Compare versions' }),
   ).toBeVisible();
-  await expect(page.getByText('1,500,000').first()).toBeVisible();
+  await expect(page.getByTitle('$1,500,000').first()).toBeVisible();
 
   const status = async (path: string) => (await page.goto(path))!.status();
   expect(

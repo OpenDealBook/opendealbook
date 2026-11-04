@@ -52,7 +52,7 @@ describe('ScenarioPathsOutputs', () => {
 
   it('highlights the years below the minimum DSCR only', () => {
     expect(row(section(html, 'Worst'), 'DSCR')).toMatch(
-      /title="Below minimum DSCR"[^>]*>1\.01x/,
+      /title="Below minimum DSCR"[^>]*><span[^>]*>1\.01x/,
     );
     expect(row(section(html, 'Good'), 'DSCR')).not.toContain(
       'Below minimum DSCR',

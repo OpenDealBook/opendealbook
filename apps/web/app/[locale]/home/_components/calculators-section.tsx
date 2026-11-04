@@ -9,21 +9,28 @@ export async function CalculatorsSection(props: {
   accountId: string;
 }) {
   const client = getSupabaseServerClient();
-  const [versions, { data: canManage }, { data: team }] = await Promise.all([
-    fetchDealCalcVersions(client, { deal_id: props.dealId }),
-    client
-      .rpc('manages_deal_in_account', {
-        deal_id: props.dealId,
-        account_id: props.accountId,
-      })
-      .throwOnError(),
-    client
-      .from('accounts')
-      .select('slug')
-      .eq('id', props.accountId)
-      .single()
-      .throwOnError(),
-  ]);
+  const [versions, { data: canManage }, { data: canCreate }, { data: team }] =
+    await Promise.all([
+      fetchDealCalcVersions(client, { deal_id: props.dealId }),
+      client
+        .rpc('manages_deal_in_account', {
+          deal_id: props.dealId,
+          account_id: props.accountId,
+        })
+        .throwOnError(),
+      client
+        .rpc('has_deal_permission', {
+          deal_id: props.dealId,
+          permission: 'deals.work',
+        })
+        .throwOnError(),
+      client
+        .from('accounts')
+        .select('slug')
+        .eq('id', props.accountId)
+        .single()
+        .throwOnError(),
+    ]);
 
   return (
     <Card>
@@ -35,6 +42,7 @@ export async function CalculatorsSection(props: {
           dealId={props.dealId}
           versions={versions}
           canManage={canManage}
+          canCreate={canCreate}
           calcsHref={`/home/${team.slug}/deals/${props.dealId}/financials/calcs`}
         />
       </CardContent>

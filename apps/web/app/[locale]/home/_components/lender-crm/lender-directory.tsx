@@ -8,6 +8,7 @@ import type { LenderHistoryRow } from '@odb/lender-rooms/crm/history/lender-hist
 import { deleteLender } from '@odb/lender-rooms/crm/lenders/actions.ts';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
+import { formatMoney } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 
@@ -16,7 +17,7 @@ import { ConfirmButton } from './confirm-button';
 import { LenderContacts } from './lender-contacts';
 import { LenderFormDialog } from './lender-form';
 import { LenderHistory } from './lender-history';
-import { RATE_TYPE_WORDING, type SavedLender, dollars } from './saved-lender';
+import { RATE_TYPE_WORDING, type SavedLender } from './saved-lender';
 
 type RateType = keyof typeof RATE_TYPE_WORDING;
 
@@ -79,7 +80,7 @@ function termsOf(lender: SavedLender) {
   return [
     lender.rate_type && `${RATE_TYPE_WORDING[lender.rate_type]} rate`,
     lender.typical_rate !== null && `Typically ${lender.typical_rate}%`,
-    lender.max_loan !== null && `Loans up to ${dollars(lender.max_loan)}`,
+    lender.max_loan !== null && `Loans up to ${formatMoney(lender.max_loan)}`,
     lender.sba_preferred && 'Prefers SBA',
     lender.industries.length > 0 && lender.industries.join(', '),
     lender.states.length > 0 && lender.states.join(', '),

@@ -60,4 +60,28 @@ describe('DealWorksheets', () => {
     expect(field('Line item, row 1').value).toBe('Lawn care');
     expect(field('Revenue, row 1').value).toBe('120000');
   });
+
+  it('marks missing entered figures as not disclosed and missing calculated ones as not available', () => {
+    const host = document.createElement('div');
+    host.innerHTML = renderToStaticMarkup(
+      <DealWorksheets
+        dealId={'deal-1'}
+        rows={[
+          {
+            id: 'r-1',
+            worksheet_type: 'margin_analysis',
+            data: { line_item: 'Lawn care', revenue: null, direct_cost: 70000 },
+          } as unknown as Parameters<typeof DealWorksheets>[0]['rows'][number],
+        ]}
+      />,
+    );
+
+    const missing = [...host.querySelectorAll('[data-slot="missing-value"]')];
+
+    expect(missing.map((each) => each.getAttribute('title'))).toEqual([
+      'Not disclosed',
+      'Not available',
+      'Not available',
+    ]);
+  });
 });

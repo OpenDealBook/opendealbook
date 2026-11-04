@@ -34,11 +34,27 @@ describe('worksheetDisplayCells', () => {
     });
 
     expect(cells).toEqual([
-      { key: 'line_item', label: 'Line item', value: 'Widgets' },
-      { key: 'revenue', label: 'Revenue', value: '$1,000' },
-      { key: 'direct_cost', label: 'Direct cost', value: '$400' },
-      { key: 'margin', label: 'Margin', value: '$600' },
-      { key: 'margin_pct', label: 'Margin %', value: '60.0%' },
+      {
+        key: 'line_item',
+        label: 'Line item',
+        shown: { kind: 'text', value: 'Widgets' },
+      },
+      {
+        key: 'revenue',
+        label: 'Revenue',
+        shown: { kind: 'money', value: 1000 },
+      },
+      {
+        key: 'direct_cost',
+        label: 'Direct cost',
+        shown: { kind: 'money', value: 400 },
+      },
+      { key: 'margin', label: 'Margin', shown: { kind: 'money', value: 600 } },
+      {
+        key: 'margin_pct',
+        label: 'Margin %',
+        shown: { kind: 'percent', value: 0.6 },
+      },
     ]);
   });
 
@@ -53,11 +69,11 @@ describe('worksheetDisplayCells', () => {
     expect(cells.find((cell) => cell.key === 'cac')).toEqual({
       key: 'cac',
       label: 'CAC',
-      value: '$50',
+      shown: { kind: 'money', value: 50 },
     });
   });
 
-  it('shows a neutral placeholder for missing values instead of crashing', () => {
+  it('marks missing values as missing instead of crashing', () => {
     const cells = worksheetDisplayCells('margin_analysis', {
       line_item: null,
       revenue: null,
@@ -65,11 +81,27 @@ describe('worksheetDisplayCells', () => {
     });
 
     expect(cells).toEqual([
-      { key: 'line_item', label: 'Line item', value: 'No data' },
-      { key: 'revenue', label: 'Revenue', value: 'No data' },
-      { key: 'direct_cost', label: 'Direct cost', value: 'No data' },
-      { key: 'margin', label: 'Margin', value: 'No data' },
-      { key: 'margin_pct', label: 'Margin %', value: 'No data' },
+      {
+        key: 'line_item',
+        label: 'Line item',
+        shown: { kind: 'text', value: null },
+      },
+      {
+        key: 'revenue',
+        label: 'Revenue',
+        shown: { kind: 'money', value: null },
+      },
+      {
+        key: 'direct_cost',
+        label: 'Direct cost',
+        shown: { kind: 'money', value: null },
+      },
+      { key: 'margin', label: 'Margin', shown: { kind: 'money', value: null } },
+      {
+        key: 'margin_pct',
+        label: 'Margin %',
+        shown: { kind: 'percent', value: null },
+      },
     ]);
   });
 

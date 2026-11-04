@@ -4,14 +4,16 @@ import { useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { useLocale } from 'next-intl';
+
 import type { FundingSourceType } from '@odb/calculators';
 import type { ProposedTerms } from '@odb/deals/server';
-import { longDate } from '@odb/lender-outreach/draft-email.ts';
 import type { ActionResult } from '@odb/lender-rooms/actions/refusal.ts';
 import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
 import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
 import { itemAnchor } from '@odb/notifications/relay';
 import { Button } from '@odb/ui/button';
+import { formatDate } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import {
@@ -65,6 +67,7 @@ export function CloseDeadlineForm({
   save: Save<CloseDeadlineInput>;
 }) {
   const router = useRouter();
+  const locale = useLocale();
   const saving = useAttempt();
   const [mustCloseBy, setMustCloseBy] = useState(deadline?.must_close_by ?? '');
   const [reason, setReason] = useState(deadline?.must_close_reason ?? '');
@@ -101,7 +104,7 @@ export function CloseDeadlineForm({
       {targetClose || !deadline?.must_close_by ? (
         <p className={'text-sm'}>
           {targetClose
-            ? `Target close ${longDate(targetClose)}`
+            ? `Target close ${formatDate(targetClose, locale)}`
             : 'No target close yet'}
           <span className={'text-muted-foreground'}>
             {' '}

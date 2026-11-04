@@ -2,11 +2,15 @@
 
 import { useState } from 'react';
 
+import { useLocale } from 'next-intl';
+
 import { saveDealOperatingPeriod } from '@odb/deals/server';
 import type { OperatingSummary, OperatingVariance } from '@odb/deals/shared';
 import type { Tables } from '@odb/supabase';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
+import { MISSING_FIGURE, formatMoneyExact, formatMonth } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import {
@@ -20,40 +24,22 @@ import {
 import { trendBarHeights } from './deal-operating-trend';
 import { useRefusableAction } from './use-refusable-action';
 
-const NO_DATA = 'No data';
 const NEW_MONTH = '__new__';
 
-function formatMoney(value: number | null): string {
-  return value === null
-    ? NO_DATA
-    : `$${Math.round(value).toLocaleString('en-US')}`;
+function SignedFigure(props: {
+  value: number | null;
+  format: 'money' | 'percent';
+}) {
+  return (
+    <>
+      {props.value !== null && props.value > 0 ? '+' : ''}
+      <FigureValue calculated value={props.value} format={props.format} />
+    </>
+  );
 }
 
-function formatPercent(value: number | null): string {
-  return value === null ? NO_DATA : `${(value * 100).toFixed(1)}%`;
-}
-
-function formatSignedMoney(value: number | null): string {
-  if (value === null) {
-    return NO_DATA;
-  }
-
-  return `${value > 0 ? '+' : ''}$${Math.round(value).toLocaleString('en-US')}`;
-}
-
-function formatSignedPercent(value: number | null): string {
-  if (value === null) {
-    return NO_DATA;
-  }
-
-  return `${value > 0 ? '+' : ''}${(value * 100).toFixed(1)}%`;
-}
-
-function formatMonthLabel(periodMonth: string): string {
-  return new Date(periodMonth).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
+function exactMoney(value: number | null): string {
+  return value === null ? MISSING_FIGURE : formatMoneyExact(value);
 }
 
 function toNumber(value: string): number | undefined {
@@ -66,10 +52,31 @@ function VarianceRow(props: { label: string; variance: OperatingVariance }) {
     <div className={'flex flex-col gap-1 rounded-md border p-3'}>
       <span className={'text-sm font-medium'}>{props.label}</span>
       <div className={'text-muted-foreground flex flex-wrap gap-4 text-sm'}>
-        <span>Underwriting: {formatMoney(props.variance.baseline)}</span>
-        <span>Actual (annualized): {formatMoney(props.variance.actual)}</span>
-        <span>Delta: {formatSignedMoney(props.variance.absolute_delta)}</span>
-        <span>{formatSignedPercent(props.variance.percent_delta)}</span>
+        <span>
+          Underwriting:{' '}
+          <FigureValue value={props.variance.baseline} format={'money'} />
+        </span>
+        <span>
+          Actual (annualized):{' '}
+          <FigureValue
+            calculated
+            value={props.variance.actual}
+            format={'money'}
+          />
+        </span>
+        <span>
+          Delta:{' '}
+          <SignedFigure
+            value={props.variance.absolute_delta}
+            format={'money'}
+          />
+        </span>
+        <span>
+          <SignedFigure
+            value={props.variance.percent_delta}
+            format={'percent'}
+          />
+        </span>
       </div>
     </div>
   );
@@ -82,6 +89,7 @@ export function DealOperating(props: {
   summary: OperatingSummary;
 }) {
   const { refusal, pending, run } = useRefusableAction();
+  const locale = useLocale();
 
   const [selectedMonth, setSelectedMonth] = useState(NEW_MONTH);
   const [periodMonth, setPeriodMonth] = useState('');
@@ -156,7 +164,7 @@ export function DealOperating(props: {
             </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
-            {formatMoney(latest?.revenue ?? null)}
+            <FigureValue value={latest?.revenue ?? null} format={'money'} />
           </CardContent>
         </Card>
         <Card>
@@ -166,7 +174,11 @@ export function DealOperating(props: {
             </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
-            {formatMoney(latest?.net_operating_income ?? null)}
+            <FigureValue
+              calculated
+              value={latest?.net_operating_income ?? null}
+              format={'money'}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -176,7 +188,11 @@ export function DealOperating(props: {
             </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
-            {formatPercent(latest?.operating_margin ?? null)}
+            <FigureValue
+              calculated
+              value={latest?.operating_margin ?? null}
+              format={'percent'}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -186,7 +202,10 @@ export function DealOperating(props: {
             </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
-            {formatMoney(latestRaw?.cash_balance ?? null)}
+            <FigureValue
+              value={latestRaw?.cash_balance ?? null}
+              format={'money'}
+            />
           </CardContent>
         </Card>
         <Card>
@@ -196,7 +215,7 @@ export function DealOperating(props: {
             </CardTitle>
           </CardHeader>
           <CardContent className={'text-xl font-semibold'}>
-            {latestRaw?.headcount ?? NO_DATA}
+            {latestRaw?.headcount ?? <MissingValue />}
           </CardContent>
         </Card>
       </div>
@@ -221,16 +240,16 @@ export function DealOperating(props: {
                     <div
                       className={'bg-primary w-3 rounded-t'}
                       style={{ height: `${revenueHeights[index] ?? 0}%` }}
-                      title={`Revenue: ${formatMoney(period.revenue)}`}
+                      title={`Revenue: ${exactMoney(period.revenue)}`}
                     />
                     <div
                       className={'bg-muted-foreground w-3 rounded-t'}
                       style={{ height: `${noiHeights[index] ?? 0}%` }}
-                      title={`Net operating income: ${formatMoney(period.net_operating_income)}`}
+                      title={`Net operating income: ${exactMoney(period.net_operating_income)}`}
                     />
                   </div>
                   <span className={'text-muted-foreground text-xs'}>
-                    {formatMonthLabel(period.period_month)}
+                    {formatMonth(period.period_month, locale)}
                   </span>
                 </div>
               ))}
@@ -273,7 +292,7 @@ export function DealOperating(props: {
                     key={period.period_month}
                     value={period.period_month}
                   >
-                    {formatMonthLabel(period.period_month)}
+                    {formatMonth(period.period_month, locale)}
                   </SelectItem>
                 ))}
               </SelectContent>

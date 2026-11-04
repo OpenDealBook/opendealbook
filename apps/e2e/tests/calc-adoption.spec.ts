@@ -43,7 +43,7 @@ test('a changed primary calc flags the adoption, the manager re-adopts, and an a
 
   await page.goto(dealPath);
   await expect(page.getByText('Asking multiple (SDE)')).toBeVisible();
-  await expect(page.getByText('Not disclosed').first()).toBeVisible();
+  await expect(page.getByLabel('Not disclosed').first()).toBeVisible();
 
   const edit = async (label: string, value: string) => {
     await page.goto(`${calcPath}/${calcId}`);

@@ -6,6 +6,7 @@ import { recastPeriod, sdePeriodsSchema, weightedSde } from '@odb/calculators';
 import { saveSdeCalc } from '@odb/deals/server';
 import type { CalcSources } from '@odb/deals/shared';
 import { Button } from '@odb/ui/button';
+import { FigureValue } from '@odb/ui/figure-value';
 import {
   Table,
   TableBody,
@@ -28,9 +29,7 @@ import {
   UnsavedChangesGuard,
   buildSdePeriod,
   emptySdePeriodDraft,
-  money,
   num,
-  pctText,
   sdeLinesFromDraft,
 } from './calc-shared';
 import { useRefusableAction } from './use-refusable-action';
@@ -220,7 +219,13 @@ export function CalcSdeEditor(props: {
                 Net income
               </TableCell>
               {recasts.map((recast, index) => (
-                <TableCell key={index}>{money(recast.net_income)}</TableCell>
+                <TableCell key={index}>
+                  <FigureValue
+                    calculated
+                    value={recast.net_income}
+                    format={'money'}
+                  />
+                </TableCell>
               ))}
             </TableRow>
             <TableRow>
@@ -229,7 +234,11 @@ export function CalcSdeEditor(props: {
               </TableCell>
               {recasts.map((recast, index) => (
                 <TableCell key={index}>
-                  {money(recast.basic_discretionary_earnings)}
+                  <FigureValue
+                    calculated
+                    value={recast.basic_discretionary_earnings}
+                    format={'money'}
+                  />
                 </TableCell>
               ))}
             </TableRow>
@@ -238,7 +247,13 @@ export function CalcSdeEditor(props: {
                 Total SDE
               </TableCell>
               {recasts.map((recast, index) => (
-                <TableCell key={index}>{money(recast.total_sde)}</TableCell>
+                <TableCell key={index}>
+                  <FigureValue
+                    calculated
+                    value={recast.total_sde}
+                    format={'money'}
+                  />
+                </TableCell>
               ))}
             </TableRow>
             <TableRow>
@@ -246,7 +261,13 @@ export function CalcSdeEditor(props: {
                 Margin
               </TableCell>
               {recasts.map((recast, index) => (
-                <TableCell key={index}>{pctText(recast.margin)}</TableCell>
+                <TableCell key={index}>
+                  <FigureValue
+                    calculated
+                    value={recast.margin}
+                    format={'percent'}
+                  />
+                </TableCell>
               ))}
             </TableRow>
             <TableRow>
@@ -255,7 +276,11 @@ export function CalcSdeEditor(props: {
               </TableCell>
               {recasts.map((recast, index) => (
                 <TableCell key={index}>
-                  {money(recast.annualized_sde)}
+                  <FigureValue
+                    calculated
+                    value={recast.annualized_sde}
+                    format={'money'}
+                  />
                 </TableCell>
               ))}
             </TableRow>
@@ -284,7 +309,9 @@ export function CalcSdeEditor(props: {
       >
         <div className={'text-sm'}>
           <span className={'text-muted-foreground'}>Weighted SDE</span>{' '}
-          <span className={'text-lg font-semibold'}>{money(weighted)}</span>
+          <span className={'text-lg font-semibold'}>
+            <FigureValue calculated value={weighted} format={'money'} />
+          </span>
           {validationMessage !== null && (
             <p className={'text-destructive mt-1 text-xs'}>
               {validationMessage}

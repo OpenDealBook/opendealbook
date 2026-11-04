@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   adoptedFiguresOf,
   figuresToAdopt,
-  multipleText,
   primaryCalcChanged,
 } from './adopted-figures';
 
@@ -63,13 +62,6 @@ describe('primaryCalcChanged', () => {
 
   it('is false when the primary calc has no saved outputs', () => {
     expect(primaryCalcChanged(adoption, {})).toBe(false);
-  });
-});
-
-describe('multipleText', () => {
-  it('shows a multiple to 2 decimals', () => {
-    expect(multipleText(3.2857)).toBe('3.29x');
-    expect(multipleText(3.2)).toBe('3.20x');
   });
 });
 

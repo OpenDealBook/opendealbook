@@ -3,13 +3,20 @@ import { z } from 'zod';
 import type { LenderRoomSummary } from '../members/entry-rules';
 import { teamName } from '../requests-ui/wording';
 
+export interface LoanAsk {
+  amount: number | null;
+  type: string | null;
+  sellerNote: number | null;
+  termYears: number | null;
+}
+
 interface HeaderFacts {
   lenderName: string;
   initials: string;
   logoPath: string | null;
   dealName: string | null;
   buyerTeam: string | null;
-  loanAsk: string | null;
+  loan: LoanAsk | null;
   closeBy: string | null;
   welcomeNote: string | null;
   accessEnds: string | null;
@@ -30,8 +37,8 @@ export function headerFacts(room: LenderRoomSummary): HeaderFacts {
     logoPath: room.brand_logo_path,
     dealName: room.deal_name,
     buyerTeam: room.buyer_team,
-    loanAsk: loanAsk(room),
-    closeBy: closeBy(room),
+    loan: loan(room),
+    closeBy: room.must_close_by ?? room.target_close_date,
     welcomeNote: room.welcome_note,
     accessEnds: room.expires_at,
     packageLabel: room.deal_name
@@ -54,27 +61,36 @@ const LOAN_TYPES: Record<string, string> = {
   other: 'Other',
 };
 
-const dollars = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
+function loan(room: LenderRoomSummary): LoanAsk | null {
+  const ask = {
+    amount: room.loan_amount,
+    type: room.loan_type,
+    sellerNote: room.seller_note_amount,
+    termYears: room.term_years,
+  };
 
-function loanAsk(room: LenderRoomSummary): string | null {
-  const loan = [
-    room.loan_amount === null ? null : dollars.format(room.loan_amount),
-    room.loan_type === null ? null : LOAN_TYPES[room.loan_type],
-    room.seller_note_amount === null
-      ? null
-      : `plus ${dollars.format(room.seller_note_amount)} seller note`,
+  return Object.values(ask).every((value) => value === null) ? null : ask;
+}
+
+export function loanAskParts<T>(
+  loan: LoanAsk,
+  money: (amount: number) => T,
+): (string | T)[] {
+  const typeLabel = loan.type === null ? undefined : LOAN_TYPES[loan.type];
+  const phrase = [
+    loan.amount === null ? [] : [money(loan.amount)],
+    typeLabel === undefined ? [] : [typeLabel],
+    loan.sellerNote === null
+      ? []
+      : ['plus ', money(loan.sellerNote), ' seller note'],
   ]
-    .filter((part) => part !== null)
-    .join(' ');
-  const term = room.term_years === null ? null : `${room.term_years}-year term`;
+    .filter((words) => words.length > 0)
+    .flatMap((words, index) => (index === 0 ? words : [' ', ...words]));
+  const term = loan.termYears === null ? [] : [`${loan.termYears}-year term`];
 
-  return (
-    [loan || null, term].filter((part) => part !== null).join(', ') || null
-  );
+  return phrase.length > 0 && term.length > 0
+    ? [...phrase, ', ', ...term]
+    : [...phrase, ...term];
 }
 
 export function longDate(isoDate: string): string {
@@ -84,12 +100,6 @@ export function longDate(isoDate: string): string {
     day: 'numeric',
     timeZone: 'UTC',
   });
-}
-
-function closeBy(room: LenderRoomSummary): string | null {
-  const date = room.must_close_by ?? room.target_close_date;
-
-  return date === null ? null : longDate(date);
 }
 
 interface ContactFacts {

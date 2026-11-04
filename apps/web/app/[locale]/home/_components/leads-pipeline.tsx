@@ -3,6 +3,7 @@ import Link from 'next/link';
 import type { Enums } from '@odb/supabase';
 import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
+import { formatMoney } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import {
   Table,
@@ -69,12 +70,6 @@ const OUTREACH_LABELS = {
 
 const selectClass = 'bg-background h-9 rounded-md border px-2 text-sm';
 
-const money = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
 function hrefFor(basePath: string, filters: LeadFilters, page: number) {
   const query = new URLSearchParams(
     Object.entries(filters).filter(([, value]) => value !== ''),
@@ -94,7 +89,7 @@ function sizeSignals(row: LeadRow): string[] {
     row.jobs === null ? null : `${row.jobs} jobs`,
     row.pppLoanAmount === null
       ? null
-      : `${money.format(row.pppLoanAmount)} PPP loan`,
+      : `${formatMoney(row.pppLoanAmount)} PPP loan`,
     row.headcount === null ? null : `${row.headcount} on Form 5500`,
     row.businessAgeYears === null ? null : `${row.businessAgeYears} years old`,
   ].filter((signal) => signal !== null);

@@ -10,6 +10,7 @@ import {
 } from '@odb/deals/server';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
+import { viewerTimeZone } from '../viewer-time-zone';
 import { CloseDeadlineForm, TermsSoughtForm } from './deal-terms';
 import { LenderSpinUp } from './lender-spin-up';
 import { OutreachDrafts } from './outreach-drafts';
@@ -47,6 +48,7 @@ export async function DealLenderCrm({
   teamPath: string;
 }) {
   const client = getSupabaseServerClient();
+  const timeZone = await viewerTimeZone(accountId);
 
   const [
     { data: deal },
@@ -138,7 +140,7 @@ export async function DealLenderCrm({
           "Draft the first email to each open room's primary contact from your team template, review it, then send from your team mailbox."
         }
       >
-        <OutreachDrafts dealId={dealId} />
+        <OutreachDrafts dealId={dealId} timeZone={timeZone} />
       </Section>
       {rooms.length > 0 ? (
         <Section

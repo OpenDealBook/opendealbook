@@ -15,6 +15,7 @@ import { Badge } from '@odb/ui/badge';
 import { Button } from '@odb/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
 import { Checkbox } from '@odb/ui/checkbox';
+import { FigureValue } from '@odb/ui/figure-value';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import {
@@ -34,16 +35,6 @@ import {
   TableRow,
 } from '@odb/ui/table';
 import { Textarea } from '@odb/ui/textarea';
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-function money(value: number | null): string {
-  return value === null ? 'Not set' : currency.format(value);
-}
 
 function textOrNotSet(value: string | number | null): string {
   return value === null ? 'Not set' : String(value);
@@ -237,7 +228,7 @@ export function HrAuditManager({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Comp</TableHead>
+                  <TableHead numeric>Comp</TableHead>
                   <TableHead>Tenure</TableHead>
                   <TableHead>Flags</TableHead>
                 </TableRow>
@@ -247,7 +238,13 @@ export function HrAuditManager({
                   <TableRow key={employee.id}>
                     <TableCell>{employee.name}</TableCell>
                     <TableCell>{textOrNotSet(employee.role)}</TableCell>
-                    <TableCell>{money(employee.comp)}</TableCell>
+                    <TableCell numeric>
+                      <FigureValue
+                        value={employee.comp}
+                        format={'money'}
+                        missingLabel={'Not set'}
+                      />
+                    </TableCell>
                     <TableCell>
                       {employee.tenure_years === null
                         ? 'Not set'

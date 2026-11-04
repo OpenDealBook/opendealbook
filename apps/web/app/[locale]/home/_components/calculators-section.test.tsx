@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
-const db = vi.hoisted(() => ({ manages: false }));
+const db = vi.hoisted(() => ({ manages: false, works: true }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh() {}, push() {} }),
@@ -20,13 +20,19 @@ vi.mock('@odb/deals', () => ({
 }));
 vi.mock('@odb/supabase/server', () => ({
   getSupabaseServerClient: () => ({
-    rpc: (name: string, args: { deal_id: string; account_id: string }) => ({
+    rpc: (
+      name: string,
+      args: { deal_id: string; account_id?: string; permission?: string },
+    ) => ({
       throwOnError: async () => ({
         data:
-          name === 'manages_deal_in_account' &&
           args.deal_id === 'deal-1' &&
-          args.account_id === 'team-1' &&
-          db.manages,
+          ((name === 'manages_deal_in_account' &&
+            args.account_id === 'team-1' &&
+            db.manages) ||
+            (name === 'has_deal_permission' &&
+              args.permission === 'deals.work' &&
+              db.works)),
       }),
     }),
     from: () => ({
@@ -62,6 +68,15 @@ describe('CalculatorsSection', () => {
     db.manages = true;
 
     expect(await render()).not.toContain(REASON);
+  });
+
+  it('offers New calculator buttons only to someone with deals.work on the deal', async () => {
+    db.works = true;
+    expect(await render()).toContain('New SDE');
+
+    db.works = false;
+    expect(await render()).not.toContain('New SDE');
+    db.works = true;
   });
 
   it('links each calc version to its page under the deal financials', async () => {

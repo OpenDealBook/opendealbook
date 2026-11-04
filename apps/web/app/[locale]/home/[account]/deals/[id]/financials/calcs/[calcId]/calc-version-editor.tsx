@@ -47,9 +47,9 @@ export function CalcVersionEditor(props: {
             Back to Financials
           </Link>
           <div className={'flex flex-wrap items-center gap-2'}>
-            <h1 className={'text-xl font-semibold'}>
+            <h2 className={'text-lg font-semibold'}>
               {versionName(version, props.versions)}
-            </h1>
+            </h2>
             <Badge variant={'outline'}>{TYPE_LABELS[calc.kind]}</Badge>
             {version.is_primary ? <Badge>Primary</Badge> : null}
           </div>

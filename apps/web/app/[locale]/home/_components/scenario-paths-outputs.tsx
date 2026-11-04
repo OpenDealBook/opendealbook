@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import type { PathYear, ScenarioPathsResult } from '@odb/calculators';
 import { Button } from '@odb/ui/button';
+import { FigureValue } from '@odb/ui/figure-value';
 import {
   Table,
   TableBody,
@@ -12,8 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from '@odb/ui/table';
-
-import { money, ratio } from './calc-shared';
 
 const PATHS = [
   { key: 'worst', title: 'Worst', color: 'var(--destructive)' },
@@ -171,7 +170,9 @@ function PathTable(props: { title: string; years: PathYear[] }) {
           <TableRow>
             <TableHead />
             {props.years.map((year) => (
-              <TableHead key={year.year}>Yr {year.year}</TableHead>
+              <TableHead key={year.year} numeric>
+                Yr {year.year}
+              </TableHead>
             ))}
           </TableRow>
         </TableHeader>
@@ -179,13 +180,17 @@ function PathTable(props: { title: string; years: PathYear[] }) {
           <TableRow>
             <TableCell>Revenue</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{money(year.revenue)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue calculated value={year.revenue} format={'money'} />
+              </TableCell>
             ))}
           </TableRow>
           <TableRow>
             <TableCell>SDE</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{money(year.sde)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue calculated value={year.sde} format={'money'} />
+              </TableCell>
             ))}
           </TableRow>
           <TableRow>
@@ -194,20 +199,29 @@ function PathTable(props: { title: string; years: PathYear[] }) {
               year.below_minimum ? (
                 <TableCell
                   key={year.year}
+                  numeric
                   title={'Below minimum DSCR'}
                   className={'text-destructive font-semibold'}
                 >
-                  {ratio(year.dscr)}
+                  <FigureValue calculated value={year.dscr} format={'ratio'} />
                 </TableCell>
               ) : (
-                <TableCell key={year.year}>{ratio(year.dscr)}</TableCell>
+                <TableCell key={year.year} numeric>
+                  <FigureValue calculated value={year.dscr} format={'ratio'} />
+                </TableCell>
               ),
             )}
           </TableRow>
           <TableRow>
             <TableCell>Net cash flow</TableCell>
             {props.years.map((year) => (
-              <TableCell key={year.year}>{money(year.net_cash_flow)}</TableCell>
+              <TableCell key={year.year} numeric>
+                <FigureValue
+                  calculated
+                  value={year.net_cash_flow}
+                  format={'money'}
+                />
+              </TableCell>
             ))}
           </TableRow>
         </TableBody>

@@ -84,10 +84,11 @@ test('a lender sees the buyer team and loan ask in the room header and the list'
   await lenderFlow.signIn(lenderPage, { email: lenderPerson.email, roomId });
 
   await expect(lenderPage.getByText(teamName).first()).toBeVisible();
-  await expect(lenderPage.getByText('$2,000,000').first()).toBeVisible();
   await expect(
-    lenderPage.getByText('plus $300,000 seller note').first(),
+    lenderPage.getByText('$2M plus $300K seller note').first(),
   ).toBeVisible();
+  await expect(lenderPage.getByTitle('$2,000,000').first()).toBeVisible();
+  await expect(lenderPage.getByTitle('$300,000').first()).toBeVisible();
   await expect(
     lenderPage.getByText(/Mar 31, 2027|March 31, 2027/).first(),
   ).toBeVisible();
@@ -95,7 +96,8 @@ test('a lender sees the buyer team and loan ask in the room header and the list'
   await lenderPage.goto('/lender');
   const listed = lenderPage.getByRole('link').filter({ hasText: businessName });
   await expect(listed).toContainText(teamName);
-  await expect(listed).toContainText('$2,000,000');
+  await expect(listed).toContainText('$2M');
+  await expect(listed.getByTitle('$2,000,000')).toBeVisible();
   await expect(listed).toContainText(`Prepared for ${roomName}`);
   await expect(listed).toContainText('Open');
   await listed.click();

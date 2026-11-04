@@ -97,24 +97,6 @@ const SCALAR_CODES: ScalarSdeLineCode[] = SDE_LINE_GROUPS.flatMap(
 
 export { TYPE_LABELS, versionName } from './calc-version-name';
 
-const currencyFmt = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-export function money(value: number | null | undefined): string {
-  return value == null ? 'n/a' : currencyFmt.format(value);
-}
-
-export function ratio(value: number | null | undefined): string {
-  return value == null ? 'n/a' : `${value.toFixed(2)}x`;
-}
-
-export function pctText(decimal: number | null | undefined): string {
-  return decimal == null ? 'n/a' : `${(decimal * 100).toFixed(1)}%`;
-}
-
 export function num(value: string): number {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;

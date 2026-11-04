@@ -11,6 +11,8 @@ import type { Tables } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { FigureValue } from '@odb/ui/figure-value';
+import { formatMoney } from '@odb/ui/format';
 import {
   Table,
   TableBody,
@@ -23,12 +25,6 @@ import {
 import { OfferCounselSignOff } from './offer-counsel-sign-off';
 import { CreateOfferButton, OfferLifecycleActions } from './offer-editor';
 import { contractSignatures } from './signature-wording';
-
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
 
 function statusVariant(
   status: string,
@@ -45,10 +41,10 @@ function statusVariant(
 function termsSummary(terms: OfferTerms): string {
   const parts: string[] = [];
   if (terms.cash_at_close !== undefined) {
-    parts.push(`${currency.format(terms.cash_at_close)} cash`);
+    parts.push(`${formatMoney(terms.cash_at_close)} cash`);
   }
   if (terms.earnout !== undefined) {
-    parts.push(`${currency.format(terms.earnout.amount)} earnout`);
+    parts.push(`${formatMoney(terms.earnout.amount)} earnout`);
   }
   if (terms.funding_sources !== undefined && terms.funding_sources.length > 0) {
     parts.push(`${terms.funding_sources.length} funding`);
@@ -213,7 +209,7 @@ function OfferHistory({ history }: { history: DealOffer[] }) {
           <TableRow>
             <TableHead>Offer</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Purchase price</TableHead>
+            <TableHead numeric>Purchase price</TableHead>
             <TableHead>Versions</TableHead>
           </TableRow>
         </TableHeader>
@@ -229,10 +225,11 @@ function OfferHistory({ history }: { history: DealOffer[] }) {
                   {offer.status}
                 </Badge>
               </TableCell>
-              <TableCell>
-                {currentVersion === null
-                  ? '--'
-                  : currency.format(currentVersion.purchase_price)}
+              <TableCell numeric>
+                <FigureValue
+                  value={currentVersion?.purchase_price ?? null}
+                  format={'money'}
+                />
               </TableCell>
               <TableCell>{versions.length}</TableCell>
             </TableRow>
@@ -309,7 +306,7 @@ async function LiveOffer({
           <TableRow>
             <TableHead>#</TableHead>
             <TableHead>Side</TableHead>
-            <TableHead>Purchase price</TableHead>
+            <TableHead numeric>Purchase price</TableHead>
             <TableHead>Key terms</TableHead>
             <TableHead>Markers</TableHead>
           </TableRow>
@@ -322,7 +319,9 @@ async function LiveOffer({
             >
               <TableCell>{version.number}</TableCell>
               <TableCell>{version.author_side}</TableCell>
-              <TableCell>{currency.format(version.purchase_price)}</TableCell>
+              <TableCell numeric>
+                <FigureValue value={version.purchase_price} format={'money'} />
+              </TableCell>
               <TableCell>
                 {termsSummary(version.terms as unknown as OfferTerms)}
               </TableCell>

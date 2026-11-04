@@ -19,6 +19,7 @@ import { LenderSpinUp } from './lender-spin-up';
 import { OutreachDrafts } from './outreach-drafts';
 import { TimelineAnswers } from './timeline-answers';
 
+vi.mock('next-intl', () => ({ useLocale: () => 'en-US' }));
 vi.mock(
   'next/navigation',
   async () => (await import('../lender-test-kit')).navigation,
@@ -65,7 +66,7 @@ describe('the close deadline', () => {
   it('shows the target close from the closing milestone', () => {
     showDeadline();
 
-    expect(pageText()).toContain('Target close March 1, 2027');
+    expect(pageText()).toContain('Target close Mar 1, 2027');
   });
 
   it('refuses a reason without the date it explains and saves nothing', async () => {
@@ -273,7 +274,7 @@ describe('outreach drafts', () => {
   });
 
   it('drafts for review, listing rooms it skipped with the reason', async () => {
-    show(<OutreachDrafts dealId={DEAL} />);
+    show(<OutreachDrafts dealId={DEAL} timeZone={'UTC'} />);
 
     await press('Draft outreach');
 
@@ -284,7 +285,7 @@ describe('outreach drafts', () => {
   });
 
   it('sends a first email as edited', async () => {
-    show(<OutreachDrafts dealId={DEAL} />);
+    show(<OutreachDrafts dealId={DEAL} timeZone={'UTC'} />);
 
     await press('Draft outreach');
     await type('Subject for First Bank', 'Acme financing');
@@ -301,12 +302,20 @@ describe('outreach drafts', () => {
     expect(pageText()).toContain('Sent to jane@firstbank.com');
   });
 
-  it('warns before sending again and confirms the resend', async () => {
-    show(<OutreachDrafts dealId={DEAL} />);
+  it('dates an earlier send in the viewer time zone', async () => {
+    show(<OutreachDrafts dealId={DEAL} timeZone={'Pacific/Kiritimati'} />);
 
     await press('Draft outreach');
 
-    expect(pageText()).toContain('Already sent on October 1, 2026');
+    expect(pageText()).toContain('Already sent on Oct 2, 2026');
+  });
+
+  it('warns before sending again and confirms the resend', async () => {
+    show(<OutreachDrafts dealId={DEAL} timeZone={'UTC'} />);
+
+    await press('Draft outreach');
+
+    expect(pageText()).toContain('Already sent on Oct 1, 2026');
 
     await press('Send again to River Credit');
 
@@ -318,7 +327,7 @@ describe('outreach drafts', () => {
   it('shows a refused send and keeps the draft', async () => {
     fakeServer.refusalFor.sendLenderOutreach =
       "Couldn't send from your mailbox. Try again.";
-    show(<OutreachDrafts dealId={DEAL} />);
+    show(<OutreachDrafts dealId={DEAL} timeZone={'UTC'} />);
 
     await press('Draft outreach');
     await press('Send to First Bank');

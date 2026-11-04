@@ -173,14 +173,14 @@ it('puts two versions side by side and marks the inputs and outputs that differ'
 
   expect(row('Inputs', 'Purchase price')).toEqual([
     'Purchase price (changed)',
-    '$1,800,000',
-    '$2,000,000',
+    '$1.8M',
+    '$2M',
   ]);
-  expect(row('Inputs', 'Sales')).toEqual(['Sales', '$2,000,000', '$2,000,000']);
+  expect(row('Inputs', 'Sales')).toEqual(['Sales', '$2M', '$2M']);
   expect(row('Inputs', 'Amount, source 1')).toEqual([
     'Amount, source 1 (changed)',
-    '$1,000,000',
-    '$900,000',
+    '$1M',
+    '$900K',
   ]);
   expect(row('Outputs', 'DSCR (tax adjusted)')).toEqual([
     'DSCR (tax adjusted) (changed)',
@@ -189,13 +189,13 @@ it('puts two versions side by side and marks the inputs and outputs that differ'
   ]);
   expect(row('Outputs', 'Purchase multiple incl. closing costs')).toEqual([
     'Purchase multiple incl. closing costs (changed)',
-    '3.00x',
-    '3.33x',
+    '3.0x',
+    '3.3x',
   ]);
   expect(row('Outputs', 'Net income')).toEqual([
     'Net income',
-    '$600,000',
-    '$600,000',
+    '$600K',
+    '$600K',
   ]);
 });
 
@@ -284,9 +284,56 @@ it('keeps custom SDE lines that share a label as separate rows', () => {
   );
 
   expect(rows('Inputs', 'Rent')).toEqual([
-    ['Rent', '$36,000', '$36,000'],
-    ['Rent (changed)', '$12,000', '$15,000'],
+    ['Rent', '$36K', '$36K'],
+    ['Rent (changed)', '$12K', '$15K'],
   ]);
+});
+
+function workingCapitalVersion(
+  id: string,
+  outputs: {
+    working_capital: number;
+    months_of_revenue_covered: number | null;
+  },
+): CalcDetail {
+  return {
+    version: {
+      id,
+      name: id,
+      type: 'working_capital',
+      is_primary: false,
+      outputs_snapshot: outputs,
+    },
+    periods: [],
+    input: { inputs: {}, imported_from_version_id: null },
+    funding_sources: [],
+    sources: noSources(id),
+  } as unknown as CalcDetail;
+}
+
+it('shows months of revenue covered with one decimal and marks a missing one as not available', () => {
+  showCompare(
+    true,
+    workingCapitalVersion('wc-1', {
+      working_capital: 380000,
+      months_of_revenue_covered: 4.24,
+    }),
+    workingCapitalVersion('wc-2', {
+      working_capital: 380000,
+      months_of_revenue_covered: null,
+    }),
+  );
+
+  expect(row('Outputs', 'Months of revenue covered')).toEqual([
+    'Months of revenue covered (changed)',
+    '4.2 mo',
+    '\u2013',
+  ]);
+  expect(
+    document
+      .querySelector('[aria-label="Outputs"] [data-slot="missing-value"]')!
+      .getAttribute('title'),
+  ).toBe('Not available');
 });
 
 function citing(
@@ -348,13 +395,13 @@ it("shows each version's sources for an input side by side", () => {
 
   expect(row('Inputs', 'Sales')).toEqual([
     'Sales',
-    '$2,000,000p-and-l.pdf v1, page 4',
-    '$2,000,000tax-returns.xlsx v2, sheet 2023Newer version uploaded',
+    '$2Mp-and-l.pdf v1, page 4',
+    '$2Mtax-returns.xlsx v2, sheet 2023Newer version uploaded',
   ]);
   expect(row('Inputs', 'Amount, source 1')).toEqual([
     'Amount, source 1 (changed)',
-    '$1,000,000p-and-l.pdf v1, page 9',
-    '$900,000term-sheet.pdf v1',
+    '$1Mp-and-l.pdf v1, page 9',
+    '$900Kterm-sheet.pdf v1',
   ]);
   const [, worstGrowth] = rows('Inputs', 'Annual growth');
   expect(worstGrowth?.[1]).toBe('0%p-and-l.pdf v1, page 2');

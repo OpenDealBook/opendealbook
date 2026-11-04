@@ -2,13 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 
-import { longDate } from '@odb/lender-outreach/draft-email.ts';
+import { useLocale } from 'next-intl';
+
 import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
 import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
 import { recordTimelineAnswer } from '@odb/lender-rooms/timeline-answer/internal-actions.ts';
 import { itemAnchor } from '@odb/notifications/relay';
 import type { Enums } from '@odb/supabase';
 import { Button } from '@odb/ui/button';
+import { formatDate } from '@odb/ui/format';
 
 import { teamSignInPath } from '../lender-wording';
 import { TIMELINE_ANSWERS } from './timeline-wording';
@@ -31,6 +33,7 @@ const SOURCE_WORDING: Record<Enums<'lender_side'>, string> = {
 
 function RoomAnswer({ room }: { room: RoomTimelineAnswer }) {
   const router = useRouter();
+  const locale = useLocale();
   const recording = useAttempt();
 
   return (
@@ -72,7 +75,8 @@ function RoomAnswer({ room }: { room: RoomTimelineAnswer }) {
       </div>
       {room.answer?.earliest_close_date ? (
         <p>
-          Earliest it can close: {longDate(room.answer.earliest_close_date)}
+          Earliest it can close:{' '}
+          {formatDate(room.answer.earliest_close_date, locale)}
         </p>
       ) : null}
       {room.answer?.note ? (

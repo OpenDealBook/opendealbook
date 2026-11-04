@@ -133,10 +133,16 @@ function showEditor(shown = detail, versions = VERSIONS) {
   );
 }
 
+function headingNames() {
+  return [
+    ...document.querySelectorAll('h1, h2, h3, h4, h5, h6, [role="heading"]'),
+  ].map((heading) => heading.textContent);
+}
+
 it('edits the saved version on its own page with a way back to Financials', () => {
   showEditor();
 
-  expect(document.querySelector('h1')!.textContent).toBe('Q3 working capital');
+  expect(headingNames()).toContain('Q3 working capital');
   expect(linkTo('Back to Financials')).toBe(FINANCIALS);
   expect(field('Current assets').value).toBe('450,000');
 });
@@ -159,7 +165,11 @@ it('saves, stays on the page with the new outputs and says Saved', async () => {
   ]);
   expect(fakeServer.pathname).toBe(`${CALCS}/wc-1`);
   expect(announced()).toEqual(['Saved']);
-  expect(pageText()).toContain('$380,000');
+  expect(
+    [...document.querySelectorAll('[title]')]
+      .filter((figure) => figure.textContent === '$380K')
+      .map((figure) => figure.getAttribute('title')),
+  ).toEqual(['$380,000']);
   expect(field('Current assets').value).toBe('500,000');
 });
 
@@ -224,7 +234,7 @@ it('names unnamed versions by their number and when they were saved', () => {
     [unsaved, saved],
   );
 
-  expect(document.querySelector('h1')!.textContent).toBe('SDE v2, not saved');
+  expect(headingNames()).toContain('SDE v2, not saved');
   expect(linkTo('SDE v1, saved Oct 20 3:14 PM')).toBe(
     `${CALCS}/compare?a=sde-2&b=sde-1`,
   );

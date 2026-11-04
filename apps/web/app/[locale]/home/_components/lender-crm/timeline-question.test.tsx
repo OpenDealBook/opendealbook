@@ -15,6 +15,9 @@ import {
 } from '../lender-test-kit';
 import { TimelineQuestion } from './timeline-question';
 
+const intl = vi.hoisted(() => ({ locale: 'en-US' }));
+
+vi.mock('next-intl', () => ({ useLocale: () => intl.locale }));
 vi.mock(
   'next/navigation',
   async () => (await import('../lender-test-kit')).navigation,
@@ -25,7 +28,10 @@ vi.mock('@odb/lender-rooms/timeline-answer/lender-actions.ts', async () =>
 
 const ROOM = '6a1f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11';
 
-beforeEach(() => fakeServer.reset());
+beforeEach(() => {
+  fakeServer.reset();
+  intl.locale = 'en-US';
+});
 
 afterEach(clearScreen);
 
@@ -41,10 +47,25 @@ describe('the closing timeline question in a lender room', () => {
       />,
     );
 
-    expect(pageText()).toContain('Can you close by March 15, 2027?');
+    expect(pageText()).toContain('Can you close by Mar 15, 2027?');
     expect(pageText()).toContain('The seller retires at the end of March');
     expect(button('No').getAttribute('aria-pressed')).toBe('true');
     expect(button('Yes').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('dates the question in the app language', () => {
+    intl.locale = 'de-DE';
+    show(
+      <TimelineQuestion
+        roomId={ROOM}
+        teamName={'Harbor Acquisitions'}
+        closeBy={'2027-03-15'}
+        reason={null}
+        stored={null}
+      />,
+    );
+
+    expect(pageText()).toContain('Can you close by 15. März 2027?');
   });
 
   it('sends the answer chosen', async () => {

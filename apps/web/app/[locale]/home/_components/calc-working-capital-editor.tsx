@@ -6,13 +6,13 @@ import { workingCapital } from '@odb/calculators';
 import { saveWorkingCapitalCalc } from '@odb/deals/server';
 import type { CalcSources } from '@odb/deals/shared';
 import { Button } from '@odb/ui/button';
+import { FigureValue } from '@odb/ui/figure-value';
 
 import { CitedField } from './calc-input-sources';
 import {
   type WorkingCapitalDraft,
   MoneyInput,
   UnsavedChangesGuard,
-  money,
   num,
 } from './calc-shared';
 import { useRefusableAction } from './use-refusable-action';
@@ -102,7 +102,11 @@ export function CalcWorkingCapitalEditor(props: {
             Working capital
           </dt>
           <dd className={'text-sm font-medium'}>
-            {money(result.working_capital)}
+            <FigureValue
+              calculated
+              value={result.working_capital}
+              format={'money'}
+            />
           </dd>
         </div>
         <div className={'flex flex-col gap-0.5'}>
@@ -110,9 +114,11 @@ export function CalcWorkingCapitalEditor(props: {
             Months of revenue covered
           </dt>
           <dd className={'text-sm font-medium'}>
-            {result.months_of_revenue_covered == null
-              ? 'n/a'
-              : result.months_of_revenue_covered.toFixed(1)}
+            <FigureValue
+              calculated
+              value={result.months_of_revenue_covered}
+              format={'months'}
+            />
           </dd>
         </div>
       </dl>

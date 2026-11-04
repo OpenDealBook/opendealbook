@@ -1,7 +1,10 @@
-import { multipleText } from '@odb/deals/shared';
+import { getLocale } from 'next-intl/server';
+
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Badge } from '@odb/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { FigureValue, MissingValue } from '@odb/ui/figure-value';
+import { formatDate, formatMultiple, formatPercent } from '@odb/ui/format';
 import {
   Table,
   TableBody,
@@ -14,28 +17,16 @@ import {
 const RELEVANT_LIMIT = 12;
 const BENCHMARK_LIMIT = 12;
 
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-function money(value: number | null): string {
-  return value === null ? 'Not disclosed' : currency.format(value);
-}
-
 function textOrNotSet(value: string | number | null): string {
   return value === null ? 'Not set' : String(value);
 }
 
-function dateOrNotSet(value: string | null): string {
-  return value === null
-    ? 'Not set'
-    : new Date(value).toLocaleDateString('en-US');
-}
-
-function multipleOrNotSet(value: number | null): string {
-  return value === null ? 'Not set' : multipleText(value);
+function DateOrNotSet(props: { value: string | null; locale: string }) {
+  return props.value === null ? (
+    <MissingValue label={'Not set'} />
+  ) : (
+    formatDate(props.value, props.locale)
+  );
 }
 
 interface CompRow {
@@ -65,7 +56,7 @@ function bandCount(n: number): string {
 interface Expectations {
   multipleLow: number | null;
   multipleHigh: number | null;
-  closeToAskingPct: number | null;
+  closeToAsking: number | null;
   count: number;
 }
 
@@ -92,8 +83,7 @@ function deriveExpectations(
   return {
     multipleLow: multiples.length === 0 ? null : Math.min(...multiples),
     multipleHigh: multiples.length === 0 ? null : Math.max(...multiples),
-    closeToAskingPct:
-      askingTotal === 0 ? null : Math.round((loiTotal / askingTotal) * 100),
+    closeToAsking: askingTotal === 0 ? null : loiTotal / askingTotal,
     count: pool.reduce((total, row) => total + (row.n ?? 0), 0),
   };
 }
@@ -103,6 +93,7 @@ export async function CompsSection(props: {
   accountId: string;
 }) {
   const client = getSupabaseServerClient();
+  const locale = await getLocale();
 
   const profileResult = await client
     .from('deal_profile')
@@ -199,7 +190,7 @@ export async function CompsSection(props: {
     .slice(0, RELEVANT_LIMIT);
 
   const poolReady =
-    expectations.multipleLow !== null || expectations.closeToAskingPct !== null;
+    expectations.multipleLow !== null || expectations.closeToAsking !== null;
 
   return (
     <Card>
@@ -219,7 +210,7 @@ export async function CompsSection(props: {
                 <TableRow>
                   <TableHead>Source</TableHead>
                   <TableHead>Class</TableHead>
-                  <TableHead>Price</TableHead>
+                  <TableHead numeric>Price</TableHead>
                   <TableHead>Basis</TableHead>
                   <TableHead>Confidence</TableHead>
                   <TableHead>NAICS</TableHead>
@@ -233,11 +224,15 @@ export async function CompsSection(props: {
                     <TableCell>
                       <Badge variant={'outline'}>{comp.dataClass}</Badge>
                     </TableCell>
-                    <TableCell>{money(comp.price)}</TableCell>
+                    <TableCell numeric>
+                      <FigureValue value={comp.price} format={'money'} />
+                    </TableCell>
                     <TableCell>{textOrNotSet(comp.priceBasis)}</TableCell>
                     <TableCell>{textOrNotSet(comp.confidence)}</TableCell>
                     <TableCell>{textOrNotSet(comp.naics)}</TableCell>
-                    <TableCell>{dateOrNotSet(comp.date)}</TableCell>
+                    <TableCell>
+                      <DateOrNotSet value={comp.date} locale={locale} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -256,9 +251,9 @@ export async function CompsSection(props: {
               <TableHeader>
                 <TableRow>
                   <TableHead>Metric</TableHead>
-                  <TableHead>Low</TableHead>
-                  <TableHead>Median</TableHead>
-                  <TableHead>High</TableHead>
+                  <TableHead numeric>Low</TableHead>
+                  <TableHead numeric>Median</TableHead>
+                  <TableHead numeric>High</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>As of</TableHead>
                 </TableRow>
@@ -267,13 +262,33 @@ export async function CompsSection(props: {
                 {benchmarks.map((benchmark) => (
                   <TableRow key={benchmark.id}>
                     <TableCell>{benchmark.metric}</TableCell>
-                    <TableCell>{multipleOrNotSet(benchmark.low)}</TableCell>
-                    <TableCell>{multipleOrNotSet(benchmark.median)}</TableCell>
-                    <TableCell>{multipleOrNotSet(benchmark.high)}</TableCell>
+                    <TableCell numeric>
+                      <FigureValue
+                        value={benchmark.low}
+                        format={'multiple'}
+                        missingLabel={'Not set'}
+                      />
+                    </TableCell>
+                    <TableCell numeric>
+                      <FigureValue
+                        value={benchmark.median}
+                        format={'multiple'}
+                        missingLabel={'Not set'}
+                      />
+                    </TableCell>
+                    <TableCell numeric>
+                      <FigureValue
+                        value={benchmark.high}
+                        format={'multiple'}
+                        missingLabel={'Not set'}
+                      />
+                    </TableCell>
                     <TableCell>
                       {textOrNotSet(benchmark.source_citation)}
                     </TableCell>
-                    <TableCell>{dateOrNotSet(benchmark.as_of)}</TableCell>
+                    <TableCell>
+                      <DateOrNotSet value={benchmark.as_of} locale={locale} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -296,7 +311,7 @@ export async function CompsSection(props: {
                 <dd className={'text-sm'}>
                   {expectations.multipleLow === null
                     ? 'Not set'
-                    : `${multipleText(expectations.multipleLow)} to ${multipleText(expectations.multipleHigh!)}`}
+                    : `${formatMultiple(expectations.multipleLow)} to ${formatMultiple(expectations.multipleHigh!)}`}
                 </dd>
               </div>
               <div className={'flex flex-col gap-0.5'}>
@@ -304,9 +319,9 @@ export async function CompsSection(props: {
                   Close vs asking
                 </dt>
                 <dd className={'text-sm'}>
-                  {expectations.closeToAskingPct === null
+                  {expectations.closeToAsking === null
                     ? 'Not set'
-                    : `${expectations.closeToAskingPct}% of asking`}
+                    : `${formatPercent(expectations.closeToAsking)} of asking`}
                 </dd>
               </div>
               <div className={'flex flex-col gap-0.5'}>

@@ -1,3 +1,5 @@
+import { getLocale } from 'next-intl/server';
+
 import {
   type AdoptedFigures,
   adoptedFiguresOf,
@@ -7,27 +9,22 @@ import { whomToAsk } from '@odb/next/actions/refusable-action';
 import type { Tables } from '@odb/supabase';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { FigureValue } from '@odb/ui/figure-value';
+import { formatTimestamp } from '@odb/ui/format';
 
 import { AdoptedYears } from './adopted-years';
 import { type NamedVersion, versionName } from './calc-version-name';
 import { GatedControl } from './gated-control';
 import { ReadoptButton } from './readopt-button';
+import { viewerTimeZone } from './viewer-time-zone';
 
-const currency = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-  maximumFractionDigits: 0,
-});
-
-function money(value: number | null): string {
-  return value === null ? 'Not disclosed' : currency.format(value);
-}
-
-function Figure({ label, value }: { label: string; value: string }) {
+function Figure({ label, value }: { label: string; value: number | null }) {
   return (
     <div className={'flex flex-col gap-0.5'}>
       <dt className={'text-muted-foreground text-xs uppercase'}>{label}</dt>
-      <dd className={'text-sm tabular-nums'}>{value}</dd>
+      <dd className={'text-sm'}>
+        <FigureValue value={value} format={'money'} />
+      </dd>
     </div>
   );
 }
@@ -95,6 +92,7 @@ async function calcsOfType(dealId: string, type: string): Promise<Sibling[]> {
 }
 
 export async function AdoptedFinancialsCard(props: {
+  accountId: string;
   financials: Pick<
     Tables<'deal_financials'>,
     | 'deal_id'
@@ -115,6 +113,10 @@ export async function AdoptedFinancialsCard(props: {
           adoptedAt: props.financials.adopted_at!,
           figures: adoptedFiguresOf(props.financials),
         };
+  const [locale, timeZone] = await Promise.all([
+    getLocale(),
+    viewerTimeZone(props.accountId),
+  ]);
   const [primaryChanged, versions] =
     adoption === null || props.calc === null
       ? [null, []]
@@ -130,6 +132,8 @@ export async function AdoptedFinancialsCard(props: {
       versions={versions}
       adoptedBy={props.adoptedBy}
       primaryChanged={primaryChanged}
+      locale={locale}
+      timeZone={timeZone}
     />
   );
 }
@@ -140,12 +144,16 @@ export function AdoptedFinancials({
   versions,
   adoptedBy,
   primaryChanged,
+  locale,
+  timeZone,
 }: {
   adoption: Adoption | null;
   calc: NamedVersion | null;
   versions: Sibling[];
   adoptedBy: string | null;
   primaryChanged: PrimaryChanged | null;
+  locale: string;
+  timeZone: string;
 }) {
   return (
     <Card>
@@ -166,7 +174,7 @@ export function AdoptedFinancials({
                 <>From {versionName(calc, versions)}, adopted</>
               )}{' '}
               by {adoptedBy} on{' '}
-              {new Date(adoption.adoptedAt).toLocaleDateString('en-US')}
+              {formatTimestamp(adoption.adoptedAt, locale, timeZone)}
             </p>
             {primaryChanged === null ? null : (
               <div
@@ -187,12 +195,9 @@ export function AdoptedFinancials({
               </div>
             )}
             <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-3'}>
-              <Figure
-                label={'Revenue'}
-                value={money(adoption.figures.revenue)}
-              />
-              <Figure label={'SDE'} value={money(adoption.figures.sde)} />
-              <Figure label={'EBITDA'} value={money(adoption.figures.ebitda)} />
+              <Figure label={'Revenue'} value={adoption.figures.revenue} />
+              <Figure label={'SDE'} value={adoption.figures.sde} />
+              <Figure label={'EBITDA'} value={adoption.figures.ebitda} />
             </dl>
             {adoption.figures.years === null ? null : (
               <AdoptedYears years={adoption.figures.years} />

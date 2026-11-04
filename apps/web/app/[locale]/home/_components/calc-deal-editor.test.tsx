@@ -89,7 +89,9 @@ describe('CalcDealEditor years 1 to 3', () => {
 
     expect(row(html, 'DSCR')).toMatch(/2\.78x.*2\.07x.*1\.72x/);
     expect(row(html, 'Net cash flow')).toMatch(/\$64,000.*\$56,857.*\$50,714/);
-    expect(html).toMatch(/Yr (<!-- -->)?2(<!-- -->)?: (<!-- -->)?\$56,857/);
+    expect(html).toMatch(
+      /Yr (<!-- -->)?2(<!-- -->)?: (<!-- -->)?<span[^>]*>\$56\.86K/,
+    );
   });
 });
 
@@ -354,7 +356,7 @@ describe('scenario paths in the editor', () => {
       />,
     );
 
-    expect(html).toMatch(/title="Below minimum DSCR"[^>]*>1\.01x/);
+    expect(html).toMatch(/title="Below minimum DSCR"[^>]*><span[^>]*>1\.01x/);
     expect(html.match(/<polyline/g)).toHaveLength(3);
   });
 

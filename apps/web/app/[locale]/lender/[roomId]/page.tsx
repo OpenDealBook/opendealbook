@@ -1,3 +1,4 @@
+import { getLocale } from 'next-intl/server';
 import { z } from 'zod';
 
 import { RoomPage } from '@odb/lender-rooms/browser/room-page.tsx';
@@ -5,6 +6,7 @@ import { enterLenderRoom } from '@odb/lender-rooms/members/enter-room.ts';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 
 import { TimelineQuestion } from '../../home/_components/lender-crm/timeline-question';
+import { viewerTimeZone } from '../../home/_components/viewer-time-zone';
 import { MainContacts } from './main-contacts';
 import { SharedTimeline } from './shared-timeline';
 import { SharedUpdates } from './shared-updates';
@@ -39,11 +41,17 @@ export default async function LenderRoomPage({
       .throwOnError(),
   ]);
   const closeBy = gate.room.must_close_by ?? gate.room.target_close_date;
+  const [locale, timeZone] = await Promise.all([
+    getLocale(),
+    viewerTimeZone(null),
+  ]);
 
   return (
     <>
       <RoomPage
         room={gate.room}
+        locale={locale}
+        timeZone={timeZone}
         question={
           closeBy ? (
             <TimelineQuestion

@@ -31,7 +31,9 @@ describe('AdoptedYears', () => {
     );
 
     expect(row(html, 'Debt service')).toMatch(/\$36,000.*\$53,143.*\$0/);
-    expect(row(html, 'DSCR')).toMatch(/2\.78x.*2\.07x.*n\/a/);
+    expect(row(html, 'DSCR')).toMatch(
+      /2\.78x.*2\.07x.*title="Not available"[^>]*>–/,
+    );
     expect(row(html, 'Net cash flow')).toMatch(/\$64,000.*\$56,857.*\$121,000/);
   });
 });

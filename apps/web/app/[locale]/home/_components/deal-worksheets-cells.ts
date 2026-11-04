@@ -6,50 +6,45 @@ import {
   type WorksheetRowData,
 } from '@odb/deals/shared';
 
-const NO_DATA = 'No data';
+import type { Shown } from './shown-value';
 
 interface ComputedField {
   key: string;
   label: string;
-  kind: 'currency' | 'percent';
+  kind: 'money' | 'percent';
 }
 
 const COMPUTED_FIELD_CATALOG: Record<DealWorksheetType, ComputedField[]> = {
   margin_analysis: [
-    { key: 'margin', label: 'Margin', kind: 'currency' },
+    { key: 'margin', label: 'Margin', kind: 'money' },
     { key: 'margin_pct', label: 'Margin %', kind: 'percent' },
   ],
-  marketing_effectiveness: [{ key: 'cac', label: 'CAC', kind: 'currency' }],
+  marketing_effectiveness: [{ key: 'cac', label: 'CAC', kind: 'money' }],
   retention_plan: [],
   process_sop: [],
 };
 
-function formatCurrency(value: number | null): string {
-  return value === null
-    ? NO_DATA
-    : `$${Math.round(value).toLocaleString('en-US')}`;
-}
-
-function formatPercent(value: number | null): string {
-  return value === null ? NO_DATA : `${(value * 100).toFixed(1)}%`;
-}
-
-function formatStoredValue(
+function storedValue(
   field: WorksheetField,
   value: string | number | null,
-): string {
+): Shown {
   if (value === null || value === undefined || value === '') {
-    return NO_DATA;
+    return { kind: field.kind === 'currency' ? 'money' : 'text', value: null };
   }
 
   return field.kind === 'currency'
-    ? formatCurrency(Number(value))
-    : String(value);
+    ? { kind: 'money', value: Number(value) }
+    : { kind: 'text', value: String(value) };
 }
 
 export interface WorksheetColumn {
   key: string;
   label: string;
+  numeric: boolean;
+}
+
+export function isNumericField(field: WorksheetField): boolean {
+  return field.kind === 'currency' || field.kind === 'number';
 }
 
 export function worksheetColumns(type: DealWorksheetType): WorksheetColumn[] {
@@ -57,10 +52,12 @@ export function worksheetColumns(type: DealWorksheetType): WorksheetColumn[] {
     ...WORKSHEET_FIELD_CATALOG[type].map((field) => ({
       key: field.key,
       label: field.label,
+      numeric: isNumericField(field),
     })),
     ...COMPUTED_FIELD_CATALOG[type].map((field) => ({
       key: field.key,
       label: field.label,
+      numeric: true,
     })),
   ];
 }
@@ -68,7 +65,7 @@ export function worksheetColumns(type: DealWorksheetType): WorksheetColumn[] {
 export interface WorksheetDisplayCell {
   key: string;
   label: string;
-  value: string;
+  shown: Shown;
 }
 
 export function worksheetDisplayCells(
@@ -78,7 +75,7 @@ export function worksheetDisplayCells(
   const fieldCells = WORKSHEET_FIELD_CATALOG[type].map((field) => ({
     key: field.key,
     label: field.label,
-    value: formatStoredValue(field, data[field.key] ?? null),
+    shown: storedValue(field, data[field.key] ?? null),
   }));
 
   const derived = deriveWorksheetRow(type, data);
@@ -86,10 +83,7 @@ export function worksheetDisplayCells(
   const computedCells = COMPUTED_FIELD_CATALOG[type].map((field) => ({
     key: field.key,
     label: field.label,
-    value:
-      field.kind === 'percent'
-        ? formatPercent(derived[field.key] ?? null)
-        : formatCurrency(derived[field.key] ?? null),
+    shown: { kind: field.kind, value: derived[field.key] ?? null },
   }));
 
   return [...fieldCells, ...computedCells];

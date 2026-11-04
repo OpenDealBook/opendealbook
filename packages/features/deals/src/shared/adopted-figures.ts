@@ -11,10 +11,6 @@ export interface AdoptedFigures {
   years: AdoptedYear[] | null;
 }
 
-const wholeDollars = new Intl.NumberFormat('en-US', {
-  maximumFractionDigits: 0,
-});
-
 const adoptableSnapshotSchema = z.object({
   adopt: z.object({
     revenue: z.number().nullable(),
@@ -53,24 +49,20 @@ export function adoptedFiguresOf(
   };
 }
 
-export function multipleText(value: number): string {
-  return `${value.toFixed(2)}x`;
-}
-
-function money(value: number | null): string {
-  return value === null ? '' : wholeDollars.format(value);
+function wholeDollars(value: number | null): string {
+  return value === null ? '' : String(Math.round(value));
 }
 
 function asShown(figures: AdoptedFigures): string {
   return [
-    money(figures.revenue),
-    money(figures.sde),
-    money(figures.ebitda),
+    wholeDollars(figures.revenue),
+    wholeDollars(figures.sde),
+    wholeDollars(figures.ebitda),
     ...(figures.years ?? []).flatMap((year) => [
       String(year.year),
-      money(year.debt_service),
-      year.dscr === null ? '' : multipleText(year.dscr),
-      money(year.net_cash_flow),
+      wholeDollars(year.debt_service),
+      year.dscr === null ? '' : year.dscr.toFixed(2),
+      wholeDollars(year.net_cash_flow),
     ]),
   ].join('|');
 }

@@ -4,12 +4,14 @@ import { useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { longDate } from '@odb/lender-outreach/draft-email.ts';
+import { useLocale } from 'next-intl';
+
 import { ProblemNote } from '@odb/lender-rooms/requests-ui/refusal-note.tsx';
 import { useAttempt } from '@odb/lender-rooms/requests-ui/use-attempt.ts';
 import { answerTimeline } from '@odb/lender-rooms/timeline-answer/lender-actions.ts';
 import type { Enums } from '@odb/supabase';
 import { Button } from '@odb/ui/button';
+import { formatDate } from '@odb/ui/format';
 import { Input } from '@odb/ui/input';
 import { Label } from '@odb/ui/label';
 import { Textarea } from '@odb/ui/textarea';
@@ -38,6 +40,7 @@ export function TimelineQuestion({
   stored: StoredTimelineAnswer | null;
 }) {
   const router = useRouter();
+  const locale = useLocale();
   const answering = useAttempt();
   const [note, setNote] = useState(stored?.note ?? '');
   const [earliestCloseDate, setEarliestCloseDate] = useState(
@@ -69,7 +72,7 @@ export function TimelineQuestion({
     >
       <div className={'flex flex-col gap-1'}>
         <h2 id={'timeline-question'} className={'text-lg font-semibold'}>
-          Can you close by {longDate(closeBy)}?
+          Can you close by {formatDate(closeBy, locale)}?
         </h2>
         {reason ? <p className={'text-muted-foreground'}>{reason}</p> : null}
       </div>

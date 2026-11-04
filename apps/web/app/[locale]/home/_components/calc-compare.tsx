@@ -27,24 +27,22 @@ import {
   SDE_LINE_LABELS,
   YEAR_BASIS_LABELS,
   calcDraftFromDetail,
-  money,
   num,
-  pctText,
-  ratio,
   versionName,
 } from './calc-shared';
 import type { NamedVersion } from './calc-version-name';
+import { type Shown, ShownValue } from './shown-value';
 
 interface Figure {
   group: string;
   label: string;
-  value: string;
+  value: Shown;
   cite?: InputRef;
 }
 
 interface CompareRow extends Figure {
   key: string;
-  b: string;
+  b: Shown;
   bCite?: InputRef;
   changed: boolean;
 }
@@ -72,16 +70,38 @@ interface Snapshot {
   months_of_revenue_covered?: number | null;
 }
 
-function amount(value: string): string {
-  return value.trim() === '' ? 'n/a' : money(num(value));
+const NOT_SHOWN: Shown = { kind: 'text', value: null };
+
+function amount(value: string): Shown {
+  return { kind: 'money', value: value.trim() === '' ? null : num(value) };
 }
 
-function percent(value: string): string {
-  return value.trim() === '' ? 'n/a' : `${value}%`;
+function percent(value: string): Shown {
+  return text(value.trim() === '' ? '' : `${value}%`);
 }
 
-function text(value: string): string {
-  return value.trim() === '' ? 'n/a' : value;
+function text(value: string): Shown {
+  return { kind: 'text', value: value.trim() === '' ? null : value };
+}
+
+function money(value: number | undefined): Shown {
+  return { kind: 'money', value: value ?? null };
+}
+
+function ratio(value: number | null | undefined): Shown {
+  return { kind: 'ratio', value: value ?? null };
+}
+
+function multiple(value: number | null | undefined): Shown {
+  return { kind: 'multiple', value: value ?? null };
+}
+
+function pctText(value: number | null | undefined): Shown {
+  return { kind: 'percent', value: value ?? null };
+}
+
+function sameShown(a: Shown, b: Shown): boolean {
+  return a.kind === b.kind && a.value === b.value;
 }
 
 function pathFigures(
@@ -110,10 +130,11 @@ function pathFigures(
     {
       group,
       label: 'SDE margin change',
-      value:
+      value: text(
         drivers.margin_change.trim() === ''
-          ? 'n/a'
+          ? ''
           : `${drivers.margin_change} pts`,
+      ),
       cite: cite('margin_change'),
     },
     {
@@ -285,7 +306,7 @@ function inputFigures(calc: CalcDraft): Figure[] {
     {
       group: years,
       label: 'Year basis',
-      value: YEAR_BASIS_LABELS[draft.year_basis],
+      value: text(YEAR_BASIS_LABELS[draft.year_basis]),
     },
     { group: years, label: 'Close date', value: text(draft.close_date) },
     {
@@ -302,7 +323,7 @@ function inputFigures(calc: CalcDraft): Figure[] {
         {
           group,
           label: `Type, ${source}`,
-          value: FUNDING_TYPE_LABELS[loan.type],
+          value: text(FUNDING_TYPE_LABELS[loan.type]),
         },
         {
           group,
@@ -331,7 +352,7 @@ function inputFigures(calc: CalcDraft): Figure[] {
         {
           group,
           label: `After standby, ${source}`,
-          value: AFTER_STANDBY_LABELS[loan.after_standby],
+          value: text(AFTER_STANDBY_LABELS[loan.after_standby]),
         },
       ];
     }),
@@ -354,10 +375,10 @@ function outputFigures(
       {
         group,
         label: 'Months of revenue covered',
-        value:
-          snapshot.months_of_revenue_covered == null
-            ? 'n/a'
-            : snapshot.months_of_revenue_covered.toFixed(1),
+        value: {
+          kind: 'months',
+          value: snapshot.months_of_revenue_covered ?? null,
+        },
       },
     ];
   }
@@ -398,14 +419,15 @@ function outputFigures(
     {
       group,
       label: 'Purchase multiple incl. closing costs',
-      value: ratio(snapshot.purchase_multiple),
+      value: multiple(snapshot.purchase_multiple),
     },
     { group, label: 'Cash on cash', value: pctText(snapshot.cash_on_cash) },
     {
       group,
       label: 'Payback years',
-      value:
-        snapshot.payback_years == null ? 'n/a' : String(snapshot.payback_years),
+      value: text(
+        snapshot.payback_years == null ? '' : String(snapshot.payback_years),
+      ),
     },
     { group, label: 'Buyer equity', value: money(snapshot.buyer_equity) },
     ...(dealBoxSet
@@ -460,7 +482,7 @@ function sideBySide(a: Figure[], b: Figure[]): CompareRow[] {
     ...[...aByKey].map(([key, figure]) => ({
       ...figure,
       key,
-      b: bByKey.get(key)?.value ?? 'n/a',
+      b: bByKey.get(key)?.value ?? NOT_SHOWN,
       bCite: bByKey.get(key)?.cite,
     })),
     ...[...bByKey]
@@ -468,14 +490,14 @@ function sideBySide(a: Figure[], b: Figure[]): CompareRow[] {
       .map(([key, figure]) => ({
         ...figure,
         key,
-        value: 'n/a',
+        value: NOT_SHOWN,
         cite: undefined,
         b: figure.value,
         bCite: figure.cite,
       })),
   ];
 
-  return rows.map((row) => ({ ...row, changed: row.value !== row.b }));
+  return rows.map((row) => ({ ...row, changed: !sameShown(row.value, row.b) }));
 }
 
 export function CalcCompare(props: {
@@ -529,6 +551,7 @@ export function CalcCompare(props: {
 
       <CompareTable
         title={'Inputs'}
+        calculated={false}
         rows={inputs}
         aName={versionName(props.a.version, props.versions)}
         bName={versionName(props.b.version, props.versions)}
@@ -538,6 +561,7 @@ export function CalcCompare(props: {
       />
       <CompareTable
         title={'Outputs'}
+        calculated
         rows={outputs}
         aName={versionName(props.a.version, props.versions)}
         bName={versionName(props.b.version, props.versions)}
@@ -582,6 +606,7 @@ function VersionPicker(props: {
 
 function CompareTable(props: {
   title: string;
+  calculated: boolean;
   rows: CompareRow[];
   aName: ReactNode;
   bName: ReactNode;
@@ -605,8 +630,12 @@ function CompareTable(props: {
           <TableHeader>
             <TableRow>
               <TableHead className={'w-2/5'} />
-              <TableHead className={'truncate'}>{props.aName}</TableHead>
-              <TableHead className={'truncate'}>{props.bName}</TableHead>
+              <TableHead numeric className={'truncate'}>
+                {props.aName}
+              </TableHead>
+              <TableHead numeric className={'truncate'}>
+                {props.bName}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -642,15 +671,21 @@ function CompareTable(props: {
                           <span className={'sr-only'}> (changed)</span>
                         ) : null}
                       </TableCell>
-                      <TableCell className={'whitespace-normal tabular-nums'}>
-                        {row.value}
+                      <TableCell numeric className={'whitespace-normal'}>
+                        <ShownValue
+                          shown={row.value}
+                          calculated={props.calculated}
+                        />
                         <CitationList
                           dealId={props.dealId}
                           citations={citedBy(props.aCitations, row.cite)}
                         />
                       </TableCell>
-                      <TableCell className={'whitespace-normal tabular-nums'}>
-                        {row.b}
+                      <TableCell numeric className={'whitespace-normal'}>
+                        <ShownValue
+                          shown={row.b}
+                          calculated={props.calculated}
+                        />
                         <CitationList
                           dealId={props.dealId}
                           citations={citedBy(props.bCitations, row.bCite)}
