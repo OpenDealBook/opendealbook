@@ -164,7 +164,7 @@ describe('email templates', () => {
       productName: 'Open Deal Book',
       rooms: [
         {
-          name: 'First Harbor Bank',
+          name: 'Bluefin Test Lending',
           link: 'https://opendealbook.app/lender/room-1',
           faqLink: 'https://opendealbook.app/lender/room-1/faq',
           items: [
@@ -191,7 +191,7 @@ describe('email templates', () => {
       '3 new or updated documents in your lender rooms',
     );
     expect(email.html).toMatch(
-      /First Harbor Bank[\s\S]*Balance sheet\.xlsx \(new\)[\s\S]*Tax return 2025\.pdf \(updated\)[\s\S]*Second Harbor Bank[\s\S]*Lease\.pdf \(new\)/,
+      /Bluefin Test Lending[\s\S]*Balance sheet\.xlsx \(new\)[\s\S]*Tax return 2025\.pdf \(updated\)[\s\S]*Second Harbor Bank[\s\S]*Lease\.pdf \(new\)/,
     );
     expect(email.html).toContain(
       'href="https://opendealbook.app/lender/room-1"',
@@ -206,7 +206,7 @@ describe('email templates', () => {
       productName: 'Open Deal Book',
       rooms: [
         {
-          name: 'First Harbor Bank',
+          name: 'Bluefin Test Lending',
           link: 'https://opendealbook.app/lender/room-1',
           faqLink: 'https://opendealbook.app/lender/room-1/faq',
           items: [{ kind: 'document', name: 'Lease.pdf', status: 'updated' }],
@@ -223,7 +223,7 @@ describe('email templates', () => {
       productName: 'Open Deal Book',
       rooms: [
         {
-          name: 'First Harbor Bank',
+          name: 'Bluefin Test Lending',
           link: 'https://opendealbook.app/lender/room-1',
           faqLink: 'https://opendealbook.app/lender/room-1/faq',
           items: [{ kind: 'document', name: 'Lease.pdf', status: 'new' }],
@@ -245,7 +245,7 @@ describe('email templates', () => {
       productName: 'Open Deal Book',
       rooms: [
         {
-          name: 'First Harbor Bank',
+          name: 'Bluefin Test Lending',
           link: 'https://opendealbook.app/lender/room-1',
           faqLink: 'https://opendealbook.app/lender/room-1/faq',
           items: [{ kind: 'document', name: 'Lease.pdf', status: 'new' }],
@@ -262,7 +262,7 @@ describe('email templates', () => {
       productName: 'Open Deal Book',
       rooms: [
         {
-          name: 'First Harbor Bank',
+          name: 'Bluefin Test Lending',
           link: 'https://opendealbook.app/lender/room-1',
           faqLink: 'https://opendealbook.app/lender/room-1/faq',
           items: [

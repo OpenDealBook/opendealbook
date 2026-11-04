@@ -59,7 +59,11 @@ describe('buildThread', () => {
       files: [],
       documents: [],
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -79,7 +83,11 @@ describe('buildThread', () => {
         files: [],
         documents: [],
         members: [
-          { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+          {
+            user_id: LENDER,
+            email: 'dana.ruiz@bluefintestlending.test',
+            name: null,
+          },
         ],
       }),
     ).toEqual([]);
@@ -103,7 +111,11 @@ describe('buildThread', () => {
       ],
       documents: named('a', 'b'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -147,7 +159,11 @@ describe('buildThread', () => {
       ],
       documents: named('a', 'b'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -169,7 +185,11 @@ describe('buildThread', () => {
       files: [file('a', '2026-10-02T09:00:00.000Z', LENDER)],
       documents: named('a'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -192,7 +212,11 @@ describe('buildThread', () => {
       ],
       documents: named('blank', 'done', 'signed'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -223,7 +247,11 @@ describe('buildThread', () => {
       ],
       documents: named('a', 'b', 'c', 'd'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -244,7 +272,11 @@ describe('buildThread', () => {
       ],
       documents: named('kept'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -267,7 +299,11 @@ describe('buildThread', () => {
       files: [file('blank', '2026-10-02T09:00:00.000Z', LENDER, 'blank_form')],
       documents: [],
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -304,7 +340,11 @@ describe('buildThread', () => {
       files: [],
       documents: [],
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -325,7 +365,11 @@ describe('buildThread', () => {
       files: [],
       documents: [],
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -343,7 +387,11 @@ describe('buildThread', () => {
       ],
       documents: named('a', 'b', 'c'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 
@@ -387,7 +435,7 @@ describe('buildThread', () => {
       members: [
         {
           user_id: LENDER,
-          email: 'dana.ruiz@firstharbor.test',
+          email: 'dana.ruiz@bluefintestlending.test',
           name: 'Dana Ruiz',
         },
       ],
@@ -405,16 +453,20 @@ describe('buildThread', () => {
     const thread = buildThread({
       ...conversation,
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
         { user_id: TEAM, email: 'never-a-lender@odb.test', name: 'Pat Team' },
       ],
     });
 
     expect(thread.map((entry) => [entry.side, entry.authorName])).toEqual([
-      ['lender', 'dana.ruiz@firstharbor.test'],
+      ['lender', 'dana.ruiz@bluefintestlending.test'],
       ['lender', null],
       ['internal', null],
-      ['lender', 'dana.ruiz@firstharbor.test'],
+      ['lender', 'dana.ruiz@bluefintestlending.test'],
     ]);
   });
 
@@ -431,7 +483,11 @@ describe('buildThread', () => {
       ],
       documents: named('first', 'second', 'cover', 'done', 'signed'),
       members: [
-        { user_id: LENDER, email: 'dana.ruiz@firstharbor.test', name: null },
+        {
+          user_id: LENDER,
+          email: 'dana.ruiz@bluefintestlending.test',
+          name: null,
+        },
       ],
     });
 

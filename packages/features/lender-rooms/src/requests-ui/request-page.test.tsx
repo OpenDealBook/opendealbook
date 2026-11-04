@@ -16,7 +16,7 @@ import {
 const room = {
   id: '7d0f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11',
   deal_id: '11111111-1111-4111-8111-111111111111',
-  name: 'First Harbor Bank',
+  name: 'Bluefin Test Lending',
   welcome_note: null,
   expires_at: null,
   is_open: true,
@@ -117,7 +117,7 @@ describe('the requests page', () => {
     );
 
     expect(pageText()).toContain(
-      'You are viewing this room as First Harbor Bank sees it.',
+      'You are viewing this room as Bluefin Test Lending sees it.',
     );
     expect(pageText()).toContain('Rent roll');
     expect(buttonNames()).toEqual([]);
@@ -250,7 +250,7 @@ describe('a request page', () => {
     );
 
     expect(pageText()).toContain(
-      'You are viewing this room as First Harbor Bank sees it.',
+      'You are viewing this room as Bluefin Test Lending sees it.',
     );
     expect(buttonNames()).toEqual([]);
     expect(fields('Reply')).toEqual([]);

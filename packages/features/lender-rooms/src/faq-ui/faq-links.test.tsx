@@ -43,7 +43,7 @@ vi.mock('../room-browser/room-browser', () => ({ RoomBrowser: () => null }));
 const ROOM: LenderRoomSummary = {
   id: '7d0f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11',
   deal_id: '0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22',
-  name: 'First Harbor Bank',
+  name: 'Bluefin Test Lending',
   welcome_note: null,
   expires_at: null,
   is_open: true,
@@ -85,9 +85,16 @@ afterEach(clearScreen);
 
 describe('links to the FAQ', () => {
   it('are on the room page', async () => {
-    expect(hrefs(await RoomPage({ room: ROOM, question: null }))).toContain(
-      FAQ_PATH,
-    );
+    expect(
+      hrefs(
+        await RoomPage({
+          room: ROOM,
+          question: null,
+          locale: 'en-US',
+          timeZone: 'UTC',
+        }),
+      ),
+    ).toContain(FAQ_PATH);
   });
 
   it('are on the requests page', () => {

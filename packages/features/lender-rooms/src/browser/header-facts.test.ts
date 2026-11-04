@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
+import { formatMoneyExact } from '@odb/ui/format';
+
 import type { LenderRoomSummary } from '../members/entry-rules';
-import { contactFacts, headerFacts } from './header-facts';
+import { contactFacts, headerFacts, loanAskParts } from './header-facts';
 
 const room: LenderRoomSummary = {
   id: '7d0f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11',
   deal_id: '0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22',
-  name: 'First Harbor Bank',
+  name: 'Bluefin Test Lending',
   welcome_note: 'Glad to have you looking at this one.',
   expires_at: '2026-12-11T00:00:00Z',
   is_open: true,
   private_folder_id: 'private',
   master_folder_id: 'master',
-  brand_name: 'First Harbor Bank, N.A.',
-  brand_logo_path: 'firstharbor.com/logo.png',
+  brand_name: 'Bluefin Test Lending, N.A.',
+  brand_logo_path: 'bluefintestlending.com/logo.png',
   deal_name: 'Dockside Cafe Group',
   target_close_date: '2027-04-30',
   must_close_by: '2027-03-31',
@@ -28,13 +30,18 @@ const room: LenderRoomSummary = {
 describe('headerFacts', () => {
   it('describes a fully set up room', () => {
     expect(headerFacts(room)).toEqual({
-      lenderName: 'First Harbor Bank',
-      initials: 'FH',
-      logoPath: 'firstharbor.com/logo.png',
+      lenderName: 'Bluefin Test Lending',
+      initials: 'BT',
+      logoPath: 'bluefintestlending.com/logo.png',
       dealName: 'Dockside Cafe Group',
       buyerTeam: 'Harbor Acquisitions',
-      loanAsk: '$2,240,000 SBA 7(a) plus $300,000 seller note, 10-year term',
-      closeBy: 'March 31, 2027',
+      loan: {
+        amount: 2240000,
+        type: 'sba_7a',
+        sellerNote: 300000,
+        termYears: 10,
+      },
+      closeBy: '2027-03-31',
       welcomeNote: 'Glad to have you looking at this one.',
       accessEnds: '2026-12-11T00:00:00Z',
       packageLabel: 'Dockside Cafe Group lender package',
@@ -53,7 +60,7 @@ describe('headerFacts', () => {
     expect(facts.logoPath).toBeNull();
     expect(facts.welcomeNote).toBeNull();
     expect(facts.accessEnds).toBeNull();
-    expect(facts.initials).toBe('FH');
+    expect(facts.initials).toBe('BT');
   });
 
   it('speaks of the deal team when the deal has no name', () => {
@@ -72,8 +79,10 @@ describe('headerFacts', () => {
       seller_note_amount: null,
     });
 
-    expect(facts.loanAsk).toBe('$2,240,000 SBA 7(a)');
-    expect(facts.closeBy).toBe('April 30, 2027');
+    expect(loanAskParts(facts.loan!, formatMoneyExact).join('')).toBe(
+      '$2,240,000 SBA 7(a)',
+    );
+    expect(facts.closeBy).toBe('2027-04-30');
   });
 
   it('has no loan ask or close-by date when the team saved none', () => {
@@ -87,12 +96,29 @@ describe('headerFacts', () => {
       seller_note_amount: null,
     });
 
-    expect(facts.loanAsk).toBeNull();
+    expect(facts.loan).toBeNull();
     expect(facts.closeBy).toBeNull();
   });
 
   it('uses the one initial of a one-word lender name', () => {
     expect(headerFacts({ ...room, name: 'Chase' }).initials).toBe('C');
+  });
+});
+
+describe('loanAskParts', () => {
+  it('phrases the full loan ask around the amounts it is given', () => {
+    expect(
+      loanAskParts(headerFacts(room).loan!, (amount) => `[${amount}]`).join(''),
+    ).toBe('[2240000] SBA 7(a) plus [300000] seller note, 10-year term');
+  });
+
+  it('phrases a term on its own', () => {
+    expect(
+      loanAskParts(
+        { amount: null, type: null, sellerNote: null, termYears: 5 },
+        String,
+      ).join(''),
+    ).toBe('5-year term');
   });
 });
 

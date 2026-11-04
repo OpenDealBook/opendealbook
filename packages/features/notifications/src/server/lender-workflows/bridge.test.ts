@@ -34,7 +34,7 @@ const rooms: Record<
   }
 > = {
   [roomId]: {
-    name: 'First Harbor Bank',
+    name: 'Bluefin Test Lending',
     dealName: 'Acme Tooling',
     outsideName: 'Project Atlas',
     buyerTeam: 'Acme Capital',
@@ -57,7 +57,7 @@ const visibleByPerson: Record<string, VisibleDocument[]> = {
       name: 'Balance sheet.xlsx',
       folder_id: 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1',
       room_id: roomId,
-      room_name: 'First Harbor Bank',
+      room_name: 'Bluefin Test Lending',
       outside_name: 'Project Atlas',
     },
     {
@@ -65,7 +65,7 @@ const visibleByPerson: Record<string, VisibleDocument[]> = {
       name: 'Tax return 2025.pdf',
       folder_id: 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1',
       room_id: roomId,
-      room_name: 'First Harbor Bank',
+      room_name: 'Bluefin Test Lending',
       outside_name: 'Project Atlas',
     },
   ],
@@ -77,7 +77,7 @@ const visibleFaqByPerson: Record<string, VisibleFaqEntry[]> = {
       entry_id: ebitdaEntry,
       question: 'What was 2025 EBITDA?',
       room_id: roomId,
-      room_name: 'First Harbor Bank',
+      room_name: 'Bluefin Test Lending',
       outside_name: 'Project Atlas',
     },
   ],
@@ -430,7 +430,7 @@ describe('immediate emails to a lender', () => {
       expect(result.outputs.subject).toBe(subject);
       expect(result.outputs.body?.split(requestTitle)).toHaveLength(2);
       expect(copy).toContain('Acme Capital has');
-      expect(copy).toContain('First Harbor Bank');
+      expect(copy).toContain('Bluefin Test Lending');
       expect(copy).toContain(`"${requestTitle}"`);
       expect(result.outputs.body).toContain(`href="${link}"`);
       expect(`${subject} ${copy}`).not.toMatch(/\bask(s|ed)?\b/i);
@@ -491,7 +491,7 @@ describe('immediate emails to a lender', () => {
       expect(copy).toContain(message);
       expect(result.outputs.body).toContain(`href="${link}"`);
       expect(copy).not.toContain('Project Atlas');
-      expect(copy).not.toContain('First Harbor Bank');
+      expect(copy).not.toContain('Bluefin Test Lending');
       expect(copy).not.toContain('Trailing twelve month financials');
     },
   );
@@ -587,16 +587,16 @@ describe('immediate emails to our team', () => {
     const { status, result } = await execute({
       workflowId: 'lender_room.access_requested',
       stepId: 'email',
-      payload: { roomId, email: 'banker@firstharbor.example' },
+      payload: { roomId, email: 'banker@bluefintestlending.example' },
     });
     const copy = textOf(result.outputs.body);
 
     expect(status).toBe(200);
     expect(result.outputs.subject).toBe(
-      'banker@firstharbor.example asked for access to First Harbor Bank',
+      'banker@bluefintestlending.example asked for access to Bluefin Test Lending',
     );
     expect(copy).toContain(
-      'banker@firstharbor.example asked for access to the First Harbor Bank lender room on Acme Tooling',
+      'banker@bluefintestlending.example asked for access to the Bluefin Test Lending lender room on Acme Tooling',
     );
     expect(result.outputs.body).toContain(`href="${teamRoomUrl}"`);
     expect(copy).toContain('Open the lender room');
@@ -624,7 +624,7 @@ describe('immediate emails to our team', () => {
         'A lender answered your closing timeline question',
       );
       expect(textOf(result.outputs.body)).toContain(
-        `First Harbor Bank ${phrase}`,
+        `Bluefin Test Lending ${phrase}`,
       );
       expect(result.outputs.body).toContain(`href="${teamRoomUrl}"`);
     },
@@ -644,7 +644,10 @@ describe('immediate emails to our team', () => {
     const { status, result } = await execute({
       workflowId: 'lender_room.access_requested',
       stepId: 'email',
-      payload: { roomId: unreadableRoom, email: 'banker@firstharbor.example' },
+      payload: {
+        roomId: unreadableRoom,
+        email: 'banker@bluefintestlending.example',
+      },
     });
 
     expect(status).toBe(200);
@@ -652,7 +655,7 @@ describe('immediate emails to our team', () => {
       'Someone asked for access to a closed lender room',
     );
     expect(textOf(result.outputs.body)).toContain(
-      'banker@firstharbor.example asked for access to a lender room that is closed or expired.',
+      'banker@bluefintestlending.example asked for access to a lender room that is closed or expired.',
     );
     expect(result.outputs.body).toContain(`href="${siteUrl}/home"`);
     expect(textOf(result.outputs.body)).toContain('Open your deals');
@@ -663,7 +666,10 @@ describe('immediate emails to our team', () => {
 
   it.each([
     { missing: 'email', payload: { roomId } },
-    { missing: 'room', payload: { email: 'banker@firstharbor.example' } },
+    {
+      missing: 'room',
+      payload: { email: 'banker@bluefintestlending.example' },
+    },
   ])(
     'rejects an access request that carries no $missing',
     async ({ payload }) => {
@@ -688,7 +694,7 @@ describe('form signature outcome emails', () => {
       audience: 'lender',
       subject: 'Acme Capital on Project Atlas: your form has been signed',
       message:
-        'The signed copy of "Loan application" is in the First Harbor Bank lender room.',
+        'The signed copy of "Loan application" is in the Bluefin Test Lending lender room.',
       link: formLink,
     },
     {
@@ -696,7 +702,7 @@ describe('form signature outcome emails', () => {
       audience: 'team',
       subject: 'A lender form has been signed',
       message:
-        'The signed copy of "Loan application" is in the First Harbor Bank lender room.',
+        'The signed copy of "Loan application" is in the Bluefin Test Lending lender room.',
       link: `${teamRoomUrl}/requests/forms/${formId}`,
     },
     {
@@ -704,7 +710,7 @@ describe('form signature outcome emails', () => {
       audience: 'lender',
       subject: 'Acme Capital on Project Atlas: signing was declined',
       message:
-        'The signature request for "Loan application" in the First Harbor Bank lender room was declined or cancelled. Acme Capital will follow up in the thread.',
+        'The signature request for "Loan application" in the Bluefin Test Lending lender room was declined or cancelled. Acme Capital will follow up in the thread.',
       link: formLink,
     },
     {
@@ -712,7 +718,7 @@ describe('form signature outcome emails', () => {
       audience: 'team',
       subject: 'A lender form signature was declined',
       message:
-        'The signature request for "Loan application" in the First Harbor Bank lender room was declined or cancelled. A new signature request can be made from the form\'s page.',
+        'The signature request for "Loan application" in the Bluefin Test Lending lender room was declined or cancelled. A new signature request can be made from the form\'s page.',
       link: `${teamRoomUrl}/requests/forms/${formId}`,
     },
     {
@@ -720,7 +726,7 @@ describe('form signature outcome emails', () => {
       audience: 'lender',
       subject: 'Acme Capital on Project Atlas: signing expired',
       message:
-        'The signature request for "Loan application" in the First Harbor Bank lender room expired before everyone signed. Acme Capital will follow up in the thread.',
+        'The signature request for "Loan application" in the Bluefin Test Lending lender room expired before everyone signed. Acme Capital will follow up in the thread.',
       link: formLink,
     },
     {
@@ -728,7 +734,7 @@ describe('form signature outcome emails', () => {
       audience: 'team',
       subject: 'A lender form signature expired',
       message:
-        'The signature request for "Loan application" in the First Harbor Bank lender room expired before everyone signed. A new signature request can be made from the form\'s page.',
+        'The signature request for "Loan application" in the Bluefin Test Lending lender room expired before everyone signed. A new signature request can be made from the form\'s page.',
       link: `${teamRoomUrl}/requests/forms/${formId}`,
     },
   ])(
@@ -797,7 +803,7 @@ describe('form signature outcome emails', () => {
       expect(copy).toContain(message);
       expect(result.outputs.body).toContain(`href="${link}"`);
       expect(copy).not.toContain('Project Atlas');
-      expect(copy).not.toContain('First Harbor Bank');
+      expect(copy).not.toContain('Bluefin Test Lending');
       expect(copy).not.toContain('Loan application');
       expect(copy).toContain(
         audience === 'lender' ? 'View the form' : 'Open your deals',
@@ -971,7 +977,7 @@ describe('daily documents digest', () => {
           rooms: [
             {
               roomId,
-              name: 'First Harbor Bank',
+              name: 'Bluefin Test Lending',
               items: [{ kind: 'faq', question: 'What was 2025 EBITDA?' }],
               moreCount: 0,
             },
@@ -1022,7 +1028,7 @@ describe('daily documents digest', () => {
     );
     expect(result.outputs.body).toContain(`href="${siteUrl}/lender"`);
     expect(copy).not.toContain('Balance sheet');
-    expect(copy).not.toContain('First Harbor Bank');
+    expect(copy).not.toContain('Bluefin Test Lending');
   });
 
   it('fails the email step when the recorded lookup result is not one it wrote', async () => {
@@ -1032,7 +1038,7 @@ describe('daily documents digest', () => {
       payload,
       state: [
         digestOf([payload]),
-        completed('visible-documents', { rooms: 'First Harbor Bank' }),
+        completed('visible-documents', { rooms: 'Bluefin Test Lending' }),
       ],
     });
 
@@ -1096,7 +1102,7 @@ describe('daily lenders to nudge email', () => {
     accountSlug: 'acme-capital',
     lenders: [
       {
-        lenderName: 'First Harbor Bank',
+        lenderName: 'Bluefin Test Lending',
         deals: [
           { dealName: 'Acme Tooling', daysSilent: 12 },
           { dealName: null, daysSilent: 6 },
@@ -1120,7 +1126,7 @@ describe('daily lenders to nudge email', () => {
     expect(status).toBe(200);
     expect(result.outputs.subject).toBe('2 lenders to nudge today');
     expect(copy).toContain(
-      'First Harbor Bank: Acme Tooling, quiet 12 days; your deal, quiet 6 days.',
+      'Bluefin Test Lending: Acme Tooling, quiet 12 days; your deal, quiet 6 days.',
     );
     expect(copy).toContain('Second Harbor Bank: Acme Tooling, quiet 8 days.');
     expect(result.outputs.body).toContain(

@@ -1,5 +1,6 @@
 import { isValidElement, type ReactElement, type ReactNode } from 'react';
 
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LenderRoomSummary } from '../members/entry-rules';
@@ -27,7 +28,7 @@ import { FaqPage } from './faq-page';
 const ROOM: LenderRoomSummary = {
   id: '7d0f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11',
   deal_id: '0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22',
-  name: 'First Harbor Bank',
+  name: 'Bluefin Test Lending',
   welcome_note: null,
   expires_at: null,
   is_open: true,
@@ -58,9 +59,12 @@ function find(
     return [];
   }
 
-  const props = node.props as { children?: ReactNode };
-
-  return [...(matches(node) ? [node] : []), ...find(props.children, matches)];
+  return [
+    ...(matches(node) ? [node] : []),
+    ...Object.values(node.props as Record<string, ReactNode>).flatMap((prop) =>
+      find(prop, matches),
+    ),
+  ];
 }
 
 describe('FaqPage', () => {
@@ -81,18 +85,13 @@ describe('FaqPage', () => {
   });
 
   it('links back to the room, named for the deal', async () => {
-    const page = await FaqPage({ room: ROOM });
-    const backLinks = find(
-      page,
-      (element) =>
-        (element.props as { href?: string }).href === `/lender/${ROOM.id}`,
-    );
+    const markup = renderToStaticMarkup(await FaqPage({ room: ROOM }));
+    const backLinks = [
+      ...markup.matchAll(/<a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/g),
+    ].filter(([, href]) => href === `/lender/${ROOM.id}`);
 
-    expect(backLinks).toHaveLength(1);
     expect(
-      (backLinks[0]!.props as { children: ReactNode[] }).children.filter(
-        (child) => typeof child === 'string',
-      ),
+      backLinks.map(([, , text]) => text!.replace(/<[^>]+>/g, '')),
     ).toEqual(['Dockside']);
   });
 });

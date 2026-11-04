@@ -267,7 +267,7 @@ const shared: RoomFolder = {
 
 const own: RoomFolder = {
   id: OWN,
-  name: 'First Harbor Bank',
+  name: 'Bluefin Test Lending',
   folders: [],
   entries: [],
 };

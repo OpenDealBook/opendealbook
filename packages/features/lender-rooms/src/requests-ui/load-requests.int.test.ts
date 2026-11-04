@@ -43,7 +43,7 @@ describe('loading a form page as a lender', () => {
     outsider = await provisionPerson();
 
     const deal = await seedTeamDeal(owner);
-    ({ roomId } = await seedRoom(deal, 'First Harbor Bank', [lender]));
+    ({ roomId } = await seedRoom(deal, 'Bluefin Test Lending', [lender]));
 
     formId = await seedForm(roomId, deal.accountId, 'Borrower application');
     untouchedFormId = await seedForm(roomId, deal.accountId, 'Rate lock');

@@ -175,7 +175,7 @@ describe('Novu bridge route', () => {
   ])('links a room held by $title', async ({ account, link }) => {
     vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://opendealbook.com');
     roomRow.current = {
-      name: 'First Harbor Bank',
+      name: 'Bluefin Test Lending',
       deal_id: 'deal-1',
       deal: { firm: { name: 'Acme Tooling' } },
       accounts: account,
@@ -185,7 +185,7 @@ describe('Novu bridge route', () => {
       POST,
       'lender_room.access_requested',
       'email',
-      { roomId: 'room-1', email: 'banker@firstharbor.example' },
+      { roomId: 'room-1', email: 'banker@bluefintestlending.example' },
     );
 
     expect(outputs.body).toContain(`href="${link}"`);
@@ -305,7 +305,7 @@ describe('Novu bridge route', () => {
           entry_id: 'entry-1',
           question: 'What was 2025 EBITDA?',
           room_id: 'room-1',
-          room_name: 'First Harbor Bank',
+          room_name: 'Bluefin Test Lending',
         },
       ],
     };

@@ -59,7 +59,7 @@ import { RoomPage } from './room-page';
 const ROOM: LenderRoomSummary = {
   id: '7d0f2c0e-6c0f-4f43-9c53-0d7a4c1f1a11',
   deal_id: '0a2c7b8e-41d7-4b4e-8f39-6b2f7a0a2b22',
-  name: 'First Harbor Bank',
+  name: 'Bluefin Test Lending',
   welcome_note: null,
   expires_at: null,
   is_open: true,
@@ -122,7 +122,12 @@ describe('RoomPage', () => {
   });
 
   it('hands the browser the signed-in person and both places', async () => {
-    const page = await RoomPage({ room: ROOM, question: null });
+    const page = await RoomPage({
+      room: ROOM,
+      question: null,
+      locale: 'en-US',
+      timeZone: 'UTC',
+    });
     const [browser] = find(
       page,
       (element) => element.type === LenderRoomBrowser,
@@ -141,7 +146,12 @@ describe('RoomPage', () => {
       private: folder('own', marks),
     };
 
-    const page = await RoomPage({ room: ROOM, question: null });
+    const page = await RoomPage({
+      room: ROOM,
+      question: null,
+      locale: 'en-US',
+      timeZone: 'UTC',
+    });
     const [browser] = find(
       page,
       (element) => element.type === LenderRoomBrowser,
@@ -156,15 +166,27 @@ describe('RoomPage', () => {
   it('fails loudly when nobody is signed in', async () => {
     server.userId = null;
 
-    await expect(RoomPage({ room: ROOM, question: null })).rejects.toThrow();
+    await expect(
+      RoomPage({
+        room: ROOM,
+        question: null,
+        locale: 'en-US',
+        timeZone: 'UTC',
+      }),
+    ).rejects.toThrow();
   });
 
   it('fails loudly with the refusal when the people in the room cannot be listed', async () => {
     server.peopleRefusal = 'You do not have access to this room';
 
-    await expect(RoomPage({ room: ROOM, question: null })).rejects.toThrow(
-      'You do not have access to this room',
-    );
+    await expect(
+      RoomPage({
+        room: ROOM,
+        question: null,
+        locale: 'en-US',
+        timeZone: 'UTC',
+      }),
+    ).rejects.toThrow('You do not have access to this room');
   });
 
   it('fails loudly when the room has no folder of its own', async () => {
@@ -174,15 +196,22 @@ describe('RoomPage', () => {
       private: null,
     };
 
-    await expect(RoomPage({ room: ROOM, question: null })).rejects.toThrow(
-      'is missing a root folder',
-    );
+    await expect(
+      RoomPage({
+        room: ROOM,
+        question: null,
+        locale: 'en-US',
+        timeZone: 'UTC',
+      }),
+    ).rejects.toThrow('is missing a root folder');
   });
 
   it('says until which day the room is open, without a time of day', async () => {
     const page = await RoomPage({
       room: { ...ROOM, expires_at: '2026-12-18T05:26:00Z' },
       question: null,
+      locale: 'en-US',
+      timeZone: 'UTC',
     });
     const text = renderToStaticMarkup(page).replace(/<[^>]+>/g, '');
 
@@ -200,35 +229,72 @@ describe('RoomPage', () => {
         must_close_by: '2027-03-31',
       },
       question: <p>Can you close by March 31, 2027?</p>,
+      locale: 'en-US',
+      timeZone: 'UTC',
     });
-    const [heading] = find(page, (element) => element.type === 'h1');
-    const text = renderToStaticMarkup(page).replace(/<[^>]+>/g, ' ');
+    const markup = renderToStaticMarkup(page);
+    const heading = markup.match(/<h1[^>]*>(.*?)<\/h1>/)![1];
+    const text = markup.replace(/<[^>]+>/g, ' ');
 
-    expect(renderToStaticMarkup(heading!)).toContain('Dockside');
-    expect(renderToStaticMarkup(heading!)).not.toContain('First Harbor Bank');
-    expect(text).toMatch(/Prepared for\s+First Harbor Bank/);
+    expect(heading).toContain('Dockside');
+    expect(heading).not.toContain('Bluefin Test Lending');
+    expect(text).toMatch(/Prepared for\s+Bluefin Test Lending/);
     expect(text).toMatch(/Buyer\s+Harbor Acquisitions/);
-    expect(text).toMatch(/Loan ask\s+\$2,240,000 SBA 7\(a\)/);
-    expect(text).toMatch(/Close by\s+March 31, 2027/);
+    expect(text).toMatch(/Loan ask\s+\$2\.24M\s+SBA 7\(a\)/);
+    expect(markup).toContain('title="$2,240,000"');
+    expect(text).toMatch(/Close by\s+Mar 31, 2027/);
     expect(text.indexOf('Can you close by')).toBeLessThan(
       text.indexOf('Answers to common questions'),
     );
   });
 
+  it('dates the close-by deadline in the app language', async () => {
+    const page = await RoomPage({
+      room: { ...ROOM, must_close_by: '2027-03-31' },
+      question: null,
+      locale: 'de-DE',
+      timeZone: 'UTC',
+    });
+    const text = renderToStaticMarkup(page).replace(/<[^>]+>/g, ' ');
+
+    expect(text).toMatch(/Close by\s+31\. März 2027/);
+  });
+
+  it('dates the room end in the app language and the viewer time zone', async () => {
+    const page = await RoomPage({
+      room: { ...ROOM, expires_at: '2026-12-18T05:26:00Z' },
+      question: null,
+      locale: 'de-DE',
+      timeZone: 'America/Los_Angeles',
+    });
+    const text = renderToStaticMarkup(page).replace(/<[^>]+>/g, '');
+
+    expect(text).toContain('Room open until 17. Dez. 2026');
+  });
+
   it('signs a logo only when the lender has one', async () => {
-    const withoutLogo = await RoomPage({ room: ROOM, question: null });
+    const withoutLogo = await RoomPage({
+      room: ROOM,
+      question: null,
+      locale: 'en-US',
+      timeZone: 'UTC',
+    });
 
     expect(server.logosSigned).toEqual([]);
     expect(find(withoutLogo, (element) => element.type === 'img')).toEqual([]);
 
     const withLogo = await RoomPage({
-      room: { ...ROOM, brand_logo_path: 'firstharbor.test/logo.png' },
+      room: { ...ROOM, brand_logo_path: 'bluefintestlending.test/logo.png' },
       question: null,
+      locale: 'en-US',
+      timeZone: 'UTC',
     });
 
-    expect(server.logosSigned).toEqual(['firstharbor.test/logo.png']);
+    expect(server.logosSigned).toEqual(['bluefintestlending.test/logo.png']);
     expect(
       find(withLogo, (element) => element.type === 'img')[0]!.props,
-    ).toMatchObject({ src: 'https://signed.test/firstharbor.test/logo.png' });
+    ).toMatchObject({
+      src: 'https://signed.test/bluefintestlending.test/logo.png',
+    });
   });
 });
