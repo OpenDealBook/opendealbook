@@ -31,9 +31,10 @@ export async function uploadToDataRoom(
     .catch(() => undefined);
   await page.getByRole('button', { name: 'Upload' }).first().click();
   await page.locator('input[type=file]').setInputFiles(files);
-  await page
+  const panel = page
     .locator('input[type=file]')
-    .locator('xpath=ancestor::div[contains(@class,"border-dashed")]')
-    .getByRole('button', { name: 'Upload', exact: true })
-    .click();
+    .locator('xpath=ancestor::div[contains(@class,"border-dashed")]');
+  await panel.getByRole('combobox').click();
+  await page.getByRole('option', { name: 'Financials', exact: true }).click();
+  await panel.getByRole('button', { name: 'Upload', exact: true }).click();
 }

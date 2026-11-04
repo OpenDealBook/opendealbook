@@ -322,6 +322,25 @@ describe('data room window folders', () => {
       expect(names).not.toContain('Disclosure memo.docx');
     },
   );
+
+  it('never shows a removed file, and will not open it', async () => {
+    const withdrawn = await addDocument(financialsId, 'Withdrawn LOI.pdf');
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealId,
+        p_aggregate_type: 'dr_document',
+        p_aggregate_id: withdrawn.id,
+        p_event_type: 'dr_document.removed',
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+    signedInAs(owner);
+
+    expect(namesIn(await loadWindowFolders(owner.user, dealId))).not.toContain(
+      'Withdrawn LOI.pdf',
+    );
+    expect((await open(withdrawn.id)).status).toBe(404);
+  });
 });
 
 describe('data room window file route', () => {

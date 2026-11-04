@@ -30,6 +30,7 @@ vi.mock('@odb/supabase/server', () => ({
 }));
 
 const { uploadDocument } = await import('./actions');
+const { fetchDocuments } = await import('../shared');
 
 const userIds: string[] = [];
 let teamId: string;
@@ -206,4 +207,49 @@ it('links a file uploaded into a checklist item to that item and marks it receiv
     .throwOnError();
 
   expect(item).toEqual({ linked_document_id: document.id, status: 'received' });
+});
+
+it('never gives the team a removed document when it reads the data room', async () => {
+  const live = crypto.randomUUID();
+  const removed = crypto.randomUUID();
+  for (const [id, version] of [
+    [live, 1],
+    [removed, 2],
+  ] as const) {
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealId,
+        p_aggregate_type: 'dr_document',
+        p_aggregate_id: id,
+        p_event_type: 'dr_document.added',
+        p_payload: {
+          folder_id: teamFolderId,
+          name: 'loi.pdf',
+          storage_path: `deal/${dealId}/${id}`,
+          version,
+        },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+  }
+  await admin
+    .rpc('append_deal_event', {
+      p_deal_id: dealId,
+      p_aggregate_type: 'dr_document',
+      p_aggregate_id: removed,
+      p_event_type: 'dr_document.removed',
+      p_actor_kind: 'service',
+    })
+    .throwOnError();
+
+  const documents = await fetchDocuments(
+    world.client as SupabaseClient<Database>,
+    dealId,
+  );
+
+  expect(
+    documents
+      .filter((document) => document.name === 'loi.pdf')
+      .map((document) => document.id),
+  ).toEqual([live]);
 });

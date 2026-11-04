@@ -407,3 +407,57 @@ describe('seller zip downloads', () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe('removed seller room files', () => {
+  async function remove(id: string) {
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: dealId,
+        p_aggregate_type: 'dr_document',
+        p_aggregate_id: id,
+        p_event_type: 'dr_document.removed',
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+  }
+
+  function entriesIn(
+    listing: Awaited<ReturnType<typeof loadSellerRoomListing>>,
+  ) {
+    const walk = (
+      folder: NonNullable<typeof listing.master>,
+    ): typeof folder.entries => [
+      ...folder.entries,
+      ...folder.folders.flatMap(walk),
+    ];
+
+    return [listing.master!, listing.private!].flatMap(walk);
+  }
+
+  it('never lists a removed file', async () => {
+    await remove(await documentIn(year, 'withdrawn-offer.pdf'));
+
+    const listing = await loadSellerRoomListing(seller.client, roomId);
+
+    expect(entriesIn(listing).map((entry) => entry.name)).not.toContain(
+      'withdrawn-offer.pdf',
+    );
+  });
+
+  it('shows the previous version when the latest was removed', async () => {
+    const first = await documentIn(year, 'tax-return.pdf', 1);
+    await remove(await documentIn(year, 'tax-return.pdf', 2));
+
+    const listing = await loadSellerRoomListing(seller.client, roomId);
+
+    expect(
+      entriesIn(listing).filter((entry) => entry.name === 'tax-return.pdf'),
+    ).toEqual([
+      expect.objectContaining({
+        documentId: first,
+        version: 1,
+        earlierVersions: [],
+      }),
+    ]);
+  });
+});

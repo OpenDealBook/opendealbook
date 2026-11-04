@@ -1,4 +1,8 @@
+import type { ReactNode } from 'react';
+
 import { notFound } from 'next/navigation';
+
+import { getLocale } from 'next-intl/server';
 
 import { loadDealPeople } from '@odb/deal-people/queries.ts';
 import { loadDealTimeline } from '@odb/deal-timeline/queries.ts';
@@ -14,15 +18,15 @@ import { fetchCloseDeadline } from '@odb/deals/server';
 import { fetchDealActivity } from '@odb/deals/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@odb/ui/card';
+import { MissingValue } from '@odb/ui/figure-value';
+import { formatTimestamp } from '@odb/ui/format';
 
 import { AdoptedFinancialsCard } from './adopted-financials-card';
 import { CalculatorsSection } from './calculators-section';
 import { ChecklistSection } from './checklist-section';
 import { CompsSection } from './comps-section';
 import { CounselThreadSection } from './counsel-thread-section';
-import { DataRoomSection } from './data-room-section';
 import { DealActivitySection } from './deal-activity-section';
-import { DealContractsSection } from './deal-contracts-section';
 import { DealCounselSection } from './deal-counsel-section';
 import { DealPeopleSection } from './deal-people-section';
 import { DealSummaryStrip, nextDeadline } from './deal-summary-strip';
@@ -33,18 +37,24 @@ import { ScreeningSection } from './screening-section';
 import { SellerRoomSection } from './seller-room-section';
 import { buildTimeline } from './stage-history';
 import { ThesisSection } from './thesis-section';
+import { viewerTimeZone } from './viewer-time-zone';
 
-function dateOrNotSet(value: string | null): string {
-  return value === null
-    ? 'Not set'
-    : new Date(value).toLocaleDateString('en-US');
+function dateOrNotSet(
+  value: string | null,
+  zone: { locale: string; timeZone: string },
+): ReactNode {
+  return value === null ? (
+    <MissingValue label={'Not set'} />
+  ) : (
+    formatTimestamp(value, zone.locale, zone.timeZone)
+  );
 }
 
 function textOrNotSet(value: string | number | null): string {
   return value === null ? 'Not set' : String(value);
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className={'flex flex-col gap-0.5'}>
       <dt className={'text-muted-foreground text-xs uppercase'}>{label}</dt>
@@ -60,8 +70,9 @@ interface DealTabProps {
 
 export async function DealOverview({ accountId, dealId }: DealTabProps) {
   const client = getSupabaseServerClient();
-
   const [
+    locale,
+    timeZone,
     dealResult,
     profileResult,
     eventsResult,
@@ -76,6 +87,8 @@ export async function DealOverview({ accountId, dealId }: DealTabProps) {
     { count: openLenderAsks },
     { count: checklistWaitingOnUs },
   ] = await Promise.all([
+    getLocale(),
+    viewerTimeZone(accountId),
     client
       .from('deal')
       .select('*')
@@ -101,7 +114,7 @@ export async function DealOverview({ accountId, dealId }: DealTabProps) {
     fetchDealActivity(client, dealId, accountId, 0),
     client
       .from('deal_financials')
-      .select('adopted_sde')
+      .select('adopted_sde, adopted_ebitda')
       .eq('deal_id', dealId)
       .maybeSingle()
       .throwOnError(),
@@ -119,6 +132,7 @@ export async function DealOverview({ accountId, dealId }: DealTabProps) {
       .eq('waiting_on', 'us')
       .throwOnError(),
   ]);
+  const zone = { locale, timeZone };
 
   const deal = dealResult.data;
 
@@ -156,8 +170,11 @@ export async function DealOverview({ accountId, dealId }: DealTabProps) {
     <>
       <DealSummaryStrip
         stage={{ key: deal.stage, label: stageName(deal.stage) }}
+        lost={deal.resolution === 'lost'}
         asking={deal.asking_price}
+        basis={deal.earnings_basis === 'ebitda' ? 'ebitda' : 'sde'}
         adoptedSde={financialsResult.data?.adopted_sde ?? null}
+        adoptedEbitda={financialsResult.data?.adopted_ebitda ?? null}
         deadline={nextDeadline(
           dealTimeline.milestones,
           closeDeadline?.must_close_by ?? null,
@@ -245,7 +262,7 @@ export async function DealOverview({ accountId, dealId }: DealTabProps) {
                         {entry.label} by {entry.actor}
                       </span>
                       <span className={'text-muted-foreground text-xs'}>
-                        {dateOrNotSet(entry.at)}
+                        {dateOrNotSet(entry.at, zone)}
                       </span>
                     </div>
                   ))
@@ -254,15 +271,18 @@ export async function DealOverview({ accountId, dealId }: DealTabProps) {
               <dl className={'grid grid-cols-2 gap-4 sm:grid-cols-3'}>
                 <Field
                   label={'Discovered'}
-                  value={dateOrNotSet(deal.discovered_at)}
+                  value={dateOrNotSet(deal.discovered_at, zone)}
                 />
                 <Field
                   label={'Stage changed'}
-                  value={dateOrNotSet(deal.stage_changed_at)}
+                  value={dateOrNotSet(deal.stage_changed_at, zone)}
                 />
                 <Field
                   label={'Offer accepted'}
-                  value={dateOrNotSet(accepted?.offer.responded_at ?? null)}
+                  value={dateOrNotSet(
+                    accepted?.offer.responded_at ?? null,
+                    zone,
+                  )}
                 />
               </dl>
             </CardContent>
@@ -297,21 +317,6 @@ export async function DealParties({ accountId, dealId }: DealTabProps) {
   );
 }
 
-export function DealDocuments({
-  dealId,
-  contractFilesPath,
-}: {
-  dealId: string;
-  contractFilesPath: string;
-}) {
-  return (
-    <>
-      <DataRoomSection dealId={dealId} />
-      <DealContractsSection dealId={dealId} filesPath={contractFilesPath} />
-    </>
-  );
-}
-
 export async function DealFinancials({ accountId, dealId }: DealTabProps) {
   const client = getSupabaseServerClient();
   const [{ data: financials }, { data: people }] = await Promise.all([
@@ -334,6 +339,7 @@ export async function DealFinancials({ accountId, dealId }: DealTabProps) {
   return (
     <>
       <AdoptedFinancialsCard
+        accountId={accountId}
         financials={financials}
         calc={financials?.calc_version ?? null}
         adoptedBy={adoptedBy}

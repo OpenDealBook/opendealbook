@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 
+import { NextIntlClientProvider } from 'next-intl';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import messages from '../../../../messages/en.json';
 
 const server = vi.hoisted(() => ({
   stage: vi.fn(),
@@ -55,10 +58,12 @@ function expanded(value: unknown) {
   return { ok: true, value };
 }
 
-async function upload(folderId: string, name: string) {
+async function choose(folderId: string | null, name: string) {
   await act(async () => {
     root.render(
-      <DataRoomUpload dealId={DEAL} folders={FOLDERS} folderId={folderId} />,
+      <NextIntlClientProvider locale={'en-US'} messages={messages}>
+        <DataRoomUpload dealId={DEAL} folders={FOLDERS} folderId={folderId} />
+      </NextIntlClientProvider>,
     );
   });
   await act(async () => {
@@ -72,9 +77,29 @@ async function upload(folderId: string, name: string) {
   await act(async () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });
+}
+
+async function upload(folderId: string, name: string) {
+  await choose(folderId, name);
   await act(async () => {
     button('Upload').click();
   });
+}
+
+async function press(element: Element, key: string) {
+  await act(async () => {
+    element.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  });
+}
+
+async function pickFolder(name: string) {
+  await press(container.querySelector('[role=combobox]')!, 'Enter');
+  await press(
+    [...document.querySelectorAll('[role=option]')].find(
+      (option) => option.textContent === name,
+    )!,
+    'Enter',
+  );
 }
 
 beforeEach(() => {
@@ -82,6 +107,8 @@ beforeEach(() => {
   server.expand.mockReset();
   server.refresh.mockReset();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  Element.prototype.scrollIntoView = () => {};
+  Element.prototype.hasPointerCapture = () => false;
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
@@ -93,6 +120,37 @@ afterEach(() => {
 });
 
 describe('DataRoomUpload', () => {
+  it('starts with no folder and keeps Upload disabled until one is picked', async () => {
+    server.stage.mockResolvedValueOnce(staged('lease.pdf'));
+    server.expand.mockResolvedValueOnce(expanded({ items: [] }));
+
+    await choose(null, 'lease.pdf');
+
+    expect(
+      container.querySelector('[data-slot=select-value]')?.textContent,
+    ).toBe('Choose a folder');
+    expect(button('Upload').disabled).toBe(true);
+
+    await pickFolder("Buyer's counsel");
+
+    expect(button('Upload').disabled).toBe(false);
+
+    await act(async () => button('Upload').click());
+
+    expect(server.expand).toHaveBeenCalledWith(
+      expect.objectContaining({ targetFolderId: 'f-counsel' }),
+    );
+  });
+
+  it('starts preset to the folder it was opened from', async () => {
+    await choose('f-counsel', 'lease.pdf');
+
+    expect(
+      container.querySelector('[data-slot=select-value]')?.textContent,
+    ).toBe("Buyer's counsel");
+    expect(button('Upload').disabled).toBe(false);
+  });
+
   it('puts the chosen file into the folder it was opened from and confirms by name', async () => {
     server.stage.mockResolvedValueOnce(staged('lease.pdf'));
     server.expand.mockResolvedValueOnce(

@@ -950,6 +950,18 @@ describe('loadPackageListing (integration)', () => {
     ).toEqual([documents.memo3, documents.memo1]);
   });
 
+  it('gives a deal manager the newest remaining version when the latest was removed', async () => {
+    const lenderPackage = await packageFor(owner, dealId);
+    const draft = lenderPackage?.entries.find(
+      (entry) => entry.name === 'draft.pdf',
+    );
+
+    expect(
+      draft?.kind === 'file' &&
+        [draft, ...draft.earlierVersions].map((version) => version.documentId),
+    ).toEqual([documents.draft1]);
+  });
+
   it('carries no room hide marks', async () => {
     expect(JSON.stringify(await packageFor(owner, dealId))).not.toContain(
       '"hidden"',

@@ -4,6 +4,8 @@ import { useState, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { useTranslations } from 'next-intl';
+
 import { stageUpload } from '@odb/data-room/uploads/actions';
 import { Button } from '@odb/ui/button';
 import {
@@ -25,7 +27,7 @@ interface FolderOption {
 interface DataRoomUploadProps {
   dealId: string;
   folders: FolderOption[];
-  folderId: string;
+  folderId: string | null;
 }
 
 function uploadKind(files: File[]): 'single' | 'group' | 'zip' {
@@ -41,6 +43,7 @@ export function DataRoomUpload({
   folders,
   folderId,
 }: DataRoomUploadProps) {
+  const t = useTranslations('dataRoom.upload');
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -49,7 +52,7 @@ export function DataRoomUpload({
   const [refused, setRefused] = useState<string[]>([]);
   const [isUploading, startUploading] = useTransition();
 
-  function onUpload() {
+  function onUpload(targetFolderId: string) {
     startUploading(async () => {
       const kind = uploadKind(files);
 
@@ -130,9 +133,12 @@ export function DataRoomUpload({
           </label>
           <div className={'flex flex-col gap-1 text-sm'}>
             <span className={'font-medium'}>Folder</span>
-            <Select value={targetFolderId} onValueChange={setTargetFolderId}>
+            <Select
+              value={targetFolderId ?? ''}
+              onValueChange={setTargetFolderId}
+            >
               <SelectTrigger className={'min-w-48'}>
-                <SelectValue />
+                <SelectValue placeholder={t('chooseFolder')} />
               </SelectTrigger>
               <SelectContent>
                 {folders.map((folder) => (
@@ -154,8 +160,14 @@ export function DataRoomUpload({
             </Button>
             <Button
               type={'button'}
-              onClick={onUpload}
-              disabled={isUploading || files.length === 0}
+              onClick={
+                targetFolderId === null
+                  ? undefined
+                  : () => onUpload(targetFolderId)
+              }
+              disabled={
+                isUploading || files.length === 0 || targetFolderId === null
+              }
             >
               {isUploading ? <Spinner /> : null}
               {isUploading ? 'Uploading' : 'Upload'}

@@ -5,7 +5,7 @@ import {
   newCredentials,
   test,
 } from './fixtures';
-import { createDeal } from './fixtures/deal';
+import { createDeal, uploadToDataRoom } from './fixtures/deal';
 import { wordDocument } from './fixtures/docx';
 import { pdfDocument, xlsxWorkbook, XLSX_CONTENT_TYPE } from './fixtures/files';
 
@@ -32,12 +32,7 @@ test('the data room window opens documents at a page or sheet and refuses outsid
     prefix: `deal/${dealId}`,
   });
 
-  await page.goto(`${dealPath}/documents`);
-  await page
-    .waitForLoadState('networkidle', { timeout: 3000 })
-    .catch(() => undefined);
-  await page.getByRole('button', { name: 'Upload' }).first().click();
-  await page.locator('input[type=file]').setInputFiles([
+  await uploadToDataRoom(page, dealPath, [
     {
       name: 'p-and-l.pdf',
       mimeType: 'application/pdf',
@@ -60,11 +55,6 @@ test('the data room window opens documents at a page or sheet and refuses outsid
       ),
     },
   ]);
-  await page
-    .locator('input[type=file]')
-    .locator('xpath=ancestor::div[contains(@class,"border-dashed")]')
-    .getByRole('button', { name: 'Upload', exact: true })
-    .click();
 
   const documents = async () =>
     db.rows<{ id: string; name: string }>(
