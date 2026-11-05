@@ -139,18 +139,23 @@ export async function recordDealActivity(
       industryShortName: anon.industryShort ?? 'Business',
       sequence,
     });
-    const { error: keyError } = await client.from('activity_pool_key').insert({
-      pseudonym,
-      deal_id: input.dealId,
-      account_id: deal.account_id,
-      fingerprint: poolFingerprint({
-        region: anon.region,
-        naics: anon.naics3,
-        quarter: anon.createdQuarter,
-      }),
-    });
-    if (keyError) {
-      throw keyError;
+    const { data: keyWritten } = await client
+      .rpc('insert_activity_pool_key', {
+        p_pseudonym: pseudonym,
+        p_deal_id: input.dealId,
+        p_account_id: deal.account_id,
+        p_fingerprint: poolFingerprint({
+          region: anon.region,
+          naics: anon.naics3,
+          quarter: anon.createdQuarter,
+        }),
+      })
+      .throwOnError();
+    if (keyWritten === false) {
+      console.info(
+        `[recordDealActivity] skipping relay event; team for deal ${input.dealId} no longer exists`,
+      );
+      return;
     }
   }
 

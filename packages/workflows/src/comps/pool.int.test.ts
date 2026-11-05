@@ -1,4 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import pg from 'pg';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   appendDealEvent,
@@ -10,6 +11,8 @@ import { anonymizeClose } from './anonymizeClose';
 import { detectDuplicates } from './detectDuplicates';
 import { recordDealActivity } from './recordDealActivity';
 
+import { setTimeout as sleep } from 'node:timers/promises';
+
 let account: IntegrationAccount;
 const poolCleanup: {
   table: 'comp_pool' | 'activity_pool';
@@ -18,6 +21,10 @@ const poolCleanup: {
 const regionCleanup: string[] = [];
 
 const today = new Date().toISOString().slice(0, 10);
+
+const DB_URL =
+  process.env.SUPABASE_DB_URL ??
+  'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 beforeAll(async () => {
   account = await provisionAccount();
@@ -573,5 +580,107 @@ describe('pool pseudonyms after a keyed deal is deleted (integration)', () => {
       .in('deal_id', [keptDeal, newDeal])
       .throwOnError();
     expect(new Set(keys!.map((key) => key.pseudonym)).size).toBe(2);
+  });
+});
+
+describe('pool writes when the team delete commits mid-run (integration)', () => {
+  async function seedTeamDeal() {
+    const owner = await provisionAccount();
+    const industry = `Team gone ${crypto.randomUUID()}`;
+    const { data } = await owner.admin
+      .from('industry')
+      .insert({ account_id: owner.accountId, name: industry })
+      .select('id')
+      .single()
+      .throwOnError();
+    const dealId = await seedDeal(owner.admin, owner.accountId, owner.userId, {
+      description: 'Team deleted while its pool key is written',
+      industry_id: data.id,
+      asking_price: 1_100_000,
+      revenue_ttm: 750_000,
+      sde_ttm: 275_000,
+    });
+    return { owner, dealId, industry };
+  }
+
+  async function runWhileTeamDeleteCommits(
+    owner: IntegrationAccount,
+    keyInsertRpc: string,
+    work: () => Promise<void>,
+  ) {
+    const deleter = new pg.Client({ connectionString: DB_URL });
+    const observer = new pg.Client({ connectionString: DB_URL });
+    await deleter.connect();
+    await observer.connect();
+    try {
+      await deleter.query('begin');
+      await deleter.query('delete from public.accounts where id = $1', [
+        owner.accountId,
+      ]);
+      const run = work();
+      let poolKeyInsertAwaitsLock = false;
+      while (!poolKeyInsertAwaitsLock) {
+        await sleep(50);
+        const { rows } = await observer.query(
+          "select 1 from pg_stat_activity where pid <> pg_backend_pid() and wait_event_type = 'Lock' and query like $1",
+          [`%${keyInsertRpc}%`],
+        );
+        poolKeyInsertAwaitsLock = rows.length > 0;
+      }
+      await deleter.query('commit');
+      await run;
+    } finally {
+      await deleter.query('rollback');
+      await deleter.end();
+      await observer.end();
+      await owner.cleanup();
+    }
+  }
+
+  async function deletePoolRowsFor(
+    poolTable: 'activity_pool' | 'comp_pool',
+    industry: string,
+  ) {
+    const { data } = await account.admin
+      .from(poolTable)
+      .delete()
+      .eq('industry_short', industry)
+      .select('id')
+      .throwOnError();
+    return data.length;
+  }
+
+  it('recordDealActivity logs the skip and writes no activity_pool row once the team is gone', async () => {
+    const { owner, dealId, industry } = await seedTeamDeal();
+    const info = vi.spyOn(console, 'info');
+
+    await runWhileTeamDeleteCommits(owner, 'insert_activity_pool_key', () =>
+      recordDealActivity({ dealId, dealSeq: 1 }),
+    );
+
+    expect(info).toHaveBeenCalledWith(
+      `[recordDealActivity] skipping relay event; team for deal ${dealId} no longer exists`,
+    );
+    info.mockRestore();
+    expect(await deletePoolRowsFor('activity_pool', industry)).toBe(0);
+  });
+
+  it('anonymizeClose logs the skip and writes no comp_pool row once the team is gone', async () => {
+    const { owner, dealId, industry } = await seedTeamDeal();
+    await owner.admin
+      .from('comp_pool_optin')
+      .insert({ account_id: owner.accountId, opted_in: true })
+      .throwOnError();
+    const info = vi.spyOn(console, 'info');
+
+    await runWhileTeamDeleteCommits(owner, 'insert_comp_pool_key', () =>
+      anonymizeClose({ dealId, dealSeq: 1 }),
+    );
+
+    expect(info).toHaveBeenCalledWith(
+      `[anonymizeClose] skipping relay event; team for deal ${dealId} no longer exists`,
+    );
+    info.mockRestore();
+    expect(await deletePoolRowsFor('comp_pool', industry)).toBe(0);
   });
 });

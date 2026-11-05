@@ -14422,6 +14422,24 @@ export type Database = {
         Args: { p_account_id: string; p_for: string }
         Returns: undefined
       }
+      insert_activity_pool_key: {
+        Args: {
+          p_account_id: string
+          p_deal_id: string
+          p_fingerprint: string
+          p_pseudonym: string
+        }
+        Returns: boolean
+      }
+      insert_comp_pool_key: {
+        Args: {
+          p_account_id: string
+          p_deal_id: string
+          p_fingerprint: string
+          p_pseudonym: string
+        }
+        Returns: boolean
+      }
       is_aal2: { Args: never; Returns: boolean }
       is_account_locked: {
         Args: { target_account_id: string }

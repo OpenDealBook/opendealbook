@@ -56,6 +56,8 @@
     "@temporalio/worker": "catalog:",
     "@types/node": "catalog:",
     "@types/papaparse": "catalog:",
+    "@types/pg": "catalog:",
+    "pg": "catalog:",
     "vitest": "catalog:"
   }
 }

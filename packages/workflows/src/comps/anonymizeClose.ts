@@ -148,18 +148,23 @@ export async function anonymizeClose(
       industryShortName: anon.industryShort ?? 'Business',
       sequence,
     });
-    const { error: keyError } = await client.from('comp_pool_key').insert({
-      pseudonym,
-      deal_id: input.dealId,
-      account_id: deal.account_id,
-      fingerprint: poolFingerprint({
-        region: anon.region,
-        naics: anon.naics3,
-        quarter: anon.closeQuarter,
-      }),
-    });
-    if (keyError) {
-      throw keyError;
+    const { data: keyWritten } = await client
+      .rpc('insert_comp_pool_key', {
+        p_pseudonym: pseudonym,
+        p_deal_id: input.dealId,
+        p_account_id: deal.account_id,
+        p_fingerprint: poolFingerprint({
+          region: anon.region,
+          naics: anon.naics3,
+          quarter: anon.closeQuarter,
+        }),
+      })
+      .throwOnError();
+    if (keyWritten === false) {
+      console.info(
+        `[anonymizeClose] skipping relay event; team for deal ${input.dealId} no longer exists`,
+      );
+      return;
     }
   }
 
