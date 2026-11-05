@@ -15,7 +15,12 @@ import {
   seedDeal,
   type IntegrationAccount,
 } from '../../workflows/test-support/integration-harness';
-import { answerWithDocuments, type DealQuestion } from './agent';
+import {
+  type AnswerMode,
+  answerWithDocuments,
+  type DealQuestion,
+  dealQuestionMode,
+} from './agent';
 
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -96,6 +101,7 @@ type SentMessage = {
 function sent(index: number) {
   return provider.received[index]!.body as unknown as {
     tool_choice?: string;
+    tools: { function: { name: string } }[];
     messages: SentMessage[];
   };
 }
@@ -275,6 +281,7 @@ afterAll(async () => {
 async function ask(
   question: Partial<DealQuestion> = {},
   progress: unknown[] = [],
+  mode?: AnswerMode,
 ) {
   const client = team.user as SupabaseClient<Database>;
   const scope = await dealAiScope(client, dealId, 'deals.work');
@@ -287,14 +294,13 @@ async function ask(
     {
       client,
       dealId,
-      dealName: 'Acme Plumbing',
       askedBy: team.userId,
       questionId,
       question: 'What was revenue?',
       earlier: [],
-      locale: 'de',
       ...question,
     },
+    mode ?? dealQuestionMode({ dealName: 'Acme Plumbing', locale: 'de' }),
     (step) => progress.push(step),
   );
 }
@@ -690,5 +696,84 @@ describe('answerWithDocuments (integration)', () => {
       steps: [{ tool: 'list_documents', input: {}, isError: false }],
     });
     expect(provider.received).toHaveLength(1);
+  });
+
+  it('runs the tools and system prompt its caller supplies', async () => {
+    scripted(
+      toolTurn(['look_up', { term: 'revenue' }]),
+      textTurn('Revenue was 1.4 million [cim.pdf v1, p. 1].'),
+    );
+    const outcome = await ask({}, [], {
+      system: 'Answer from the lookup only.',
+      tools: [
+        {
+          name: 'look_up',
+          description: 'Look a term up.',
+          inputSchema: {
+            type: 'object',
+            properties: { term: { type: 'string' } },
+            required: ['term'],
+          },
+        },
+      ],
+      runTool: async () => ({
+        content: 'Revenue was 1.4 million [cim.pdf v1, p. 1].',
+        citations: [{ ...cimPage1, excerpt: 'Revenue was 1.4 million.' }],
+      }),
+    });
+
+    expect(sent(0).messages[0]).toEqual({
+      role: 'system',
+      content: 'Answer from the lookup only.',
+    });
+    expect(sent(0).tools.map(({ function: tool }) => tool.name)).toEqual([
+      'look_up',
+    ]);
+    expect(outcome).toMatchObject({
+      status: 'answered',
+      answer: 'Revenue was 1.4 million [cim.pdf v1, p. 1].',
+      citations: [{ ...cimPage1, excerpt: 'Revenue was 1.4 million.' }],
+      steps: [{ tool: 'look_up', input: { term: 'revenue' }, isError: false }],
+    });
+  });
+
+  it('refuses a tool call outside its mode and tells the model, without running it', async () => {
+    scripted(
+      toolTurn(['search_past_answers', { query: 'revenue' }]),
+      textTurn('Revenue was 1.4 million [cim.pdf v1, p. 1].'),
+    );
+
+    const outcome = await ask({}, [], {
+      system: 'Answer from the lookup only.',
+      tools: [
+        {
+          name: 'look_up',
+          description: 'Look a term up.',
+          inputSchema: { type: 'object', properties: {}, required: [] },
+        },
+      ],
+      runTool: async () => ({
+        content: 'Revenue was 1.4 million [cim.pdf v1, p. 1].',
+        citations: [{ ...cimPage1, excerpt: 'Revenue was 1.4 million.' }],
+      }),
+    });
+
+    expect(sent(1).messages.at(-1)).toMatchObject({
+      role: 'tool',
+      tool_call_id: 'call-0',
+      content: 'Unknown tool "search_past_answers".',
+    });
+    expect(outcome).toMatchObject({
+      status: 'answered',
+      answer: 'Revenue was 1.4 million.',
+      citations: [],
+      steps: [
+        {
+          tool: 'search_past_answers',
+          input: { query: 'revenue' },
+          isError: true,
+        },
+      ],
+    });
   });
 });

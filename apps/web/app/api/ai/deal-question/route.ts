@@ -1,5 +1,9 @@
 import { dealAiScope } from '@odb/ai/scope';
-import { answerWithDocuments, type QuestionOutcome } from '@odb/ai/server';
+import {
+  answerWithDocuments,
+  dealQuestionMode,
+  type QuestionOutcome,
+} from '@odb/ai/server';
 import { dealDisplayName } from '@odb/deals/shared';
 import { i18nConfig } from '@odb/i18n/config';
 import { TEAM_READ_ONLY } from '@odb/next';
@@ -15,6 +19,7 @@ import {
   resolveScopedTeamAi,
 } from '@odb/workflows/team-ai';
 
+import { eventStream } from '../_lib/sse';
 import type { DealQuestionRefusal } from './codes';
 import { progressOf } from './progress';
 
@@ -68,12 +73,6 @@ function saved(outcome: QuestionOutcome) {
     credits_used: outcome.credits,
     finished_at: new Date().toISOString(),
   });
-}
-
-function sse(event: string, data: unknown): Uint8Array {
-  return new TextEncoder().encode(
-    `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
-  );
 }
 
 export async function POST(request: Request) {
@@ -200,63 +199,38 @@ export async function POST(request: Request) {
       .throwOnError(),
   ]);
 
-  let open = true;
-
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      const send = (event: string, data: unknown) => {
-        if (open) {
-          controller.enqueue(sse(event, data));
-        }
-      };
-      void (async () => {
-        const outcome = await answerWithDocuments(
-          ai,
-          {
-            client,
-            dealId: scope.dealId,
-            dealName: dealDisplayName(deal),
-            askedBy: user.id,
-            questionId,
-            question: asked,
-            earlier: earlier.map((earlierQuestion) => ({
-              question: earlierQuestion.question,
-              answer: earlierQuestion.answer!,
-            })),
-            locale,
-          },
-          (step) => send('progress', progressOf(step)),
-        );
-        const { data: finished, error: notSaved } =
-          await getSupabaseServerAdminClient()
-            .from('deal_ai_question')
-            .update(saved(outcome))
-            .eq('id', questionId)
-            .select(DONE_COLUMNS)
-            .single();
-        if (notSaved) {
-          getLogger().error(
-            { error: notSaved, questionId },
-            'Deal AI question could not be saved',
-          );
-          send('error', { error: NOT_SAVED, code: 'save_failed' });
-        } else {
-          send('done', finished);
-        }
-        if (open) {
-          controller.close();
-        }
-      })();
-    },
-    cancel() {
-      open = false;
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'content-type': 'text/event-stream',
-      'cache-control': 'no-cache',
-    },
+  return eventStream(async (send) => {
+    const outcome = await answerWithDocuments(
+      ai,
+      {
+        client,
+        dealId: scope.dealId,
+        askedBy: user.id,
+        questionId,
+        question: asked,
+        earlier: earlier.map((earlierQuestion) => ({
+          question: earlierQuestion.question,
+          answer: earlierQuestion.answer!,
+        })),
+      },
+      dealQuestionMode({ dealName: dealDisplayName(deal), locale }),
+      (step) => send('progress', progressOf(step)),
+    );
+    const { data: finished, error: notSaved } =
+      await getSupabaseServerAdminClient()
+        .from('deal_ai_question')
+        .update(saved(outcome))
+        .eq('id', questionId)
+        .select(DONE_COLUMNS)
+        .single();
+    if (notSaved) {
+      getLogger().error(
+        { error: notSaved, questionId },
+        'Deal AI question could not be saved',
+      );
+      send('error', { error: NOT_SAVED, code: 'save_failed' });
+    } else {
+      send('done', finished);
+    }
   });
 }

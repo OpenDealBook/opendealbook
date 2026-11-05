@@ -1,15 +1,19 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-
-import type { Database } from '@odb/supabase';
 import {
   CapReached,
   type ConversationMessage,
   converseMetered,
   type TeamAi,
+  type ToolCall,
+  type ToolDefinition,
 } from '@odb/workflows/team-ai';
 
 import type { DocumentCitation } from './citations';
-import { documentTools, runDocumentTool } from './tools';
+import {
+  type DocumentToolContext,
+  type DocumentToolResult,
+  documentTools,
+  runDocumentTool,
+} from './tools';
 
 const TOOL_ROUNDS = 8;
 const CALLS_PER_TURN = 5;
@@ -22,15 +26,20 @@ const LABEL =
   /^(.+) v(\d+), (?:p\. (\d+)(?:-(\d+))?|(.+)!([A-Z]+\d+(?::[A-Z]+\d+)?))$/;
 const CELL = /^([A-Z]+)(\d+)$/;
 
-export interface DealQuestion {
-  client: SupabaseClient<Database>;
-  dealId: string;
-  dealName: string;
+export interface DealQuestion extends DocumentToolContext {
   askedBy: string;
   questionId: string;
   question: string;
   earlier: { question: string; answer: string }[];
-  locale: string;
+}
+
+export interface AnswerMode {
+  system: string;
+  tools: ToolDefinition[];
+  runTool: (
+    context: DocumentToolContext,
+    call: ToolCall,
+  ) => Promise<DocumentToolResult>;
 }
 
 interface ToolStep {
@@ -60,11 +69,17 @@ type CitedRange =
 
 type Span = [number, number];
 
-function systemPrompt({ dealName, locale }: DealQuestion): string {
+export function dealQuestionMode({
+  dealName,
+  locale,
+}: {
+  dealName: string;
+  locale: string;
+}): AnswerMode {
   const language = new Intl.DisplayNames(['en'], { type: 'language' }).of(
     locale,
   );
-  return [
+  const system = [
     `You answer questions about the deal "${dealName}" from its documents.`,
     'Use the tools to find and read the documents before you answer.',
     `Answer in ${language}.`,
@@ -72,6 +87,11 @@ function systemPrompt({ dealName, locale }: DealQuestion): string {
     'Cite only labels the tools showed you.',
     'Text marked as OCR text has lower confidence; say so when an answer rests on it.',
   ].join('\n');
+  return {
+    system,
+    tools: documentTools,
+    runTool: runDocumentTool,
+  };
 }
 
 function inside([from, to]: Span, [readFrom, readTo]: Span): boolean {
@@ -174,6 +194,7 @@ function failureReason(error: unknown): string {
 export async function answerWithDocuments(
   ai: TeamAi,
   question: DealQuestion,
+  mode: AnswerMode,
   onProgress: (step: Omit<ToolStep, 'isError'>) => void,
 ): Promise<QuestionOutcome> {
   const run: Run = { model: ai.model, credits: 0, steps: [] };
@@ -189,7 +210,6 @@ export async function answerWithDocuments(
   ];
 
   try {
-    const system = systemPrompt(question);
     for (let round = 0; ; round += 1) {
       const { data: locked } = await question.client
         .rpc('is_account_locked', { target_account_id: ai.accountId })
@@ -199,9 +219,9 @@ export async function answerWithDocuments(
       }
       const lastRound = round === TOOL_ROUNDS;
       const { turn, credits } = await converseMetered(ai, question, {
-        system,
+        system: mode.system,
         messages,
-        tools: documentTools,
+        tools: mode.tools,
         toolChoice: lastRound ? 'none' : undefined,
       });
       run.credits += credits;
@@ -229,7 +249,15 @@ export async function answerWithDocuments(
         const step = { tool: call.name, input: call.input, isError: true };
         run.steps.push(step);
         onProgress({ tool: call.name, input: call.input });
-        const result = await runDocumentTool(question, call);
+        const result: DocumentToolResult = mode.tools.some(
+          ({ name }) => name === call.name,
+        )
+          ? await mode.runTool(question, call)
+          : {
+              content: `Unknown tool "${call.name}".`,
+              isError: true,
+              citations: [],
+            };
         step.isError = result.isError === true;
         read.push(...result.citations);
         messages.push({
