@@ -447,23 +447,25 @@ describe('answerCheck', () => {
     expect(blocks[0]!.text).toBe('a  c  d');
   });
 
-  it('strips tags in time that grows linearly with the text', () => {
-    const strip = (size: number) => {
-      const text = `<${' '.repeat(size)}${'<'.repeat(size)}${'>'.repeat(size)}`;
-      const times = Array.from({ length: 3 }, () => {
-        const started = performance.now();
-        prepared({
-          thread: [
-            { side: 'buyer', text },
-            { side: 'seller', text: 'In 2030.' },
-          ],
-        });
-        return performance.now() - started;
-      });
-      return Math.min(...times);
-    };
+  it('strips tags from a 200 KB message in under a second of CPU time', () => {
+    const size = 66_000;
+    const text = `<${' '.repeat(size)}${'<'.repeat(size)}${'>'.repeat(size)}`;
+    const thread = [
+      { side: 'buyer' as const, text },
+      { side: 'seller' as const, text: 'In 2030.' },
+    ];
+    const before = process.threadCpuUsage();
+    answerCheck({
+      dealName: 'Acme Plumbing',
+      locale: 'en',
+      thread,
+      attachments: [],
+      skippedAttachments: 0,
+    });
+    const { user, system } = process.threadCpuUsage(before);
 
-    expect(strip(200_000) / strip(50_000)).toBeLessThan(8);
+    expect((user + system) / 1_000).toBeLessThan(1_000);
+    expect(prepared({ thread }).blocks[0]!.text).toBe(text);
   });
 
   it('sends the first buyer question and the last 10 messages of a long thread', () => {

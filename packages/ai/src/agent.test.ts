@@ -95,42 +95,35 @@ describe('keptCitations', () => {
       pageTo: 3,
     },
   ];
-  const fastest = (text: string) => {
-    let best = Infinity;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const started = performance.now();
-      keptCitations(text, read);
-      best = Math.min(best, performance.now() - started);
-    }
-    return best;
+  const cpuMilliseconds = (work: () => void) => {
+    const before = process.threadCpuUsage();
+    work();
+    const { user, system } = process.threadCpuUsage(before);
+    return (user + system) / 1_000;
   };
-  const labels = (count: number) => 'a v1, '.repeat(count);
+  const labels = 'a v1, '.repeat(34_000);
 
   it.each([
-    ['an unclosed bracket', (n: number) => `Revenue [${labels(n)}`, true],
-    ['a closed bracket', (n: number) => `Revenue [${labels(n)}x].`, false],
-    ['a sheet label', (n: number) => `Revenue [${labels(n)}S!A1].`, false],
+    ['an unclosed bracket', `Revenue [${labels}`, `Revenue [${labels}`],
+    ['a closed bracket', `Revenue [${labels}x].`, 'Revenue.'],
+    ['a sheet label', `Revenue [${labels}S!A1].`, 'Revenue.'],
     [
       'a label broken by a newline',
-      (n: number) => `Revenue [${labels(n)}\n!A1].`,
-      true,
+      `Revenue [${labels}\n!A1].`,
+      `Revenue [${labels}\n!A1].`,
     ],
     [
       'a label broken by a carriage return',
-      (n: number) => `Revenue [${labels(n)}\r!A1].`,
-      true,
+      `Revenue [${labels}\r!A1].`,
+      `Revenue [${labels}\r!A1].`,
     ],
   ])(
-    'reads an answer with %s in time linear in its length',
-    (_, answerOf, keepsText) => {
-      fastest(answerOf(8_000));
-      const ratio = fastest(answerOf(32_000)) / fastest(answerOf(8_000));
-
-      expect(ratio).toBeLessThan(8);
-      expect(keptCitations(answerOf(8_000), read)).toEqual({
-        answer: keepsText ? answerOf(8_000) : 'Revenue.',
-        citations: [],
-      });
+    'reads a 200 KB answer with %s in under a second of CPU time',
+    (_, text, answer) => {
+      expect(cpuMilliseconds(() => keptCitations(text, read))).toBeLessThan(
+        1_000,
+      );
+      expect(keptCitations(text, read)).toEqual({ answer, citations: [] });
     },
   );
 
