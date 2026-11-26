@@ -46,10 +46,12 @@ create table if not exists public.deal_ai_question (
   model text,
   credits_used numeric(12,4) not null default 0,
   steps jsonb not null default '[]'::jsonb,
-  citations jsonb not null default '[]'::jsonb,
+  citations jsonb not null default '[]'::jsonb constraint deal_ai_question_citations_list check (jsonb_typeof(citations) = 'array'),
   created_at timestamptz not null default now(),
   finished_at timestamptz,
-  tsv tsvector generated always as (to_tsvector('english', question || ' ' || coalesce(answer, ''))) stored,
+  tsv tsvector generated always as (to_tsvector('english', question || ' ' || coalesce(answer, '') || ' ' || parts_text)) stored,
+  parts jsonb not null default '[]'::jsonb constraint deal_ai_question_parts_list check (jsonb_typeof(parts) = 'array'),
+  parts_text text not null default '',
   foreign key (thread_id, deal_id) references public.deal_ai_thread (id, deal_id) on delete cascade,
   constraint deal_ai_question_finished check ((status = 'running') = (finished_at is null))
 );
@@ -151,21 +153,52 @@ grant execute on function public.start_deal_ai_question(uuid, text, uuid) to aut
 -- newest first among equals. Running, failed and out-of-credits questions are
 -- left out.
 create or replace function public.search_deal_ai_answers(p_deal_id uuid, p_query text, p_limit int default 5)
-  returns table (question_id uuid, thread_id uuid, question text, answer text, asked_at timestamptz, rank real)
+  returns table (question_id uuid, thread_id uuid, question text, answer text, parts jsonb, citations jsonb, asked_at timestamptz, rank real)
   language sql stable security invoker
   set search_path = '' as $$
-  select q.id, q.thread_id, q.question, q.answer, q.created_at, ts_rank(q.tsv, query.q)
+  select q.id, q.thread_id, q.question, q.answer, q.parts, q.citations, q.created_at, ts_rank(q.tsv, query.q)
   from public.deal_ai_question q
   cross join websearch_to_tsquery('english', p_query) as query(q)
   where q.deal_id = p_deal_id
     and q.status = 'answered'
     and q.tsv @@ query.q
-  order by 6 desc, q.created_at desc, q.id
+  order by 8 desc, q.created_at desc, q.id
   limit p_limit;
 $$;
 
 revoke all on function public.search_deal_ai_answers(uuid, text, int) from public, anon, service_role;
 grant execute on function public.search_deal_ai_answers(uuid, text, int) to authenticated;
+
+-- Marks each citation saved before citations said whether their text came
+-- from a scan: from scan when any text segment of the answer's deal that it
+-- covers came from OCR, as a read marks it. Text no longer stored counts as
+-- not from scan. Answers already fully marked are left as they are.
+create or replace function odb.mark_citations_from_scan()
+  returns void
+  language sql
+  set search_path = '' as $$
+  update public.deal_ai_question q
+  set citations = (
+    select jsonb_agg(
+      case when e.c ? 'fromOcr' then e.c
+      else e.c || jsonb_build_object('fromOcr', exists (
+        select 1 from public.document_segment s
+        where s.deal_id = q.deal_id
+          and s.dr_document_id = (e.c ->> 'documentId')::uuid
+          and s.document_version = (e.c ->> 'version')::int
+          and s.from_ocr
+          and case when e.c ? 'sheet'
+            then s.sheet = e.c ->> 'sheet'
+              and public.a1_box(s.cell_range) operator(pg_catalog.&&) public.a1_box(e.c ->> 'cellRange')
+            else s.page_from <= (e.c ->> 'pageTo')::int and s.page_to >= (e.c ->> 'pageFrom')::int
+          end))
+      end
+      order by e.n)
+    from jsonb_array_elements(q.citations) with ordinality as e(c, n))
+  where exists (select 1 from jsonb_array_elements(q.citations) as e(c) where not e.c ? 'fromOcr');
+$$;
+
+revoke all on function odb.mark_citations_from_scan() from public;
 
 -- One row per thread that holds a question, for listing threads newest first.
 create or replace view public.deal_ai_thread_summary with (security_invoker = true) as

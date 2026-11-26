@@ -431,6 +431,50 @@ select function_privs_are(
   'the server does not search answers'
 );
 
+-- Answers carry display parts and their text form, which search covers.
+reset role;
+
+select results_eq(
+  $$ select parts, parts_text from public.deal_ai_question where id = 'da900000-0000-0000-0000-0000000000e2' $$,
+  $$ values ('[]'::jsonb, '') $$,
+  'an answer saved before parts existed has no parts and no parts text'
+);
+
+select tests.login_as_service_role();
+
+select throws_ok(
+  $$ update public.deal_ai_question set parts = '{"kind": "table"}' where id = 'da900000-0000-0000-0000-0000000000e1' $$,
+  '23514', null,
+  'parts are a list'
+);
+
+select throws_ok(
+  $$ update public.deal_ai_question set citations = '{"page": 1}' where id = 'da900000-0000-0000-0000-0000000000e1' $$,
+  '23514', null,
+  'citations are a list'
+);
+
+update public.deal_ai_question
+set parts = '[{"id": "p1", "kind": "table", "v": 1}]',
+  parts_text = '| Year | Backlog |' || chr(10) || '| 2025 | 900 |'
+where id = 'da900000-0000-0000-0000-0000000000e1';
+
+select tests.login_as('daq_owner');
+
+select results_eq(
+  $$ select question_id, parts, citations from public.search_deal_ai_answers('da900000-0000-0000-0000-0000000000d1', 'backlog') $$,
+  $$ values ('da900000-0000-0000-0000-0000000000e1'::uuid, '[{"id": "p1", "kind": "table", "v": 1}]'::jsonb, '[]'::jsonb) $$,
+  'search finds an answer by a word only its parts hold, and returns the parts and citations'
+);
+
+select results_eq(
+  $$ select question_id, parts from public.search_deal_ai_answers('da900000-0000-0000-0000-0000000000d1', 'goodwill') $$,
+  $$ values
+       ('da900000-0000-0000-0000-0000000000e1'::uuid, '[{"id": "p1", "kind": "table", "v": 1}]'::jsonb),
+       ('da900000-0000-0000-0000-0000000000e2'::uuid, '[]'::jsonb) $$,
+  'an answer without parts is still found and returns an empty list'
+);
+
 reset role;
 
 -- One summary row per thread that holds a question, for paging newest first.
@@ -531,6 +575,67 @@ select results_eq(
   $$ select status::text from public.deal_ai_question where id = 'da900000-0000-0000-0000-0000000000b6' $$,
   array['credits_ran_out'],
   'the running question on a locked team is finished'
+);
+
+-- The backfill that 20261104101800_lender_room_ai_and_answer_checks.sql runs
+-- marks each stored citation from scan when any text segment of the answer's
+-- deal that it covers came from OCR.
+reset role;
+
+insert into public.document_segment
+  (account_id, deal_id, dr_document_id, document_version, segment_index, kind, page_from, page_to, sheet, cell_range, text, from_ocr, content_hash)
+values
+  (tests.account_id('daq-acct'), 'da900000-0000-0000-0000-0000000000d1', 'da900000-0000-0000-0000-00000000c0f1', 2, 0, 'page', 1, 1, null, null,
+    'Scanned lease page.', true, 'o1'),
+  (tests.account_id('daq-acct'), 'da900000-0000-0000-0000-0000000000d1', 'da900000-0000-0000-0000-00000000c0f1', 2, 1, 'page', 2, 3, null, null,
+    'Typed lease pages.', false, 'o1'),
+  (tests.account_id('daq-acct'), 'da900000-0000-0000-0000-0000000000d1', 'da900000-0000-0000-0000-00000000c0f2', 1, 0, 'sheet_block', null, null, 'P&L', 'A1:C10',
+    'P&L cells', false, 'o2'),
+  (tests.account_id('daq-acct'), 'da900000-0000-0000-0000-0000000000d2', 'da900000-0000-0000-0000-00000000c0f3', 1, 0, 'page', 1, 1, null, null,
+    'Scanned page of another deal.', true, 'o3');
+
+insert into public.deal_ai_thread (id, deal_id)
+values ('da900000-0000-0000-0000-0000000000a9', 'da900000-0000-0000-0000-0000000000d1');
+
+insert into public.deal_ai_question (id, thread_id, deal_id, asked_by, question, answer, status, citations, finished_at)
+values ('da900000-0000-0000-0000-0000000000f9', 'da900000-0000-0000-0000-0000000000a9', 'da900000-0000-0000-0000-0000000000d1',
+  tests.get_uid('daq_member'), 'What does the lease say?', 'It renews.', 'answered',
+  '[{"documentId": "da900000-0000-0000-0000-00000000c0f1", "documentName": "lease.pdf", "version": 2, "pageFrom": 1, "pageTo": 1},
+    {"documentId": "da900000-0000-0000-0000-00000000c0f1", "documentName": "lease.pdf", "version": 2, "pageFrom": 2, "pageTo": 3},
+    {"documentId": "da900000-0000-0000-0000-00000000c0f1", "documentName": "lease.pdf", "version": 1, "pageFrom": 1, "pageTo": 1},
+    {"documentId": "da900000-0000-0000-0000-00000000c0f2", "documentName": "model.xlsx", "version": 1, "sheet": "P&L", "cellRange": "B2"},
+    {"documentId": "da900000-0000-0000-0000-00000000c0f1", "documentName": "lease.pdf", "version": 2, "pageFrom": 1, "pageTo": 3},
+    {"documentId": "da900000-0000-0000-0000-00000000c0f1", "documentName": "lease.pdf", "version": 2, "pageFrom": 2, "pageTo": 2, "fromOcr": true},
+    {"documentId": "da900000-0000-0000-0000-00000000c0f3", "documentName": "elsewhere.pdf", "version": 1, "pageFrom": 1, "pageTo": 1}]',
+  now());
+
+select odb.mark_citations_from_scan();
+
+create temporary table marked_once on commit drop as
+select ctid as at from public.deal_ai_question where id = 'da900000-0000-0000-0000-0000000000f9';
+
+select odb.mark_citations_from_scan();
+
+select results_eq(
+  $$ select ctid from public.deal_ai_question where id = 'da900000-0000-0000-0000-0000000000f9' $$,
+  $$ select at from marked_once $$,
+  'running the backfill again leaves a fully marked answer untouched'
+);
+
+select results_eq(
+  $$ select e.c ->> 'fromOcr'
+     from public.deal_ai_question q
+     cross join jsonb_array_elements(q.citations) with ordinality as e(c, n)
+     where q.id = 'da900000-0000-0000-0000-0000000000f9'
+     order by e.n $$,
+  array['true', 'false', 'false', 'false', 'true', 'true', 'false'],
+  'a citation of a scanned page is from scan, of a typed page or sheet is not, of text no longer stored is not, of a range touching a scanned page is, one already marked keeps its mark, and text of another deal never counts'
+);
+
+select results_eq(
+  $$ select (citations -> 0) - 'fromOcr' from public.deal_ai_question where id = 'da900000-0000-0000-0000-0000000000f9' $$,
+  $$ values ('{"documentId": "da900000-0000-0000-0000-00000000c0f1", "documentName": "lease.pdf", "version": 2, "pageFrom": 1, "pageTo": 1}'::jsonb) $$,
+  'the backfill keeps the rest of each citation'
 );
 
 select * from finish();

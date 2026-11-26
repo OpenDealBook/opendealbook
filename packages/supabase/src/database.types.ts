@@ -475,9 +475,11 @@ export type Database = {
           endpoint_id: string | null
           firm_id: string | null
           id: string
+          lender_ask_ai_draft_id: string | null
           model: string
           prompt_tokens: number | null
           question_id: string | null
+          seller_answer_check_id: string | null
           settled_at: string | null
         }
         Insert: {
@@ -490,9 +492,11 @@ export type Database = {
           endpoint_id?: string | null
           firm_id?: string | null
           id?: string
+          lender_ask_ai_draft_id?: string | null
           model: string
           prompt_tokens?: number | null
           question_id?: string | null
+          seller_answer_check_id?: string | null
           settled_at?: string | null
         }
         Update: {
@@ -505,9 +509,11 @@ export type Database = {
           endpoint_id?: string | null
           firm_id?: string | null
           id?: string
+          lender_ask_ai_draft_id?: string | null
           model?: string
           prompt_tokens?: number | null
           question_id?: string | null
+          seller_answer_check_id?: string | null
           settled_at?: string | null
         }
         Relationships: [
@@ -561,10 +567,24 @@ export type Database = {
             referencedColumns: ["firm_id"]
           },
           {
+            foreignKeyName: "ai_call_log_lender_ask_ai_draft_id_fkey"
+            columns: ["lender_ask_ai_draft_id"]
+            isOneToOne: false
+            referencedRelation: "lender_ask_ai_draft"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ai_call_log_question_id_fkey"
             columns: ["question_id"]
             isOneToOne: false
             referencedRelation: "deal_ai_question"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_call_log_seller_answer_check_id_fkey"
+            columns: ["seller_answer_check_id"]
+            isOneToOne: false
+            referencedRelation: "seller_answer_check"
             referencedColumns: ["id"]
           },
         ]
@@ -3456,6 +3476,8 @@ export type Database = {
           finished_at: string | null
           id: string
           model: string | null
+          parts: Json
+          parts_text: string
           question: string
           status: Database["public"]["Enums"]["deal_ai_question_status"]
           steps: Json
@@ -3472,6 +3494,8 @@ export type Database = {
           finished_at?: string | null
           id?: string
           model?: string | null
+          parts?: Json
+          parts_text?: string
           question: string
           status?: Database["public"]["Enums"]["deal_ai_question_status"]
           steps?: Json
@@ -3488,6 +3512,8 @@ export type Database = {
           finished_at?: string | null
           id?: string
           model?: string | null
+          parts?: Json
+          parts_text?: string
           question?: string
           status?: Database["public"]["Enums"]["deal_ai_question_status"]
           steps?: Json
@@ -7569,6 +7595,82 @@ export type Database = {
           },
         ]
       }
+      lender_ask_ai_draft: {
+        Row: {
+          account_id: string
+          ask_id: string
+          body: string | null
+          citations: Json
+          created_at: string
+          credits_used: number
+          deal_id: string
+          finished_at: string | null
+          id: string
+          model: string | null
+          requested_by: string | null
+          room_id: string
+          status: Database["public"]["Enums"]["lender_ask_ai_draft_status"]
+          steps: Json
+          suggested_document_ids: string[]
+        }
+        Insert: {
+          account_id: string
+          ask_id: string
+          body?: string | null
+          citations?: Json
+          created_at?: string
+          credits_used?: number
+          deal_id: string
+          finished_at?: string | null
+          id?: string
+          model?: string | null
+          requested_by?: string | null
+          room_id: string
+          status?: Database["public"]["Enums"]["lender_ask_ai_draft_status"]
+          steps?: Json
+          suggested_document_ids?: string[]
+        }
+        Update: {
+          account_id?: string
+          ask_id?: string
+          body?: string | null
+          citations?: Json
+          created_at?: string
+          credits_used?: number
+          deal_id?: string
+          finished_at?: string | null
+          id?: string
+          model?: string | null
+          requested_by?: string | null
+          room_id?: string
+          status?: Database["public"]["Enums"]["lender_ask_ai_draft_status"]
+          steps?: Json
+          suggested_document_ids?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lender_ask_ai_draft_ask_id_fkey"
+            columns: ["ask_id"]
+            isOneToOne: false
+            referencedRelation: "lender_ask"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lender_ask_ai_draft_room_id_account_id_fkey"
+            columns: ["room_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id", "account_id"]
+          },
+          {
+            foreignKeyName: "lender_ask_ai_draft_room_id_deal_id_fkey"
+            columns: ["room_id", "deal_id"]
+            isOneToOne: false
+            referencedRelation: "lender_room"
+            referencedColumns: ["id", "deal_id"]
+          },
+        ]
+      }
       lender_ask_file: {
         Row: {
           added_by: string | null
@@ -11307,6 +11409,98 @@ export type Database = {
           },
         ]
       }
+      seller_answer_check: {
+        Row: {
+          account_id: string
+          created_at: string
+          credits_used: number
+          deal_id: string
+          findings: Json
+          finished_at: string | null
+          follow_up: string | null
+          id: string
+          message_id: string
+          model: string | null
+          overall:
+            | Database["public"]["Enums"]["seller_answer_check_overall"]
+            | null
+          question_id: string
+          requested_by: string | null
+          room_id: string
+          status: Database["public"]["Enums"]["seller_answer_check_status"]
+          steps: Json
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          credits_used?: number
+          deal_id: string
+          findings?: Json
+          finished_at?: string | null
+          follow_up?: string | null
+          id?: string
+          message_id: string
+          model?: string | null
+          overall?:
+            | Database["public"]["Enums"]["seller_answer_check_overall"]
+            | null
+          question_id: string
+          requested_by?: string | null
+          room_id: string
+          status?: Database["public"]["Enums"]["seller_answer_check_status"]
+          steps?: Json
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          credits_used?: number
+          deal_id?: string
+          findings?: Json
+          finished_at?: string | null
+          follow_up?: string | null
+          id?: string
+          message_id?: string
+          model?: string | null
+          overall?:
+            | Database["public"]["Enums"]["seller_answer_check_overall"]
+            | null
+          question_id?: string
+          requested_by?: string | null
+          room_id?: string
+          status?: Database["public"]["Enums"]["seller_answer_check_status"]
+          steps?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seller_answer_check_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "seller_room_question_message"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_answer_check_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "seller_room_question"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seller_answer_check_room_id_account_id_fkey"
+            columns: ["room_id", "account_id"]
+            isOneToOne: false
+            referencedRelation: "seller_room"
+            referencedColumns: ["id", "account_id"]
+          },
+          {
+            foreignKeyName: "seller_answer_check_room_id_deal_id_fkey"
+            columns: ["room_id", "deal_id"]
+            isOneToOne: false
+            referencedRelation: "seller_room"
+            referencedColumns: ["id", "deal_id"]
+          },
+        ]
+      }
       seller_counsel_folder: {
         Row: {
           account_id: string
@@ -13984,6 +14178,21 @@ export type Database = {
           question: string
         }[]
       }
+      buyer_counsel_seller_answer_checks: {
+        Args: { deal_id: string }
+        Returns: {
+          created_at: string
+          findings: Json
+          finished_at: string
+          follow_up: string
+          id: string
+          message_id: string
+          overall: Database["public"]["Enums"]["seller_answer_check_overall"]
+          question_id: string
+          stale: boolean
+          status: Database["public"]["Enums"]["seller_answer_check_status"]
+        }[]
+      }
       buyer_counsel_seller_question_files: {
         Args: { deal_id: string }
         Returns: {
@@ -14698,6 +14907,23 @@ export type Database = {
           version: number
         }[]
       }
+      list_room_documents: {
+        Args: { room_id: string }
+        Returns: {
+          document_id: string
+          name: string
+          page_count: number
+          sheets: string[]
+          version: number
+        }[]
+      }
+      list_room_sheets: {
+        Args: { document_id: string; room_id: string }
+        Returns: {
+          sheet: string
+          used_range: string
+        }[]
+      }
       list_sheets: {
         Args: { document_id: string }
         Returns: {
@@ -14722,6 +14948,13 @@ export type Database = {
       }
       mark_all_notifications_read: {
         Args: { target_account_id: string }
+        Returns: undefined
+      }
+      mark_lender_ask_ai_draft: {
+        Args: {
+          p_draft_id: string
+          p_status: Database["public"]["Enums"]["lender_ask_ai_draft_status"]
+        }
         Returns: undefined
       }
       mark_unlisted_state_registry_entities: {
@@ -14883,6 +15116,39 @@ export type Database = {
           truncated: boolean
         }[]
       }
+      read_room_document_pages: {
+        Args: {
+          document_id: string
+          from_page: number
+          room_id: string
+          to_page: number
+        }
+        Returns: {
+          from_ocr: boolean
+          next_page: number
+          page_from: number
+          page_to: number
+          segment_id: string
+          text: string
+          truncated: boolean
+        }[]
+      }
+      read_room_sheet_range: {
+        Args: {
+          a1_range: string
+          document_id: string
+          room_id: string
+          sheet: string
+        }
+        Returns: {
+          cell_range: string
+          formulas: string
+          from_ocr: boolean
+          segment_id: string
+          text: string
+          truncated: boolean
+        }[]
+      }
       read_sheet_range: {
         Args: {
           a1_range: string
@@ -14949,8 +15215,10 @@ export type Database = {
           p_deal_id?: string
           p_endpoint_id?: string
           p_firm_id?: string
+          p_lender_ask_ai_draft_id?: string
           p_model: string
           p_question_id?: string
+          p_seller_answer_check_id?: string
         }
         Returns: string
       }
@@ -15036,6 +15304,8 @@ export type Database = {
         Returns: {
           answer: string
           asked_at: string
+          citations: Json
+          parts: Json
           question: string
           question_id: string
           rank: number
@@ -15072,6 +15342,27 @@ export type Database = {
           rank: number
         }[]
       }
+      search_room_segments: {
+        Args: {
+          include_earlier_versions?: boolean
+          query: string
+          result_limit?: number
+          room_id: string
+        }
+        Returns: {
+          cell_range: string
+          document_name: string
+          document_version: number
+          dr_document_id: string
+          from_ocr: boolean
+          page_from: number
+          page_to: number
+          rank: number
+          segment_id: string
+          sheet: string
+          snippet: string
+        }[]
+      }
       seed_background_search_workflow: {
         Args: { p_account_id: string }
         Returns: undefined
@@ -15091,6 +15382,10 @@ export type Database = {
       seed_starter_checklist_templates: {
         Args: { p_account_id: string }
         Returns: undefined
+      }
+      seller_answer_check_is_stale: {
+        Args: { c: Database["public"]["Tables"]["seller_answer_check"]["Row"] }
+        Returns: boolean
       }
       seller_can_read_document: {
         Args: { document_id: string }
@@ -15345,6 +15640,11 @@ export type Database = {
           question_id: string
           thread_id: string
         }[]
+      }
+      start_lender_ask_ai_draft: { Args: { p_ask_id: string }; Returns: string }
+      start_seller_answer_check: {
+        Args: { p_message_id: string }
+        Returns: string
       }
       start_workflow_step_run: {
         Args: {
@@ -15692,6 +15992,13 @@ export type Database = {
         | "faq_suggestion_opened"
         | "faq_suggestion_resolved"
         | "request_sent_after_suggestion"
+      lender_ask_ai_draft_status:
+        | "running"
+        | "ready"
+        | "credits_ran_out"
+        | "failed"
+        | "used"
+        | "discarded"
       lender_ask_file_role:
         | "attachment"
         | "fulfilment"
@@ -15767,6 +16074,17 @@ export type Database = {
         | "meeting_opened"
         | "question_answered"
         | "folder_created"
+      seller_answer_check_overall:
+        | "consistent"
+        | "contradicted"
+        | "unsupported"
+        | "no_evidence"
+        | "no_claims"
+      seller_answer_check_status:
+        | "running"
+        | "checked"
+        | "credits_ran_out"
+        | "failed"
       seller_counsel_author_side: "seller" | "counsel"
       seller_room_question_status: "open" | "answered" | "closed" | "withdrawn"
       seller_side: "seller" | "internal"
@@ -16105,6 +16423,14 @@ export const Constants = {
         "faq_suggestion_resolved",
         "request_sent_after_suggestion",
       ],
+      lender_ask_ai_draft_status: [
+        "running",
+        "ready",
+        "credits_ran_out",
+        "failed",
+        "used",
+        "discarded",
+      ],
       lender_ask_file_role: [
         "attachment",
         "fulfilment",
@@ -16186,6 +16512,19 @@ export const Constants = {
         "meeting_opened",
         "question_answered",
         "folder_created",
+      ],
+      seller_answer_check_overall: [
+        "consistent",
+        "contradicted",
+        "unsupported",
+        "no_evidence",
+        "no_claims",
+      ],
+      seller_answer_check_status: [
+        "running",
+        "checked",
+        "credits_ran_out",
+        "failed",
       ],
       seller_counsel_author_side: ["seller", "counsel"],
       seller_room_question_status: ["open", "answered", "closed", "withdrawn"],
