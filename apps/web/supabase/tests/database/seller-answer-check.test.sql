@@ -1,8 +1,10 @@
 begin;
 select no_plan();
 
--- Team "SAC Team" works deal d1 with a seller room. Question e1 has an old
--- seller answer a1 and an internal note a2; question e2 has a seller answer b1.
+-- Team "SAC Team" works deal d1 with a seller room. Question e1 has an
+-- internal note a2 and then a seller answer a1; question e2 has a seller
+-- answer b1; question e3 has a seller answer a6 and an internal note a7 sent
+-- at the same moment, a7 sorting after it by id.
 -- The data room holds lease.pdf in the uploads folder, lender-terms.pdf in a
 -- lender room's own folder and counsel-memo.pdf in seller's counsel's folder,
 -- all from hours ago. sac_viewer is on the team without deals.work,
@@ -91,6 +93,8 @@ values
     'Is the lease assignable?'),
   ('5ac00000-0000-0000-0000-0000000000e2', '5ac00000-0000-0000-0000-0000000000a0', tests.account_id('sac-team'),
     'Any open litigation?'),
+  ('5ac00000-0000-0000-0000-0000000000e3', '5ac00000-0000-0000-0000-0000000000a0', tests.account_id('sac-team'),
+    'Any customer concentration?'),
   ('5ac00000-0000-0000-0000-0000000000ef', '5ac00000-0000-0000-0000-0000000000f0', tests.account_id('sac-foreign'),
     'Foreign question?');
 
@@ -99,9 +103,13 @@ values
   ('5ac00000-0000-0000-0000-0000000000a1', '5ac00000-0000-0000-0000-0000000000e1', tests.get_uid('sac_seller'), 'seller',
     'Yes, with landlord consent.', now() - interval '2 hours'),
   ('5ac00000-0000-0000-0000-0000000000a2', '5ac00000-0000-0000-0000-0000000000e1', tests.get_uid('sac_owner'), 'internal',
-    'Thanks, checking.', now() - interval '90 minutes'),
+    'Asking the seller.', now() - interval '3 hours'),
   ('5ac00000-0000-0000-0000-0000000000b1', '5ac00000-0000-0000-0000-0000000000e2', tests.get_uid('sac_seller'), 'seller',
     'None.', now() - interval '2 hours'),
+  ('5ac00000-0000-0000-0000-0000000000a6', '5ac00000-0000-0000-0000-0000000000e3', tests.get_uid('sac_seller'), 'seller',
+    'No customer is over 10%.', now() - interval '2 hours'),
+  ('5ac00000-0000-0000-0000-0000000000a7', '5ac00000-0000-0000-0000-0000000000e3', tests.get_uid('sac_owner'), 'internal',
+    'Verify against the AR aging.', now() - interval '2 hours'),
   ('5ac00000-0000-0000-0000-0000000000f1', '5ac00000-0000-0000-0000-0000000000ef', tests.get_uid('sac_foreign'), 'seller',
     'Foreign answer.', now() - interval '2 hours');
 
@@ -240,14 +248,40 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$ update public.seller_answer_check set status = 'failed', overall = 'contradicted', finished_at = now()
+  $$ update public.seller_answer_check set status = 'failed', failure_reason = 'failed', overall = 'contradicted', finished_at = now()
      where id = '5ac00000-0000-0000-0000-0000000000c1' $$,
   '23514', null,
   'a check that did not finish has no overall result'
 );
 
+select throws_ok(
+  $$ update public.seller_answer_check set status = 'failed', finished_at = now()
+     where id = '5ac00000-0000-0000-0000-0000000000c1' $$,
+  '23514', null,
+  'a failed check says why it failed'
+);
+
+select throws_ok(
+  $$ update public.seller_answer_check set status = 'checked', overall = 'no_claims', failure_reason = 'too_long', finished_at = now()
+     where id = '5ac00000-0000-0000-0000-0000000000c1' $$,
+  '23514', null,
+  'only a failed check has a failure reason'
+);
+
 select lives_ok(
-  $$ update public.seller_answer_check set status = 'checked', overall = 'no_claims', finished_at = now()
+  $$ update public.seller_answer_check set status = 'failed', failure_reason = 'no_submit', finished_at = now()
+     where id = '5ac00000-0000-0000-0000-0000000000c1' $$,
+  'the server fails a check with its reason'
+);
+
+select results_eq(
+  $$ select status::text, failure_reason::text from public.seller_answer_check where id = '5ac00000-0000-0000-0000-0000000000c1' $$,
+  $$ values ('failed', 'no_submit') $$,
+  'a failed check keeps its reason'
+);
+
+select lives_ok(
+  $$ update public.seller_answer_check set status = 'checked', overall = 'no_claims', failure_reason = null, finished_at = now()
      where id = '5ac00000-0000-0000-0000-0000000000c1' $$,
   'an answer with nothing to check is checked with no claims'
 );
@@ -272,6 +306,12 @@ select results_eq(
          {"documentId": "5ac00000-0000-0000-0000-00000000c004", "documentName": "counsel-memo.pdf", "version": 1, "pageFrom": 1, "pageTo": 1, "excerpt": "Seller counsel view.", "fromOcr": false}]}]'::jsonb,
        'Please upload the lease consent clause.', 1.5::numeric) $$,
   'the server finishes a check with its overall result, findings and follow-up'
+);
+
+select lives_ok(
+  $$ insert into public.seller_answer_check (id, message_id)
+     values ('5ac00000-0000-0000-0000-0000000000c3', '5ac00000-0000-0000-0000-0000000000a1') $$,
+  'an answer can be checked again once its check has finished'
 );
 
 -- ---- Staleness ----
@@ -321,14 +361,54 @@ select lives_ok(
 select throws_ok(
   $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000a4') $$,
   '23505', null,
-  'a person runs one check at a time for a message'
+  'a person runs one check at a time for an answer'
 );
 
-select lives_ok(
-  $$ insert into public.seller_answer_check (id, message_id)
-     values ('5ac00000-0000-0000-0000-0000000000c3', '5ac00000-0000-0000-0000-0000000000a1') $$,
-  'an answer can be checked again'
+select tests.login_as('sac_member');
+
+select throws_ok(
+  $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000a4') $$,
+  '23505', null,
+  'a teammate cannot check an answer while another teammate''s check of it is running'
 );
+
+select tests.login_as('sac_owner');
+
+select throws_ok(
+  $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000a1') $$,
+  'ODB03', 'only the latest message in a thread is checked',
+  'an answer the thread has moved past is not checked'
+);
+
+select throws_ok(
+  $$ select public.start_seller_answer_check('5ac00000-0000-0000-0000-0000000000a1') $$,
+  'ODB03', 'only the latest message in a thread is checked',
+  'starting a check by an answer the thread has moved past is refused'
+);
+
+select throws_ok(
+  $$ select public.start_seller_answer_check('5ac00000-0000-0000-0000-0000000000a6') $$,
+  'ODB03', 'only the latest message in a thread is checked',
+  'a team note sent at the same moment and sorting after the answer by id makes it not the latest'
+);
+
+select tests.login_as('sac_foreign');
+
+select throws_ok(
+  $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000a1') $$,
+  '42501', null,
+  'another team is refused for permission before learning an answer is not the latest'
+);
+
+select tests.login_as('sac_viewer');
+
+select throws_ok(
+  $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000a1') $$,
+  '42501', null,
+  'a teammate without deals.work is refused for permission before learning an answer is not the latest'
+);
+
+select tests.login_as('sac_owner');
 
 select results_eq(
   $$ select public.seller_answer_check_is_stale(c) from public.seller_answer_check c
@@ -441,12 +521,7 @@ select results_eq(
 );
 
 -- A check still running 10 minutes on belongs to a crashed request and fails
--- when its requester starts another.
-reset role;
-
-update public.seller_answer_check set created_at = now() - interval '11 minutes'
-where id = '5ac00000-0000-0000-0000-0000000000c3';
-
+-- when anyone starts another check of the same answer.
 select tests.login_as('sac_member');
 
 insert into public.seller_answer_check (id, message_id)
@@ -454,32 +529,22 @@ values ('5ac00000-0000-0000-0000-0000000000c9', '5ac00000-0000-0000-0000-0000000
 
 reset role;
 
-update public.seller_answer_check set requested_by = null, created_at = now() - interval '11 minutes'
-where id = '5ac00000-0000-0000-0000-0000000000c9';
+update public.seller_answer_check set created_at = now() - interval '11 minutes'
+where id in ('5ac00000-0000-0000-0000-0000000000c2', '5ac00000-0000-0000-0000-0000000000c9');
 
 select tests.login_as('sac_owner');
 
-insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000b1');
-
-select results_eq(
-  $$ select id, status::text from public.seller_answer_check
-     where id in ('5ac00000-0000-0000-0000-0000000000c3', '5ac00000-0000-0000-0000-0000000000c9') order by id $$,
-  $$ values ('5ac00000-0000-0000-0000-0000000000c3'::uuid, 'running'),
-            ('5ac00000-0000-0000-0000-0000000000c9'::uuid, 'failed') $$,
-  'checking a message fails a stale check of it whose requester is gone, and leaves the requester''s stale check of another message'
-);
-
 select lives_ok(
-  $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000a1') $$,
-  'the requester checks again'
+  $$ insert into public.seller_answer_check (message_id) values ('5ac00000-0000-0000-0000-0000000000b1') $$,
+  'a teammate checks an answer whose only running check is another teammate''s stale one'
 );
 
 select results_eq(
-  $$ select id, status::text, finished_at is not null from public.seller_answer_check
-     where id in ('5ac00000-0000-0000-0000-0000000000c2', '5ac00000-0000-0000-0000-0000000000c3') order by id $$,
-  $$ values ('5ac00000-0000-0000-0000-0000000000c2'::uuid, 'running', false),
-            ('5ac00000-0000-0000-0000-0000000000c3'::uuid, 'failed', true) $$,
-  'starting a check fails the requester''s checks that ran over 10 minutes and leaves recent ones running'
+  $$ select id, status::text, failure_reason::text, finished_at is not null from public.seller_answer_check
+     where id in ('5ac00000-0000-0000-0000-0000000000c2', '5ac00000-0000-0000-0000-0000000000c9') order by id $$,
+  $$ values ('5ac00000-0000-0000-0000-0000000000c2'::uuid, 'running', null, false),
+            ('5ac00000-0000-0000-0000-0000000000c9'::uuid, 'failed', 'interrupted', true) $$,
+  'checking an answer fails anyone''s stale check of it and leaves stale checks of other answers running'
 );
 
 reset role;
@@ -490,6 +555,12 @@ grant select, insert on started to authenticated;
 select tests.login_as('sac_member');
 
 insert into started select public.start_seller_answer_check('5ac00000-0000-0000-0000-0000000000a4');
+
+select results_eq(
+  $$ select status::text, failure_reason::text from public.seller_answer_check where id = '5ac00000-0000-0000-0000-0000000000c2' $$,
+  $$ values ('failed', 'interrupted') $$,
+  'starting a check fails the stale check of the same answer that someone else started'
+);
 
 select results_eq(
   $$ select c.message_id, c.question_id, c.requested_by, c.status::text
@@ -530,9 +601,18 @@ select results_eq(
 
 select results_eq(
   $$ select p.proargnames[2:] collate "default" from pg_proc p where p.oid = 'public.buyer_counsel_seller_answer_checks(uuid)'::regprocedure $$,
-  $$ values (array['id', 'question_id', 'message_id', 'status', 'overall', 'findings', 'follow_up',
+  $$ values (array['id', 'question_id', 'message_id', 'status', 'failure_reason', 'overall', 'findings', 'follow_up',
        'created_at', 'finished_at', 'stale']) $$,
   'buyer''s counsel never get a check''s steps, model, credits or requester'
+);
+
+select results_eq(
+  $$ select id, status::text, failure_reason::text
+     from public.buyer_counsel_seller_answer_checks('5ac00000-0000-0000-0000-0000000000d1')
+     where id in ('5ac00000-0000-0000-0000-0000000000c1', '5ac00000-0000-0000-0000-0000000000c2') order by id $$,
+  $$ values ('5ac00000-0000-0000-0000-0000000000c1'::uuid, 'checked', null),
+            ('5ac00000-0000-0000-0000-0000000000c2'::uuid, 'failed', 'interrupted') $$,
+  'buyer''s counsel read why a check failed'
 );
 
 select is_empty($$ select 1 from public.seller_answer_check $$, 'buyer''s counsel do not read the checks table');

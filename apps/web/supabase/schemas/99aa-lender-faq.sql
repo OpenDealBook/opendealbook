@@ -280,9 +280,9 @@ create or replace function public.lender_room_shows_faq_entry_unchecked(room_id 
   );
 $$;
 
--- A room's FAQ for its open-room members and its deal team, pinned entries
--- first, then newest. With a query, entries sharing any of its words, most
--- shared first.
+-- A room's FAQ for its open-room members and anyone who manages or works its
+-- deal, pinned entries first, then newest. With a query, entries sharing any
+-- of its words, most shared first.
 create or replace function public.lender_room_faq(room_id uuid, query text default null)
   returns table (
     id uuid,
@@ -315,6 +315,7 @@ create or replace function public.lender_room_faq(room_id uuid, query text defau
   where (
       public.is_lender_room_member(lender_room_faq.room_id)
       or public.can_manage_lender_room(lender_room_faq.room_id)
+      or public.can_work_lender_room(lender_room_faq.room_id)
     )
     and public.lender_room_shows_faq_entry_unchecked(lender_room_faq.room_id, e.id)
     and (lender_room_faq.query is null or e.search_tsv @@ s.q)
@@ -349,6 +350,7 @@ create or replace function public.lender_room_shows_faq_file(room_id uuid, file_
   select (
       public.is_lender_room_member(lender_room_shows_faq_file.room_id)
       or public.can_manage_lender_room(lender_room_shows_faq_file.room_id)
+      or public.can_work_lender_room(lender_room_shows_faq_file.room_id)
     )
     and exists (
       select 1 from public.lender_faq_file f

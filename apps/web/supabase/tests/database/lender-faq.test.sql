@@ -2,8 +2,11 @@ begin;
 select no_plan();
 
 -- Account 1 owns deal d1 with rooms A, B, C (closed) and, made after the
--- entries, room D. Account 2 owns deal d2 with room Z.
+-- entries, room D. Account 2 owns deal d2 with room Z. lf_worker is on
+-- account 1 with deals.work but not deals.manage; lf_viewer has neither.
 select tests.create_user('lf_owner');
+select tests.create_user('lf_worker');
+select tests.create_user('lf_viewer');
 select tests.create_user('lf_owner_2');
 select tests.create_user('lf_lender_a');
 select tests.create_user('lf_lender_b');
@@ -25,6 +28,11 @@ select public.append_deal_event('1f000000-0000-0000-0000-0000000000d2', 'deal',
     'description', 'Other FAQ deal'), null, 'service');
 
 reset role;
+
+insert into public.accounts_memberships (account_id, user_id, account_role)
+values
+  (tests.account_id('lf-acct'), tests.get_uid('lf_worker'), 'member'),
+  (tests.account_id('lf-acct'), tests.get_uid('lf_viewer'), 'viewer');
 
 insert into public.dr_folder (id, account_id, deal_id, parent_id, name)
 values
@@ -393,12 +401,66 @@ select results_eq(
   'the deal team sees a room''s FAQ as its lenders do'
 );
 
+select tests.login_as('lf_worker');
+
+select results_eq(
+  $$ select id from public.lender_room_faq('1f000000-0000-0000-0000-0000000000a0', null) $$,
+  $$ values ('1f000000-0000-0000-0000-0000000000e5'::uuid), ('1f000000-0000-0000-0000-0000000000e1'::uuid) $$,
+  'a teammate who works the deal without managing it sees a room''s FAQ as its lenders do'
+);
+
+select is_empty(
+  $$ select id from public.lender_room_faq('1f000000-0000-0000-0000-0000000000a0', 'prepayment') $$,
+  'a teammate who works the deal finds no entry the room hides'
+);
+
+select ok(
+  public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000a0', '1f000000-0000-0000-0000-0000000001f1'),
+  'a teammate who works the deal opens a published entry''s file in a room that shows it'
+);
+
+select ok(
+  public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000b0', '1f000000-0000-0000-0000-0000000001f4'),
+  'a teammate who works the deal opens an entry''s file in a room that does not hide it'
+);
+
+select ok(
+  not public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000a0', '1f000000-0000-0000-0000-0000000001f4'),
+  'a teammate who works the deal cannot open a file the room hides'
+);
+
+select ok(
+  not public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000a0', '1f000000-0000-0000-0000-0000000001f3'),
+  'a teammate who works the deal cannot open an unpublished entry''s file'
+);
+
+select ok(
+  not public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000a0', '1f000000-0000-0000-0000-0000000001f2'),
+  'a teammate who works the deal cannot open a draft''s file'
+);
+
+select tests.login_as('lf_viewer');
+
+select is_empty(
+  $$ select id from public.lender_room_faq('1f000000-0000-0000-0000-0000000000a0', null) $$,
+  'a teammate without deals.work gets nothing for the deal''s rooms'
+);
+
+select ok(
+  not public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000a0', '1f000000-0000-0000-0000-0000000001f1'),
+  'a teammate without deals.work opens no FAQ file'
+);
+
 select tests.login_as('lf_owner_2');
 
 select is_empty($$ select id from public.lender_faq_entry where deal_id = '1f000000-0000-0000-0000-0000000000d1' $$,
   'another team reads none of this deal''s entries');
 select is_empty($$ select id from public.lender_room_faq('1f000000-0000-0000-0000-0000000000a0', null) $$,
   'another team gets nothing for this deal''s rooms');
+select ok(
+  not public.lender_room_shows_faq_file('1f000000-0000-0000-0000-0000000000a0', '1f000000-0000-0000-0000-0000000001f1'),
+  'another team opens no FAQ file in this deal''s rooms'
+);
 
 select throws_ok(
   $$

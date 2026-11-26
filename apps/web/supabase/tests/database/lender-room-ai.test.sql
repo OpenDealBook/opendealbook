@@ -473,8 +473,34 @@ select throws_ok(
   'a finished draft records when it finished'
 );
 
+select throws_ok(
+  $$ update public.lender_ask_ai_draft set status = 'failed', finished_at = now()
+     where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  '23514', null,
+  'a failed draft says why it failed'
+);
+
+select throws_ok(
+  $$ update public.lender_ask_ai_draft set status = 'ready', body = 'Done', failure_reason = 'too_long', finished_at = now()
+     where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  '23514', null,
+  'only a failed draft has a failure reason'
+);
+
+select lives_ok(
+  $$ update public.lender_ask_ai_draft set status = 'failed', failure_reason = 'too_long', finished_at = now()
+     where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  'the server fails a draft with its reason'
+);
+
+select results_eq(
+  $$ select status::text, failure_reason::text from public.lender_ask_ai_draft where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  $$ values ('failed', 'too_long') $$,
+  'a failed draft keeps its reason'
+);
+
 update public.lender_ask_ai_draft
-set status = 'ready', body = 'The addbacks are owner salary and rent.', model = 'claude-test', credits_used = 2.5,
+set status = 'ready', failure_reason = null, body = 'The addbacks are owner salary and rent.', model = 'claude-test', credits_used = 2.5,
   citations = '[{"document_id": "1a000000-0000-0000-0000-00000000d002", "page": 1}]',
   suggested_document_ids = array['1a000000-0000-0000-0000-00000000d002']::uuid[],
   steps = '[{"tool": "search_documents"}]', finished_at = now()
@@ -527,11 +553,11 @@ select lives_ok(
 );
 
 select results_eq(
-  $$ select id, status::text, finished_at is not null from public.lender_ask_ai_draft
+  $$ select id, status::text, failure_reason::text, finished_at is not null from public.lender_ask_ai_draft
      where id in ('1a000000-0000-0000-0000-0000000000e2', '1a000000-0000-0000-0000-0000000000e3', '1a000000-0000-0000-0000-0000000000e7') order by id $$,
-  $$ values ('1a000000-0000-0000-0000-0000000000e2'::uuid, 'failed', true),
-            ('1a000000-0000-0000-0000-0000000000e3'::uuid, 'running', false),
-            ('1a000000-0000-0000-0000-0000000000e7'::uuid, 'running', false) $$,
+  $$ values ('1a000000-0000-0000-0000-0000000000e2'::uuid, 'failed', 'interrupted', true),
+            ('1a000000-0000-0000-0000-0000000000e3'::uuid, 'running', null, false),
+            ('1a000000-0000-0000-0000-0000000000e7'::uuid, 'running', null, false) $$,
   'starting a draft fails the requester''s drafts on that ask that ran over 10 minutes, and no others'
 );
 
@@ -552,8 +578,8 @@ select tests.login_as('lra_owner');
 insert into public.lender_ask_ai_draft (ask_id) values ('1a000000-0000-0000-0000-0000000000c5');
 
 select results_eq(
-  $$ select status::text, finished_at is not null from public.lender_ask_ai_draft where id = '1a000000-0000-0000-0000-0000000000e5' $$,
-  $$ values ('failed', true) $$,
+  $$ select status::text, failure_reason::text, finished_at is not null from public.lender_ask_ai_draft where id = '1a000000-0000-0000-0000-0000000000e5' $$,
+  $$ values ('failed', 'interrupted', true) $$,
   'a stale draft with no requester left fails when a teammate starts a draft for the same ask'
 );
 

@@ -7604,6 +7604,9 @@ export type Database = {
           created_at: string
           credits_used: number
           deal_id: string
+          failure_reason:
+            | Database["public"]["Enums"]["ai_run_failure_reason"]
+            | null
           finished_at: string | null
           id: string
           model: string | null
@@ -7621,6 +7624,9 @@ export type Database = {
           created_at?: string
           credits_used?: number
           deal_id: string
+          failure_reason?:
+            | Database["public"]["Enums"]["ai_run_failure_reason"]
+            | null
           finished_at?: string | null
           id?: string
           model?: string | null
@@ -7638,6 +7644,9 @@ export type Database = {
           created_at?: string
           credits_used?: number
           deal_id?: string
+          failure_reason?:
+            | Database["public"]["Enums"]["ai_run_failure_reason"]
+            | null
           finished_at?: string | null
           id?: string
           model?: string | null
@@ -11415,6 +11424,9 @@ export type Database = {
           created_at: string
           credits_used: number
           deal_id: string
+          failure_reason:
+            | Database["public"]["Enums"]["ai_run_failure_reason"]
+            | null
           findings: Json
           finished_at: string | null
           follow_up: string | null
@@ -11435,6 +11447,9 @@ export type Database = {
           created_at?: string
           credits_used?: number
           deal_id: string
+          failure_reason?:
+            | Database["public"]["Enums"]["ai_run_failure_reason"]
+            | null
           findings?: Json
           finished_at?: string | null
           follow_up?: string | null
@@ -11455,6 +11470,9 @@ export type Database = {
           created_at?: string
           credits_used?: number
           deal_id?: string
+          failure_reason?:
+            | Database["public"]["Enums"]["ai_run_failure_reason"]
+            | null
           findings?: Json
           finished_at?: string | null
           follow_up?: string | null
@@ -14182,6 +14200,7 @@ export type Database = {
         Args: { deal_id: string }
         Returns: {
           created_at: string
+          failure_reason: Database["public"]["Enums"]["ai_run_failure_reason"]
           findings: Json
           finished_at: string
           follow_up: string
@@ -15887,6 +15906,7 @@ export type Database = {
     }
     Enums: {
       activity_confidence: "listed" | "screened" | "verified"
+      ai_run_failure_reason: "too_long" | "no_submit" | "failed" | "interrupted"
       app_permissions:
         | "roles.manage"
         | "billing.manage"
@@ -16308,6 +16328,7 @@ export const Constants = {
   public: {
     Enums: {
       activity_confidence: ["listed", "screened", "verified"],
+      ai_run_failure_reason: ["too_long", "no_submit", "failed", "interrupted"],
       app_permissions: [
         "roles.manage",
         "billing.manage",

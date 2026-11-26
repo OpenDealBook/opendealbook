@@ -1,8 +1,9 @@
 -- AI checks of a seller's answer against the data room, for the buyer team
 -- only: never the seller, never a lender. Someone who works the deal starts a
 -- check by naming the seller message; its question, room, team and deal come
--- from the message. The web route finishes it with the service role. An
--- answer may be checked again, so one message can have several checks.
+-- from the message, which must still be the latest in its thread. The web
+-- route finishes it with the service role. An answer may be checked again, so
+-- one message can have several checks, but only one runs at a time.
 
 create type public.seller_answer_check_status as enum ('running', 'checked', 'credits_ran_out', 'failed');
 create type public.seller_answer_check_overall as enum ('consistent', 'contradicted', 'unsupported', 'no_evidence', 'no_claims');
@@ -24,15 +25,17 @@ create table if not exists public.seller_answer_check (
   steps jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   finished_at timestamptz,
+  failure_reason public.ai_run_failure_reason,
   foreign key (room_id, account_id) references public.seller_room (id, account_id) on delete cascade,
   foreign key (room_id, deal_id) references public.seller_room (id, deal_id) on delete cascade,
   constraint seller_answer_check_finished check ((status = 'running') = (finished_at is null)),
-  constraint seller_answer_check_overall_when_checked check ((status = 'checked') = (overall is not null))
+  constraint seller_answer_check_overall_when_checked check ((status = 'checked') = (overall is not null)),
+  constraint seller_answer_check_failure_reason_when_failed check ((status = 'failed') = (failure_reason is not null))
 );
 
 create index ix_seller_answer_check_question_created on public.seller_answer_check (question_id, created_at);
 create index ix_seller_answer_check_message on public.seller_answer_check (message_id);
-create unique index ux_seller_answer_check_one_running on public.seller_answer_check (requested_by, message_id) where status = 'running';
+create unique index ux_seller_answer_check_one_running on public.seller_answer_check (message_id) where status = 'running';
 
 alter table public.seller_answer_check enable row level security;
 
@@ -40,7 +43,7 @@ revoke all on public.seller_answer_check from anon, authenticated, service_role;
 grant select on public.seller_answer_check to authenticated;
 grant insert (id, message_id) on public.seller_answer_check to authenticated;
 grant select on public.seller_answer_check to service_role;
-grant update (status, overall, findings, follow_up, model, credits_used, steps, finished_at)
+grant update (status, overall, findings, follow_up, model, credits_used, steps, finished_at, failure_reason)
   on public.seller_answer_check to service_role;
 
 create policy seller_answer_check_read on public.seller_answer_check
@@ -52,15 +55,18 @@ create policy seller_answer_check_insert on public.seller_answer_check
   with check (public.has_deal_permission(deal_id, 'deals.work'));
 
 -- Named to fire before the other insert triggers, which read the scope it sets.
+-- Locking the question waits out any message being added to it, since adding
+-- one takes a key share lock on the question.
 create or replace function odb.derive_seller_answer_check_scope()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
 declare
   v_side public.seller_side;
+  v_created_at timestamptz;
 begin
-  select m.side, m.question_id, q.room_id, q.account_id, r.deal_id
-  into v_side, new.question_id, new.room_id, new.account_id, new.deal_id
+  select m.side, m.created_at, m.question_id, q.room_id, q.account_id, r.deal_id
+  into v_side, v_created_at, new.question_id, new.room_id, new.account_id, new.deal_id
   from public.seller_room_question_message m
   join public.seller_room_question q on q.id = m.question_id
   join public.seller_room r on r.id = q.room_id
@@ -71,6 +77,14 @@ begin
   if v_side <> 'seller' then
     raise exception 'only a seller''s message is checked' using errcode = 'check_violation';
   end if;
+  perform 1 from public.seller_room_question q where q.id = new.question_id for update;
+  if exists (
+    select 1 from public.seller_room_question_message later
+    where later.question_id = new.question_id
+      and (later.created_at, later.id) > (v_created_at, new.message_id)
+  ) then
+    raise exception 'only the latest message in a thread is checked' using errcode = 'ODB03';
+  end if;
   return new;
 end;
 $$;
@@ -80,17 +94,15 @@ create trigger derive_scope
   for each row execute function odb.derive_seller_answer_check_scope();
 
 -- A check still running 10 minutes after it started belongs to a crashed
--- request; it fails when its requester, or anyone once its requester is gone,
--- starts another check of the same message.
+-- request; it fails when anyone starts another check of the same message.
 create or replace function odb.fail_stale_seller_answer_checks()
   returns trigger
   language plpgsql security definer
   set search_path = '' as $$
 begin
   update public.seller_answer_check
-  set status = 'failed', finished_at = now()
+  set status = 'failed', failure_reason = 'interrupted', finished_at = now()
   where message_id = new.message_id
-    and (requested_by = new.requested_by or requested_by is null)
     and status = 'running'
     and created_at < now() - interval '10 minutes';
   return new;
@@ -166,6 +178,7 @@ create or replace function public.buyer_counsel_seller_answer_checks(deal_id uui
     question_id uuid,
     message_id uuid,
     status public.seller_answer_check_status,
+    failure_reason public.ai_run_failure_reason,
     overall public.seller_answer_check_overall,
     findings jsonb,
     follow_up text,
@@ -178,7 +191,7 @@ create or replace function public.buyer_counsel_seller_answer_checks(deal_id uui
   with readable as (
     select d.id from public.buyer_counsel_documents(buyer_counsel_seller_answer_checks.deal_id) d
   )
-  select c.id, c.question_id, c.message_id, c.status, c.overall,
+  select c.id, c.question_id, c.message_id, c.status, c.failure_reason, c.overall,
          (
            select coalesce(jsonb_agg(f.finding || jsonb_build_object('citations', coalesce((
              select jsonb_agg(ct.citation order by ct.n)

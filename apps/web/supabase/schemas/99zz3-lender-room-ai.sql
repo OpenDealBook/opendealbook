@@ -167,6 +167,10 @@ $$;
 revoke all on function public.read_room_sheet_range(uuid, uuid, text, text) from public, anon, service_role;
 grant execute on function public.read_room_sheet_range(uuid, uuid, text, text) to authenticated;
 
+-- Why an AI run failed, shared by drafts and answer checks. 'interrupted' is
+-- a run swept as stale after its request crashed.
+create type public.ai_run_failure_reason as enum ('too_long', 'no_submit', 'failed', 'interrupted');
+
 -- The web route finishes a draft with the service role; after that a person
 -- may only mark a ready draft used or discarded.
 create type public.lender_ask_ai_draft_status as enum ('running', 'ready', 'credits_ran_out', 'failed', 'used', 'discarded');
@@ -187,9 +191,11 @@ create table if not exists public.lender_ask_ai_draft (
   steps jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   finished_at timestamptz,
+  failure_reason public.ai_run_failure_reason,
   foreign key (room_id, account_id) references public.lender_room (id, account_id) on delete cascade,
   foreign key (room_id, deal_id) references public.lender_room (id, deal_id) on delete cascade,
-  constraint lender_ask_ai_draft_finished check ((status = 'running') = (finished_at is null))
+  constraint lender_ask_ai_draft_finished check ((status = 'running') = (finished_at is null)),
+  constraint lender_ask_ai_draft_failure_reason_when_failed check ((status = 'failed') = (failure_reason is not null))
 );
 
 create index ix_lender_ask_ai_draft_ask_created on public.lender_ask_ai_draft (ask_id, created_at);
@@ -201,7 +207,7 @@ revoke all on public.lender_ask_ai_draft from anon, authenticated, service_role;
 grant select on public.lender_ask_ai_draft to authenticated;
 grant insert (id, ask_id) on public.lender_ask_ai_draft to authenticated;
 grant select on public.lender_ask_ai_draft to service_role;
-grant update (status, body, citations, suggested_document_ids, model, credits_used, steps, finished_at)
+grant update (status, body, citations, suggested_document_ids, model, credits_used, steps, finished_at, failure_reason)
   on public.lender_ask_ai_draft to service_role;
 
 create policy lender_ask_ai_draft_read on public.lender_ask_ai_draft
@@ -248,7 +254,7 @@ create or replace function odb.fail_stale_lender_ask_ai_drafts()
   set search_path = '' as $$
 begin
   update public.lender_ask_ai_draft
-  set status = 'failed', finished_at = now()
+  set status = 'failed', failure_reason = 'interrupted', finished_at = now()
   where ask_id = new.ask_id
     and (requested_by = new.requested_by or requested_by is null)
     and status = 'running'
