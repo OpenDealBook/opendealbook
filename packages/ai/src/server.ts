@@ -11,5 +11,7 @@ export type {
 export { answerCheck } from './check';
 export type { AnswerCheck } from './check';
 export { parseStoredCitations } from './stored-citations';
+export { roomTools, runRoomTool } from './room-tools';
+export type { RoomToolContext } from './room-tools';
 export { generateStructured } from './structured';
 export type { Structured, StructuredGenerateInput } from './structured';
