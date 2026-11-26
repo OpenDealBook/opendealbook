@@ -306,6 +306,7 @@ describe('loadDealAsk', () => {
       pageFrom: 1,
       pageTo: 1,
       excerpt,
+      fromOcr: false,
     });
     const threadId = await thread(acme, [['What was revenue?', 0]]);
     await admin
@@ -332,6 +333,67 @@ describe('loadDealAsk', () => {
     ]);
     expect(JSON.stringify(loaded)).not.toContain('Superseded version passage');
     expect(JSON.stringify(loaded)).not.toContain('Removed document passage');
+  });
+
+  it('keeps whether each citation came from OCR', async () => {
+    const cited = (fromOcr: boolean) => ({
+      documentId: crypto.randomUUID(),
+      documentName: 'cim.pdf',
+      version: 1,
+      pageFrom: 1,
+      pageTo: 1,
+      fromOcr,
+    });
+    const threadId = await thread(acme, [['Is the lease signed?', 0]]);
+    await admin
+      .from('deal_ai_question')
+      .update({ citations: [cited(true), cited(false)] })
+      .eq('thread_id', threadId)
+      .throwOnError();
+
+    const loaded = await loadDealAsk(acme, teamId);
+
+    const question = loaded!.questions.find(
+      (candidate) => candidate.thread_id === threadId,
+    )!;
+    expect(question.citations.map((citation) => citation.fromOcr)).toEqual([
+      true,
+      false,
+    ]);
+  });
+
+  it("drops a stored citation that does not parse and still loads its question and the deal's other questions", async () => {
+    const valid = {
+      documentId: crypto.randomUUID(),
+      documentName: 'cim.pdf',
+      version: 1,
+      pageFrom: 1,
+      pageTo: 1,
+      fromOcr: false,
+    };
+    const { fromOcr: _, ...withoutFromOcr } = valid;
+    const threadId = await thread(acme, [
+      ['What was margin?', 1],
+      ['And churn?', 0],
+    ]);
+    await admin
+      .from('deal_ai_question')
+      .update({ citations: [valid, withoutFromOcr] })
+      .eq('thread_id', threadId)
+      .eq('question', 'What was margin?')
+      .throwOnError();
+
+    const loaded = await loadDealAsk(acme, teamId);
+
+    const asked = loaded!.questions.filter(
+      (candidate) => candidate.thread_id === threadId,
+    );
+    expect(
+      asked.map(({ question, citations }) => [question, citations]),
+    ).toEqual([
+      ['What was margin?', [valid]],
+      ['And churn?', []],
+    ]);
   });
 
   it("loads nothing for a deal that is not a deal id, not this team's, or not readable", async () => {

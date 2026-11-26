@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { citationLabel } from './citations';
 
-const document = { documentId: 'doc-1', documentName: 'cim.pdf', version: 2 };
+const document = {
+  documentId: 'doc-1',
+  documentName: 'cim.pdf',
+  version: 2,
+  fromOcr: false,
+};
 
 describe('citationLabel', () => {
   it('names a page range', () => {

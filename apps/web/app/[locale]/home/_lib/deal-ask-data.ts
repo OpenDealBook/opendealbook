@@ -2,23 +2,10 @@ import { z } from 'zod';
 
 import type { DocumentCitation } from '@odb/ai/citations';
 import { dealAiScope } from '@odb/ai/scope';
+import { parseStoredCitations } from '@odb/ai/server';
 import { dealDisplayName } from '@odb/deals/shared';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { resolveScopedTeamAi, teamAiScope } from '@odb/workflows/team-ai';
-
-const cited = z.object({
-  documentId: z.string(),
-  documentName: z.string(),
-  version: z.number(),
-  excerpt: z.string().optional(),
-});
-
-const citations = z.array(
-  z.union([
-    cited.extend({ pageFrom: z.number(), pageTo: z.number() }),
-    cited.extend({ sheet: z.string(), cellRange: z.string() }),
-  ]),
-);
 
 const threadSummary = z
   .object({
@@ -98,14 +85,12 @@ export async function loadDealAsk(dealId: string, teamId: string) {
     ),
     questions: questions.map((question) => ({
       ...question,
-      citations: citations
-        .parse(question.citations)
-        .map(
-          ({ excerpt, ...citation }): DocumentCitation =>
-            readable[citation.documentId] === citation.version
-              ? { ...citation, excerpt }
-              : citation,
-        ),
+      citations: parseStoredCitations(question.citations, question.id).map(
+        ({ excerpt, ...citation }): DocumentCitation =>
+          readable[citation.documentId] === citation.version
+            ? { ...citation, excerpt }
+            : citation,
+      ),
     })),
     readable,
     connected: ai !== null,

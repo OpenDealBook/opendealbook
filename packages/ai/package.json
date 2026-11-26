@@ -23,6 +23,7 @@
     "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
+    "@odb/shared": "workspace:*",
     "@odb/supabase": "workspace:*",
     "@odb/workflows": "workspace:*",
     "server-only": "^0.0.1",

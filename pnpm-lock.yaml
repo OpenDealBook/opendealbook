@@ -634,6 +634,9 @@ importers:
 
   packages/ai:
     dependencies:
+      '@odb/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@odb/supabase':
         specifier: workspace:*
         version: link:../supabase

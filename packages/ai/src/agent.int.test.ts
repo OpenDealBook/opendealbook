@@ -21,6 +21,9 @@ import {
   type DealQuestion,
   dealQuestionMode,
 } from './agent';
+import { answerCheck } from './check';
+import type { DocumentCitation } from './citations';
+import { documentTools, runDocumentTool } from './tools';
 
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -278,29 +281,85 @@ afterAll(async () => {
   await team.cleanup();
 });
 
-async function ask(
-  question: Partial<DealQuestion> = {},
-  progress: unknown[] = [],
-  mode?: AnswerMode,
-) {
+async function chatAi() {
   const client = team.user as SupabaseClient<Database>;
   const scope = await dealAiScope(client, dealId, 'deals.work');
   if (typeof scope === 'string') {
     throw new Error(scope);
   }
-  const ai = (await resolveScopedTeamAi(scope, 'chat'))!;
+  return (await resolveScopedTeamAi(scope, 'chat'))!;
+}
+
+function dealQuestion(question: Partial<DealQuestion> = {}): DealQuestion {
+  return {
+    client: team.user as SupabaseClient<Database>,
+    dealId,
+    askedBy: team.userId,
+    questionId,
+    question: 'What was revenue?',
+    earlier: [],
+    ...question,
+  };
+}
+
+async function ask(
+  question: Partial<DealQuestion> = {},
+  progress: unknown[] = [],
+  mode?: AnswerMode,
+) {
   return answerWithDocuments(
-    ai,
-    {
-      client,
-      dealId,
-      askedBy: team.userId,
-      questionId,
-      question: 'What was revenue?',
-      earlier: [],
-      ...question,
-    },
+    await chatAi(),
+    dealQuestion(question),
     mode ?? dealQuestionMode({ dealName: 'Acme Plumbing', locale: 'de' }),
+    (step) => progress.push(step),
+  );
+}
+
+const lookUp = {
+  name: 'look_up',
+  description: 'Look a term up.',
+  inputSchema: { type: 'object', properties: {}, required: [] },
+};
+
+const citePage = {
+  name: 'cite_page',
+  description: 'Name the page that answers the question.',
+  inputSchema: {
+    type: 'object',
+    properties: { label: { type: 'string' } },
+    required: ['label'],
+  },
+};
+
+const citePageMode = {
+  system: 'Look the term up, then name the page.',
+  tools: [lookUp],
+  runTool: async () => ({
+    content: '[cim.pdf v1, p. 1-3]\nRevenue was 1.4 million.',
+    citations: [
+      { ...cimPage1, pageTo: 3, excerpt: 'Revenue was 1.4 million.' },
+    ],
+  }),
+  finish: {
+    tool: citePage,
+    accept: (
+      input: unknown,
+      cite: (label: string) => DocumentCitation | undefined,
+    ) => {
+      const { label } = input as { label: string };
+      const citation = cite(label);
+      return citation
+        ? { value: citation }
+        : { error: `${label} is not a page you read.` };
+    },
+  },
+};
+
+async function askToFinish(progress: unknown[] = []) {
+  return answerWithDocuments(
+    await chatAi(),
+    dealQuestion(),
+    citePageMode,
     (step) => progress.push(step),
   );
 }
@@ -311,6 +370,7 @@ const cimPage1 = {
   version: 1,
   pageFrom: 1,
   pageTo: 1,
+  fromOcr: false,
 };
 
 describe('answerWithDocuments (integration)', () => {
@@ -552,6 +612,33 @@ describe('answerWithDocuments (integration)', () => {
     });
   });
 
+  it('keeps a cited range read from a scan marked as from scan', async () => {
+    scripted(
+      toolTurn(['look_up', {}]),
+      textTurn('The lease is signed [cim.pdf v1, p. 2].'),
+    );
+
+    const outcome = await ask({}, [], {
+      system: 'Answer from the lookup only.',
+      tools: [
+        {
+          name: 'look_up',
+          description: 'Look a term up.',
+          inputSchema: { type: 'object', properties: {}, required: [] },
+        },
+      ],
+      runTool: async () => ({
+        content: '[cim.pdf v1, p. 1-3]\nThe lease is signed.',
+        citations: [{ ...cimPage1, pageTo: 3, fromOcr: true }],
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      status: 'answered',
+      citations: [{ ...cimPage1, pageFrom: 2, pageTo: 2, fromOcr: true }],
+    });
+  });
+
   it('runs at most five tool calls in one turn and tells the model to ask again for the rest', async () => {
     scripted(
       toolTurn(
@@ -774,6 +861,427 @@ describe('answerWithDocuments (integration)', () => {
           isError: true,
         },
       ],
+    });
+  });
+
+  describe('with a finish tool', () => {
+    const offeredOnlyFinish = (index: number) => sent(index).tools.length === 1;
+
+    it('offers the finish tool with the mode tools and ends with the value it accepts', async () => {
+      const progress: unknown[] = [];
+      scripted(
+        toolTurn(['look_up', {}]),
+        toolTurn(['cite_page', { label: 'cim.pdf v1, p. 2' }]),
+      );
+
+      const outcome = await askToFinish(progress);
+
+      expect(sent(0).tools.map(({ function: tool }) => tool.name)).toEqual([
+        'look_up',
+        'cite_page',
+      ]);
+      expect(provider.received).toHaveLength(2);
+      expect(progress).toEqual([
+        { tool: 'look_up', input: {} },
+        { tool: 'cite_page', input: { label: 'cim.pdf v1, p. 2' } },
+      ]);
+      expect(outcome).toEqual({
+        status: 'finished',
+        model: 'team-chat',
+        credits: 2 * STEP_CREDITS,
+        value: {
+          ...cimPage1,
+          pageFrom: 2,
+          pageTo: 2,
+          excerpt: 'Revenue was 1.4 million.',
+        },
+        steps: [
+          { tool: 'look_up', input: {}, isError: false },
+          {
+            tool: 'cite_page',
+            input: { label: 'cim.pdf v1, p. 2' },
+            isError: false,
+          },
+        ],
+      });
+    });
+
+    it('tells the model why the finish tool refused its arguments, including a label outside what it read, and lets it try again', async () => {
+      scripted(
+        toolTurn(['look_up', {}]),
+        toolTurn(['cite_page', { label: 'cim.pdf v1, p. 9' }]),
+        toolTurn(['cite_page', { label: 'cim.pdf v1, p. 3' }]),
+      );
+
+      const outcome = await askToFinish();
+
+      expect(sent(2).messages.at(-1)).toEqual({
+        role: 'tool',
+        tool_call_id: 'call-0',
+        content: 'cim.pdf v1, p. 9 is not a page you read.',
+      });
+      expect(outcome).toMatchObject({
+        status: 'finished',
+        value: { ...cimPage1, pageFrom: 3, pageTo: 3 },
+        steps: [
+          { tool: 'look_up', isError: false },
+          { tool: 'cite_page', isError: true },
+          { tool: 'cite_page', isError: false },
+        ],
+      });
+    });
+
+    it('runs every reading call of a turn before its finish calls, and the first accepted finish call wins', async () => {
+      scripted(
+        toolTurn(
+          ['cite_page', { label: 'cim.pdf v1, p. 2' }],
+          ['look_up', {}],
+          ['cite_page', { label: 'cim.pdf v1, p. 3' }],
+        ),
+      );
+
+      const outcome = await askToFinish();
+
+      expect(provider.received).toHaveLength(1);
+      expect(outcome).toMatchObject({
+        status: 'finished',
+        value: { ...cimPage1, pageFrom: 2, pageTo: 2 },
+        steps: [
+          { tool: 'look_up', isError: false },
+          {
+            tool: 'cite_page',
+            input: { label: 'cim.pdf v1, p. 2' },
+            isError: false,
+          },
+        ],
+      });
+    });
+
+    it('does not count finish calls toward the five calls of a turn', async () => {
+      scripted(
+        toolTurn(
+          ['look_up', {}],
+          ['look_up', {}],
+          ['look_up', {}],
+          ['look_up', {}],
+          ['look_up', {}],
+          ['look_up', {}],
+          ['cite_page', { label: 'cim.pdf v1, p. 1' }],
+        ),
+      );
+
+      const outcome = await askToFinish();
+
+      expect(outcome).toMatchObject({
+        status: 'finished',
+        value: { ...cimPage1, pageFrom: 1, pageTo: 1 },
+      });
+      expect(outcome.steps.map(({ tool }) => tool)).toEqual([
+        ...Array(5).fill('look_up'),
+        'cite_page',
+      ]);
+    });
+
+    it('answers every refused finish call of a turn with its own error and lets the model try again', async () => {
+      scripted(
+        toolTurn(
+          ['look_up', {}],
+          ['cite_page', { label: 'cim.pdf v1, p. 9' }],
+          ['cite_page', { label: 'cim.pdf v1, p. 8' }],
+        ),
+        toolTurn(['cite_page', { label: 'cim.pdf v1, p. 1' }]),
+      );
+
+      const outcome = await askToFinish();
+
+      expect(sent(1).messages.slice(-2)).toEqual([
+        {
+          role: 'tool',
+          tool_call_id: 'call-1',
+          content: 'cim.pdf v1, p. 9 is not a page you read.',
+        },
+        {
+          role: 'tool',
+          tool_call_id: 'call-2',
+          content: 'cim.pdf v1, p. 8 is not a page you read.',
+        },
+      ]);
+      expect(outcome).toMatchObject({
+        status: 'finished',
+        value: { ...cimPage1, pageFrom: 1, pageTo: 1 },
+      });
+    });
+
+    it('after eight tool rounds offers only the finish tool, without forcing it, for one last call', async () => {
+      script = (_call, index) =>
+        offeredOnlyFinish(index)
+          ? toolTurn(['cite_page', { label: 'cim.pdf v1, p. 1' }])
+          : toolTurn(['look_up', {}]);
+
+      const outcome = await askToFinish();
+
+      expect(provider.received).toHaveLength(9);
+      expect(sent(7).tools.map(({ function: tool }) => tool.name)).toEqual([
+        'look_up',
+        'cite_page',
+      ]);
+      expect(sent(8).tools.map(({ function: tool }) => tool.name)).toEqual([
+        'cite_page',
+      ]);
+      expect(
+        provider.received.map((_, index) => sent(index).tool_choice),
+      ).toEqual(Array(9).fill(undefined));
+      expect(outcome).toMatchObject({
+        status: 'finished',
+        value: { ...cimPage1, pageFrom: 1, pageTo: 1 },
+        credits: 9 * STEP_CREDITS,
+      });
+    });
+
+    it('refuses a reading tool called on the last round, where only the finish tool is offered, without running it', async () => {
+      script = (_call, index) =>
+        offeredOnlyFinish(index)
+          ? toolTurn(
+              ['look_up', {}],
+              ['cite_page', { label: 'cim.pdf v1, p. 1' }],
+            )
+          : toolTurn(['cite_page', { label: 'cim.pdf v1, p. 1' }]);
+
+      const outcome = await askToFinish();
+
+      expect(provider.received).toHaveLength(9);
+      expect(outcome).toMatchObject({ status: 'ran_out' });
+      expect(outcome.steps.slice(-2)).toEqual([
+        { tool: 'look_up', input: {}, isError: true },
+        {
+          tool: 'cite_page',
+          input: { label: 'cim.pdf v1, p. 1' },
+          isError: true,
+        },
+      ]);
+    });
+
+    it('runs out when the rounds are used up without an accepted submit', async () => {
+      script = () => toolTurn(['cite_page', { label: 'cim.pdf v1, p. 1' }]);
+
+      const outcome = await askToFinish();
+
+      expect(provider.received).toHaveLength(9);
+      expect(outcome).toMatchObject({
+        status: 'ran_out',
+        credits: 9 * STEP_CREDITS,
+      });
+      expect(outcome.steps).toHaveLength(9);
+    });
+
+    it('ends without a submit when the model replies with text instead', async () => {
+      scripted(textTurn('The CIM says revenue was 1.4 million.'));
+
+      const outcome = await askToFinish();
+
+      expect(provider.received).toHaveLength(1);
+      expect(outcome).toEqual({
+        status: 'no_submit',
+        model: 'team-chat',
+        credits: STEP_CREDITS,
+        steps: [],
+      });
+    });
+
+    it('ends without a submit when the model replies with text on the last round', async () => {
+      script = (_call, index) =>
+        offeredOnlyFinish(index)
+          ? textTurn('The CIM says revenue was 1.4 million.')
+          : toolTurn(['look_up', {}]);
+
+      const outcome = await askToFinish();
+
+      expect(provider.received).toHaveLength(9);
+      expect(outcome).toMatchObject({
+        status: 'no_submit',
+        credits: 9 * STEP_CREDITS,
+      });
+      expect(outcome.steps).toHaveLength(8);
+    });
+
+    it('ends without a submit when a text reply is cut off at the token limit', async () => {
+      scripted(textTurn('The CIM says revenue was', 'length'));
+
+      const outcome = await askToFinish();
+
+      expect(outcome).toMatchObject({ status: 'no_submit', steps: [] });
+    });
+
+    it('stops with the steps so far when credits run out', async () => {
+      const { data: used } = await team.admin
+        .rpc('ai_credits_used_this_month', { p_account_id: team.accountId })
+        .throwOnError();
+      await setCreditCap(Math.ceil(used as number) + 2);
+      scripted(
+        toolTurn([
+          'read_document_pages',
+          { document_id: report, from_page: 1, to_page: 3 },
+        ]),
+        toolTurn(['cite_page', { label: 'report.pdf v1, p. 1' }]),
+      );
+
+      const outcome = await answerWithDocuments(
+        await chatAi(),
+        dealQuestion(),
+        { ...citePageMode, tools: documentTools, runTool: runDocumentTool },
+        () => {},
+      ).finally(() => setCreditCap(10000));
+
+      expect(outcome).toEqual({
+        status: 'credits_ran_out',
+        model: 'team-chat',
+        credits: STEP_CREDITS,
+        steps: [
+          {
+            tool: 'read_document_pages',
+            input: { document_id: report, from_page: 1, to_page: 3 },
+            isError: false,
+          },
+        ],
+      });
+      expect(provider.received).toHaveLength(1);
+    });
+
+    it('fails as read-only once the team is locked mid run', async () => {
+      scripted(
+        toolTurn(['look_up', {}]),
+        toolTurn(['cite_page', { label: 'cim.pdf v1, p. 1' }]),
+      );
+      const { data: config } = await team.admin
+        .from('config')
+        .select('enable_team_account_billing')
+        .single()
+        .throwOnError();
+      const firstReply = holdNextReply();
+
+      const asking = askToFinish();
+      const outcome = await (async () => {
+        await firstReply.arrived;
+        await team.admin
+          .rpc('set_team_account_billing', { enabled: true })
+          .throwOnError();
+        await setLocked(true);
+        firstReply.release();
+        return await asking;
+      })().finally(async () => {
+        firstReply.release();
+        await setLocked(false);
+        await team.admin
+          .rpc('set_team_account_billing', {
+            enabled: config.enable_team_account_billing,
+          })
+          .throwOnError();
+      });
+
+      expect(outcome).toEqual({
+        status: 'failed',
+        reason: 'Team is read-only',
+        model: 'team-chat',
+        credits: STEP_CREDITS,
+        steps: [{ tool: 'look_up', input: {}, isError: false }],
+      });
+      expect(provider.received).toHaveLength(1);
+    });
+
+    it('fails with the generic reason when the finish tool throws', async () => {
+      scripted(toolTurn(['cite_page', { label: 'cim.pdf v1, p. 1' }]));
+
+      const outcome = await answerWithDocuments(
+        await chatAi(),
+        dealQuestion(),
+        {
+          ...citePageMode,
+          finish: {
+            tool: citePage,
+            accept: () => {
+              throw new Error('accept is broken');
+            },
+          },
+        },
+        () => {},
+      );
+
+      expect(outcome).toEqual({
+        status: 'failed',
+        reason: 'The question could not be answered',
+        model: 'team-chat',
+        credits: STEP_CREDITS,
+        steps: [
+          {
+            tool: 'cite_page',
+            input: { label: 'cim.pdf v1, p. 1' },
+            isError: true,
+          },
+        ],
+      });
+    });
+  });
+
+  it('checks a seller answer through submit_check, sending back a label it never read', async () => {
+    const customerList = {
+      claim: 'Customers are listed in Schedule 4.13',
+      verdict: 'supported',
+      labels: ['cim.pdf v1, p. 4-5'],
+    };
+    const revenue = {
+      claim: 'Revenue was 2 million',
+      verdict: 'contradicted',
+      labels: ['cim.pdf v1, p. 1'],
+    };
+    const followUp = 'The CIM says revenue was 1.4 million. Which is right?';
+    scripted(
+      toolTurn(['search_documents', { query: 'revenue' }]),
+      toolTurn(['submit_check', { claims: [revenue, customerList], followUp }]),
+      toolTurn(['submit_check', { claims: [revenue], followUp }]),
+    );
+    const { mode, request } = answerCheck({
+      dealName: 'Acme Plumbing',
+      locale: 'en',
+      thread: [
+        { side: 'buyer', text: 'What was revenue?' },
+        { side: 'seller', text: 'Revenue was 2 million.' },
+      ],
+      attachments: [],
+      skippedAttachments: 0,
+    });
+
+    const outcome = await answerWithDocuments(
+      await chatAi(),
+      dealQuestion({ question: request }),
+      mode,
+      () => {},
+    );
+
+    expect(sent(0).messages.at(-1)!.content).toContain(
+      'Revenue was 2 million.',
+    );
+    expect(sent(2).messages.at(-1)).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('cim.pdf v1, p. 4-5'),
+    });
+    expect(outcome).toMatchObject({
+      status: 'finished',
+      value: {
+        overall: 'contradicted',
+        findings: [
+          {
+            claim: 'Revenue was 2 million',
+            verdict: 'contradicted',
+            citations: [
+              {
+                ...cimPage1,
+                excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
+              },
+            ],
+          },
+        ],
+        followUp,
+      },
     });
   });
 });

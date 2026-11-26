@@ -144,6 +144,7 @@ function finished(overrides: Partial<FinishedQuestion> = {}): FinishedQuestion {
         documentId: 'doc-cim',
         documentName: 'cim.pdf',
         version: 2,
+        fromOcr: false,
         pageFrom: 4,
         pageTo: 4,
       },
@@ -223,6 +224,7 @@ describe('DealAskPanel', () => {
       documentId: 'doc-cim',
       documentName: 'cim.pdf',
       version: 2,
+      fromOcr: false,
     };
     render({
       readable: { 'doc-cim': 2, 'doc-model': 1 },
@@ -236,6 +238,7 @@ describe('DealAskPanel', () => {
               documentId: 'doc-model',
               documentName: 'model.xlsx',
               version: 1,
+              fromOcr: false,
               sheet: 'Sheet1',
               cellRange: 'A1:C9',
             },
@@ -278,6 +281,7 @@ describe('DealAskPanel', () => {
               documentId: 'doc-cim',
               documentName: 'cim.pdf',
               version: 2,
+              fromOcr: false,
               pageFrom: 4,
               pageTo: 5,
             },

@@ -18,6 +18,7 @@ const PAGES: DocumentCitation = {
   documentId: 'doc-cim',
   documentName: 'cim.pdf',
   version: 2,
+  fromOcr: false,
   pageFrom: 4,
   pageTo: 5,
 };
@@ -28,6 +29,7 @@ const CELLS: DocumentCitation = {
   documentId: 'doc-model',
   documentName: 'model.xlsx',
   version: 1,
+  fromOcr: false,
   sheet: 'Sheet1',
   cellRange: 'A1:C9',
 };

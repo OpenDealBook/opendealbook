@@ -14,6 +14,7 @@ import {
   type CitedDocument,
   type DocumentCitation,
 } from './citations';
+import { parseStoredCitations } from './stored-citations';
 
 type Client = SupabaseClient<Database>;
 
@@ -37,19 +38,19 @@ const stringArg = (description: string) =>
 const integerArg = (noun: string, description: string) =>
   z.int({ error: noun }).describe(description);
 
-function argumentErrorMessage({ issues }: z.ZodError): string {
+export function argumentErrorMessage({ issues }: z.ZodError): string {
   const issue =
     issues.find(({ code }) => code === 'unrecognized_keys') ?? issues[0]!;
   if (issue.code === 'unrecognized_keys') {
     return `Unknown argument "${issue.keys[0]}".`;
   }
-  const [name] = issue.path;
-  if (name === undefined) {
+  if (issue.path.length === 0) {
     return 'Arguments must be a JSON object.';
   }
+  const name = issue.path.map(String).join('.');
   return issue.input === undefined
-    ? `Missing argument "${String(name)}".`
-    : `Argument "${String(name)}" must be ${issue.message}.`;
+    ? `Missing argument "${name}".`
+    : `Argument "${name}" must be ${issue.message}.`;
 }
 
 interface DocumentTool extends ToolDefinition {
@@ -57,6 +58,25 @@ interface DocumentTool extends ToolDefinition {
     context: DocumentToolContext,
     input: unknown,
   ) => Promise<DocumentToolResult>;
+}
+
+export function providerSchema(
+  args: z.ZodObject,
+): ToolDefinition['inputSchema'] {
+  const inputSchema = z.toJSONSchema(args, {
+    override: ({ jsonSchema }) => {
+      delete jsonSchema.format;
+      delete jsonSchema.pattern;
+      delete jsonSchema.minimum;
+      delete jsonSchema.maximum;
+      delete jsonSchema.minItems;
+      delete jsonSchema.maxItems;
+      delete jsonSchema.minLength;
+      delete jsonSchema.maxLength;
+    },
+  });
+  delete inputSchema.$schema;
+  return { ...inputSchema, required: inputSchema.required ?? [] };
 }
 
 function documentTool<A extends z.ZodObject>(tool: {
@@ -68,19 +88,10 @@ function documentTool<A extends z.ZodObject>(tool: {
     args: z.infer<A>,
   ) => Promise<DocumentToolResult>;
 }): DocumentTool {
-  const inputSchema = z.toJSONSchema(tool.args, {
-    override: ({ jsonSchema }) => {
-      delete jsonSchema.format;
-      delete jsonSchema.pattern;
-      delete jsonSchema.minimum;
-      delete jsonSchema.maximum;
-    },
-  });
-  delete inputSchema.$schema;
   return {
     name: tool.name,
     description: tool.description,
-    inputSchema: { ...inputSchema, required: inputSchema.required ?? [] },
+    inputSchema: providerSchema(tool.args),
     execute: (context, input) => {
       const parsed = tool.args.safeParse(input, { reportInput: true });
       if (!parsed.success) {
@@ -112,15 +123,14 @@ function excerptOf(text: string): string {
 interface Passage {
   citation: DocumentCitation;
   text: string;
-  fromOcr: boolean;
 }
 
 function combine(
   passages: Passage[],
   cutOff: string | null,
 ): DocumentToolResult {
-  const texts = passages.map(({ citation, text, fromOcr }) => {
-    const mark = fromOcr ? ` ${OCR_MARK}` : '';
+  const texts = passages.map(({ citation, text }) => {
+    const mark = citation.fromOcr ? ` ${OCR_MARK}` : '';
     return `[${citationLabel(citation)}]${mark}\n${text}`;
   });
   return {
@@ -179,19 +189,27 @@ const TOOLS: DocumentTool[] = [
       }
       return combine(
         data.map((hit) => {
-          const document = {
+          const citedPassage = {
             documentId: hit.dr_document_id,
             documentName: hit.document_name,
             version: hit.document_version,
             excerpt: excerptOf(hit.snippet.replaceAll(HEADLINE_MARK, '')),
+            fromOcr: hit.from_ocr,
           };
           return {
             citation:
               hit.sheet === null
-                ? { ...document, pageFrom: hit.page_from, pageTo: hit.page_to }
-                : { ...document, sheet: hit.sheet, cellRange: hit.cell_range },
+                ? {
+                    ...citedPassage,
+                    pageFrom: hit.page_from,
+                    pageTo: hit.page_to,
+                  }
+                : {
+                    ...citedPassage,
+                    sheet: hit.sheet,
+                    cellRange: hit.cell_range,
+                  },
             text: `document ${hit.dr_document_id}\n${hit.snippet}`,
-            fromOcr: hit.from_ocr,
           };
         }),
         null,
@@ -215,10 +233,17 @@ const TOOLS: DocumentTool[] = [
       if (data.length === 0) {
         return { content: 'No earlier answers.', citations: [] };
       }
-      const answers = data.map(
-        (hit) =>
-          `Question (asked ${hit.asked_at.slice(0, 10)}): ${hit.question}\nAnswer: ${hit.answer}`,
-      );
+      const answers = data.map((hit) => {
+        const ocrLabels = parseStoredCitations(hit.citations, hit.question_id)
+          .filter((citation) => citation.fromOcr)
+          .map(citationLabel);
+        const answer = ocrLabels.reduce(
+          (text, label) =>
+            text.replaceAll(`[${label}]`, `[${label}] ${OCR_MARK}`),
+          hit.answer,
+        );
+        return `Question (asked ${hit.asked_at.slice(0, 10)}): ${hit.question}\nAnswer: ${answer}`;
+      });
       return {
         content: [...answers, PAST_ANSWERS_ARE_NOT_SOURCES].join('\n\n'),
         citations: [],
@@ -255,9 +280,9 @@ const TOOLS: DocumentTool[] = [
           pageFrom: row.page_from,
           pageTo: row.page_to,
           excerpt: excerptOf(row.text),
+          fromOcr: row.from_ocr,
         },
         text: row.text,
-        fromOcr: row.from_ocr,
       }));
       const cutOff = first.truncated
         ? `${CUT_OFF} Read from page ${first.next_page} to continue.`
@@ -304,9 +329,9 @@ const TOOLS: DocumentTool[] = [
           sheet: args.sheet,
           cellRange: row.cell_range,
           excerpt: excerptOf(row.text),
+          fromOcr: row.from_ocr,
         },
         text: row.text,
-        fromOcr: row.from_ocr,
       }));
       const cutOff = first.truncated
         ? `${CUT_OFF} Read a smaller range to continue.`

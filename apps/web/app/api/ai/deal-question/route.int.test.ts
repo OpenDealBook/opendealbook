@@ -293,6 +293,7 @@ describe('POST /api/ai/deal-question', () => {
           version: 1,
           pageFrom: 1,
           pageTo: 1,
+          fromOcr: false,
         },
       ],
       steps: [

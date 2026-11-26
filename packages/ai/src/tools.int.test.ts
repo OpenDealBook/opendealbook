@@ -140,6 +140,7 @@ async function addAnswer(
   question: string,
   status: 'answered' | 'failed',
   answer: string | null,
+  citations: unknown[] = [],
 ) {
   const { data: thread } = await admin
     .from('deal_ai_thread')
@@ -155,6 +156,7 @@ async function addAnswer(
       question,
       answer,
       status,
+      citations,
       finished_at: new Date().toISOString(),
     })
     .throwOnError();
@@ -174,6 +176,55 @@ beforeAll(async () => {
     'Who signs the warranty?',
     'failed',
     null,
+  );
+  await addAnswer(
+    owner.admin,
+    dealId,
+    'When does the lease end?',
+    'answered',
+    'The lease ends in 2030 [scan.pdf v1, p. 1] as the CIM says [cim.pdf v2, p. 1].',
+    [
+      {
+        documentId: scan,
+        documentName: 'scan.pdf',
+        version: 1,
+        pageFrom: 1,
+        pageTo: 1,
+        fromOcr: true,
+      },
+      {
+        documentId: cimV2,
+        documentName: 'cim.pdf',
+        version: 2,
+        pageFrom: 1,
+        pageTo: 1,
+        fromOcr: false,
+      },
+    ],
+  );
+  await addAnswer(
+    owner.admin,
+    dealId,
+    'When is the roof due for repair?',
+    'answered',
+    'The roof is due in 2027 [scan.pdf v1, p. 1].',
+    [
+      {
+        documentId: scan,
+        documentName: 'scan.pdf',
+        version: 1,
+        pageFrom: 1,
+        pageTo: 1,
+        fromOcr: true,
+      },
+      {
+        documentId: cimV2,
+        documentName: 'cim.pdf',
+        version: 2,
+        pageFrom: 1,
+        pageTo: 1,
+      },
+    ],
   );
   await addAnswer(
     owner.admin,
@@ -235,6 +286,7 @@ describe('runDocumentTool (integration)', () => {
         pageFrom: 1,
         pageTo: 1,
         excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
+        fromOcr: false,
       },
     ]);
   });
@@ -285,6 +337,7 @@ describe('runDocumentTool (integration)', () => {
         pageFrom: 1,
         pageTo: 1,
         excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
+        fromOcr: false,
       },
       {
         documentId: cimV2,
@@ -293,11 +346,12 @@ describe('runDocumentTool (integration)', () => {
         pageFrom: 2,
         pageTo: 3,
         excerpt: 'Customer list, see Schedule 4.13.',
+        fromOcr: false,
       },
     ]);
   });
 
-  it('marks OCR text as lower confidence', async () => {
+  it('marks OCR text as lower confidence and cites it as OCR', async () => {
     const result = await runDocumentTool(
       asUser(owner),
       call('read_document_pages', {
@@ -309,6 +363,9 @@ describe('runDocumentTool (integration)', () => {
 
     expect(result.content).toMatch(/OCR/);
     expect(result.content).toContain('Signed lease for the warehouse.');
+    expect(result.citations).toEqual([
+      expect.objectContaining({ pageFrom: 1, pageTo: 1, fromOcr: true }),
+    ]);
   });
 
   it('tells the model a read was cut off and which page to read next', async () => {
@@ -367,6 +424,7 @@ describe('runDocumentTool (integration)', () => {
         sheet: 'P&L',
         cellRange: 'A1:F40',
         excerpt: 'P&L rows 1 to 40',
+        fromOcr: false,
       },
     ]);
   });
@@ -417,7 +475,7 @@ describe('runDocumentTool (integration)', () => {
     expect(result.content).toContain('Balance sheet');
   });
 
-  it('marks OCR search snippets as lower confidence and leaves others unmarked', async () => {
+  it('marks OCR search snippets as lower confidence and cites them as OCR, and leaves others unmarked', async () => {
     const lease = await runDocumentTool(
       asUser(owner),
       call('search_documents', { query: 'lease' }),
@@ -431,6 +489,36 @@ describe('runDocumentTool (integration)', () => {
       '[scan.pdf v1, p. 1] (OCR text, lower confidence)',
     );
     expect(revenue.content).not.toContain('OCR');
+    expect(lease.citations).toEqual([
+      expect.objectContaining({ documentId: scan, fromOcr: true }),
+    ]);
+    expect(revenue.citations).toEqual([
+      expect.objectContaining({ documentId: cimV2, fromOcr: false }),
+    ]);
+  });
+
+  it('marks a past answer label whose stored citation came from OCR, and leaves others unmarked', async () => {
+    const result = await runDocumentTool(
+      asUser(owner),
+      call('search_past_answers', { query: 'lease' }),
+    );
+
+    expect(result.content).toContain(
+      'The lease ends in 2030 [scan.pdf v1, p. 1] (OCR text, lower confidence) as the CIM says [cim.pdf v2, p. 1].',
+    );
+    expect(result.citations).toEqual([]);
+  });
+
+  it('skips a stored past answer citation that does not parse and still marks the rest', async () => {
+    const result = await runDocumentTool(
+      asUser(owner),
+      call('search_past_answers', { query: 'roof' }),
+    );
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content).toContain(
+      'The roof is due in 2027 [scan.pdf v1, p. 1] (OCR text, lower confidence).',
+    );
   });
 
   it('finds answered questions on this deal, not failed ones or other deals, and makes none of them citable', async () => {

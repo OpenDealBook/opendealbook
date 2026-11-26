@@ -55,6 +55,7 @@ const CIM: DocumentCitation = {
   documentId: 'doc-cim',
   documentName: 'cim.pdf',
   version: 2,
+  fromOcr: false,
   pageFrom: 4,
   pageTo: 5,
 };
@@ -62,6 +63,7 @@ const MODEL: DocumentCitation = {
   documentId: 'doc-model',
   documentName: 'model.xlsx',
   version: 1,
+  fromOcr: false,
   sheet: 'P&L',
   cellRange: 'B2:B9',
 };

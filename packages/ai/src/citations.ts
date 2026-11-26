@@ -4,7 +4,10 @@ export interface CitedDocument {
   version: number;
 }
 
-export type DocumentCitation = CitedDocument & { excerpt?: string } & (
+export type DocumentCitation = CitedDocument & {
+  excerpt?: string;
+  fromOcr: boolean;
+} & (
     | { pageFrom: number; pageTo: number }
     | { sheet: string; cellRange: string }
   );
