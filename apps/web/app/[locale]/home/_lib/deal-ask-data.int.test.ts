@@ -396,6 +396,32 @@ describe('loadDealAsk', () => {
     ]);
   });
 
+  it('drops a stored part that does not parse and still loads its question, and loads an answer saved without parts with none', async () => {
+    const threadId = await thread(acme, [
+      ['Show revenue by year', 1],
+      ['And before parts existed?', 0],
+    ]);
+    await admin
+      .from('deal_ai_question')
+      .update({
+        parts: [{ id: 'part-1', kind: 'chart', v: 1, title: 'Revenue chart' }],
+      })
+      .eq('thread_id', threadId)
+      .eq('question', 'Show revenue by year')
+      .throwOnError();
+
+    const loaded = await loadDealAsk(acme, teamId);
+
+    const asked = loaded!.questions.filter(
+      (candidate) => candidate.thread_id === threadId,
+    );
+    expect(asked.map(({ question, parts }) => [question, parts])).toEqual([
+      ['Show revenue by year', []],
+      ['And before parts existed?', []],
+    ]);
+    expect(JSON.stringify(loaded)).not.toContain('Revenue chart');
+  });
+
   it("loads nothing for a deal that is not a deal id, not this team's, or not readable", async () => {
     expect(await loadDealAsk('not-a-uuid', teamId)).toBeNull();
     expect(await loadDealAsk(elsewhere, teamId)).toBeNull();

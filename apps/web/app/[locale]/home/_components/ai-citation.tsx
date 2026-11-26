@@ -33,6 +33,23 @@ export const AnswerCitations = createContext<{
   readable: Record<string, number>;
 } | null>(null);
 
+function FromScan({ citation }: { citation: DocumentCitation }) {
+  const t = useTranslations('dealAsk.citation');
+
+  return citation.fromOcr ? (
+    <>
+      <span className={'sr-only'}>{', '}</span>
+      <span
+        className={
+          'ml-1.5 rounded-sm border border-current/30 px-1 text-[0.625rem] leading-4 font-medium whitespace-nowrap uppercase opacity-80'
+        }
+      >
+        {t('fromScan')}
+      </span>
+    </>
+  ) : null;
+}
+
 function CitationPreview({ citation }: { citation: DocumentCitation }) {
   const t = useTranslations('dealAsk.citation');
 
@@ -48,6 +65,7 @@ function CitationPreview({ citation }: { citation: DocumentCitation }) {
             : citation.pageFrom === citation.pageTo
               ? t('page', { page: citation.pageFrom })
               : t('pages', { from: citation.pageFrom, to: citation.pageTo })}
+          <FromScan citation={citation} />
         </p>
       </InlineCitationSource>
       {citation.excerpt ? (
@@ -85,6 +103,7 @@ export function Citation({
         {rangeOnly
           ? t('rangeUnavailable', { range: citationRange(citation) })
           : t('citationUnavailable', { name: citation.documentName })}
+        <FromScan citation={citation} />
       </Badge>
     );
   }
@@ -108,6 +127,7 @@ export function Citation({
               }
             >
               {rangeOnly ? citationRange(citation) : citationLabel(citation)}
+              <FromScan citation={citation} />
             </button>
           </Badge>
         </HoverCardTrigger>

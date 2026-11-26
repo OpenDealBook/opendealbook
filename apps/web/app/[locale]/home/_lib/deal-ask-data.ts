@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
 import type { DocumentCitation } from '@odb/ai/citations';
+import { answerPart, type AnswerPart } from '@odb/ai/parts';
 import { dealAiScope } from '@odb/ai/scope';
 import { parseStoredCitations } from '@odb/ai/server';
 import { dealDisplayName } from '@odb/deals/shared';
+import { getLogger } from '@odb/shared/logger';
 import { getSupabaseServerClient } from '@odb/supabase/server';
 import { resolveScopedTeamAi, teamAiScope } from '@odb/workflows/team-ai';
 
@@ -33,6 +35,23 @@ export type AiThreadCursor = z.infer<typeof aiThreadCursor>;
 
 const THREAD_PAGE = 50;
 
+function parseStoredParts(stored: unknown, questionId: string): AnswerPart[] {
+  return z
+    .array(z.unknown())
+    .parse(stored)
+    .flatMap((entry) => {
+      const parsed = answerPart.safeParse(entry);
+      if (!parsed.success) {
+        getLogger().warn(
+          { questionId, err: parsed.error },
+          'Dropped a stored AI answer part that does not parse',
+        );
+        return [];
+      }
+      return [parsed.data];
+    });
+}
+
 export async function loadDealAsk(dealId: string, teamId: string) {
   if (!z.uuid().safeParse(dealId).success) {
     return null;
@@ -55,7 +74,7 @@ export async function loadDealAsk(dealId: string, teamId: string) {
     client
       .from('deal_ai_question')
       .select(
-        'id, thread_id, asked_by, question, answer, status, citations, created_at, finished_at',
+        'id, thread_id, asked_by, question, answer, status, citations, parts, created_at, finished_at',
       )
       .eq('deal_id', dealId)
       .order('created_at')
@@ -91,6 +110,7 @@ export async function loadDealAsk(dealId: string, teamId: string) {
             ? { ...citation, excerpt }
             : citation,
       ),
+      parts: parseStoredParts(question.parts, question.id),
     })),
     readable,
     connected: ai !== null,

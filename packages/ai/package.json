@@ -14,7 +14,8 @@
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
     "./scope": "./src/scope.ts",
-    "./citations": "./src/citations.ts"
+    "./citations": "./src/citations.ts",
+    "./parts": "./src/parts.ts"
   },
   "scripts": {
     "clean": "git clean -xdf .turbo node_modules",

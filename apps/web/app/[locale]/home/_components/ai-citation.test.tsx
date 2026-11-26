@@ -256,6 +256,39 @@ describe('AiAnswer', () => {
     expect(document.body.querySelector('blockquote')).toBeNull();
   });
 
+  it('marks a citation whose text came from a scan, on its chip and in its preview', async () => {
+    vi.useFakeTimers();
+    render(
+      'Scanned [cim.pdf v2, p. 4-5] and typed [model.xlsx v1, Sheet1!A1:C9].',
+      [{ ...PAGES, fromOcr: true }, CELLS],
+      { 'doc-cim': 2, 'doc-model': 1 },
+    );
+
+    expect(buttons().map((chip) => chip.textContent)).toEqual([
+      'cim.pdf v2, p. 4-5, From scan',
+      'model.xlsx v1, Sheet1!A1:C9',
+    ]);
+
+    await act(async () => {
+      buttons()[0]!.dispatchEvent(
+        new MouseEvent('pointerover', { bubbles: true }),
+      );
+      await vi.runAllTimersAsync();
+    });
+    vi.useRealTimers();
+
+    const preview = document.body.querySelector(
+      '[data-slot="hover-card-content"]',
+    );
+    expect(preview?.textContent).toContain('Pages 4 to 5, From scan');
+  });
+
+  it('marks an unavailable citation whose text came from a scan', () => {
+    render('Gone [cim.pdf v2, p. 4-5].', [{ ...PAGES, fromOcr: true }], {});
+
+    expect(container.textContent).toBe('Gone cim.pdf, unavailable, From scan.');
+  });
+
   it('shows a citation tag the model wrote itself as text, not as a badge', () => {
     render('Trust me <citation index="0"></citation>.', [PAGES], {
       'doc-cim': 2,

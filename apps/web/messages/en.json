@@ -94,7 +94,8 @@
       "version": "Version {version}",
       "page": "Page {page}",
       "pages": "Pages {from} to {to}",
-      "cells": "{sheet}, cells {range}"
+      "cells": "{sheet}, cells {range}",
+      "fromScan": "From scan"
     },
     "scrollToLatest": "Scroll to the latest answer",
     "connectTitle": "Connect AI",

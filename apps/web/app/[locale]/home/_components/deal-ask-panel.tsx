@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 
 import type { DocumentCitation } from '@odb/ai/citations';
+import type { AnswerPart } from '@odb/ai/parts';
 import {
   Conversation,
   ConversationContent,
@@ -45,6 +46,7 @@ export interface AskedQuestion {
   answer: string | null;
   status: 'running' | 'answered' | 'credits_ran_out' | 'failed';
   citations: DocumentCitation[];
+  parts: AnswerPart[];
   created_at: string;
   finished_at: string | null;
 }

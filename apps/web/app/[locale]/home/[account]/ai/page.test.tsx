@@ -38,6 +38,7 @@ function asked(
     answer: `Answer to ${question}`,
     status: 'answered',
     citations: [],
+    parts: [],
     created_at: createdAt,
     finished_at: createdAt,
   };
@@ -517,6 +518,7 @@ describe('TeamAiPage', () => {
         answer: 'Yes, with consent.',
         status: 'answered',
         citations: [],
+        parts: [],
         created_at: NOW,
         finished_at: NOW,
         credits_used: 1,

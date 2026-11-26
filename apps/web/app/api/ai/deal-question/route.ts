@@ -29,7 +29,7 @@ export const maxDuration = 300;
 const LONGEST_QUESTION = 4000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DONE_COLUMNS =
-  'id, thread_id, question, answer, status, citations, credits_used, created_at, finished_at';
+  'id, thread_id, question, answer, status, citations, parts, credits_used, created_at, finished_at';
 const NOT_SAVED = 'The answer could not be saved';
 const ESCAPED_NUL = /(?<=(?:^|[^\\])(?:\\\\)*)\\u0000/g;
 

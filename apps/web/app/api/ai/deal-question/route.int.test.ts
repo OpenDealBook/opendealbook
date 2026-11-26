@@ -276,6 +276,7 @@ describe('POST /api/ai/deal-question', () => {
       answer: saved.answer,
       status: saved.status,
       citations: saved.citations,
+      parts: saved.parts,
       credits_used: saved.credits_used,
       created_at: saved.created_at,
       finished_at: saved.finished_at,
@@ -305,6 +306,7 @@ describe('POST /api/ai/deal-question', () => {
       ],
       model: 'team-chat',
       credits_used: 2 * ((12 * 2 + 5 * 4) / 1e4),
+      parts: [],
     });
     expect(saved.finished_at).not.toBeNull();
     const { data: thread } = await team.admin
