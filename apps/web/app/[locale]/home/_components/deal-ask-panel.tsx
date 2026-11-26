@@ -80,6 +80,7 @@ const ERRORS: Record<DealQuestionErrorCode, string> = {
   already_running: 'errors.alreadyRunning',
   thread_full: 'threadFull',
   save_failed: 'errors.notSaved',
+  stream_failed: 'errors.unknown',
 };
 
 async function* questionEvents(

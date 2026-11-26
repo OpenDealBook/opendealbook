@@ -307,6 +307,8 @@ describe('a metered conversation step', () => {
   };
   let provider: Awaited<ReturnType<typeof fakeAiProvider>>;
   let questionId: string;
+  let draftId: string;
+  let checkId: string;
 
   beforeAll(async () => {
     provider = await fakeAiProvider({
@@ -346,6 +348,67 @@ describe('a metered conversation step', () => {
       .single()
       .throwOnError();
     questionId = question.id;
+
+    const { data: folder } = await team.admin
+      .from('dr_folder')
+      .insert({ account_id: team.accountId, deal_id: dealId, name: 'Lender' })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: lenderRoom } = await team.admin
+      .from('lender_room')
+      .insert({
+        account_id: team.accountId,
+        deal_id: dealId,
+        name: 'Lender',
+        private_folder_id: folder.id,
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: ask } = await team.admin
+      .from('lender_ask')
+      .insert({
+        room_id: lenderRoom.id,
+        account_id: team.accountId,
+        kind: 'ask',
+        title: 'Covenants?',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: draft } = await team.user
+      .rpc('start_lender_ask_ai_draft', { p_ask_id: ask.id })
+      .throwOnError();
+    draftId = draft;
+
+    const { data: sellerRoom } = await team.user
+      .rpc('ensure_seller_room', { deal_id: dealId })
+      .throwOnError();
+    const { data: sellerQuestion } = await team.admin
+      .from('seller_room_question')
+      .insert({
+        room_id: sellerRoom,
+        account_id: team.accountId,
+        title: 'Revenue?',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: answer } = await team.admin
+      .from('seller_room_question_message')
+      .insert({
+        question_id: sellerQuestion.id,
+        side: 'seller',
+        body: 'Revenue was 1.4 million.',
+      })
+      .select('id')
+      .single()
+      .throwOnError();
+    const { data: check } = await team.user
+      .rpc('start_seller_answer_check', { p_message_id: answer.id })
+      .throwOnError();
+    checkId = check;
     process.env.ODB_ALLOW_PRIVATE_AI_URL = '1';
     process.env.ODB_STACK = 'local';
   });
@@ -361,7 +424,11 @@ describe('a metered conversation step', () => {
 
     const step = await converseMetered(
       ai,
-      { dealId, askedBy: team.userId, questionId },
+      {
+        dealId,
+        askedBy: team.userId,
+        subject: { kind: 'question', id: questionId },
+      },
       conversation,
     );
 
@@ -376,7 +443,9 @@ describe('a metered conversation step', () => {
     });
     const { data: row } = await team.admin
       .from('ai_call_log')
-      .select('deal_id, created_by, question_id, credits, settled_at')
+      .select(
+        'deal_id, created_by, question_id, lender_ask_ai_draft_id, seller_answer_check_id, credits, settled_at',
+      )
       .eq('account_id', team.accountId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -386,10 +455,50 @@ describe('a metered conversation step', () => {
       deal_id: dealId,
       created_by: team.userId,
       question_id: questionId,
+      lender_ask_ai_draft_id: null,
+      seller_answer_check_id: null,
       credits: (12 * TEAM_INPUT + 5 * TEAM_OUTPUT) / 1e4,
       settled_at: expect.any(String),
     });
   });
+
+  it.each([
+    ['lender_ask_ai_draft', () => draftId],
+    ['seller_answer_check', () => checkId],
+  ] as const)(
+    'charges a %s step to its own row and no other subject',
+    async (kind, subjectId) => {
+      const ai = (await resolveTeamAi(team.accountId, 'chat'))!;
+
+      await converseMetered(
+        ai,
+        {
+          dealId,
+          askedBy: team.userId,
+          subject: { kind, id: subjectId() },
+        },
+        conversation,
+      );
+
+      const { data: row } = await team.admin
+        .from('ai_call_log')
+        .select(
+          'deal_id, created_by, question_id, lender_ask_ai_draft_id, seller_answer_check_id',
+        )
+        .eq('account_id', team.accountId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+        .throwOnError();
+      expect(row).toEqual({
+        deal_id: dealId,
+        created_by: team.userId,
+        question_id: null,
+        lender_ask_ai_draft_id: kind === 'lender_ask_ai_draft' ? draftId : null,
+        seller_answer_check_id: kind === 'seller_answer_check' ? checkId : null,
+      });
+    },
+  );
 
   const brief: Conversation = {
     system: 'Answer briefly.',
@@ -404,7 +513,11 @@ describe('a metered conversation step', () => {
     const sent = provider.received.length;
     const outcome = await converseMetered(
       ai,
-      { dealId, askedBy: team.userId, questionId },
+      {
+        dealId,
+        askedBy: team.userId,
+        subject: { kind: 'question', id: questionId },
+      },
       asked,
     ).catch((error: unknown) => error);
     await setCreditCap(10000);

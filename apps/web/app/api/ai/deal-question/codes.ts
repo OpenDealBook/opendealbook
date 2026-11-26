@@ -12,7 +12,7 @@ export type DealQuestionRefusal =
   | 'already_running'
   | 'thread_full';
 
-export type DealQuestionStreamError = 'save_failed';
+export type DealQuestionStreamError = 'save_failed' | 'stream_failed';
 
 export type DealQuestionErrorCode =
   | DealQuestionRefusal

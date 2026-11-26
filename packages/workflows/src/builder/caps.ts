@@ -52,6 +52,17 @@ export async function recordLookup(
     .throwOnError();
 }
 
+export type MeteringSubject =
+  | { kind: 'question'; id: string }
+  | { kind: 'lender_ask_ai_draft'; id: string }
+  | { kind: 'seller_answer_check'; id: string };
+
+const SUBJECT_PARAMETER = {
+  question: 'p_question_id',
+  lender_ask_ai_draft: 'p_lender_ask_ai_draft_id',
+  seller_answer_check: 'p_seller_answer_check_id',
+} as const satisfies Record<MeteringSubject['kind'], string>;
+
 export async function reserveAiCall(
   accountId: string,
   call: {
@@ -61,7 +72,7 @@ export async function reserveAiCall(
     firmId?: string;
     dealId?: string;
     createdBy?: string;
-    questionId?: string;
+    subject?: MeteringSubject;
   },
 ): Promise<{ callId: string }> {
   const { data: callId } = await getSupabaseServerAdminClient()
@@ -73,7 +84,9 @@ export async function reserveAiCall(
       p_firm_id: call.firmId,
       p_deal_id: call.dealId,
       p_created_by: call.createdBy,
-      p_question_id: call.questionId,
+      ...(call.subject && {
+        [SUBJECT_PARAMETER[call.subject.kind]]: call.subject.id,
+      }),
     })
     .throwOnError();
   if (callId === null) {

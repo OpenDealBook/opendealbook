@@ -31,6 +31,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DONE_COLUMNS =
   'id, thread_id, question, answer, status, citations, parts, credits_used, created_at, finished_at';
 const NOT_SAVED = 'The answer could not be saved';
+const CRASHED = 'The question could not be answered';
 const ESCAPED_NUL = /(?<=(?:^|[^\\])(?:\\\\)*)\\u0000/g;
 
 const REFUSALS = [
@@ -199,38 +200,52 @@ export async function POST(request: Request) {
       .throwOnError(),
   ]);
 
-  return eventStream(async (send) => {
-    const outcome = await answerWithDocuments(
-      ai,
-      {
-        client,
-        dealId: scope.dealId,
-        askedBy: user.id,
-        questionId,
-        question: asked,
-        earlier: earlier.map((earlierQuestion) => ({
-          question: earlierQuestion.question,
-          answer: earlierQuestion.answer!,
-        })),
-      },
-      dealQuestionMode({ dealName: dealDisplayName(deal), locale }),
-      (step) => send('progress', progressOf(step)),
-    );
-    const { data: finished, error: notSaved } =
+  return eventStream(
+    async (send) => {
+      const outcome = await answerWithDocuments(
+        ai,
+        {
+          client,
+          dealId: scope.dealId,
+          askedBy: user.id,
+          subject: { kind: 'question', id: questionId },
+          question: asked,
+          earlier: earlier.map((earlierQuestion) => ({
+            question: earlierQuestion.question,
+            answer: earlierQuestion.answer!,
+          })),
+        },
+        dealQuestionMode({ dealName: dealDisplayName(deal), locale }),
+        (step) => send('progress', progressOf(step)),
+      );
+      const { data: finished, error: notSaved } =
+        await getSupabaseServerAdminClient()
+          .from('deal_ai_question')
+          .update(saved(outcome))
+          .eq('id', questionId)
+          .select(DONE_COLUMNS)
+          .single();
+      if (notSaved) {
+        getLogger().error(
+          { error: notSaved, questionId },
+          'Deal AI question could not be saved',
+        );
+        send('error', { error: NOT_SAVED, code: 'save_failed' });
+      } else {
+        send('done', finished);
+      }
+    },
+    async () => {
       await getSupabaseServerAdminClient()
         .from('deal_ai_question')
-        .update(saved(outcome))
+        .update({
+          status: 'failed',
+          answer: CRASHED,
+          finished_at: new Date().toISOString(),
+        })
         .eq('id', questionId)
-        .select(DONE_COLUMNS)
-        .single();
-    if (notSaved) {
-      getLogger().error(
-        { error: notSaved, questionId },
-        'Deal AI question could not be saved',
-      );
-      send('error', { error: NOT_SAVED, code: 'save_failed' });
-    } else {
-      send('done', finished);
-    }
-  });
+        .throwOnError();
+    },
+    { questionId },
+  );
 }

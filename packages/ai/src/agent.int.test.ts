@@ -295,7 +295,7 @@ function dealQuestion(question: Partial<DealQuestion> = {}): DealQuestion {
     client: team.user as SupabaseClient<Database>,
     dealId,
     askedBy: team.userId,
-    questionId,
+    subject: { kind: 'question', id: questionId },
     question: 'What was revenue?',
     earlier: [],
     ...question,
@@ -1283,5 +1283,33 @@ describe('answerWithDocuments (integration)', () => {
         followUp,
       },
     });
+  });
+
+  it('charges every step to the subject the run names', async () => {
+    const { count: before } = await team.admin
+      .from('ai_call_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', team.accountId)
+      .throwOnError();
+    scripted(
+      toolTurn(['search_documents', { query: 'revenue' }]),
+      textTurn('Revenue was 1.4 million [cim.pdf v1, p. 1].'),
+    );
+
+    await ask({ subject: { kind: 'question', id: questionId } });
+
+    const { data: charged } = await team.admin
+      .from('ai_call_log')
+      .select('question_id, lender_ask_ai_draft_id, seller_answer_check_id')
+      .eq('account_id', team.accountId)
+      .order('created_at')
+      .range(before!, before! + 10)
+      .throwOnError();
+    const row = {
+      question_id: questionId,
+      lender_ask_ai_draft_id: null,
+      seller_answer_check_id: null,
+    };
+    expect(charged).toEqual([row, row]);
   });
 });

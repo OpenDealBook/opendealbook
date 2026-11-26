@@ -1,26 +1,9 @@
 import type { DoclingDocument, DoclingPass } from './docling';
 import { type PageText, pageSegments, SEGMENT_MAX_CHARS } from './doclingPages';
+import type { IngestibleFormat } from './formats';
 import { type SheetBlock, sheetBlocks } from './sheets';
 
-const FORMATS = {
-  pdf: 'pdf',
-  docx: 'office',
-  doc: 'office',
-  pptx: 'office',
-  ppt: 'office',
-  xlsx: 'xlsx',
-  xls: 'xls',
-  csv: 'csv',
-  png: 'image',
-  jpg: 'image',
-  jpeg: 'image',
-  tif: 'image',
-  tiff: 'image',
-  txt: 'text',
-  md: 'text',
-} as const;
-
-export type IngestibleFormat = (typeof FORMATS)[keyof typeof FORMATS];
+export { type IngestibleFormat, ingestibleFormat } from './formats';
 
 export type SegmentDraft =
   | (PageText & { kind: 'page'; from_ocr: boolean })
@@ -33,13 +16,6 @@ export interface ExtractionTools {
     pass: DoclingPass,
   ) => Promise<DoclingDocument>;
   toPdf: (bytes: Uint8Array, fileName: string) => Promise<Uint8Array>;
-}
-
-export function ingestibleFormat(name: string): IngestibleFormat | null {
-  const extension = /\.([^.]+)$/.exec(name)?.[1]?.toLowerCase() ?? '';
-  return Object.hasOwn(FORMATS, extension)
-    ? FORMATS[extension as keyof typeof FORMATS]
-    : null;
 }
 
 export async function extractSegments(

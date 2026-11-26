@@ -10,7 +10,8 @@ export {
   privateAiUrlsAllowed,
 } from './aiClient';
 export type { ConversationMessage, ToolCall, ToolDefinition } from './aiClient';
-export { CapReached } from './caps';
+export { CapReached, type MeteringSubject } from './caps';
+export { ingestibleFormat } from '../documentIngestion/formats';
 export {
   ANTHROPIC_HAS_NO_EMBEDDINGS,
   completeMetered,

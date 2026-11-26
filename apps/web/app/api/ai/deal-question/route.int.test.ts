@@ -23,12 +23,24 @@ import {
 
 const world = vi.hoisted(() => ({
   client: null as unknown as SupabaseClient,
+  adminCrashes: false,
 }));
 
-vi.mock('@odb/supabase/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@odb/supabase/server')>()),
-  getSupabaseServerClient: () => world.client,
-}));
+vi.mock('@odb/supabase/server', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('@odb/supabase/server')>();
+  return {
+    ...original,
+    getSupabaseServerClient: () => world.client,
+    getSupabaseServerAdminClient: () => {
+      if (world.adminCrashes) {
+        world.adminCrashes = false;
+        throw new Error('The admin client is down');
+      }
+      return original.getSupabaseServerAdminClient();
+    },
+  };
+});
 
 import { POST } from './route';
 
@@ -581,6 +593,34 @@ describe('POST /api/ai/deal-question', () => {
           isError: true,
         },
       ],
+    });
+  });
+
+  it('ends the stream with a generic error and marks the question failed when the run crashes', async () => {
+    const threadId = await newThread();
+    scripted(textTurn('Revenue was 1.4 million.'));
+    world.adminCrashes = true;
+
+    const received = await events(
+      await post({ dealId, threadId, question: 'Revenue?' }),
+    );
+
+    expect(received).toEqual([
+      {
+        event: 'error',
+        data: { error: 'Something went wrong', code: 'stream_failed' },
+      },
+    ]);
+    const { data: question } = await team.admin
+      .from('deal_ai_question')
+      .select('status, answer, finished_at')
+      .eq('thread_id', threadId)
+      .single()
+      .throwOnError();
+    expect(question).toEqual({
+      status: 'failed',
+      answer: 'The question could not be answered',
+      finished_at: expect.any(String),
     });
   });
 

@@ -2,6 +2,7 @@ import {
   CapReached,
   type ConversationMessage,
   converseMetered,
+  type MeteringSubject,
   type TeamAi,
   type ToolCall,
   type ToolDefinition,
@@ -30,7 +31,7 @@ const CELL = /^([A-Z]+)(\d+)$/;
 
 export interface DealQuestion extends DocumentToolContext {
   askedBy: string;
-  questionId: string;
+  subject: MeteringSubject;
   question: string;
   earlier: { question: string; answer: string }[];
 }

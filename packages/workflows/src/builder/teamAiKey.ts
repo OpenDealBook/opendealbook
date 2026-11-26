@@ -9,7 +9,7 @@ import {
   converseWithTeamAi,
   DEFAULT_MAX_TOKENS,
 } from './aiClient';
-import { reserveAiCall, settleAiCall } from './caps';
+import { type MeteringSubject, reserveAiCall, settleAiCall } from './caps';
 import {
   creditsFor,
   estimatedUsage,
@@ -90,7 +90,7 @@ export async function meterTeamAiCall<T>(
     dealId?: string;
     firmId?: string;
     createdBy?: string;
-    questionId?: string;
+    subject?: MeteringSubject;
   },
   worstCase: Usage,
   request: () => Promise<{ result: T; usage: Usage }>,
@@ -102,7 +102,7 @@ export async function meterTeamAiCall<T>(
     dealId: call.dealId,
     firmId: call.firmId,
     createdBy: call.createdBy,
-    questionId: call.questionId,
+    subject: call.subject,
   });
   const { result, usage } = await request().catch(async (error: unknown) => {
     await settleAiCall(callId, null, 0);
@@ -140,7 +140,7 @@ export function completeMetered(
 
 export async function converseMetered(
   ai: TeamAi,
-  call: { dealId: string; askedBy: string; questionId: string },
+  call: { dealId: string; askedBy: string; subject: MeteringSubject },
   conversation: Conversation,
 ): Promise<{ turn: ConversationTurn; credits: number }> {
   const worstCase = estimatedUsage(
@@ -152,7 +152,7 @@ export async function converseMetered(
     {
       dealId: call.dealId,
       createdBy: call.askedBy,
-      questionId: call.questionId,
+      subject: call.subject,
     },
     worstCase,
     async () => {
