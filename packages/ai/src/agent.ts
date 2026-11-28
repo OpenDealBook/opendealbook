@@ -9,16 +9,19 @@ import {
 } from '@odb/workflows/team-ai';
 
 import type { DocumentCitation } from './citations';
+import type { AnswerPart } from './parts';
 import {
+  answerTools,
   type DocumentToolContext,
   type DocumentToolResult,
-  documentTools,
-  runDocumentTool,
+  partTools,
 } from './tools';
 
 const TOOL_ROUNDS = 8;
 const CALLS_PER_TURN = 5;
 const TOO_MANY_CALLS = 'Too many tool calls in one turn; ask again';
+const MOST_PARTS = 3;
+const TOO_MANY_PARTS = `An answer holds at most ${MOST_PARTS} cards; place the ones you have.`;
 const UNEXPECTED_FAILURE = 'The question could not be answered';
 const NO_ANSWER = 'The AI returned no answer';
 const TEAM_READ_ONLY = 'Team is read-only';
@@ -71,6 +74,7 @@ export type QuestionOutcome =
       status: 'answered';
       answer: string;
       citations: DocumentCitation[];
+      parts: AnswerPart[];
     })
   | (Run & { status: 'credits_ran_out' })
   | (Run & { status: 'failed'; reason: string });
@@ -108,8 +112,8 @@ export function dealQuestionMode({
   ].join('\n');
   return {
     system,
-    tools: documentTools,
-    runTool: runDocumentTool,
+    tools: answerTools.definitions,
+    runTool: answerTools.run,
   };
 }
 
@@ -244,6 +248,16 @@ function failureReason(error: unknown): string {
     : UNEXPECTED_FAILURE;
 }
 
+function placePart(
+  content: string,
+  part: Omit<AnswerPart, 'id'>,
+  parts: AnswerPart[],
+): string {
+  const id = parts.length + 1;
+  parts.push({ ...part, id });
+  return `${content} Write [[figure ${id}]] on its own line where it belongs in your answer.`;
+}
+
 type OnProgress = (step: Omit<ToolStep, 'isError'>) => void;
 
 export function answerWithDocuments(
@@ -267,6 +281,7 @@ export async function answerWithDocuments(
   const { finish } = mode;
   const run: Run = { model: ai.model, credits: 0, steps: [] };
   const read: DocumentCitation[] = [];
+  const parts: AnswerPart[] = [];
   const messages: ConversationMessage[] = [
     ...question.earlier.flatMap(
       ({ question: asked, answer }): ConversationMessage[] => [
@@ -302,7 +317,7 @@ export async function answerWithDocuments(
         const kept = keptCitations(turn.text, read);
         return kept.answer.trim() === ''
           ? { status: 'failed', ...run, reason: NO_ANSWER }
-          : { status: 'answered', ...run, ...kept };
+          : { status: 'answered', ...run, ...kept, parts };
       }
       if (turn.toolCalls.length === 0) {
         return { status: 'no_submit', ...run };
@@ -319,11 +334,17 @@ export async function answerWithDocuments(
         ({ name }) => name !== finish?.tool.name,
       );
       for (const [index, call] of reads.entries()) {
-        if (index >= CALLS_PER_TURN) {
+        const refusal =
+          index >= CALLS_PER_TURN
+            ? TOO_MANY_CALLS
+            : partTools.has(call.name) && parts.length === MOST_PARTS
+              ? TOO_MANY_PARTS
+              : null;
+        if (refusal) {
           messages.push({
             role: 'tool',
             toolCallId: call.id,
-            content: TOO_MANY_CALLS,
+            content: refusal,
             isError: true,
           });
           continue;
@@ -340,12 +361,15 @@ export async function answerWithDocuments(
               isError: true,
               citations: [],
             };
+        const toolReply = result.part
+          ? placePart(result.content, result.part, parts)
+          : result.content;
         step.isError = result.isError === true;
         read.push(...result.citations);
         messages.push({
           role: 'tool',
           toolCallId: call.id,
-          content: result.content,
+          content: toolReply,
           isError: result.isError,
         });
       }

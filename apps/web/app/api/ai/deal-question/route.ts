@@ -2,7 +2,10 @@ import { dealAiScope } from '@odb/ai/scope';
 import {
   answerWithDocuments,
   dealQuestionMode,
+  parseStoredParts,
+  partsText,
   type QuestionOutcome,
+  withPartsText,
 } from '@odb/ai/server';
 import { dealDisplayName } from '@odb/deals/shared';
 import { i18nConfig } from '@odb/i18n/config';
@@ -54,6 +57,7 @@ function refuse(status: number, error: string, code: DealQuestionRefusal) {
 }
 
 function saved(outcome: QuestionOutcome) {
+  const parts = outcome.status === 'answered' ? outcome.parts : [];
   return withoutNul({
     status: outcome.status,
     answer:
@@ -65,6 +69,8 @@ function saved(outcome: QuestionOutcome) {
     citations: (outcome.status === 'answered'
       ? outcome.citations
       : []) as unknown as Json,
+    parts,
+    parts_text: partsText(parts),
     steps: outcome.steps as unknown as Json,
     model: outcome.model,
     credits_used: outcome.credits,
@@ -183,7 +189,7 @@ export async function POST(request: Request) {
   const [{ data: earlier }, { data: deal }] = await Promise.all([
     client
       .from('deal_ai_question')
-      .select('question, answer')
+      .select('id, question, answer, parts')
       .eq('thread_id', threadId)
       .eq('status', 'answered')
       .order('created_at')
@@ -195,6 +201,17 @@ export async function POST(request: Request) {
       .single()
       .throwOnError(),
   ]);
+  const readable = new Set(
+    earlier.length === 0
+      ? []
+      : (
+          await client
+            .from('dr_document')
+            .select('id')
+            .eq('deal_id', scope.dealId)
+            .throwOnError()
+        ).data.map(({ id }) => id),
+  );
 
   return eventStream(
     async (send) => {
@@ -208,7 +225,11 @@ export async function POST(request: Request) {
           question: asked,
           earlier: earlier.map((earlierQuestion) => ({
             question: earlierQuestion.question,
-            answer: earlierQuestion.answer!,
+            answer: withPartsText(
+              earlierQuestion.answer!,
+              parseStoredParts(earlierQuestion.parts, earlierQuestion.id),
+              readable,
+            ),
           })),
         },
         dealQuestionMode({ dealName: dealDisplayName(deal), locale }),

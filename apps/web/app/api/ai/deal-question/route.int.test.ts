@@ -330,6 +330,38 @@ describe('POST /api/ai/deal-question', () => {
     expect(thread.deal_id).toBe(dealId);
   });
 
+  it('saves the cards an answer shows with their searchable text and sends them when done', async () => {
+    scripted(
+      toolTurn('show_document', { document_id: cim, page: 1 }),
+      textTurn('Revenue is on the first page.\n[[figure 1]]'),
+    );
+
+    const [progress, done] = await events(
+      await post({ dealId, question: 'Where is revenue?' }),
+    );
+
+    const part = {
+      id: 1,
+      kind: 'document',
+      v: 1,
+      documentId: cim,
+      documentName: 'cim.pdf',
+      version: 1,
+      page: 1,
+    };
+    expect(progress).toEqual({
+      event: 'progress',
+      data: { kind: 'show_document' },
+    });
+    const row = done!.data as { id: string; parts: unknown };
+    expect(row.parts).toEqual([part]);
+    expect(await savedQuestion(row.id)).toMatchObject({
+      answer: 'Revenue is on the first page.\n[[figure 1]]',
+      parts: [part],
+      parts_text: 'Document: cim.pdf (page 1)',
+    });
+  });
+
   it("asks about the deal by its name, in the asker's locale", async () => {
     scripted(textTurn('Nothing found.'));
 
@@ -362,6 +394,59 @@ describe('POST /api/ai/deal-question', () => {
       ['user', 'Since when?'],
       ['assistant', 'Since 2004.'],
       ['user', 'Any debt?'],
+    ]);
+  });
+
+  it('shows a follow-up the earlier answers with card markers replaced by card text, unplaced cards appended, and removed documents without their note', async () => {
+    const threadId = await newThread();
+    await team.admin
+      .from('deal_ai_question')
+      .insert({
+        thread_id: threadId,
+        deal_id: dealId,
+        asked_by: team.userId,
+        question: 'Where is revenue?',
+        answer: 'On page one.\n[[figure 1]]',
+        status: 'answered',
+        finished_at: new Date().toISOString(),
+        parts: [
+          {
+            id: 1,
+            kind: 'document',
+            v: 1,
+            documentId: cim,
+            documentName: 'cim.pdf',
+            version: 1,
+            page: 1,
+            note: 'The revenue table.',
+          },
+          {
+            id: 2,
+            kind: 'document',
+            v: 1,
+            documentId: crypto.randomUUID(),
+            documentName: 'old-lease.pdf',
+            version: 1,
+            note: 'The lease before renewal.',
+          },
+        ],
+      })
+      .throwOnError();
+    scripted(textTurn('Nothing found.'));
+
+    await events(await post({ dealId, threadId, question: 'And margins?' }));
+
+    expect(
+      sentMessages(provider.received[0]!)
+        .slice(1)
+        .map(({ role, content }) => [role, content]),
+    ).toEqual([
+      ['user', 'Where is revenue?'],
+      [
+        'assistant',
+        'On page one.\nDocument: cim.pdf (page 1). The revenue table.\nDocument: old-lease.pdf',
+      ],
+      ['user', 'And margins?'],
     ]);
   });
 

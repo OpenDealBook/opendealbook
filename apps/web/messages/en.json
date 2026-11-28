@@ -97,6 +97,13 @@
       "cells": "{sheet}, cells {range}",
       "fromScan": "From scan"
     },
+    "card": {
+      "page": "Page {page}",
+      "sheet": "Sheet {sheet}",
+      "open": "Open",
+      "newerVersion": "Newer version available",
+      "unavailable": "Not available"
+    },
     "scrollToLatest": "Scroll to the latest answer",
     "connectTitle": "Connect AI",
     "connectBody": "Connect your team's AI provider to ask questions about this deal's documents.",
@@ -110,6 +117,7 @@
       "list_documents": "Looking through the document list",
       "list_sheets": "Looking through the sheets",
       "working": "Working on the answer",
+      "show_document": "Adding a document card",
       "search_faq": "Searching the room FAQ"
     },
     "errors": {

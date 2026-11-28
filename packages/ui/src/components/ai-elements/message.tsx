@@ -24,6 +24,8 @@ import type { UIMessage } from 'ai';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { Streamdown } from 'streamdown';
 
+export { defaultRemarkPlugins } from 'streamdown';
+
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage['role'];
 };

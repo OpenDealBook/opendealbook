@@ -17,3 +17,4 @@ export { generateStructured } from './structured';
 export type { Structured, StructuredGenerateInput } from './structured';
 export { lenderAskDraft } from './draft';
 export type { LenderAskDraft } from './draft';
+export { parseStoredParts, partsText, withPartsText } from './stored-parts';

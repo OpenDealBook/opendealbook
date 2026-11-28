@@ -396,6 +396,72 @@ describe('loadDealAsk', () => {
     ]);
   });
 
+  it('loads stored document cards, keeping a note only for a document the viewer can still open', async () => {
+    const { data: folder } = await admin
+      .from('dr_folder')
+      .insert({ account_id: teamId, deal_id: acme, name: 'Cards' })
+      .select('id')
+      .single()
+      .throwOnError();
+    const lease = crypto.randomUUID();
+    await admin
+      .rpc('append_deal_event', {
+        p_deal_id: acme,
+        p_aggregate_type: 'dr_document',
+        p_aggregate_id: lease,
+        p_event_type: 'dr_document.added',
+        p_payload: {
+          folder_id: folder.id,
+          name: 'lease.pdf',
+          storage_path: `deal/${acme}/${lease}`,
+          version: 1,
+        },
+        p_actor_kind: 'service',
+      })
+      .throwOnError();
+    const threadId = await thread(acme, [['Where are the customers?', 1]]);
+    const card = (id: number, documentId: string, note: string) => ({
+      id,
+      kind: 'document',
+      v: 1,
+      documentId,
+      documentName: 'lease.pdf',
+      version: 1,
+      page: 4,
+      note,
+    });
+    const removed = crypto.randomUUID();
+    await admin
+      .from('deal_ai_question')
+      .update({
+        parts: [
+          card(1, lease, 'The renewal clause.'),
+          card(2, removed, 'Removed document note.'),
+        ],
+      })
+      .eq('thread_id', threadId)
+      .throwOnError();
+
+    const loaded = await loadDealAsk(acme, teamId);
+
+    expect(
+      loaded!.questions.find((candidate) => candidate.thread_id === threadId)
+        ?.parts,
+    ).toEqual([
+      card(1, lease, 'The renewal clause.'),
+      {
+        id: 2,
+        kind: 'document',
+        v: 1,
+        documentId: removed,
+        documentName: 'lease.pdf',
+        version: 1,
+        page: 4,
+      },
+    ]);
+    expect(JSON.stringify(loaded)).not.toContain('Removed document note');
+  });
+
   it('drops a stored part that does not parse and still loads its question, and loads an answer saved without parts with none', async () => {
     const threadId = await thread(acme, [
       ['Show revenue by year', 1],

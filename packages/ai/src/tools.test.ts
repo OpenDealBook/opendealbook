@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  answerTools,
   documentTools,
   runDocumentTool,
   type DocumentToolContext,
@@ -125,5 +126,72 @@ describe('document tool arguments', () => {
       isError: true,
       citations: [],
     });
+  });
+});
+
+describe('show_document arguments', () => {
+  const DOCUMENT_ID = '00000000-0000-0000-0000-000000000001';
+
+  it('sends the provider its arguments without length limits', () => {
+    expect(
+      answerTools.definitions.find(({ name }) => name === 'show_document')
+        ?.inputSchema,
+    ).toEqual({
+      type: 'object',
+      properties: {
+        document_id: {
+          type: 'string',
+          description:
+            'The document id from search_documents or list_documents.',
+        },
+        page: {
+          type: 'integer',
+          description: 'Page to open the document at; leave out with sheet.',
+        },
+        sheet: {
+          type: 'string',
+          description: 'Sheet to open a workbook at; leave out with page.',
+        },
+        note: {
+          type: 'string',
+          description:
+            'One short sentence on what the reader finds there, at most 200 characters.',
+        },
+      },
+      required: ['document_id'],
+      additionalProperties: false,
+    });
+  });
+
+  it.each([
+    [{}, 'Missing argument "document_id".'],
+    [
+      { document_id: DOCUMENT_ID, note: 'n'.repeat(201) },
+      'Argument "note" must be at most 200 characters.',
+    ],
+    [
+      { document_id: DOCUMENT_ID, page: 1.5 },
+      'Argument "page" must be a page number.',
+    ],
+    [
+      { document_id: DOCUMENT_ID, page: 0 },
+      'Argument "page" must be a page number of 1 or more.',
+    ],
+    [
+      { document_id: DOCUMENT_ID, sheet: 's'.repeat(121) },
+      'Argument "sheet" must be at most 120 characters.',
+    ],
+    [
+      { document_id: DOCUMENT_ID, page: 2, sheet: 'P&L' },
+      'Argument "sheet" must be left out when page is given.',
+    ],
+  ])('rejects %j before reading anything', async (input, message) => {
+    expect(
+      await answerTools.run(unreachedContext, {
+        id: 'call-0',
+        name: 'show_document',
+        input,
+      }),
+    ).toEqual({ content: message, isError: true, citations: [] });
   });
 });

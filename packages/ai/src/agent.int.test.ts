@@ -392,6 +392,7 @@ describe('answerWithDocuments (integration)', () => {
           excerpt: 'Revenue was 1.4 million with an EBITDA addback.',
         },
       ],
+      parts: [],
       model: 'team-chat',
       credits: 2 * STEP_CREDITS,
       steps: [
@@ -862,6 +863,170 @@ describe('answerWithDocuments (integration)', () => {
         },
       ],
     });
+  });
+
+  it('shows a document card the model asks for and tells it where to place the card', async () => {
+    const shown = {
+      document_id: cim,
+      page: 4,
+      note: 'The customer list.',
+    };
+    scripted(
+      toolTurn(['show_document', shown]),
+      textTurn('Customers are listed in the CIM.\n[[figure 1]]'),
+    );
+    const progress: unknown[] = [];
+
+    const outcome = await ask({}, progress);
+
+    expect(sent(0).tools.map(({ function: tool }) => tool.name)).toContain(
+      'show_document',
+    );
+    expect(sent(1).messages.at(-1)).toEqual({
+      role: 'tool',
+      tool_call_id: 'call-0',
+      content:
+        'Card ready for cim.pdf v1. Write [[figure 1]] on its own line where it belongs in your answer.',
+    });
+    expect(progress).toEqual([{ tool: 'show_document', input: shown }]);
+    expect(outcome).toEqual({
+      status: 'answered',
+      answer: 'Customers are listed in the CIM.\n[[figure 1]]',
+      citations: [],
+      parts: [
+        {
+          id: 1,
+          kind: 'document',
+          v: 1,
+          documentId: cim,
+          documentName: 'cim.pdf',
+          version: 1,
+          page: 4,
+          note: 'The customer list.',
+        },
+      ],
+      model: 'team-chat',
+      credits: 2 * STEP_CREDITS,
+      steps: [{ tool: 'show_document', input: shown, isError: false }],
+    });
+  });
+
+  it('refuses a card for a document outside the deal and keeps no part', async () => {
+    const elsewhere = crypto.randomUUID();
+    scripted(
+      toolTurn(['show_document', { document_id: elsewhere }]),
+      textTurn('No card.'),
+    );
+
+    const outcome = await ask();
+
+    expect(sent(1).messages.at(-1)).toEqual({
+      role: 'tool',
+      tool_call_id: 'call-0',
+      content: `No document ${elsewhere} in this deal.`,
+    });
+    expect(outcome).toMatchObject({
+      status: 'answered',
+      parts: [],
+      steps: [{ tool: 'show_document', isError: true }],
+    });
+  });
+
+  it('keeps at most three cards in one answer and refuses the fourth with a tool error before reading its document', async () => {
+    scripted(
+      toolTurn(
+        ['show_document', { document_id: cim }],
+        ['show_document', { document_id: report }],
+      ),
+      toolTurn(
+        ['show_document', { document_id: model, sheet: 'P&L' }],
+        ['show_document', { document_id: crypto.randomUUID() }],
+      ),
+      textTurn('[[figure 1]] [[figure 2]] [[figure 3]]'),
+    );
+    const progress: unknown[] = [];
+
+    const outcome = await ask({}, progress);
+
+    expect(sent(2).messages.at(-1)).toEqual({
+      role: 'tool',
+      tool_call_id: 'call-1',
+      content: 'An answer holds at most 3 cards; place the ones you have.',
+    });
+    expect(outcome).toMatchObject({
+      status: 'answered',
+      credits: 3 * STEP_CREDITS,
+    });
+    expect(outcome.steps.map(({ isError }) => isError)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    expect(progress).toHaveLength(3);
+    expect(
+      outcome.status === 'answered' &&
+        outcome.parts.map(({ id, documentName }) => [id, documentName]),
+    ).toEqual([
+      [1, 'cim.pdf'],
+      [2, 'report.pdf'],
+      [3, 'model.xlsx'],
+    ]);
+  });
+
+  it('shows the model a past answer with card markers replaced by card text, unplaced cards appended, and removed documents without their note', async () => {
+    const { data: thread } = await team.admin
+      .from('deal_ai_thread')
+      .insert({ deal_id: dealId })
+      .select('id')
+      .single()
+      .throwOnError();
+    await team.admin
+      .from('deal_ai_question')
+      .insert({
+        thread_id: thread.id,
+        deal_id: dealId,
+        asked_by: team.userId,
+        question: 'Where are the customers listed?',
+        answer: 'In the CIM.\n[[figure 1]]',
+        status: 'answered',
+        finished_at: new Date().toISOString(),
+        parts: [
+          {
+            id: 1,
+            kind: 'document',
+            v: 1,
+            documentId: cim,
+            documentName: 'cim.pdf',
+            version: 1,
+            page: 4,
+            note: 'The customer list.',
+          },
+          {
+            id: 2,
+            kind: 'document',
+            v: 1,
+            documentId: crypto.randomUUID(),
+            documentName: 'old-lease.pdf',
+            version: 1,
+            note: 'The lease before renewal.',
+          },
+        ],
+        parts_text: 'Document: cim.pdf (page 4). The customer list.',
+      })
+      .throwOnError();
+    scripted(
+      toolTurn(['search_past_answers', { query: 'customers listed' }]),
+      textTurn('See the CIM.'),
+    );
+
+    await ask();
+
+    const reply = sent(1).messages.at(-1)!.content!;
+    expect(reply).toContain(
+      'Answer: In the CIM.\nDocument: cim.pdf (page 4). The customer list.\nDocument: old-lease.pdf\n',
+    );
+    expect(reply).not.toContain('The lease before renewal.');
+    expect(reply).not.toContain('[[figure');
   });
 
   describe('with a finish tool', () => {

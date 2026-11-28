@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useFormatter, useLocale, useTranslations } from 'next-intl';
 
 import type { DocumentCitation } from '@odb/ai/citations';
-import type { AnswerPart } from '@odb/ai/parts';
+import { answerPart, type AnswerPart } from '@odb/ai/parts';
 import {
   Conversation,
   ConversationContent,
@@ -57,7 +57,10 @@ export type FinishedQuestion = Omit<AskedQuestion, 'asked_by'> & {
 
 type QuestionEvent =
   | { event: 'progress'; data: Progress }
-  | { event: 'done'; data: FinishedQuestion }
+  | {
+      event: 'done';
+      data: Omit<FinishedQuestion, 'parts'> & { parts: unknown[] };
+    }
   | { event: 'error'; data: { code: DealQuestionStreamError } };
 
 const STALE_AFTER_MS = 10 * 60_000;
@@ -248,7 +251,17 @@ export function DealAskPanel({
           if (event === 'progress') {
             setAsking({ threadId, question, progress: data });
           } else if (event === 'done') {
-            setFinished((local) => [...local, { ...data, asked_by: viewerId }]);
+            setFinished((local) => [
+              ...local,
+              {
+                ...data,
+                parts: data.parts.flatMap((part) => {
+                  const parsed = answerPart.safeParse(part);
+                  return parsed.success ? [parsed.data] : [];
+                }),
+                asked_by: viewerId,
+              },
+            ]);
             if (openThread.current === from) {
               choose(data.thread_id);
             }
@@ -287,6 +300,7 @@ export function DealAskPanel({
             text={question.answer!}
             citations={question.citations}
             readable={readable}
+            parts={question.parts}
           />
         );
       case 'credits_ran_out':

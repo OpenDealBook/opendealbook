@@ -11,21 +11,27 @@ import {
   citationRange,
   type DocumentCitation,
 } from '@odb/ai/citations';
+import type { AnswerPart } from '@odb/ai/parts';
 import {
   InlineCitation,
   InlineCitationCard,
   InlineCitationCardBody,
   InlineCitationSource,
 } from '@odb/ui/ai-elements/inline-citation';
-import { MessageResponse } from '@odb/ui/ai-elements/message';
+import {
+  defaultRemarkPlugins,
+  MessageResponse,
+} from '@odb/ui/ai-elements/message';
 import { Badge } from '@odb/ui/badge';
 import { HoverCardTrigger } from '@odb/ui/hover-card';
 
+import { AnswerParts, Figure } from './ai-answer-parts';
+import { remarkFigures } from './answer-figures';
 import { openDataRoomWindow } from './data-room-document-link';
 
 const LABEL = /\[([^[\]]+ v\d+, [^[\]]+)\](?!\()/g;
 const CODE =
-  /^ {0,3}(`{3,}|~{3,}).*\n[\s\S]*?(?:^ {0,3}\1.*$|(?![\s\S]))|(?<!\\)(`+)(?!`)[\s\S]*?[^`]\2(?!`)/gm;
+  /^ {0,3}(`{3,}|~{3,}).*\n[\s\S]*?(?:^ {0,3}\1.*$|(?![\s\S]))|(?<!\\)(`+)(?!`)(?:(?!\n[ \t]*\n)[\s\S])*?[^`]\2(?!`)/gm;
 
 export const AnswerCitations = createContext<{
   dealId: string;
@@ -137,19 +143,25 @@ export function Citation({
   );
 }
 
-const COMPONENTS = { citation: Citation, img: () => null };
-const ALLOWED_TAGS = { citation: ['index'] };
+const COMPONENTS = { citation: Citation, figure: Figure, img: () => null };
+const ALLOWED_TAGS = { citation: ['index'], figure: ['index'] };
+
+function wholeAnswer(markdown: string): string[] {
+  return [markdown];
+}
 
 export function AiAnswer({
   dealId,
   text,
   citations,
   readable,
+  parts,
 }: {
   dealId: string;
   text: string;
   citations: DocumentCitation[];
   readable: Record<string, number>;
+  parts: AnswerPart[];
 }) {
   const t = useTranslations('dealAsk.links');
 
@@ -176,22 +188,29 @@ export function AiAnswer({
 
   return (
     <AnswerCitations value={{ dealId, citations, readable }}>
-      <MessageResponse
-        translations={{
-          openExternalLink: t('openExternalLink'),
-          externalLinkWarning: t('externalLinkWarning'),
-          openLink: t('openLink'),
-          copyLink: t('copyLink'),
-          copied: t('copied'),
-          close: t('close'),
-        }}
-        mode={'static'}
-        controls={false}
-        allowedTags={ALLOWED_TAGS}
-        components={COMPONENTS}
-      >
-        {markdown}
-      </MessageResponse>
+      <AnswerParts value={parts}>
+        <MessageResponse
+          translations={{
+            openExternalLink: t('openExternalLink'),
+            externalLinkWarning: t('externalLinkWarning'),
+            openLink: t('openLink'),
+            copyLink: t('copyLink'),
+            copied: t('copied'),
+            close: t('close'),
+          }}
+          mode={'static'}
+          controls={false}
+          allowedTags={ALLOWED_TAGS}
+          components={COMPONENTS}
+          remarkPlugins={[
+            ...Object.values(defaultRemarkPlugins),
+            [remarkFigures, { parts }],
+          ]}
+          parseMarkdownIntoBlocksFn={wholeAnswer}
+        >
+          {markdown}
+        </MessageResponse>
+      </AnswerParts>
     </AnswerCitations>
   );
 }

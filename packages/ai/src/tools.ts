@@ -14,7 +14,9 @@ import {
   type CitedDocument,
   type DocumentCitation,
 } from './citations';
+import type { AnswerPart } from './parts';
 import { parseStoredCitations } from './stored-citations';
+import { parseStoredParts, withPartsText } from './stored-parts';
 
 type Client = SupabaseClient<Database>;
 
@@ -49,6 +51,7 @@ type ToolMessage = Extract<ConversationMessage, { role: 'tool' }>;
 
 export type DocumentToolResult = Pick<ToolMessage, 'content' | 'isError'> & {
   citations: DocumentCitation[];
+  part?: Omit<AnswerPart, 'id'>;
 };
 
 export class ToolError extends Error {}
@@ -380,6 +383,12 @@ const searchPastAnswers = documentTool({
     if (data.length === 0) {
       return { content: 'No earlier answers.', citations: [] };
     }
+    const { data: documents } = await client
+      .from('dr_document')
+      .select('id')
+      .eq('deal_id', dealId)
+      .throwOnError();
+    const readable = new Set(documents.map(({ id }) => id));
     const answers = data.map((hit) => {
       const ocrLabels = parseStoredCitations(hit.citations, hit.question_id)
         .filter((citation) => citation.fromOcr)
@@ -387,7 +396,11 @@ const searchPastAnswers = documentTool({
       const answer = ocrLabels.reduce(
         (text, label) =>
           text.replaceAll(`[${label}]`, `[${label}] ${OCR_MARK}`),
-        hit.answer,
+        withPartsText(
+          hit.answer,
+          parseStoredParts(hit.parts, hit.question_id),
+          readable,
+        ),
       );
       return `Question (asked ${hit.asked_at.slice(0, 10)}): ${hit.question}\nAnswer: ${answer}`;
     });
@@ -400,10 +413,10 @@ const searchPastAnswers = documentTool({
 
 export function scopedToolSet<C>(
   reads: DocumentReads<C>,
-  extra: DocumentTool<C>,
+  ...extras: DocumentTool<C>[]
 ) {
   const { searchDocuments, rest } = readTools(reads);
-  const tools = [searchDocuments, extra, ...rest];
+  const tools = [searchDocuments, ...extras, ...rest];
   const byName = new Map(tools.map((tool) => [tool.name, tool]));
   return {
     definitions: tools.map(
@@ -434,8 +447,62 @@ export function scopedToolSet<C>(
   };
 }
 
+const MOST_NOTE_CHARACTERS = 200;
+const MOST_SHEET_CHARACTERS = 120;
+
+const showDocument = documentTool({
+  name: 'show_document',
+  description:
+    'Show the reader a card that links to one document in the data room. Use it when opening the document helps more than quoting it.',
+  args: z
+    .strictObject({
+      document_id: documentIdArg,
+      page: z
+        .int({ error: 'a page number' })
+        .min(1, { error: 'a page number of 1 or more' })
+        .describe('Page to open the document at; leave out with sheet.')
+        .optional(),
+      sheet: z
+        .string({ error: 'a string' })
+        .max(MOST_SHEET_CHARACTERS, {
+          error: `at most ${MOST_SHEET_CHARACTERS} characters`,
+        })
+        .describe('Sheet to open a workbook at; leave out with page.')
+        .optional(),
+      note: z
+        .string({ error: 'a string' })
+        .max(MOST_NOTE_CHARACTERS, {
+          error: `at most ${MOST_NOTE_CHARACTERS} characters`,
+        })
+        .describe(
+          `One short sentence on what the reader finds there, at most ${MOST_NOTE_CHARACTERS} characters.`,
+        )
+        .optional(),
+    })
+    .refine(({ page, sheet }) => page === undefined || sheet === undefined, {
+      error: 'left out when page is given',
+      path: ['sheet'],
+    }),
+  run: async (context: DocumentToolContext, { document_id, ...shown }) => {
+    const document = await dealReads.citedDocument(context, document_id);
+    return {
+      content: `Card ready for ${document.documentName} v${document.version}.`,
+      citations: [],
+      part: { kind: 'document', v: 1, ...document, ...shown },
+    };
+  },
+});
+
+export const partTools: ReadonlySet<string> = new Set([showDocument.name]);
+
 const dealTools = scopedToolSet(dealReads, searchPastAnswers);
 
 export const documentTools: ToolDefinition[] = dealTools.definitions;
 
 export const runDocumentTool = dealTools.run;
+
+export const answerTools = scopedToolSet(
+  dealReads,
+  searchPastAnswers,
+  showDocument,
+);

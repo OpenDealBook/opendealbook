@@ -6,8 +6,10 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DocumentCitation } from '@odb/ai/citations';
+import type { AnswerPart } from '@odb/ai/parts';
 
 import messages from '../../../../messages/en.json';
+import { AnswerParts, Figure } from './ai-answer-parts';
 import { AiAnswer, AnswerCitations, Citation } from './ai-citation';
 
 vi.mock('next/navigation', () => ({
@@ -34,6 +36,17 @@ const CELLS: DocumentCitation = {
   cellRange: 'A1:C9',
 };
 
+const CARD: AnswerPart = {
+  id: 1,
+  kind: 'document',
+  v: 1,
+  documentId: 'doc-cim',
+  documentName: 'cim.pdf',
+  version: 2,
+  page: 4,
+  note: 'The customer list.',
+};
+
 const LINKS = {
   openExternalLink: 'Leave for an outside site?',
   externalLinkWarning: 'This link goes outside OpenDealBook.',
@@ -50,6 +63,7 @@ function render(
   text: string,
   citations: DocumentCitation[],
   readable: Record<string, number>,
+  parts: AnswerPart[] = [],
 ) {
   act(() =>
     root.render(
@@ -65,6 +79,7 @@ function render(
           text={text}
           citations={citations}
           readable={readable}
+          parts={parts}
         />
       </NextIntlClientProvider>,
     ),
@@ -373,5 +388,356 @@ describe('AiAnswer', () => {
     render('Debt < $2M and `x<y`.', [], {});
 
     expect(container.textContent).toBe('Debt < $2M and x<y.');
+  });
+});
+
+describe('AiAnswer document cards', () => {
+  function cards() {
+    return [...container.querySelectorAll('figure')];
+  }
+
+  it('places a card where its figure token stands, with the page and note, opening the data room there', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(
+      'Customers are listed here.\n[[figure 1]]\nThat is **all**.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards().map((card) => card.textContent)).toEqual([
+      'cim.pdfPage 4The customer list.Open',
+    ]);
+    const text = container.textContent!;
+    expect(text.indexOf('Customers are listed here.')).toBeLessThan(
+      text.indexOf('cim.pdf'),
+    );
+    expect(text.indexOf('cim.pdf')).toBeLessThan(text.indexOf('That is all.'));
+    expect(text).not.toContain('**');
+
+    act(() => button('Open')!.click());
+
+    expect(open.mock.calls.map(([url]) => url)).toEqual([
+      '/deal-windows/acme/deal-1/data-room/view?doc=doc-cim&page=4',
+    ]);
+  });
+
+  it('opens a workbook card at its sheet', () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    render('[[figure 2]]', [], { 'doc-model': 1 }, [
+      {
+        id: 2,
+        kind: 'document',
+        v: 1,
+        documentId: 'doc-model',
+        documentName: 'model.xlsx',
+        version: 1,
+        sheet: 'P&L',
+      },
+    ]);
+
+    expect(cards().map((card) => card.textContent)).toEqual([
+      'model.xlsxSheet P&LOpen',
+    ]);
+    act(() => button('Open')!.click());
+
+    expect(open.mock.calls.map(([url]) => url)).toEqual([
+      '/deal-windows/acme/deal-1/data-room/view?doc=doc-model&sheet=P%26L',
+    ]);
+  });
+
+  it('drops a figure token with no card', () => {
+    render('See [[figure 2]] here.', [], { 'doc-cim': 2 }, [CARD]);
+
+    expect(container.textContent).not.toContain('figure');
+    expect(container.textContent!.startsWith('See')).toBe(true);
+    expect(container.textContent).toContain('here.');
+  });
+
+  it('appends a card the answer never placed after the text', () => {
+    render('No token here.', [], { 'doc-cim': 2 }, [CARD]);
+
+    expect(cards()).toHaveLength(1);
+    expect(container.textContent!.replaceAll('\n', '')).toBe(
+      'No token here.cim.pdfPage 4The customer list.Open',
+    );
+  });
+
+  it('shows a card for a document the viewer cannot read as not available, without a link', () => {
+    render('[[figure 1]]', [], {}, [CARD]);
+
+    expect(buttons()).toEqual([]);
+    expect(cards().map((card) => card.textContent)).toEqual([
+      'cim.pdfPage 4The customer list.Not available',
+    ]);
+  });
+
+  it('keeps the link of a card whose document gained a newer version and says so', () => {
+    render('[[figure 1]]', [], { 'doc-cim': 3 }, [CARD]);
+
+    expect(cards().map((card) => card.textContent)).toEqual([
+      'cim.pdfPage 4Newer version availableThe customer list.Open',
+    ]);
+  });
+
+  it('says nothing of versions on a card for the current version', () => {
+    render('[[figure 1]]', [], { 'doc-cim': 2 }, [CARD]);
+
+    expect(container.textContent).not.toContain('Newer version');
+  });
+
+  it('shows a figure tag the model wrote itself as text, not as a card', () => {
+    render('Trust me <figure index="0"></figure>.', [], { 'doc-cim': 2 }, [
+      CARD,
+    ]);
+
+    expect(
+      container.textContent!.startsWith(
+        'Trust me <figure index="0"></figure>.',
+      ),
+    ).toBe(true);
+  });
+
+  it('shows a figure tag that inline code fails to hide across a blank line as text, without a card', () => {
+    render(
+      'a `b\n\n<figure index="7"></figure>\n\nc` d',
+      [],
+      { 'doc-cim': 2 },
+      [],
+    );
+
+    expect(cards()).toEqual([]);
+    expect(container.textContent).toContain('<figure index="7"></figure>');
+  });
+
+  it('adds no card for a figure tag hidden in broken inline code, even one naming a real card', () => {
+    render(
+      'a `b\n\n<figure index="0"></figure>\n\nc` d',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards()).toHaveLength(1);
+    expect(container.textContent).toContain('<figure index="0"></figure>');
+  });
+
+  it.each(['3', 'x'])(
+    'renders nothing for a figure tag whose index %s has no card',
+    (index) => {
+      act(() =>
+        root.render(
+          <NextIntlClientProvider locale={'en'} messages={messages}>
+            <AnswerCitations
+              value={{ dealId: 'deal-1', citations: [], readable: {} }}
+            >
+              <AnswerParts value={[CARD]}>
+                {'Before '}
+                <Figure index={index} />
+                {' after'}
+              </AnswerParts>
+            </AnswerCitations>
+          </NextIntlClientProvider>,
+        ),
+      );
+
+      expect(container.textContent).toBe('Before  after');
+    },
+  );
+
+  it('shows a card once, where it is first placed', () => {
+    render('x [[figure 1]] y [[figure 1]] z', [], { 'doc-cim': 2 }, [CARD]);
+
+    expect(cards()).toHaveLength(1);
+    expect(container.textContent).not.toContain('figure');
+    const text = container.textContent!;
+    expect(text.indexOf('x')).toBeLessThan(text.indexOf('cim.pdf'));
+    expect(text.indexOf('cim.pdf')).toBeLessThan(text.indexOf('y'));
+  });
+
+  it.each([
+    [
+      'a table row',
+      '| Year | Note |\n| --- | --- |\n| 2025 | see [[figure 1]] |\n| 2026 | none |\n\nAfter.',
+      'table',
+      'td',
+      ['2025', 'see', '2026', 'none'],
+    ],
+    [
+      'a list item',
+      '- one [[figure 1]]\n- two\n\nAfter.',
+      'ul',
+      'li',
+      ['one', 'two'],
+    ],
+    [
+      'a blockquote',
+      '> quoted [[figure 1]]\n> more\n\nAfter.',
+      'blockquote',
+      'blockquote',
+      ['quoted more'],
+    ],
+  ])(
+    'moves a marker inside %s to just after that block',
+    (_, text, block, item, items) => {
+      render(text, [], { 'doc-cim': 2 }, [CARD]);
+
+      expect(
+        [...container.querySelectorAll(item)].map((found) =>
+          found.textContent!.replaceAll(/\s+/g, ' ').trim(),
+        ),
+      ).toEqual(items);
+      expect(container.querySelectorAll(block)).toHaveLength(1);
+
+      expect(cards()).toHaveLength(1);
+      expect(cards()[0]!.closest(block)).toBeNull();
+      expect(container.querySelector(block)).not.toBeNull();
+      const shown = container.textContent!;
+      expect(shown).not.toContain('figure');
+      expect(shown.indexOf('cim.pdf')).toBeLessThan(shown.indexOf('After.'));
+      expect(container.querySelector(block)!.textContent).not.toContain(
+        'cim.pdf',
+      );
+    },
+  );
+
+  it('moves a marker in a loose list continuation to just after the list', () => {
+    render(
+      '- one\n\n  more [[figure 1]]\n\n- two\n\nAfter.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(container.querySelectorAll('ul')).toHaveLength(1);
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]!.closest('ul')).toBeNull();
+    const shown = container.textContent!;
+    expect(shown).not.toContain('figure');
+    expect(shown.indexOf('two')).toBeLessThan(shown.indexOf('cim.pdf'));
+    expect(shown.indexOf('cim.pdf')).toBeLessThan(shown.indexOf('After.'));
+  });
+
+  it('leaves a marker inside a code fence nested four or more spaces in a list as written and appends its card', () => {
+    render(
+      '- item\n\n      ```\n      [[figure 1]]\n      ```\n- next\n\nAfter.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards()).toHaveLength(1);
+    const shown = container.textContent!;
+    expect(shown).toContain('[[figure 1]]');
+    expect(shown.indexOf('After.')).toBeLessThan(shown.indexOf('cim.pdf'));
+  });
+
+  it('leaves a marker in inline code inside a list item as written and appends its card', () => {
+    render('- see `[[figure 1]]` here\n- two\n\nAfter.', [], { 'doc-cim': 2 }, [
+      CARD,
+    ]);
+
+    expect(cards()).toHaveLength(1);
+    expect(container.querySelector('li code')?.textContent).toBe(
+      '[[figure 1]]',
+    );
+    const shown = container.textContent!;
+    expect(shown.indexOf('After.')).toBeLessThan(shown.indexOf('cim.pdf'));
+  });
+
+  it('places a marker in a list that follows an unmatched backtick', () => {
+    render(
+      'Note ` here:\n- one [[figure 1]]\n- two `code`\n\nAfter.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards()).toHaveLength(1);
+    expect(cards()[0]!.closest('ul')).toBeNull();
+    const shown = container.textContent!;
+    expect(shown).not.toContain('figure');
+    expect(shown.indexOf('two')).toBeLessThan(shown.indexOf('cim.pdf'));
+    expect(shown.indexOf('cim.pdf')).toBeLessThan(shown.indexOf('After.'));
+  });
+
+  it('leaves a marker inside a tilde fence indented four spaces in a list item as written and appends its card', () => {
+    render(
+      '-   item\n\n    ~~~\n    [[figure 1]]\n    ~~~\n-   next\n\nAfter.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards()).toHaveLength(1);
+    const shown = container.textContent!;
+    expect(shown).toContain('[[figure 1]]');
+    expect(shown.indexOf('After.')).toBeLessThan(shown.indexOf('cim.pdf'));
+  });
+
+  it('leaves a marker in inline code in a list after an unmatched backtick as written', () => {
+    render(
+      'Note ` here:\n- see `[[figure 1]]`\n\nAfter.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(container.querySelector('li code')?.textContent).toBe(
+      '[[figure 1]]',
+    );
+    expect(cards()).toHaveLength(1);
+  });
+
+  it.each([
+    ['a list item', '- [[figure 1]]\n- two\n\nAfter.', 'li', ['two']],
+    ['a blockquote', '> [[figure 1]]\n\nAfter.', 'blockquote', []],
+  ])(
+    'removes %s that held only the marker it lifted',
+    (_, text, item, items) => {
+      render(text, [], { 'doc-cim': 2 }, [CARD]);
+
+      expect(cards()).toHaveLength(1);
+      expect(
+        [...container.querySelectorAll(item)].map((found) =>
+          found.textContent!.trim(),
+        ),
+      ).toEqual(items);
+    },
+  );
+
+  it('keeps a table cell emptied by a lifted marker so the cells after it stay in their columns', () => {
+    render(
+      '| a | b |\n| --- | --- |\n| [[figure 1]] | x |\n\nAfter.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards()).toHaveLength(1);
+    expect(
+      [...container.querySelectorAll('td')].map((cell) => cell.textContent),
+    ).toEqual(['', 'x']);
+  });
+
+  it('removes a link whose text was only the marker', () => {
+    render(
+      'See [[[figure 1]]](https://example.com) now.',
+      [],
+      { 'doc-cim': 2 },
+      [CARD],
+    );
+
+    expect(cards()).toHaveLength(1);
+    expect(buttons().map((found) => found.textContent)).toEqual(['Open']);
+    expect(container.querySelector('a')).toBeNull();
+  });
+
+  it('adds no card for a raw figure tag that slips past the code escaping after a heading', () => {
+    render('# a `b\n<figure index="0"></figure>`', [], { 'doc-cim': 2 }, [
+      CARD,
+    ]);
+
+    expect(cards()).toHaveLength(1);
   });
 });

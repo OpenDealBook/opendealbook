@@ -605,6 +605,7 @@ describe('DealAskPanel', () => {
     [{ kind: 'list_documents' }, 'Looking through the document list'],
     [{ kind: 'list_sheets' }, 'Looking through the sheets'],
     [{ kind: 'working' }, 'Working on the answer'],
+    [{ kind: 'show_document' }, 'Adding a document card'],
   ])('words the %o progress as %s', async (progress, wording) => {
     render();
     const stream = streamed();
@@ -647,6 +648,39 @@ describe('DealAskPanel', () => {
     expect(container.textContent).toContain(
       'Margins are 20% cim.pdf, unavailable.',
     );
+  });
+
+  it('shows the cards of a finished answer and silently drops one that does not parse', async () => {
+    render();
+    const stream = streamed();
+    await ask('Where are the customers?', stream.response);
+
+    await stream.send(
+      sse(
+        'done',
+        finished({
+          answer: 'Customers are listed here.\n[[figure 1]]',
+          parts: [
+            {
+              id: 1,
+              kind: 'document',
+              v: 1,
+              documentId: 'doc-cim',
+              documentName: 'cim.pdf',
+              version: 2,
+              page: 4,
+            },
+            { id: 2, kind: 'chart', v: 1, title: 'Revenue chart' },
+          ] as FinishedQuestion['parts'],
+        }),
+      ),
+    );
+    await stream.close();
+
+    expect(
+      [...container.querySelectorAll('figure')].map((card) => card.textContent),
+    ).toEqual(['cim.pdfPage 4Not available']);
+    expect(container.textContent).not.toContain('Revenue chart');
   });
 
   it('keeps a running question in its own thread while another is open', async () => {
