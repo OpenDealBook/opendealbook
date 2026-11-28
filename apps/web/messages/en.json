@@ -109,7 +109,8 @@
       "read_sheet": "Reading {sheet}, {range}",
       "list_documents": "Looking through the document list",
       "list_sheets": "Looking through the sheets",
-      "working": "Working on the answer"
+      "working": "Working on the answer",
+      "search_faq": "Searching the room FAQ"
     },
     "errors": {
       "alreadyRunning": "You already have a question running. Wait for it to finish.",

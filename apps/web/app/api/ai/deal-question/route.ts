@@ -22,6 +22,7 @@ import {
 import { eventStream } from '../_lib/sse';
 import type { DealQuestionRefusal } from './codes';
 import { progressOf } from './progress';
+import { withoutNul } from '../_lib/ai-run';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -32,7 +33,6 @@ const DONE_COLUMNS =
   'id, thread_id, question, answer, status, citations, parts, credits_used, created_at, finished_at';
 const NOT_SAVED = 'The answer could not be saved';
 const CRASHED = 'The question could not be answered';
-const ESCAPED_NUL = /(?<=(?:^|[^\\])(?:\\\\)*)\\u0000/g;
 
 const REFUSALS = [
   {
@@ -51,10 +51,6 @@ const REFUSALS = [
 
 function refuse(status: number, error: string, code: DealQuestionRefusal) {
   return Response.json({ error, code }, { status });
-}
-
-function withoutNul<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value).replace(ESCAPED_NUL, '')) as T;
 }
 
 function saved(outcome: QuestionOutcome) {

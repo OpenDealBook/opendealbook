@@ -7,6 +7,7 @@ export type Progress =
   | { kind: 'read_sheet'; sheet: string; range: string }
   | { kind: 'list_documents' }
   | { kind: 'list_sheets' }
+  | { kind: 'search_faq' }
   | { kind: 'working' };
 
 const WORKING: Progress = { kind: 'working' };
@@ -29,6 +30,7 @@ const PROGRESS: Record<string, (input: Input) => Progress> = {
   list_documents: () => ({ kind: 'list_documents' }),
   list_sheets: () => ({ kind: 'list_sheets' }),
 };
+  search_faq: () => ({ kind: 'search_faq' }),
 
 export function progressOf({
   tool,

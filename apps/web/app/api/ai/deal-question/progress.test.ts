@@ -26,6 +26,7 @@ describe('progressOf', () => {
     ],
     ['list_documents', {}, { kind: 'list_documents' }],
     ['list_sheets', { document_id: 'd' }, { kind: 'list_sheets' }],
+    ['search_faq', { query: 'covenants' }, { kind: 'search_faq' }],
   ])('describes %s %j', (tool, input, progress) => {
     expect(progressOf({ tool, input })).toEqual(progress);
   });

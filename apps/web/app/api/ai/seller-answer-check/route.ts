@@ -17,10 +17,16 @@ import {
 } from '@odb/supabase/server';
 import {
   CONNECT_AI_PROVIDER,
-  ingestibleFormat,
   resolveScopedTeamAi,
 } from '@odb/workflows/team-ai';
 
+import {
+  ATTACHMENTS_PROCESSING,
+  readableAttachments,
+  startRefusal,
+  unfinishedColumns,
+  withoutNul,
+} from '../_lib/ai-run';
 import { eventStream } from '../_lib/sse';
 import { progressOf } from '../deal-question/progress';
 
@@ -31,9 +37,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DONE_COLUMNS =
   'id, question_id, message_id, status, overall, findings, follow_up, failure_reason, credits_used, created_at, finished_at';
 const NOT_SAVED = 'The check could not be saved';
-const PROCESSING_WINDOW_MS = 15 * 60_000;
 const NOT_LATEST = "Only the seller's latest answer can be checked";
-const ESCAPED_NUL = /(?<=(?:^|[^\\])(?:\\\\)*)\\u0000/g;
 
 type SellerAnswerCheckRefusal =
   | 'unauthenticated'
@@ -67,31 +71,15 @@ function refuse(status: number, error: string, code: SellerAnswerCheckRefusal) {
   return Response.json({ error, code }, { status });
 }
 
-function withoutNul<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value).replace(ESCAPED_NUL, '')) as T;
-}
-
 function finishedColumns(outcome: FinishOutcome<AnswerCheck>) {
-  switch (outcome.status) {
-    case 'finished':
-      return {
+  return outcome.status === 'finished'
+    ? {
         status: 'checked' as const,
         overall: outcome.value.overall,
         findings: outcome.value.findings as unknown as Json,
         follow_up: outcome.value.followUp,
-      };
-    case 'credits_ran_out':
-      return { status: 'credits_ran_out' as const };
-    case 'ran_out':
-      return { status: 'failed' as const, failure_reason: 'too_long' as const };
-    case 'no_submit':
-      return {
-        status: 'failed' as const,
-        failure_reason: 'no_submit' as const,
-      };
-    case 'failed':
-      return { status: 'failed' as const, failure_reason: 'failed' as const };
-  }
+      }
+    : unfinishedColumns(outcome);
 }
 
 function saved(outcome: FinishOutcome<AnswerCheck>) {
@@ -204,36 +192,11 @@ export async function POST(request: Request) {
     .in('id', attachedIds)
     .is('removed_at', null)
     .throwOnError();
-  const ingestible = await Promise.all(
-    documents
-      .filter((document) => ingestibleFormat(document.name))
-      .map(async (document) => {
-        const { data: segments } = await client
-          .from('document_segment')
-          .select('dr_document_id')
-          .eq('dr_document_id', document.id)
-          .eq('document_version', document.version)
-          .limit(1)
-          .throwOnError();
-        return { ...document, hasText: segments.length > 0 };
-      }),
-  );
-  const processingSince = Date.now() - PROCESSING_WINDOW_MS;
+  const readable = await readableAttachments(client, documents);
 
-  if (
-    ingestible.some(
-      (document) =>
-        !document.hasText && Date.parse(document.created_at!) > processingSince,
-    )
-  ) {
-    return refuse(
-      409,
-      'An attached file is still being processed; try again shortly',
-      'attachments_processing',
-    );
+  if (readable === 'processing') {
+    return refuse(409, ATTACHMENTS_PROCESSING, 'attachments_processing');
   }
-
-  const readable = ingestible.filter((document) => document.hasText);
 
   const ai = await resolveScopedTeamAi(scope, 'chat');
 
@@ -247,13 +210,7 @@ export async function POST(request: Request) {
   );
 
   if (error) {
-    const refusal = START_REFUSALS.find(
-      ({ sqlState, marker }) =>
-        error.code === sqlState && error.message.includes(marker),
-    );
-    if (!refusal) {
-      throw error;
-    }
+    const refusal = startRefusal(error, START_REFUSALS);
     return refuse(409, refusal.error, refusal.code);
   }
 

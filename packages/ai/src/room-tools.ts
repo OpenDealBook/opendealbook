@@ -17,7 +17,9 @@ export interface RoomToolContext {
   roomId: string;
 }
 
-const FAQ_IS_NOT_A_SOURCE =
+export const NO_FAQ_ENTRIES = 'No FAQ entries.';
+
+export const FAQ_IS_NOT_A_SOURCE =
   'FAQ entries are already published to this room but are not documents and cannot be cited.';
 
 const roomReads: DocumentReads<RoomToolContext> = {
@@ -90,7 +92,7 @@ const searchFaq = documentTool({
       .limit(10)
       .throwOnError();
     if (data.length === 0) {
-      return { content: 'No FAQ entries.', citations: [] };
+      return { content: NO_FAQ_ENTRIES, citations: [] };
     }
     const entries = data.map(
       (entry) => `Question: ${entry.question}\nAnswer: ${entry.answer}`,
