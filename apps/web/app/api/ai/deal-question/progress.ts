@@ -29,8 +29,8 @@ const PROGRESS: Record<string, (input: Input) => Progress> = {
       : WORKING,
   list_documents: () => ({ kind: 'list_documents' }),
   list_sheets: () => ({ kind: 'list_sheets' }),
-};
   search_faq: () => ({ kind: 'search_faq' }),
+};
 
 export function progressOf({
   tool,

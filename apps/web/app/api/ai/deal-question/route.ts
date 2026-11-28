@@ -19,10 +19,10 @@ import {
   resolveScopedTeamAi,
 } from '@odb/workflows/team-ai';
 
+import { withoutNul } from '../_lib/ai-run';
 import { eventStream } from '../_lib/sse';
 import type { DealQuestionRefusal } from './codes';
 import { progressOf } from './progress';
-import { withoutNul } from '../_lib/ai-run';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
