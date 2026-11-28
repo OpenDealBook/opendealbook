@@ -340,6 +340,12 @@ values
   ('1a000000-0000-0000-0000-0000000000c4', '1a000000-0000-0000-0000-0000000000a0', tests.account_id('lra-team'), 'ask', 'Customer list?'),
   ('1a000000-0000-0000-0000-0000000000c5', '1a000000-0000-0000-0000-0000000000a0', tests.account_id('lra-team'), 'ask', 'Capex plan?'),
   ('1a000000-0000-0000-0000-0000000000c6', '1a000000-0000-0000-0000-0000000000a0', tests.account_id('lra-team'), 'ask', 'Working capital?');
+insert into public.lender_ask (id, room_id, account_id, kind, title, status)
+values
+  ('1a000000-0000-0000-0000-0000000000c7', '1a000000-0000-0000-0000-0000000000a0', tests.account_id('lra-team'), 'ask', 'Closed ask?', 'closed'),
+  ('1a000000-0000-0000-0000-0000000000c8', '1a000000-0000-0000-0000-0000000000a0', tests.account_id('lra-team'), 'ask', 'Withdrawn ask?', 'withdrawn'),
+  ('1a000000-0000-0000-0000-0000000000c9', '1a000000-0000-0000-0000-0000000000a0', tests.account_id('lra-team'), 'ask', 'Answered ask?', 'answered'),
+  ('1a000000-0000-0000-0000-0000000000ce', '1a000000-0000-0000-0000-0000000000f0', tests.account_id('lra-foreign'), 'ask', 'Foreign closed ask?', 'closed');
 
 select tests.login_as('lra_owner');
 
@@ -355,6 +361,18 @@ select results_eq(
   $$ values ('1a000000-0000-0000-0000-0000000000a0'::uuid, tests.account_id('lra-team'), '1a000000-0000-0000-0000-0000000000d1'::uuid,
        tests.get_uid('lra_owner'), 'running', null::text, '[]'::jsonb, '{}'::uuid[], 0::numeric, '[]'::jsonb, null::timestamptz) $$,
   'a new draft takes its room, team and deal from the ask, and is the requester''s, running and empty'
+);
+
+select results_eq(
+  $$ select not_found from public.lender_ask_ai_draft where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  array[false],
+  'a new draft has not yet found nothing in the room'
+);
+
+select throws_ok(
+  $$ insert into public.lender_ask_ai_draft (ask_id, not_found) values ('1a000000-0000-0000-0000-0000000000c6', true) $$,
+  '42501', null,
+  'the requester''s client cannot say a draft found nothing'
 );
 
 select throws_ok(
@@ -499,6 +517,19 @@ select results_eq(
   'a failed draft keeps its reason'
 );
 
+select lives_ok(
+  $$ update public.lender_ask_ai_draft set not_found = true where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  'the server records that a draft found nothing in the room'
+);
+
+select results_eq(
+  $$ select not_found from public.lender_ask_ai_draft where id = '1a000000-0000-0000-0000-0000000000e1' $$,
+  array[true],
+  'a draft that found nothing says so'
+);
+
+update public.lender_ask_ai_draft set not_found = false where id = '1a000000-0000-0000-0000-0000000000e1';
+
 update public.lender_ask_ai_draft
 set status = 'ready', failure_reason = null, body = 'The addbacks are owner salary and rent.', model = 'claude-test', credits_used = 2.5,
   citations = '[{"document_id": "1a000000-0000-0000-0000-00000000d002", "page": 1}]',
@@ -611,6 +642,52 @@ select throws_ok(
 select function_privs_are(
   'public', 'start_lender_ask_ai_draft', array['uuid'], 'service_role', array[]::text[],
   'the server cannot start a draft, which would have no requester'
+);
+
+-- Only an open or answered ask gets a draft.
+select tests.login_as('lra_owner');
+
+select throws_ok(
+  $$ insert into public.lender_ask_ai_draft (ask_id) values ('1a000000-0000-0000-0000-0000000000c7') $$,
+  'ODB04', 'only an open or answered ask gets a draft',
+  'a closed ask gets no draft'
+);
+
+select throws_ok(
+  $$ insert into public.lender_ask_ai_draft (ask_id) values ('1a000000-0000-0000-0000-0000000000c8') $$,
+  'ODB04', 'only an open or answered ask gets a draft',
+  'a withdrawn ask gets no draft'
+);
+
+select throws_ok(
+  $$ select public.start_lender_ask_ai_draft('1a000000-0000-0000-0000-0000000000c7') $$,
+  'ODB04', 'only an open or answered ask gets a draft',
+  'a closed ask gets no draft by its ask'
+);
+
+select throws_ok(
+  $$ select public.start_lender_ask_ai_draft('1a000000-0000-0000-0000-0000000000c8') $$,
+  'ODB04', 'only an open or answered ask gets a draft',
+  'a withdrawn ask gets no draft by its ask'
+);
+
+select lives_ok(
+  $$ select public.start_lender_ask_ai_draft('1a000000-0000-0000-0000-0000000000c9') $$,
+  'an answered ask gets a draft'
+);
+
+select throws_ok(
+  $$ select public.start_lender_ask_ai_draft('1a000000-0000-0000-0000-0000000000ce') $$,
+  '42501', 'only someone who can reply in the room drafts for its asks',
+  'another team''s closed ask is refused as if it did not exist'
+);
+
+select tests.login_as('lra_viewer');
+
+select throws_ok(
+  $$ select public.start_lender_ask_ai_draft('1a000000-0000-0000-0000-0000000000c7') $$,
+  '42501', null,
+  'a teammate without deals.work is refused before anything is said about a closed ask'
 );
 
 -- A ready draft is marked used or discarded by anyone who can reply.

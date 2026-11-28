@@ -7610,6 +7610,7 @@ export type Database = {
           finished_at: string | null
           id: string
           model: string | null
+          not_found: boolean
           requested_by: string | null
           room_id: string
           status: Database["public"]["Enums"]["lender_ask_ai_draft_status"]
@@ -7630,6 +7631,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           model?: string | null
+          not_found?: boolean
           requested_by?: string | null
           room_id: string
           status?: Database["public"]["Enums"]["lender_ask_ai_draft_status"]
@@ -7650,6 +7652,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           model?: string | null
+          not_found?: boolean
           requested_by?: string | null
           room_id?: string
           status?: Database["public"]["Enums"]["lender_ask_ai_draft_status"]

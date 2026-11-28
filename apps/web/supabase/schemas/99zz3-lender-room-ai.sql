@@ -192,6 +192,7 @@ create table if not exists public.lender_ask_ai_draft (
   created_at timestamptz not null default now(),
   finished_at timestamptz,
   failure_reason public.ai_run_failure_reason,
+  not_found boolean not null default false,
   foreign key (room_id, account_id) references public.lender_room (id, account_id) on delete cascade,
   foreign key (room_id, deal_id) references public.lender_room (id, deal_id) on delete cascade,
   constraint lender_ask_ai_draft_finished check ((status = 'running') = (finished_at is null)),
@@ -207,7 +208,7 @@ revoke all on public.lender_ask_ai_draft from anon, authenticated, service_role;
 grant select on public.lender_ask_ai_draft to authenticated;
 grant insert (id, ask_id) on public.lender_ask_ai_draft to authenticated;
 grant select on public.lender_ask_ai_draft to service_role;
-grant update (status, body, citations, suggested_document_ids, model, credits_used, steps, finished_at, failure_reason)
+grant update (status, body, citations, suggested_document_ids, model, credits_used, steps, finished_at, failure_reason, not_found)
   on public.lender_ask_ai_draft to service_role;
 
 create policy lender_ask_ai_draft_read on public.lender_ask_ai_draft
@@ -225,17 +226,29 @@ create or replace function odb.derive_lender_ask_ai_draft_scope()
   set search_path = '' as $$
 declare
   v_kind public.lender_ask_kind;
+  v_status public.lender_ask_status;
+  v_room_id uuid;
 begin
-  select a.kind, a.room_id, a.account_id, r.deal_id
-  into v_kind, new.room_id, new.account_id, new.deal_id
+  select a.room_id, a.account_id, r.deal_id
+  into new.room_id, new.account_id, new.deal_id
   from public.lender_ask a
   join public.lender_room r on r.id = a.room_id
   where a.id = new.ask_id;
   if not public.can_work_lender_room(new.room_id) then
     raise exception 'only someone who can reply in the room drafts for its asks' using errcode = 'insufficient_privilege';
   end if;
+  select a.kind, a.status, a.room_id into v_kind, v_status, v_room_id
+  from public.lender_ask a
+  where a.id = new.ask_id
+  for share of a;
+  if v_room_id is distinct from new.room_id then
+    raise exception 'only someone who can reply in the room drafts for its asks' using errcode = 'insufficient_privilege';
+  end if;
   if v_kind = 'form' then
     raise exception 'a form ask gets no draft' using errcode = 'check_violation';
+  end if;
+  if v_status not in ('open', 'answered') then
+    raise exception 'only an open or answered ask gets a draft' using errcode = 'ODB04';
   end if;
   return new;
 end;
